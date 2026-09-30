@@ -4,10 +4,10 @@
 /// 所有层级模块都必须实现 [OgLModule]，并声明不可变的 [ModuleDescriptor]。
 library;
 
-import 'boot/trust_warnings.dart';
-import 'bridge_registry.dart';
-import 'di.dart';
-import 'diagnostics.dart';
+import '../boot/trust_warnings.dart';
+import '../bridge_registry.dart';
+import '../di.dart';
+import '../diagnostics.dart';
 
 /// 层级标识（L0–L3，见 `docs/NAMING.md`）。
 enum ModuleLayer {

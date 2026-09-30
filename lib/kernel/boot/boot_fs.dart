@@ -32,7 +32,7 @@ abstract class BootFileSystem {
 }
 
 /// 真实 IO 实现（Android / Windows / Linux）。
-class IoBootFileSystem implements BootFileSystem {
+class IoBootFileSystem extends BootFileSystem {
   /// 创建实例。
   const IoBootFileSystem();
 
@@ -73,7 +73,7 @@ class IoBootFileSystem implements BootFileSystem {
 }
 
 /// 内存文件系统（测试 / 诊断用）。
-class InMemoryBootFileSystem implements BootFileSystem {
+class InMemoryBootFileSystem extends BootFileSystem {
   /// 创建实例；`files` 的键为 POSIX 路径，值为文件字节。
   InMemoryBootFileSystem([Map<String, List<int>>? files])
       : _files = <String, List<int>>{
