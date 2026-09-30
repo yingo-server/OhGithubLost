@@ -1,0 +1,333 @@
+/// L1 底座级 · 硬盘逻辑：缓存一致性类型（**致命区**）。
+///
+/// 为什么这套类型值得单独成文件：
+/// 对一个代码仓库应用而言，"版本不一致 / 错位覆盖"是**致命错误**——
+/// 用户的一行代码可能被另一账号、另一分支、另一路径的旧内容顶掉。
+/// 所以作用域必须是**结构化对象**而不是拼接字符串：
+/// 结构化 ⇒ 可校验、可比较、可测试；拼接字符串 ⇒ 迟早漏字段。
+library;
+
+/// 缓存作用域：`schemaVersion | accountId | repo | branch`。
+///
+/// 任何一个维度缺位都会导致跨维度串味（错位覆盖），
+/// 因此 [isWellFormed] 是硬性门槛：不合法的作用域**不允许**参与缓存。
+class CacheScope {
+  /// 创建作用域。
+  const CacheScope({
+    required this.schemaVersion,
+    required this.accountId,
+    required this.repo,
+    required this.branch,
+  });
+
+  /// 缓存结构版本（结构变更时必须递增，用于整体失效旧缓存）。
+  final int schemaVersion;
+
+  /// 账号标识（多账号隔离的第一道闸）。
+  final String accountId;
+
+  /// 仓库全名（`owner/name`）。
+  final String repo;
+
+  /// 分支（`main` / `dev` …）。
+  final String branch;
+
+  /// 是否合法（四个维度都有效）。
+  bool get isWellFormed =>
+      schemaVersion > 0 &&
+      accountId.isNotEmpty &&
+      repo.isNotEmpty &&
+      branch.isNotEmpty;
+
+  /// 编码为可持久化字符串。
+  String encode() => '$schemaVersion|$accountId|$repo|$branch';
+
+  /// 从编码字符串解析；不合法时返回 `null`（绝不抛异常、绝不兜底猜测）。
+  static CacheScope? parse(String raw) {
+    final parts = raw.split('|');
+    if (parts.length != 4) {
+      return null;
+    }
+    final version = int.tryParse(parts[0]);
+    if (version == null) {
+      return null;
+    }
+    final scope = CacheScope(
+      schemaVersion: version,
+      accountId: parts[1],
+      repo: parts[2],
+      branch: parts[3],
+    );
+    return scope.isWellFormed ? scope : null;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is CacheScope && other.encode() == encode();
+
+  @override
+  int get hashCode => encode().hashCode;
+
+  @override
+  String toString() => 'CacheScope(${encode()})';
+}
+
+/// 缓存键：作用域 + 仓库内路径。
+class CacheKey {
+  /// 创建键。
+  const CacheKey({required this.scope, required this.path});
+
+  /// 作用域。
+  final CacheScope scope;
+
+  /// 仓库内 POSIX 路径（不含前导 `/`）。
+  final String path;
+
+  /// 编码为可持久化字符串。
+  String encode() => '${scope.encode()}|$path';
+
+  @override
+  bool operator ==(Object other) =>
+      other is CacheKey && other.encode() == encode();
+
+  @override
+  int get hashCode => encode().hashCode;
+
+  @override
+  String toString() => 'CacheKey(${encode()})';
+}
+
+/// 作用域非法（不允许进入缓存层）。
+class CacheScopeException implements Exception {
+  /// 创建异常。
+  const CacheScopeException(this.message);
+
+  /// 说明。
+  final String message;
+
+  @override
+  String toString() => 'CacheScopeException: $message';
+}
+
+/// 远端文档（GitHub Contents API 的抽象投影）。
+class RemoteDocument {
+  /// 创建文档。
+  const RemoteDocument({required this.content, required this.sha});
+
+  /// 文本内容。
+  final String content;
+
+  /// 内容指纹（GitHub 的 blob SHA）。
+  final String sha;
+
+  @override
+  String toString() => 'RemoteDocument(sha=${_short(sha)}, ${content.length}B)';
+}
+
+/// 远端读写冲突（HTTP 409 / 422 等）。
+class RemoteConflictException implements Exception {
+  /// 创建异常。
+  const RemoteConflictException({
+    required this.statusCode,
+    this.currentSha,
+    this.message,
+  });
+
+  /// 状态码。
+  final int statusCode;
+
+  /// 冲突时远端的最新指纹。
+  final String? currentSha;
+
+  /// 说明。
+  final String? message;
+
+  /// 是否属于"基线过期"类冲突（可重定基）。
+  bool get isStale => statusCode == 409 || statusCode == 422;
+
+  @override
+  String toString() => 'RemoteConflictException($statusCode'
+      '${currentSha == null ? '' : ', sha=${_short(currentSha!)}'})';
+}
+
+/// 写冲突分类。
+enum WriteConflict {
+  /// 无冲突。
+  none,
+
+  /// 缺少基线 SHA，需先读（D1）。
+  requiresRead,
+
+  /// 基线已过期，远端有更新（D2）。
+  staleSha,
+
+  /// 危险操作需二次确认（D7）。
+  needsConfirmation,
+
+  /// 目标不存在或无权访问。
+  notFound,
+
+  /// 权限不足。
+  forbidden,
+
+  /// 服务端错误。
+  server,
+
+  /// 写后回读校验失败（D5）。
+  verificationFailed,
+}
+
+/// 写意图。
+class WriteIntent {
+  /// 创建写意图。
+  const WriteIntent({
+    required this.key,
+    required this.content,
+    required this.message,
+    this.baseSha,
+    this.force = false,
+    this.dangerous = false,
+    this.rebase,
+  });
+
+  /// 目标键。
+  final CacheKey key;
+
+  /// 期望写入的内容。
+  final String content;
+
+  /// 提交信息。
+  final String message;
+
+  /// 本地基线指纹（读到的版本；D2 用）。
+  final String? baseSha;
+
+  /// 是否强制覆盖（跳过 D2；**必须**搭配 `dangerous` 与二次确认）。
+  final bool force;
+
+  /// 是否属于危险操作（删除 / 强制覆盖；D7 需二次确认）。
+  final bool dangerous;
+
+  /// 冲突重定基函数（D3）：给定远端最新内容与本地内容，产出合并结果。
+  ///
+  /// 为 `null` 表示**不做自动合并**——冲突直接上报用户，绝不擅自覆盖。
+  final String Function(String latestContent, String myContent)? rebase;
+
+  @override
+  String toString() => 'WriteIntent(${key.encode()}, base=$baseSha, '
+      'force=$force, dangerous=$dangerous)';
+}
+
+/// 写结果。
+class WriteOutcome {
+  /// 创建结果。
+  const WriteOutcome({
+    required this.ok,
+    required this.conflict,
+    this.sha,
+    this.attempts = 1,
+    this.detail,
+    this.entry,
+  });
+
+  /// 成功结果。
+  factory WriteOutcome.success({
+    required CacheEntry entry,
+    required int attempts,
+  }) =>
+      WriteOutcome(
+        ok: true,
+        conflict: WriteConflict.none,
+        sha: entry.sha,
+        attempts: attempts,
+        entry: entry,
+      );
+
+  /// 失败结果。
+  factory WriteOutcome.failure(
+    WriteConflict conflict, {
+    String? detail,
+    String? sha,
+    int attempts = 1,
+  }) =>
+      WriteOutcome(
+        ok: false,
+        conflict: conflict,
+        sha: sha,
+        attempts: attempts,
+        detail: detail,
+      );
+
+  /// 是否成功。
+  final bool ok;
+
+  /// 冲突分类。
+  final WriteConflict conflict;
+
+  /// 结果指纹（成功时为新版本；冲突时为远端最新版本）。
+  final String? sha;
+
+  /// 实际尝试次数（含冲突重试）。
+  final int attempts;
+
+  /// 失败说明（D6：失败必须可感知）。
+  final String? detail;
+
+  /// 成功时写入的本地条目。
+  final CacheEntry? entry;
+
+  @override
+  String toString() => 'WriteOutcome(ok=$ok, conflict=${conflict.name}, '
+      'sha=${_short(sha)}, attempts=$attempts'
+      '${detail == null ? '' : ', detail=$detail'})';
+}
+
+/// 缓存条目（本地索引 + 内容 + 版本）。
+class CacheEntry {
+  /// 创建条目。
+  const CacheEntry({
+    required this.key,
+    required this.content,
+    required this.sha,
+    required this.fetchedAt,
+    required this.revision,
+  });
+
+  /// 键。
+  final CacheKey key;
+
+  /// 内容。
+  final String content;
+
+  /// 版本指纹。
+  final String sha;
+
+  /// 抓取时间。
+  final DateTime fetchedAt;
+
+  /// 本地修订号（单调递增，用于判断"本地是否被更新过"）。
+  final int revision;
+
+  /// 序列化（索引持久化；**不含内容**，内容单独存 blob）。
+  Map<String, Object?> toJson() => <String, Object?>{
+        'sha': sha,
+        'fetchedAt': fetchedAt.toIso8601String(),
+        'revision': revision,
+        'bytes': content.length,
+      };
+
+  @override
+  String toString() =>
+      'CacheEntry(${key.encode()}, sha=${_short(sha)}, rv=$revision)';
+}
+
+/// 指纹短显示（日志友好；长度不足时原样返回）。
+String _short(String? sha) {
+  if (sha == null) {
+    return 'null';
+  }
+  return sha.length <= 8 ? sha : sha.substring(0, 8);
+}
+
+/// 指纹短显示（跨文件复用）。
+String shortSha(String? sha) => _short(sha);
