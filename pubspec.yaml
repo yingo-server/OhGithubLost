@@ -1,0 +1,78 @@
+# ============================================================================
+# OhGithubLost（OGL）· 项目依赖清单
+#
+# 架构分层映射：
+#   kernel/boot   → cryptography（Ed25519 引导清单签名校验）
+#   base/net      → dio（传输引擎：池化/取消/流式/进度/重试）
+#   base/disk     → path_provider · shared_preferences · flutter_secure_storage
+#                   · archive · crypto · file_ops 相关
+#   base/disk/platform_io → permission_handler · file_picker · url_launcher
+#   domain/interaction    → provider（控制器状态广播）
+#   surface/ui            → cached_network_image · flutter_markdown · window_manager
+# ============================================================================
+
+name: ohgithublost
+description: "OGL · OhGithubLost — 全能 GitHub 仓库管理器（Flutter 全平台重构版）"
+publish_to: 'none'
+version: 0.1.0+1
+
+homepage: https://github.com/yingo-server/OhGithubLost
+repository: https://github.com/yingo-server/OhGithubLost
+issue_tracker: https://github.com/yingo-server/OhGithubLost/issues
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── 状态管理（交互逻辑 · 控制器基座）─────────────────────────────────
+  provider: ^6.1.5
+
+  # ── 底座 · 网络连接 ─────────────────────────────────────────────────
+  dio: ^5.11.1                     # HTTP 传输引擎（池化 / 取消 / 流式 / 进度）
+
+  # ── 底座 · 硬盘逻辑 ─────────────────────────────────────────────────
+  path_provider: ^2.1.6            # 跨平台目录规划
+  shared_preferences: ^2.5.5       # KV 存储（设置 / 状态持久化）
+  flutter_secure_storage: ^11.2.0  # 安全保险库（令牌，Keystore/DPAPI/libsecret）
+  archive: ^4.3.0                  # ZIP 打包 / 解包
+  crypto: ^3.0.7                   # SHA256 等摘要
+
+  # ── 启动层 · 信任校验 ───────────────────────────────────────────────
+  cryptography: ^2.9.0             # Ed25519 引导清单签名验证
+
+  # ── 系统 / 平台能力 ─────────────────────────────────────────────────
+  permission_handler: ^13.0.2      # Android 权限交互（minSdk 22 → 最新全兼容）
+  device_info_plus: ^13.2.0        # 设备信息（诊断 / 审计）
+  package_info_plus: ^10.2.1       # 应用版本（更新检查）
+  url_launcher: ^6.3.2             # 外链 / 打开文件
+  file_picker: ^13.1.0             # 文件选择（上传 / 导入）
+  window_manager: ^0.5.2           # 桌面窗口管理（Windows / Linux）
+
+  # ── 展示层 ─────────────────────────────────────────────────────────
+  cached_network_image: ^4.0.4     # 图片缓存展示
+  flutter_markdown: ^0.7.7+1       # README 渲染
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mocktail: ^1.0.5                 # 单测 Mock（一致性协议 / 启动层测试用）
+
+flutter:
+  uses-material-design: true
+
+  # 资产目录（M1 阶段填充内容；目录缺失会导致构建失败，故先行占位）
+  assets:
+    - assets/boot/                 # 引导清单（CI 构建时生成 manifest.json）
+    - assets/theme_packs/          # 内置主题包（JSON）
+    - assets/mods/                 # 内置示例 Mod（JSON）
+
+  # 字体：设计系统阶段启用（等宽/Fira 等），当前使用系统字体
+  # fonts:
+  #   - family: OgLMono
+  #     fonts:
+  #       - asset: assets/fonts/OgLMono-Regular.ttf

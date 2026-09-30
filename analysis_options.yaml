@@ -1,0 +1,45 @@
+# OGL 静态分析基线
+#
+# 原则：默认采用 Flutter 官方推荐（flutter_lints），并按项目规范追加规则；
+# 关键问题（未使用导入/变量、死代码、缺参、缺返回）直接提升为 error——
+# 宁可让 CI 红，也不让问题溜进主干。
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    unused_import: error
+    unused_local_variable: error
+    dead_code: error
+    missing_required_param: error
+    missing_return: error
+
+linter:
+  rules:
+    - always_declare_return_types
+    - annotate_overrides
+    - avoid_empty_else
+    - avoid_print
+    - avoid_relative_lib_imports
+    - avoid_types_as_parameter_names
+    - cancel_subscriptions
+    - close_sinks
+    - control_flow_in_finally
+    - directives_ordering
+    - empty_statements
+    - hash_and_equals
+    - no_duplicate_case_values
+    - prefer_single_quotes
+    - prefer_void_to_null
+    - test_types_in_equals
+    - throw_in_finally
+    - unnecessary_statements
+    - unnecessary_this
+    - unrelated_type_equality_checks
+    - use_super_parameters
+    - valid_regexps
+
+# 有意未启用的规则（附理由，评审时请勿随意打开）：
+# - prefer_final_locals：与"分支中一次性赋值（final 声明后于分支内赋值）"的
+#   可读写法冲突，本项目统一用 final 声明 + 分支赋值，人工评审把关。
+# - sort_pub_dependencies：pubspec 依赖按"架构分层"分组排列（可读性优先）。
+# - comment_references：允许文档中以 `code` 形式指代非符号概念。

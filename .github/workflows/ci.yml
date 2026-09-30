@@ -1,0 +1,42 @@
+name: CI
+
+# 质量门：静态分析 + 单元测试
+# 任何 push / PR / 手动触发都会执行；CI 未通过禁止合入（见 docs/STANDARDS.md S6）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: 质量门（analyze + test）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+
+      - name: 环境信息
+        run: flutter --version
+
+      - name: 获取依赖
+        run: flutter pub get
+
+      - name: 静态分析（警告即失败）
+        run: flutter analyze --fatal-infos --fatal-warnings
+
+      - name: 单元测试
+        run: flutter test --reporter expanded
