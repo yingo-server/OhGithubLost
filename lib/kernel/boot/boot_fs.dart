@@ -10,6 +10,9 @@ import 'dart:io';
 
 /// 启动层文件系统接口。
 abstract class BootFileSystem {
+  /// 创建文件系统实现（提供 const 构造，便于子类保持 const 构造能力）。
+  const BootFileSystem();
+
   /// 路径（文件或目录）是否存在。
   Future<bool> exists(String path);
 
