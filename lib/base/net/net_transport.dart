@@ -96,7 +96,7 @@ class ResilientTransport implements NetTransport {
           retryAfter: error.retryAfter,
         );
         if (delay == null) {
-          throw error;
+          rethrow;
         }
         _observer.onRetry(current, attempt, error.kind.name);
         await _sleep(delay);
