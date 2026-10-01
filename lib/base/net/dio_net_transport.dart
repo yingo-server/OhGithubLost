@@ -84,16 +84,29 @@ class DioNetTransport implements NetTransport {
             ? uri.port
             : (uri.scheme == 'https' ? 443 : 80);
         if (dns.policy.mode != NetDnsMode.custom) {
-          // 与平台默认一致：交给系统解析（**不加外层超时**）。
-          // ★ 教训（线上实证）：`.timeout(15s)` 会把"坏 IPv6 黑洞"场景
-          //   下的地址轮换直接掐死——首个地址（IPv6）还没失败就被外层
-          //   超时判死，永远轮不到可用的 IPv4（curl 有 Happy Eyeballs
-          //   所以正常，App 却"网络不可达"）。交给 platform 自己按
-          //   地址逐个尝试，慢但一定能走通。
+          // ★ 线上实证修复（v2）：App 进程内曾出现「DNS 解析超时 +
+          //   Connection closed before full header」——特征指向**半死的
+          //   IPv6 通道**（AAAA 解析/连接半通）。策略：优先 IPv4-only
+          //   解析（3 秒上限）并直连；失败才回退平台默认路径（含 IPv6，
+          //   绝不比现状更差）。
+          final v4 = await _resolveIpv4(uri.host);
+          for (final address in v4) {
+            try {
+              return await Socket.startConnect(address, port)
+                  .timeout(connectTimeout);
+            } on Object {
+              // 该地址直连失败 → 试下一个（全部失败后回退平台默认路径）。
+            }
+          }
           return Socket.startConnect(uri.host, port);
         }
 
-        final addresses = await dns.resolve(uri.host);
+        final resolved = await dns.resolve(uri.host);
+        // IPv4 优先排序（半死 IPv6 通道场景下先走可达地址）。
+        final addresses = <InternetAddress>[
+          ...resolved.where((a) => a.type == InternetAddressType.IPv4),
+          ...resolved.where((a) => a.type != InternetAddressType.IPv4),
+        ];
         Object? lastError;
         for (final address in addresses) {
           try {
@@ -103,9 +116,17 @@ class DioNetTransport implements NetTransport {
             lastError = error;
           }
         }
+        // ★ 降级：自定义解析全军覆没 → 交给系统解析再试一次（绝不静默）。
+        try {
+          return await Socket.startConnect(uri.host, port)
+              .timeout(connectTimeout);
+        } catch (error) {
+          lastError = error;
+        }
         throw NetException(
           NetErrorKind.connection,
-          'DNS 解析后无法连接 ${uri.host}（尝试 ${addresses.length} 个地址）：$lastError',
+          'DNS 解析后无法连接 ${uri.host}'
+          '（自定义 ${addresses.length} 地址 + 系统解析均失败）：$lastError',
         );
       };
       return client;
@@ -156,6 +177,18 @@ class DioNetTransport implements NetTransport {
         );
       }
       throw translated;
+    }
+  }
+
+  /// IPv4-only 系统解析（3 秒上限；任何失败返回空列表——**绝不抛异常**）。
+  static Future<List<InternetAddress>> _resolveIpv4(String host) async {
+    try {
+      return await InternetAddress.lookup(
+        host,
+        type: InternetAddressType.IPv4,
+      ).timeout(const Duration(seconds: 3));
+    } on Object {
+      return const <InternetAddress>[];
     }
   }
 

@@ -14,6 +14,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
@@ -393,8 +394,38 @@ class _AboutPage extends StatelessWidget {
                 ],
               ),
               ExpansionTile(
-                title: Text(
-                  '日志（内核 ${report.logTail.length} · 应用 ${appLog.length}）',
+                title: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '日志（内核 ${report.logTail.length} · 应用 ${appLog.length}）',
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '复制全部日志',
+                      icon: const Icon(Icons.copy_all),
+                      onPressed: () async {
+                        final buffer = StringBuffer();
+                        for (final entry in report.logTail) {
+                          buffer.writeln(entry.toString());
+                        }
+                        for (final entry in appLog) {
+                          buffer.writeln(entry.toDisplay());
+                        }
+                        await Clipboard.setData(
+                          ClipboardData(text: buffer.toString()),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('全部日志已复制到剪贴板'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 ),
                 children: <Widget>[
                   for (final entry in report.logTail)

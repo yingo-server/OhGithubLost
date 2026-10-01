@@ -38,6 +38,24 @@ class NetSelfTest {
     return report;
   }
 
+  /// 单类型解析（**绝不抛**：失败以文本返回，便于日志直读）。
+  static Future<({List<InternetAddress> addrs, String text})> _lookupSafe(
+    String host,
+    InternetAddressType type,
+    Duration timeout,
+  ) async {
+    try {
+      final addrs =
+          await InternetAddress.lookup(host, type: type).timeout(timeout);
+      return (
+        addrs: addrs,
+        text: addrs.isEmpty ? '空' : addrs.map((a) => a.address).join(','),
+      );
+    } on Object catch (error) {
+      return (addrs: const <InternetAddress>[], text: '失败($error)');
+    }
+  }
+
   /// 运行自检。
   ///
   /// 返回单行报告，例如：
@@ -48,21 +66,14 @@ class NetSelfTest {
     Duration timeout = const Duration(seconds: 4),
   }) async {
     final lines = <String>['$host:$port'];
-    List<InternetAddress> addresses;
-    try {
-      addresses = await InternetAddress.lookup(host).timeout(timeout);
-    } on Object catch (error) {
-      lines.add('DNS 解析失败: $error');
-      return lines.join(' | ');
-    }
+    final v4 = await _lookupSafe(host, InternetAddressType.IPv4, timeout);
+    final v6 = await _lookupSafe(host, InternetAddressType.IPv6, timeout);
+    lines.add('DNS-A(IPv4): ${v4.text}');
+    lines.add('DNS-AAAA(IPv6): ${v6.text}');
+    final addresses = <InternetAddress>[...v4.addrs, ...v6.addrs];
     if (addresses.isEmpty) {
-      lines.add('DNS 无结果');
       return lines.join(' | ');
     }
-    final addrText = addresses
-        .map((a) => '${a.address}(${a.type.name})')
-        .join(', ');
-    lines.add('DNS ${addresses.length} 个: $addrText');
     for (final address in addresses) {
       final sw = Stopwatch()..start();
       try {
