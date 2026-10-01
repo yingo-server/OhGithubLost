@@ -15,6 +15,27 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+/// 仓库页内的标签。
+enum _RepoTab {
+  /// 代码（文件浏览）。
+  code,
+
+  /// 议题。
+  issues,
+
+  /// 拉取请求。
+  pulls,
+
+  /// 发布。
+  releases,
+
+  /// 分支。
+  branches,
+
+  /// 提交历史。
+  commits,
+}
+
 /// 仓库详情页。
 class OgLRepoPage extends StatefulWidget {
   /// 创建页面。
@@ -41,6 +62,14 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   String _path = '';
   OgLAsyncController<List<GhContent>>? _entries;
 
+  // 标签页
+  _RepoTab _tab = _RepoTab.code;
+  OgLAsyncController<List<Map<String, dynamic>>>? _issues;
+  OgLAsyncController<List<Map<String, dynamic>>>? _pulls;
+  OgLAsyncController<List<GhRelease>>? _releases;
+  OgLAsyncController<List<GhBranch>>? _branches;
+  OgLAsyncController<List<GhCommit>>? _commits;
+
   // 文件状态
   GhContent? _file;
   String? _fileText;
@@ -63,6 +92,16 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   void dispose() {
     _entries?.removeListener(_onChanged);
     _entries?.dispose();
+    _issues?.removeListener(_onChanged);
+    _issues?.dispose();
+    _pulls?.removeListener(_onChanged);
+    _pulls?.dispose();
+    _releases?.removeListener(_onChanged);
+    _releases?.dispose();
+    _branches?.removeListener(_onChanged);
+    _branches?.dispose();
+    _commits?.removeListener(_onChanged);
+    _commits?.dispose();
     _editController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -98,6 +137,104 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     controller.addListener(_onChanged);
     _entries = controller;
     return controller;
+  }
+
+  OgLAsyncController<List<Map<String, dynamic>>> _issuesC() {
+    final existing = _issues;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
+      label: '议题',
+      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.issues(widget.repo.fullName),
+    );
+    controller.addListener(_onChanged);
+    _issues = controller;
+    return controller;
+  }
+
+  OgLAsyncController<List<Map<String, dynamic>>> _pullsC() {
+    final existing = _pulls;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
+      label: 'PR',
+      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.pulls(widget.repo.fullName),
+    );
+    controller.addListener(_onChanged);
+    _pulls = controller;
+    return controller;
+  }
+
+  OgLAsyncController<List<GhRelease>> _releasesC() {
+    final existing = _releases;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<GhRelease>>(
+      label: '发布',
+      isEmpty: (List<GhRelease> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.releases(widget.repo.fullName),
+    );
+    controller.addListener(_onChanged);
+    _releases = controller;
+    return controller;
+  }
+
+  OgLAsyncController<List<GhBranch>> _branchesC() {
+    final existing = _branches;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<GhBranch>>(
+      label: '分支',
+      isEmpty: (List<GhBranch> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.branches(widget.repo.fullName),
+    );
+    controller.addListener(_onChanged);
+    _branches = controller;
+    return controller;
+  }
+
+  OgLAsyncController<List<GhCommit>> _commitsC() {
+    final existing = _commits;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<GhCommit>>(
+      label: '提交',
+      isEmpty: (List<GhCommit> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.commits(
+            widget.repo.fullName,
+            branch: widget.repo.defaultBranch,
+          ),
+    );
+    controller.addListener(_onChanged);
+    _commits = controller;
+    return controller;
+  }
+
+  Future<void> _switchTab(_RepoTab tab) async {
+    if (tab == _tab) {
+      return;
+    }
+    setState(() => _tab = tab);
+    if (tab == _RepoTab.code) {
+      await _entriesC().loadIfNeeded();
+    } else if (tab == _RepoTab.issues) {
+      await _issuesC().loadIfNeeded();
+    } else if (tab == _RepoTab.pulls) {
+      await _pullsC().loadIfNeeded();
+    } else if (tab == _RepoTab.releases) {
+      await _releasesC().loadIfNeeded();
+    } else if (tab == _RepoTab.branches) {
+      await _branchesC().loadIfNeeded();
+    } else {
+      await _commitsC().loadIfNeeded();
+    }
   }
 
   Future<void> _toggleStar() async {
@@ -400,13 +537,42 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         ],
         SizedBox(height: tokens.space(OgLSpacing.lg)),
         Divider(color: ogL.palette.border, height: tokens.hairline),
+        SizedBox(height: tokens.space(OgLSpacing.sm)),
+        Wrap(
+          spacing: tokens.space(OgLSpacing.xs),
+          runSpacing: tokens.space(OgLSpacing.xs),
+          children: <Widget>[
+            for (final tab in _RepoTab.values)
+              OgLButton(
+                label: _tabLabel(tab),
+                variant: tab == _tab
+                    ? OgLButtonVariant.primary
+                    : OgLButtonVariant.invisible,
+                size: OgLButtonSize.small,
+                onPressed: () async {
+                  await _switchTab(tab);
+                },
+              ),
+          ],
+        ),
         SizedBox(height: tokens.space(OgLSpacing.md)),
-        if (_fileLoading && _file == null)
-          const Center(child: OgLSpinner(label: '读取中…'))
-        else if (_file != null)
-          _buildFileView(ogL, tokens)
+        if (_tab == _RepoTab.code)
+          if (_fileLoading && _file == null)
+            const Center(child: OgLSpinner(label: '读取中…'))
+          else if (_file != null)
+            _buildFileView(ogL, tokens)
+          else
+            _buildBrowser(ogL, tokens)
+        else if (_tab == _RepoTab.issues)
+          _buildIssues(ogL, tokens)
+        else if (_tab == _RepoTab.pulls)
+          _buildPulls(ogL, tokens)
+        else if (_tab == _RepoTab.releases)
+          _buildReleases(ogL, tokens)
+        else if (_tab == _RepoTab.branches)
+          _buildBranches(ogL, tokens)
         else
-          _buildBrowser(ogL, tokens),
+          _buildCommits(ogL, tokens),
       ],
     );
   }
@@ -623,6 +789,240 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                 color: ogL.palette.text,
               ),
             ),
+          ),
+      ],
+    );
+  }
+  String _tabLabel(_RepoTab tab) {
+    if (tab == _RepoTab.code) {
+      return '代码';
+    }
+    if (tab == _RepoTab.issues) {
+      return '议题';
+    }
+    if (tab == _RepoTab.pulls) {
+      return 'PR';
+    }
+    if (tab == _RepoTab.releases) {
+      return '发布';
+    }
+    if (tab == _RepoTab.branches) {
+      return '分支';
+    }
+    return '提交';
+  }
+
+  String _loginOf(Map<String, dynamic> item) {
+    final user = item['user'];
+    if (user is Map<Object?, Object?>) {
+      return GhJson.str(Map<String, dynamic>.from(user), 'login');
+    }
+    return '';
+  }
+
+  String _dateText(DateTime? date) {
+    if (date == null) {
+      return '—';
+    }
+    final text = date.toIso8601String();
+    final index = text.indexOf('T');
+    return index > 0 ? text.substring(0, index) : text;
+  }
+
+  String _shortSha(String sha) => sha.length >= 7 ? sha.substring(0, 7) : sha;
+
+  Widget _retryBanner(
+    String title,
+    String message,
+    Future<void> Function() retry,
+  ) =>
+      OgLBanner(
+        variant: OgLBannerVariant.danger,
+        title: title,
+        text: message,
+        actions: <Widget>[
+          OgLButton(
+            label: '重试',
+            size: OgLButtonSize.small,
+            onPressed: () async {
+              await retry();
+            },
+          ),
+        ],
+      );
+
+  Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
+    final state = _issuesC().state;
+    final list = state.data ?? const <Map<String, dynamic>>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('议题读取失败', state.message!, () => _issuesC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '没有打开的议题。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final item in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.issue),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title:
+                '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
+            subtitle: 'by ${_loginOf(item)} · '
+                '${GhJson.integer(item, 'comments')} 条评论',
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPulls(OgLTheme ogL, OgLTokens tokens) {
+    final state = _pullsC().state;
+    final list = state.data ?? const <Map<String, dynamic>>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('PR 读取失败', state.message!, () => _pullsC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '没有打开的拉取请求。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final item in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.pullRequest),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title:
+                '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
+            subtitle: 'by ${_loginOf(item)} · ${GhJson.str(item, 'state')}',
+          ),
+      ],
+    );
+  }
+
+  Widget _buildReleases(OgLTheme ogL, OgLTokens tokens) {
+    final state = _releasesC().state;
+    final list = state.data ?? const <GhRelease>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('发布读取失败', state.message!, () => _releasesC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '还没有发布。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final release in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.release),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title: release.name ?? release.tagName,
+            subtitle: '${release.tagName} · '
+                '${_dateText(release.publishedAt ?? release.createdAt)}',
+            trailing: release.isPrerelease
+                ? const OgLLabel(
+                    text: 'Pre',
+                    variant: OgLLabelVariant.attention,
+                  )
+                : (release.isDraft
+                    ? const OgLLabel(text: 'Draft')
+                    : null),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBranches(OgLTheme ogL, OgLTokens tokens) {
+    final state = _branchesC().state;
+    final list = state.data ?? const <GhBranch>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('分支读取失败', state.message!, () => _branchesC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '没有分支。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final branch in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.branch),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title: branch.name,
+            subtitle:
+                'sha ${_shortSha(branch.sha)}${branch.isProtected ? ' · 受保护' : ''}',
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCommits(OgLTheme ogL, OgLTokens tokens) {
+    final state = _commitsC().state;
+    final list = state.data ?? const <GhCommit>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('提交读取失败', state.message!, () => _commitsC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '没有提交记录。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final commit in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.commit),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title: commit.message.isEmpty
+                ? '（无提交信息）'
+                : commit.message.split('\n').first,
+            subtitle: '${_shortSha(commit.sha)} · '
+                '${commit.authorLogin ?? commit.authorName ?? '未知'} · '
+                '${_dateText(commit.date)}',
           ),
       ],
     );
