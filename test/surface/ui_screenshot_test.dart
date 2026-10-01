@@ -20,6 +20,7 @@ import 'package:ohgithublost/surface/theme/design_tokens.dart';
 import 'package:ohgithublost/surface/theme/icon_pack.dart';
 import 'package:ohgithublost/surface/theme/theme_pack.dart';
 
+import 'package:ohgithublost/surface/kit/kit.dart';
 const Map<String, Size> _forms = <String, Size>{
   'phone': Size(390, 844),
   'phone_land': Size(844, 390),
@@ -147,13 +148,13 @@ class _ListPane extends StatelessWidget {
       itemBuilder: (BuildContext context, int index) => ListTile(
         dense: true,
         selected: index == 0,
-        leading: Icon(ogL.icon(OgLIconName.folder)),
+        leading: OgLIcon(name: OgLIconName.folder),
         title: Text('仓库条目 $index'),
         subtitle: Text(
           '用于检查行距与选中态',
           style: TextStyle(color: ogL.palette.textDim),
         ),
-        trailing: Icon(ogL.icon(OgLIconName.chevronRight)),
+        trailing: OgLIcon(name: OgLIconName.chevronRight),
       ),
     );
   }

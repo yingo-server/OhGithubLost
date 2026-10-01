@@ -26,6 +26,7 @@ import '../theme/theme_pack.dart';
 import 'async_state.dart';
 import 'error_surface.dart';
 
+import '../kit/kit.dart';
 /// 仓库页（含令牌接入向导）。
 class OgLReposPage extends StatefulWidget {
   /// 创建页面。
@@ -205,7 +206,7 @@ class _AccountBar extends StatelessWidget {
       padding: EdgeInsets.only(bottom: ogL.tokens.space(OgLSpacing.sm)),
       child: Row(
         children: <Widget>[
-          Icon(ogL.icon(OgLIconName.key), size: text.bodyMedium?.fontSize),
+          OgLIcon(name: OgLIconName.key, size: text.bodyMedium?.fontSize),
           SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
           Expanded(
             child: Text(
@@ -223,7 +224,7 @@ class _AccountBar extends StatelessWidget {
                     height: text.bodyMedium?.fontSize ?? 16,
                     child: const CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(ogL.icon(OgLIconName.sync)),
+                : OgLIcon(name: OgLIconName.sync),
           ),
           TextButton(onPressed: () => onLogout(), child: const Text('退出登录')),
         ],
@@ -252,7 +253,7 @@ class _NoticeBar extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          Icon(ogL.icon(OgLIconName.warning)),
+          OgLIcon(name: OgLIconName.warning),
           SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
           Expanded(child: Text(message)),
           TextButton(onPressed: onDismiss, child: const Text('知道了')),
@@ -331,7 +332,7 @@ class _StateMessage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(ogL.icon(icon), color: palette.textDim),
+          OgLIcon(name: icon, color: palette.textDim),
           SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
           Padding(
             padding: EdgeInsets.symmetric(
@@ -366,7 +367,7 @@ class _RepoRow extends StatelessWidget {
     ].join(' · ');
     return ListTile(
       onTap: onTap,
-      leading: Icon(ogL.icon(OgLIconName.repository)),
+      leading: OgLIcon(name: OgLIconName.repository),
       title: Row(
         children: <Widget>[
           Flexible(
@@ -379,8 +380,8 @@ class _RepoRow extends StatelessWidget {
           if (repo.isPrivate)
             Padding(
               padding: EdgeInsets.only(left: ogL.tokens.space(OgLSpacing.sm)),
-              child: Icon(
-                ogL.icon(OgLIconName.key),
+              child: OgLIcon(
+                name: OgLIconName.key,
                 size: text.labelSmall?.fontSize,
                 color: palette.textFaint,
               ),
@@ -401,8 +402,8 @@ class _RepoRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          Icon(
-            ogL.icon(OgLIconName.chevronRight),
+          OgLIcon(
+            name: OgLIconName.chevronRight,
             size: text.labelSmall?.fontSize,
             color: palette.textFaint,
           ),
@@ -438,7 +439,7 @@ class _RepoDetail extends StatelessWidget {
             IconButton(
               tooltip: '返回列表',
               onPressed: onBack,
-              icon: Icon(ogL.icon(OgLIconName.close)),
+              icon: OgLIcon(name: OgLIconName.close),
             ),
             Expanded(
               child: Text(repo.fullName, style: text.titleMedium),
@@ -641,7 +642,7 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
             children: <Widget>[
               Row(
                 children: <Widget>[
-                  Icon(ogL.icon(OgLIconName.shield)),
+                  OgLIcon(name: OgLIconName.shield),
                   SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
                   Text('接入 GitHub', style: text.titleMedium),
                 ],

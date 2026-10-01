@@ -141,8 +141,8 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Icon(
-              ogL.icon(OgLIconName.code),
+            OgLIcon(
+              name: OgLIconName.code,
               color: ogL.palette.accent,
               size: tokens.iconSize(base: 24),
             ),

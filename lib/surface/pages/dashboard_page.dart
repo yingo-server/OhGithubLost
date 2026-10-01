@@ -345,8 +345,8 @@ class _RepoRow extends StatelessWidget {
     ].join(' · ');
     final description = repo.description;
     return OgLActionRow(
-      leading: Icon(
-        ogL.icon(repo.isFork ? OgLIconName.fork : OgLIconName.repository),
+      leading: OgLIcon(
+        name: repo.isFork ? OgLIconName.fork : OgLIconName.repository,
         size: ogL.tokens.iconSize(base: 20),
         color: ogL.palette.textDim,
       ),

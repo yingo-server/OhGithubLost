@@ -108,8 +108,8 @@ class _OgLGistsPageState extends State<OgLGistsPage> {
         else
           for (final gist in list)
             OgLActionRow(
-              leading: Icon(
-                ogL.icon(OgLIconName.code),
+              leading: OgLIcon(
+                name: OgLIconName.code,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),

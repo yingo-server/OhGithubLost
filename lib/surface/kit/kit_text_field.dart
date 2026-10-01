@@ -8,6 +8,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// OGL 单行 / 多行输入框。
 class OgLTextField extends StatelessWidget {
   /// 创建输入框。
@@ -85,8 +86,8 @@ class OgLTextField extends StatelessWidget {
         ),
         prefixIcon: iconName == null
             ? null
-            : Icon(
-                ogL.icon(iconName),
+            : OgLIcon(
+                name: iconName,
                 size: tokens.iconSize(base: 16),
                 color: palette.textDim,
               ),

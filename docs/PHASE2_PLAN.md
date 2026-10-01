@@ -64,11 +64,15 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [x] 检查：`test/surface/kit_states_test.dart`（含"输入框不填充 / 横幅非色块"两条回归）
 - [x] 推送（本批）
 
-### W3 · 自绘矢量图标体系 ⏳
-- [ ] 自绘矢量（`Path`）图标包：参考 Octicons、更概念更尖锐；`OgLIconName` 全语义覆盖
-- [ ] 替换全部图标使用点（导航 / 按钮 / 列表 / 页头 / 状态）
-- [ ] 检查：渲染测试（语义 → 唯一路径）+ 图标包齐全性
-- [ ] 推送（一次）
+### W3 · 自绘矢量图标体系 ✅ 本批
+- [x] `lib/surface/icons/og_l_vector_icon.dart`：45 个语义的手写 `d` 路径（24×24 网格，纯直线）
+- [x] `lib/surface/kit/kit_icon.dart`：`OgLIcon` 渲染组件（端点 butt / 拐角 miter，等比缩放）
+- [x] `icon_pack.dart` 重写：图标包只描述**风格**（线宽 / 填充），ID 保持兼容
+- [x] **全部 53 处调用点迁移**（20 个文件）：`Icon(ogL.icon(X))` → `OgLIcon(name: X)`
+- [x] 清掉最后 1 处 Material 字形（`Icons.copy_all` → `OgLIconName.list`）
+- [x] 检查：`test/surface/icon_vector_test.dart`
+      （语义全覆盖 / 可解析且不越界 / 语义唯一 / **结构性拦住 `Icons.xxx` 与旧取图标方式**）
+- [x] 推送（本批）
 
 ### W4 · Primer 细节对齐 + 快照矩阵 ⏳
 - [ ] 逐控件核对：间距 / 圆角 / 字号 / 状态色 / 动效（对照 `docs/refs/prime`）

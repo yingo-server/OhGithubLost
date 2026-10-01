@@ -9,6 +9,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// 横幅语义。
 enum OgLBannerVariant {
   /// 信息。
@@ -83,8 +84,8 @@ class OgLBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(
-            ogL.icon(iconName),
+          OgLIcon(
+            name: iconName,
             size: ogL.tokens.iconSize(base: 16),
             color: color,
           ),

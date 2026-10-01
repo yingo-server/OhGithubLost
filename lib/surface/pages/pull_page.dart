@@ -151,8 +151,8 @@ class _OgLPullPageState extends State<OgLPullPage> {
           for (final file in files)
             OgLActionRow(
               dense: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.file),
+              leading: OgLIcon(
+                name: OgLIconName.file,
                 size: tokens.iconSize(base: 18),
                 color: ogL.palette.textDim,
               ),

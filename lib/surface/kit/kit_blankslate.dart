@@ -11,6 +11,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// 空白板（空态）。
 class OgLBlankslate extends StatelessWidget {
   /// 创建空态。
@@ -59,8 +60,8 @@ class OgLBlankslate extends StatelessWidget {
       ),
       child: Column(
         children: <Widget>[
-          Icon(
-            ogL.icon(icon),
+          OgLIcon(
+            name: icon,
             size: tokens.iconSize(base: compact ? 20 : 24),
             color: ogL.palette.textFaint,
           ),

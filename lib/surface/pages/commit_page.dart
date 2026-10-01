@@ -200,8 +200,8 @@ class _FileDiffCard extends StatelessWidget {
             dense: true,
             title: name,
             subtitle: '+$adds · -$dels${patchText == null ? ' · （二进制或无补丁）' : ''}',
-            leading: Icon(
-              ogL.icon(OgLIconName.file),
+            leading: OgLIcon(
+              name: OgLIconName.file,
               size: tokens.iconSize(base: 18),
               color: ogL.palette.textDim,
             ),

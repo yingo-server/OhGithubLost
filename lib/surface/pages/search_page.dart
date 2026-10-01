@@ -241,8 +241,8 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
       children: <Widget>[
         for (final repo in list)
           OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.repository),
+            leading: OgLIcon(
+              name: OgLIconName.repository,
               size: tokens.iconSize(base: 20),
               color: ogL.palette.textDim,
             ),
@@ -290,8 +290,8 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
       children: <Widget>[
         for (final item in list)
           OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.code),
+            leading: OgLIcon(
+              name: OgLIconName.code,
               size: tokens.iconSize(base: 20),
               color: ogL.palette.textDim,
             ),

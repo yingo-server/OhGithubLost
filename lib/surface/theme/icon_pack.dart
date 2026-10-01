@@ -2,35 +2,35 @@
 ///
 /// ## 为什么不直接写 `Icons.xxx`
 /// 界面里到处写 `Icons.settings` 会把"**语义**"和"**某个字体里的一个字形**"
-/// 绑死。换一套图标包就得全文搜索替换，而且极容易漏。
+/// 绑死：换一套图标就得全文搜索替换，而且极容易漏。这里保留一层映射 ——
+/// 界面只认 [OgLIconName]（语义），由 [OgLIconSet] 决定**风格**。
 ///
-/// 这里做一层映射：界面只认 [OgLIconName]（语义），
-/// 由 [OgLIconSet] 决定用哪套字形。好处有三：
-/// 1. 换图标包 = 换一个 id，**零处改动**；
-/// 2. 语义名是 `enum`，新增语义时 `switch` 会**编译期强制**每套图标包补齐，
-///    不可能出现"某套主题缺一个图标"；
-/// 3. 图标包可以按风格挑选：极简线性（[OgLIconSets.minimalLine]）、
-///    实心质感（[OgLIconSets.materialFilled]）、原生（[OgLIconSets.materialOutlined]）。
-/// ## 关于 Font Awesome（重要教训，务必先读）
-/// 最初这里用的第三套包是 `font_awesome_flutter`。**它在 Flutter 3.47 上无法编译**：
-/// ```
-/// font_awesome_flutter-10.12.0/lib/src/icon_data.dart:6:30
-/// Error: The class 'IconData' can't be extended outside of its library
-///        because it's a final class.
-/// class IconDataBrands extends IconData { ... }
-/// ```
-/// 原因是该包整体建立在 `extends IconData` 之上，而新版 Flutter 把 `IconData`
-/// 收成了 `final class`。**换版本也救不了**（历代版本都 extends）。
+/// ## 现在（W3 起）：全部自绘矢量
+/// 几何形状来自 `lib/surface/icons/og_l_vector_icon.dart`（手写 `d` 路径，
+/// 24 × 24 网格）；图标包只回答两件事：**风格**（细线 / 标准 / 实心）与
+/// **线宽**。于是：
+/// 1. 界面上**不可能**再出现 Material 字形（渲染入口只有 `OgLIcon`）；
+/// 2. 换风格 = 换一个 id，零处改动；
+/// 3. 零字体、零外部资源（不打包 ttf，也就不存在"字体缺字形"这类事故）。
 ///
-/// 因此内置三套改为纯 Material 字形（**零外部资源**、零崩溃风险）。
-/// 将来若要真正引入 Font Awesome，正确做法是：
-/// 1. 把 ttf 放进 `fonts/` 并在 `pubspec.yaml` 声明（**会引入外部资源**，
-///    与当前"零外部资源"的产品约束冲突，需先取得用户同意）；
-/// 2. **手写**一张 `OgLIconName → IconData(codePoint, fontFamily: 'FontAwesomeSolid')`
-///    的表 —— 只**实例化** IconData，不继承它，于是不受 `final class` 限制。
+/// ## 关于 Font Awesome（重要教训，留档）
+/// 最初这里用的第三套包是 `font_awesome_flutter`，**它在 Flutter 3.47 上无法编译**：
+/// 该包整体建立在 `extends IconData` 之上，而新版 Flutter 把 `IconData` 收成了
+/// `final class`（换版本也救不了，历代版本都 extends）。既然我们要的是
+/// "自己的尖锐图标"，**自绘矢量**是唯一同时满足"零外部资源 + 完全可控"的路。
 library;
 
-import 'package:flutter/material.dart';
+/// 图标风格。
+enum OgLIconStyle {
+  /// 细线（极简；信息密集场景）。
+  line,
+
+  /// 标准线宽（默认）。
+  bold,
+
+  /// 实心（闭合形状填充 + 加粗描边；识别度最高）。
+  solid,
+}
 
 /// 图标语义（界面唯一允许引用的"名字"）。
 enum OgLIconName {
@@ -170,23 +170,22 @@ enum OgLIconName {
   clock,
 }
 
-/// 图标包契约。
+/// 图标包契约（只描述风格；几何形状是共享的自绘矢量）。
 abstract class OgLIconSet {
-  /// 常量构造：三套内置包都是 `const` 单例，
-  /// 父类没有 const 构造会让子类的 `const` 直接编译失败。
+  /// 常量构造（三套内置包都是 `const` 单例）。
   const OgLIconSet();
 
-  /// 包 ID（进设置持久化）。
+  /// 包 ID（进设置持久化；**历史 ID 保持不变**，否则老设置会失去选择）。
   String get id;
 
   /// 显示名。
   String get displayName;
 
-  /// 解析语义到字形。
-  IconData resolve(OgLIconName name);
+  /// 风格。
+  OgLIconStyle get style;
 
-  /// 该包是否使用实心字形（用于调整默认描边 / 视觉重量）。
-  bool get isSolid;
+  /// 线宽（24 设计网格下的基准值）。
+  double get strokeWidth;
 }
 
 /// 内置图标包。
@@ -198,12 +197,12 @@ abstract final class OgLIconSets {
     materialFilled,
   ];
 
-  /// 默认包：极简线性（最不抢戏，适合信息密集的代码工具）。
-  static const OgLIconSet fallback = minimalLine;
+  /// 默认包：标准线性（最不抢戏，适合信息密集的代码工具）。
+  static const OgLIconSet fallback = materialOutlined;
 
   /// 按 ID 解析；未知 ID 回落到默认包（**绝不抛异常**——设置里的脏值不该让界面崩）。
   static OgLIconSet byId(String? id) {
-    for (final set in all) {
+    for (final OgLIconSet set in all) {
       if (set.id == id) {
         return set;
       }
@@ -211,202 +210,48 @@ abstract final class OgLIconSets {
     return fallback;
   }
 
-  /// Material 线性（原生、克制）。
-  static const OgLIconSet materialOutlined = _MaterialOutlinedIcons();
+  /// 标准线性（Primer 语感）。
+  static const OgLIconSet materialOutlined = _Pack(
+    id: 'material.outlined',
+    displayName: '标准线性',
+    style: OgLIconStyle.bold,
+    strokeWidth: 1.75,
+  );
 
-  /// 极简线性：Material Outlined 中笔画最细、留白最大的一组。
-  static const OgLIconSet minimalLine = _MinimalLineIcons();
+  /// 极简细线。
+  static const OgLIconSet minimalLine = _Pack(
+    id: 'minimal.line',
+    displayName: '极简细线',
+    style: OgLIconStyle.line,
+    strokeWidth: 1.35,
+  );
 
-  /// Material 实心（质感、识别度高；替代原本的 Font Awesome 位）。
-  static const OgLIconSet materialFilled = _MaterialFilledIcons();
+  /// 锐利实心（闭合形状填充）。
+  static const OgLIconSet materialFilled = _Pack(
+    id: 'material.filled',
+    displayName: '锐利实心',
+    style: OgLIconStyle.solid,
+    strokeWidth: 1.7,
+  );
 }
 
-class _MaterialFilledIcons extends OgLIconSet {
-  const _MaterialFilledIcons();
+class _Pack extends OgLIconSet {
+  const _Pack({
+    required this.id,
+    required this.displayName,
+    required this.style,
+    required this.strokeWidth,
+  });
 
   @override
-  String get id => 'material.filled';
+  final String id;
 
   @override
-  String get displayName => 'Material 实心';
+  final String displayName;
 
   @override
-  bool get isSolid => true;
+  final OgLIconStyle style;
 
   @override
-  IconData resolve(OgLIconName name) => switch (name) {
-        OgLIconName.repository => Icons.folder_special,
-        OgLIconName.folder => Icons.folder,
-        OgLIconName.file => Icons.description,
-        OgLIconName.branch => Icons.account_tree,
-        OgLIconName.commit => Icons.commit,
-        OgLIconName.compare => Icons.compare_arrows,
-        OgLIconName.issue => Icons.report_problem,
-        OgLIconName.pullRequest => Icons.merge_type,
-        OgLIconName.release => Icons.local_offer,
-        OgLIconName.tag => Icons.sell,
-        OgLIconName.workflow => Icons.bolt,
-        OgLIconName.search => Icons.search,
-        OgLIconName.settings => Icons.settings,
-        OgLIconName.sync => Icons.sync,
-        OgLIconName.upload => Icons.upload,
-        OgLIconName.download => Icons.download,
-        OgLIconName.warning => Icons.warning_amber,
-        OgLIconName.error => Icons.error,
-        OgLIconName.info => Icons.info,
-        OgLIconName.success => Icons.check_circle,
-        OgLIconName.conflict => Icons.call_split,
-        OgLIconName.shield => Icons.shield,
-        OgLIconName.key => Icons.vpn_key,
-        OgLIconName.dns => Icons.dns,
-        OgLIconName.mirror => Icons.swap_horiz,
-        OgLIconName.mod => Icons.extension,
-        OgLIconName.theme => Icons.palette,
-        OgLIconName.layout => Icons.view_quilt,
-        OgLIconName.terminal => Icons.terminal,
-        OgLIconName.code => Icons.code,
-        OgLIconName.star => Icons.star,
-        OgLIconName.fork => Icons.call_split,
-        OgLIconName.history => Icons.history,
-        OgLIconName.delete => Icons.delete,
-        OgLIconName.edit => Icons.edit,
-        OgLIconName.add => Icons.add,
-        OgLIconName.close => Icons.close,
-        OgLIconName.chevronRight => Icons.chevron_right,
-        OgLIconName.chevronDown => Icons.expand_more,
-        OgLIconName.external => Icons.open_in_new,
-        OgLIconName.filter => Icons.filter_list,
-        OgLIconName.list => Icons.format_list_bulleted,
-        OgLIconName.bug => Icons.bug_report,
-        OgLIconName.book => Icons.menu_book,
-        OgLIconName.clock => Icons.schedule,
-      };
+  final double strokeWidth;
 }
-
-class _MaterialOutlinedIcons extends OgLIconSet {
-  const _MaterialOutlinedIcons();
-
-  @override
-  String get id => 'material.outlined';
-
-  @override
-  String get displayName => 'Material 线性';
-
-  @override
-  bool get isSolid => false;
-
-  @override
-  IconData resolve(OgLIconName name) => switch (name) {
-        OgLIconName.repository => Icons.folder_special_outlined,
-        OgLIconName.folder => Icons.folder_outlined,
-        OgLIconName.file => Icons.description_outlined,
-        OgLIconName.branch => Icons.account_tree_outlined,
-        OgLIconName.commit => Icons.commit_outlined,
-        OgLIconName.compare => Icons.compare_arrows_outlined,
-        OgLIconName.issue => Icons.report_problem_outlined,
-        OgLIconName.pullRequest => Icons.merge_type_outlined,
-        OgLIconName.release => Icons.local_offer_outlined,
-        OgLIconName.tag => Icons.sell_outlined,
-        OgLIconName.workflow => Icons.play_circle_outline,
-        OgLIconName.search => Icons.search_outlined,
-        OgLIconName.settings => Icons.settings_outlined,
-        OgLIconName.sync => Icons.sync_outlined,
-        OgLIconName.upload => Icons.upload_outlined,
-        OgLIconName.download => Icons.download_outlined,
-        OgLIconName.warning => Icons.warning_amber_outlined,
-        OgLIconName.error => Icons.error_outline,
-        OgLIconName.info => Icons.info_outline,
-        OgLIconName.success => Icons.check_circle_outline,
-        OgLIconName.conflict => Icons.call_split_outlined,
-        OgLIconName.shield => Icons.shield_outlined,
-        OgLIconName.key => Icons.vpn_key_outlined,
-        OgLIconName.dns => Icons.dns_outlined,
-        OgLIconName.mirror => Icons.swap_horiz_outlined,
-        OgLIconName.mod => Icons.extension_outlined,
-        OgLIconName.theme => Icons.palette_outlined,
-        OgLIconName.layout => Icons.view_quilt_outlined,
-        OgLIconName.terminal => Icons.terminal_outlined,
-        OgLIconName.code => Icons.code_outlined,
-        OgLIconName.star => Icons.star_outline,
-        OgLIconName.fork => Icons.call_split_outlined,
-        OgLIconName.history => Icons.history_outlined,
-        OgLIconName.delete => Icons.delete_outline,
-        OgLIconName.edit => Icons.edit_outlined,
-        OgLIconName.add => Icons.add_outlined,
-        OgLIconName.close => Icons.close_outlined,
-        OgLIconName.chevronRight => Icons.chevron_right_outlined,
-        OgLIconName.chevronDown => Icons.expand_more_outlined,
-        OgLIconName.external => Icons.open_in_new_outlined,
-        OgLIconName.filter => Icons.filter_list_outlined,
-        OgLIconName.list => Icons.format_list_bulleted_outlined,
-        OgLIconName.bug => Icons.bug_report_outlined,
-        OgLIconName.book => Icons.menu_book_outlined,
-        OgLIconName.clock => Icons.schedule_outlined,
-      };
-}
-
-class _MinimalLineIcons extends OgLIconSet {
-  const _MinimalLineIcons();
-
-  @override
-  String get id => 'minimal.line';
-
-  @override
-  String get displayName => '极简线性';
-
-  @override
-  bool get isSolid => false;
-
-  @override
-  IconData resolve(OgLIconName name) => switch (name) {
-        OgLIconName.repository => Icons.folder_special,
-        OgLIconName.folder => Icons.folder_open,
-        OgLIconName.file => Icons.insert_drive_file_outlined,
-        OgLIconName.branch => Icons.alt_route,
-        OgLIconName.commit => Icons.commit,
-        OgLIconName.compare => Icons.swap_calls,
-        OgLIconName.issue => Icons.error_outline,
-        OgLIconName.pullRequest => Icons.merge,
-        OgLIconName.release => Icons.new_releases_outlined,
-        OgLIconName.tag => Icons.label_outline,
-        OgLIconName.workflow => Icons.bolt_outlined,
-        OgLIconName.search => Icons.search,
-        OgLIconName.settings => Icons.tune,
-        OgLIconName.sync => Icons.refresh,
-        OgLIconName.upload => Icons.arrow_upward,
-        OgLIconName.download => Icons.arrow_downward,
-        OgLIconName.warning => Icons.warning_amber_rounded,
-        OgLIconName.error => Icons.priority_high_rounded,
-        OgLIconName.info => Icons.info_outline_rounded,
-        OgLIconName.success => Icons.check_rounded,
-        OgLIconName.conflict => Icons.fork_right,
-        OgLIconName.shield => Icons.verified_user_outlined,
-        OgLIconName.key => Icons.password_outlined,
-        OgLIconName.dns => Icons.public,
-        OgLIconName.mirror => Icons.swap_horiz,
-        OgLIconName.mod => Icons.widgets_outlined,
-        OgLIconName.theme => Icons.contrast,
-        OgLIconName.layout => Icons.view_agenda_outlined,
-        OgLIconName.terminal => Icons.chevron_right,
-        OgLIconName.code => Icons.data_object,
-        OgLIconName.star => Icons.star_border_rounded,
-        OgLIconName.fork => Icons.fork_right,
-        OgLIconName.history => Icons.history_toggle_off,
-        OgLIconName.delete => Icons.delete_outline_rounded,
-        OgLIconName.edit => Icons.edit_note,
-        OgLIconName.add => Icons.add,
-        OgLIconName.close => Icons.close,
-        OgLIconName.chevronRight => Icons.navigate_next,
-        OgLIconName.chevronDown => Icons.keyboard_arrow_down,
-        OgLIconName.external => Icons.north_east,
-        OgLIconName.filter => Icons.filter_alt_outlined,
-        OgLIconName.list => Icons.drag_handle,
-        OgLIconName.bug => Icons.pest_control_outlined,
-        OgLIconName.book => Icons.auto_stories_outlined,
-        OgLIconName.clock => Icons.access_time,
-      };
-}
-
-// （原 Font Awesome 图标包已移除：`font_awesome_flutter` 依赖 `extends IconData`，
-//   而 Flutter 3.47 起 `IconData` 是 `final class`，任何版本都无法编译。
-//   真正引入的做法见文件头注释。）

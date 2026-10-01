@@ -138,12 +138,18 @@
 - **禁令**：模式切换**不得**用两个通栏大按钮代替（历史缺陷，已修）
 - **实现**：`lib/surface/kit/kit_segmented.dart` · **测试**：`test/surface/kit_nav_test.dart`
 
-### 3.12 图标体系（W3 交付）
+### 3.12 图标体系（自绘矢量，W3 已交付）
 
-- **Primer 对照**：`docs/refs/prime/content/components/icon.mdx` + Octicons 符号（`octicons.mdx`）
-- **目标**：自绘矢量（`Path`）图标包，**参考 GitHub 但更概念、更尖锐**；语义名 → 唯一矢量；零外部资源
-- **栅格**：24 × 24（描边 1.5–2）；与文字基线对齐
-- **实现（规划）**：`lib/surface/icons/` · **测试（规划）**：渲染测试 + 语义唯一性
+- **Primer 对照**：`docs/refs/prime/content/components/icon.mdx` + Octicons（`octicons.mdx`）
+- **实现**：几何数据 `lib/surface/icons/og_l_vector_icon.dart`（手写 `d` 路径，24 × 24 网格）；
+  渲染组件 `lib/surface/kit/kit_icon.dart`（`OgLIcon`）
+- **设计语言**：**参考 GitHub 但更概念、更尖锐** —— 全部直线构成（圆一律用八边形 / 菱形代替），
+  端点 `butt`、拐角 `miter`，不出现任何圆头圆角
+- **风格包**（沿用历史 ID，老设置不失效）：`material.outlined`（标准线性 1.75）·
+  `minimal.line`（极简细线 1.35）· `material.filled`（锐利实心 1.7，闭合形状填充）
+- **铁律**：界面**只能**用 `OgLIcon(name: ...)` —— 仓库里已经不存在任何
+  `Icons.xxx` 或 `Icon(ogL.icon(...))`（由 `test/surface/icon_vector_test.dart` 结构性地拦住）
+- **测试**：`test/surface/icon_vector_test.dart`（语义全覆盖 / 可解析 / 语义唯一 / 无 Material 字形）
 
 ### 3.13 页面三态模板（W2 统一）
 

@@ -14,6 +14,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// 按钮变体（语义，而非颜色）。
 enum OgLButtonVariant {
   /// 主操作（GitHub 语义：成功色强调）。
@@ -141,7 +142,7 @@ class OgLButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         if (iconName != null && !loading) ...<Widget>[
-          Icon(ogL.icon(iconName), size: tokens.iconSize(base: 16), color: fg),
+          OgLIcon(name: iconName, size: tokens.iconSize(base: 16), color: fg),
           SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
         ],
         content,

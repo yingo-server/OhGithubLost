@@ -435,8 +435,11 @@ class OgLTheme extends ThemeExtension<OgLTheme> {
   /// 动效策略。
   final OgLMotionPolicy motion;
 
-  /// 取图标。
-  IconData icon(OgLIconName name) => iconSet.resolve(name);
+  /// 图标风格（自绘矢量：细线 / 标准 / 实心）。
+  OgLIconStyle get iconStyle => iconSet.style;
+
+  /// 图标线宽（24 设计网格下的基准值；渲染时按尺寸等比缩放）。
+  double get iconStroke => iconSet.strokeWidth;
 
   /// 按语义取色（把"状态色"收敛到一处，避免页面各写各的红绿）。
   Color colorFor(OgLSemanticColor semantic) => switch (semantic) {

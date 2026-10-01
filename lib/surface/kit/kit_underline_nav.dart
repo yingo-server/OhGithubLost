@@ -13,6 +13,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// UnderlineNav 条目。
 class OgLUnderlineNavItem<T> {
   /// 创建条目。
@@ -148,8 +149,8 @@ class _OgLUnderlineNavEntry<T> extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   if (iconName != null) ...<Widget>[
-                    Icon(
-                      ogL.icon(iconName),
+                    OgLIcon(
+                      name: iconName,
                       size: tokens.iconSize(base: 16),
                       color: selected ? palette.text : palette.textDim,
                     ),

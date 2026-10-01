@@ -215,8 +215,8 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
             children: <Widget>[
               for (final account in list)
                 OgLActionRow(
-                  leading: Icon(
-                    ogL.icon(OgLIconName.key),
+                  leading: OgLIcon(
+                    name: OgLIconName.key,
                     size: tokens.iconSize(base: 20),
                     color: account.id == _activeId
                         ? ogL.palette.accent

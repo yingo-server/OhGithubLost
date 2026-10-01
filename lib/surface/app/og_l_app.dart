@@ -29,6 +29,7 @@ import 'client_shell.dart';
 import 'error_surface.dart';
 import 'repos_page.dart';
 
+import '../kit/kit.dart';
 /// 设置页：DNS 服务器展示名（与 base 层内置表一一对应）。
 const Map<String, String> _dnsChoiceLabels = <String, String>{
   'alidns': '阿里 AliDNS · 223.5.5.5',
@@ -207,12 +208,12 @@ class _OgLShellState extends State<OgLShell> {
                       padding: EdgeInsets.symmetric(
                         vertical: ogL.tokens.space(OgLSpacing.sm),
                       ),
-                      child: Icon(ogL.icon(OgLIconName.repository)),
+                      child: OgLIcon(name: OgLIconName.repository),
                     ),
               destinations: <NavigationRailDestination>[
                 for (var i = 0; i < _icons.length; i++)
                   NavigationRailDestination(
-                    icon: Icon(ogL.icon(_icons[i])),
+                    icon: OgLIcon(name: _icons[i]),
                     label: Text(_titles[i]),
                   ),
               ],
@@ -235,7 +236,7 @@ class _OgLShellState extends State<OgLShell> {
           destinations: <Widget>[
             for (var i = 0; i < _icons.length; i++)
               NavigationDestination(
-                icon: Icon(ogL.icon(_icons[i])),
+                icon: OgLIcon(name: _icons[i]),
                 label: _titles[i],
               ),
           ],
@@ -256,7 +257,7 @@ class _OgLShellState extends State<OgLShell> {
               _Brand(ogL: ogL),
               for (var i = 0; i < _icons.length; i++)
                 ListTile(
-                  leading: Icon(ogL.icon(_icons[i])),
+                  leading: OgLIcon(name: _icons[i]),
                   title: Text(_titles[i]),
                   selected: i == _index,
                   onTap: () {
@@ -283,7 +284,7 @@ class _Brand extends StatelessWidget {
         padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
         child: Row(
           children: <Widget>[
-            Icon(ogL.icon(OgLIconName.code), color: ogL.palette.accent),
+            OgLIcon(name: OgLIconName.code, color: ogL.palette.accent),
             SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
             Text('OhGithubLost', style: Theme.of(context).textTheme.titleMedium),
           ],
@@ -414,7 +415,7 @@ class _AboutPage extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: '复制全部日志',
-                      icon: const Icon(Icons.copy_all),
+                      icon: const OgLIcon(name: OgLIconName.list),
                       onPressed: () async {
                         final buffer = StringBuffer();
                         for (final entry in report.logTail) {
@@ -686,8 +687,8 @@ class _SettingsPage extends StatelessWidget {
                 Text(flag.description),
                 if (flag.risk == OgLRisk.dangerous) ...<Widget>[
                   SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
-                  Icon(
-                    ogL.icon(OgLIconName.warning),
+                  OgLIcon(
+                    name: OgLIconName.warning,
                     size: ogL.tokens.iconSize(base: 16),
                     color: ogL.palette.danger,
                   ),
@@ -806,7 +807,7 @@ class _Banner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Icon(ogL.icon(icon), size: ogL.tokens.iconSize(base: 18), color: color),
+            OgLIcon(name: icon, size: ogL.tokens.iconSize(base: 18), color: color),
             SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
             Expanded(child: Text(text)),
           ],

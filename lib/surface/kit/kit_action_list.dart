@@ -12,6 +12,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import 'kit_icon.dart';
 /// 列表行。
 class OgLActionRow extends StatelessWidget {
   /// 创建列表行。
@@ -132,8 +133,8 @@ class OgLActionRow extends StatelessWidget {
                 ],
                 if (showChevron && enabled) ...<Widget>[
                   SizedBox(width: tokens.space(OgLSpacing.sm)),
-                  Icon(
-                    ogL.icon(OgLIconName.chevronRight),
+                  OgLIcon(
+                    name: OgLIconName.chevronRight,
                     size: tokens.iconSize(base: 16),
                     color: ogL.palette.textFaint,
                   ),

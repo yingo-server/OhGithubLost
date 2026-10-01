@@ -129,12 +129,12 @@ class _OgLClientShellState extends State<OgLClientShell> {
                       padding: EdgeInsets.symmetric(
                         vertical: ogL.tokens.space(OgLSpacing.sm),
                       ),
-                      child: Icon(ogL.icon(OgLIconName.code)),
+                      child: OgLIcon(name: OgLIconName.code),
                     ),
               destinations: <NavigationRailDestination>[
                 for (var i = 0; i < _icons.length; i++)
                   NavigationRailDestination(
-                    icon: Icon(ogL.icon(_icons[i])),
+                    icon: OgLIcon(name: _icons[i]),
                     label: Text(_titles[i]),
                   ),
               ],
@@ -156,7 +156,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
           destinations: <Widget>[
             for (var i = 0; i < _icons.length; i++)
               NavigationDestination(
-                icon: Icon(ogL.icon(_icons[i])),
+                icon: OgLIcon(name: _icons[i]),
                 label: _titles[i],
               ),
           ],
@@ -176,7 +176,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
               _Brand(ogL: ogL),
               for (var i = 0; i < _icons.length; i++)
                 ListTile(
-                  leading: Icon(ogL.icon(_icons[i])),
+                  leading: OgLIcon(name: _icons[i]),
                   title: Text(_titles[i]),
                   selected: i == _index,
                   onTap: () {
@@ -203,7 +203,7 @@ class _Brand extends StatelessWidget {
         padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
         child: Row(
           children: <Widget>[
-            Icon(ogL.icon(OgLIconName.code), color: ogL.palette.accent),
+            OgLIcon(name: OgLIconName.code, color: ogL.palette.accent),
             SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
             Text(
               'OhGithubLost',

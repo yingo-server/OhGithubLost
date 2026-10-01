@@ -716,12 +716,12 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                   showDivider: true,
                   title: entry.path.split('/').last,
                   subtitle: entry.isDirectory ? '目录' : _sizeText(entry.size),
-                  leading: Icon(
-                    ogL.icon(
+                  leading: OgLIcon(
+                    name: 
                       entry.isDirectory
                           ? OgLIconName.folder
                           : OgLIconName.file,
-                    ),
+                    ,
                     size: tokens.iconSize(base: 20),
                     color: entry.isDirectory
                         ? ogL.palette.accent
@@ -1531,8 +1531,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final item in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.workflow),
+              leading: OgLIcon(
+                name: OgLIconName.workflow,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),
@@ -1606,8 +1606,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final item in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.issue),
+              leading: OgLIcon(
+                name: OgLIconName.issue,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),
@@ -1650,8 +1650,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final item in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.pullRequest),
+              leading: OgLIcon(
+                name: OgLIconName.pullRequest,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),
@@ -1713,8 +1713,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final release in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.release),
+              leading: OgLIcon(
+                name: OgLIconName.release,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),
@@ -1783,8 +1783,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final branch in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.branch),
+              leading: OgLIcon(
+                name: OgLIconName.branch,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),
@@ -1836,8 +1836,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           for (final commit in list)
             OgLActionRow(
               showDivider: true,
-              leading: Icon(
-                ogL.icon(OgLIconName.commit),
+              leading: OgLIcon(
+                name: OgLIconName.commit,
                 size: tokens.iconSize(base: 20),
                 color: ogL.palette.textDim,
               ),

@@ -22,6 +22,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
+import '../kit/kit.dart';
 /// 一页的静态描述。
 class OgLPageSpec {
   /// 创建页描述。
@@ -212,7 +213,7 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
                     IconButton(
                       tooltip: '刷新',
                       onPressed: () => widget.onRefresh(),
-                      icon: Icon(ogL.icon(OgLIconName.sync)),
+                      icon: OgLIcon(name: OgLIconName.sync),
                     ),
                   ],
                 ),
@@ -251,7 +252,7 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
                       destinations: <Widget>[
                         for (final page in navPages)
                           NavigationDestination(
-                            icon: Icon(ogL.icon(page.icon)),
+                            icon: OgLIcon(name: page.icon),
                             label: page.title,
                           ),
                       ],
@@ -341,7 +342,7 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
                 padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
                 child: Row(
                   children: <Widget>[
-                    Icon(ogL.icon(OgLIconName.code), color: ogL.palette.accent),
+                    OgLIcon(name: OgLIconName.code, color: ogL.palette.accent),
                     SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
                     Text(
                       'OhGithubLost',
@@ -353,7 +354,7 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
               Divider(height: ogL.tokens.hairline, color: ogL.palette.border),
               for (final page in navPages)
                 ListTile(
-                  leading: Icon(ogL.icon(page.icon)),
+                  leading: OgLIcon(name: page.icon),
                   title: Text(page.title),
                   selected: page.id == widget.pages[_index].id,
                   onTap: () {
@@ -393,7 +394,7 @@ class _NavigationRail extends StatelessWidget {
           padding: EdgeInsets.symmetric(
             vertical: ogL.tokens.space(OgLSpacing.sm),
           ),
-          child: Icon(ogL.icon(OgLIconName.code), color: ogL.palette.accent),
+          child: OgLIcon(name: OgLIconName.code, color: ogL.palette.accent),
         ),
         // 注意：这里**不能**用 `Expanded` 包住——NavigationRail 的 trailing
 // 位于一个高度不受约束的 Column 里，Expanded 会在运行时抛
@@ -403,13 +404,13 @@ class _NavigationRail extends StatelessWidget {
           child: IconButton(
             tooltip: '刷新',
             onPressed: () => onRefresh(),
-            icon: Icon(ogL.icon(OgLIconName.sync)),
+            icon: OgLIcon(name: OgLIconName.sync),
           ),
         ),
         destinations: <NavigationRailDestination>[
           for (final page in pages)
             NavigationRailDestination(
-              icon: Icon(ogL.icon(page.icon)),
+              icon: OgLIcon(name: page.icon),
               label: Text(page.title),
             ),
         ],
@@ -430,8 +431,8 @@ class _EmptyDetailHint extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
-                ogL.icon(OgLIconName.list),
+              OgLIcon(
+                name: OgLIconName.list,
                 size: ogL.tokens.iconSize(base: 32),
                 color: ogL.palette.textFaint,
               ),
