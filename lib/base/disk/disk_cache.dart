@@ -449,7 +449,7 @@ class RepositoryCache {
         await _evictEncoded(intent.key.encode());
         final verified = await _verifyReadback(intent.key, written.sha);
         if (verified == null) {
-          return _fail(
+          return await _fail(
             intent,
             WriteConflict.verificationFailed,
             '写后回读不一致：期望 ${shortSha(written.sha)}（D5）',
