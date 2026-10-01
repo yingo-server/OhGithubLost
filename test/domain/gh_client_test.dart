@@ -299,16 +299,16 @@ void main() {
 
     test('批量提交按 blob→tree→commit→ref 顺序，且带 base_tree', () async {
       final holding = ScriptedTransport(<Object>[
-        // 1) 取分支顶端
+        // 1) 建 blob
+        _json(<String, dynamic>{'sha': 'blob1'}),
+        // 2) 取分支顶端
         _json(<String, dynamic>{
           'object': <String, dynamic>{'sha': 'head1'},
         }),
-        // 2) 取该提交的 tree
+        // 3) 取该提交的 tree
         _json(<String, dynamic>{
           'tree': <String, dynamic>{'sha': 'basetree'},
         }),
-        // 3) 建 blob
-        _json(<String, dynamic>{'sha': 'blob1'}),
         // 4) 建 tree
         _json(<String, dynamic>{'sha': 'tree1'}),
         // 5) 建 commit
@@ -329,7 +329,8 @@ void main() {
 
       expect(sha, 'commit1');
       expect(holding.received.length, 6);
-      expect(holding.received[2].url, contains('/git/blobs'));
+      expect(holding.received[0].url, contains('/git/blobs'));
+      expect(holding.received[1].url, contains('/git/ref/heads/main'));
       final treeBody = jsonDecode(holding.received[3].body! as String);
       expect(treeBody['base_tree'], 'basetree');
       expect(treeBody['tree'][0]['path'], 'a.txt');
@@ -338,6 +339,9 @@ void main() {
 
     test('批量提交前校验期望 sha，分支已前进则拒绝', () async {
       final holding = ScriptedTransport(<Object>[
+        // 1) 建 blob
+        _json(<String, dynamic>{'sha': 'blob1'}),
+        // 2) 分支顶端已经前进
         _json(<String, dynamic>{
           'object': <String, dynamic>{'sha': 'moved'},
         }),

@@ -175,7 +175,7 @@ class GhRequest {
     }
     final parts = query.entries
         .map((MapEntry<String, String> e) =>
-            '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
         .toList();
     return '$buffer${buffer.toString().contains('?') ? '&' : '?'}${parts.join('&')}';
   }

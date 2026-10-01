@@ -295,13 +295,26 @@ void main() {
         subject: 'main.dart',
       );
       expect(prompt, isNotNull);
-      expect(prompt!.options.first.action, ConflictAction.viewDiff);
+      expect(
+        prompt!.options.map((IxConflictOption o) => o.action).toList(),
+        <ConflictAction>[
+          ConflictAction.viewDiff,
+          ConflictAction.pullRemote,
+          ConflictAction.forceOverwrite,
+        ],
+        reason: '顺序即推荐顺序',
+      );
       expect(prompt.options.first.recommended, isTrue);
       expect(
-        prompt.options.map((IxConflictOption o) => o.action),
-        contains(ConflictAction.pullRemote),
+        prompt.options.first.destructive,
+        isFalse,
+        reason: '危险项绝不能排在首位',
       );
-      expect(prompt.hasDestructive, isFalse, reason: '默认不该把危险项摆出来');
+      expect(
+        prompt.options.last.destructive,
+        isTrue,
+        reason: '覆盖必须被标成危险',
+      );
       expect(prompt.message, contains('main.dart'));
     });
 
