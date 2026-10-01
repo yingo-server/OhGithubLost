@@ -108,10 +108,10 @@ class OgLButton extends StatelessWidget {
       border = palette.border;
     }
 
-    // 触摸设备按钮不矮于 44；鼠标场景回到 Primer 的 28/32。
-    final double height = tokens.pointer == OgLPointerKind.touch
-        ? tokens.targetSize
-        : (size == OgLButtonSize.small ? 28 : 32);
+    // Primer 对齐（W4）：**视觉高度**回到 Primer 的 28 / 32，
+    // 而**命中区**由外层 SizedBox 抬到 ≥44（触摸）——
+    // 两者分离，既不像 Material 那样臃肿，也不违反"触摸目标 ≥44"的底线。
+    final double height = size == OgLButtonSize.small ? 28 : 32;
     final double hPad =
         size == OgLButtonSize.small ? OgLSpacing.sm : OgLSpacing.lg;
     final scale = const OgLTypeScale.standard();
@@ -156,18 +156,27 @@ class OgLButton extends StatelessWidget {
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: enabled ? onPressed : null,
-          child: Container(
-            height: height,
-            padding: EdgeInsets.symmetric(horizontal: ogL.tokens.space(hPad)),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius:
-                  BorderRadius.circular(ogL.tokens.radius(OgLRadius.medium)),
-              border: Border.all(color: border, width: ogL.tokens.hairline),
+          child: SizedBox(
+            height: tokens.targetSize,
+            child: Center(
+              child: Container(
+                height: height,
+                padding:
+                    EdgeInsets.symmetric(horizontal: ogL.tokens.space(hPad)),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(
+                    ogL.tokens.radius(OgLRadius.medium),
+                  ),
+                  border:
+                      Border.all(color: border, width: ogL.tokens.hairline),
+                ),
+                child: row,
+              ),
             ),
-            child: row,
           ),
         ),
       ),

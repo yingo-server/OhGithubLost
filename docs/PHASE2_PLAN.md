@@ -74,11 +74,13 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
       （语义全覆盖 / 可解析且不越界 / 语义唯一 / **结构性拦住 `Icons.xxx` 与旧取图标方式**）
 - [x] 推送（本批）
 
-### W4 · Primer 细节对齐 + 快照矩阵 ⏳
-- [ ] 逐控件核对：间距 / 圆角 / 字号 / 状态色 / 动效（对照 `docs/refs/prime`）
-- [ ] 两主题 × 多形态快照矩阵
-- [ ] `UI_SYSTEM_V3.md` 逐条改为"☑ 已核对"
-- [ ] 推送（一次）
+### W4 · Primer 细节对齐 + 快照矩阵 ✅ 本批
+- [x] 逐控件核对（间距 / 圆角 / 字号 / 状态色 / 动效）—— 对照 `docs/refs/prime`
+- [x] **修正**：按钮"视觉高度（28/32）"与"命中区（≥44）"拆分（此前触摸态按钮一律 44 高，偏 Material 而非 Primer）
+- [x] 新增**组件快照矩阵**：`test/surface/ui_component_matrix_test.dart` →
+      `build/ui_shots/matrix_<主题>__<明暗>.png`（两主题 × 明暗 × 全部 Kit 组件 + 45 个自绘图标总览）
+- [x] `UI_SYSTEM_V3.md` 标注 W4 核对结论
+- [x] 推送（本批）
 
 ### W5 · 收口 ⏳
 - [ ] 文档勾选：CHANGELOG / ROADMAP / FEATURES / PHASE2 / UI_SYSTEM_V3

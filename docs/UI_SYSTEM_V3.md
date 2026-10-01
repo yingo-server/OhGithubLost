@@ -33,6 +33,10 @@
 > 每条的字段：**Primer 对照** / 状态规格 / 尺寸与令牌 / 实现 / 测试 / 状态。
 > 状态：☑ = 已落地；☐ = 本轮待做（波次见括号）。
 > **纪律：任何控件都必须先在本清单有条目，才能开工实现。**
+>
+> **W4 核对结论**（逐项对照 `docs/refs/prime`）：间距 / 圆角 / 字号 / 状态色 / 动效已成体系，
+> 证据是组件快照矩阵 `build/ui_shots/matrix_<主题>__<明暗>.png`（CI 工件，两主题 × 明暗 × 全部组件）。
+> 随后修正的具体差异见 3.1（按钮视觉高度与命中区拆分）。
 
 | # | 控件 | 实现文件 | Primer 对照 | 状态 |
 | --- | --- | --- | --- | --- |
@@ -56,7 +60,9 @@
 
 - **Primer 对照**：`docs/refs/prime/content/components/button.mdx`（+ `button-group.mdx`、`icon-button.mdx`）
 - **变体**：`primary`（强调底 + `on-accent` 文字）/ `standard`（`surface` 底 + `border` 描边）/ `danger`（危险底）/ `invisible`（无底无框，仅 hover 有 `surface-alt`）
-- **尺寸**：`small`（高 28）/ `medium`（高 32）——Primer 基准；触摸目标由 `OgLTokens.targetSize` 抬到 **≥44**
+- **尺寸（W4 对齐 Primer）**：**视觉高度** = `small 28` / `medium 32`；**命中区**由外层
+  `SizedBox(tokens.targetSize)` 抬到 ≥44（触摸）——两者分离，既不像 Material 那样臃肿，
+  也不违反"触摸目标 ≥44"的可访问性底线
 - **状态**：rest / hover（`surface-alt`）/ active / focus-visible（`selection`）/ disabled（降透明度、禁止点击的明确"不可用"感）/ **loading**（内联 spinner + 禁止重复提交）
 - **令牌**：圆角 `OgLRadius.medium`；水平内边距 `OgLSpacing.md`；字阶 `title`；图标尺寸 `tokens.iconSize()`
 - **实现**：`lib/surface/kit/kit_button.dart` · **测试**：`test/surface/kit_test.dart`
