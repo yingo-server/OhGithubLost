@@ -538,8 +538,13 @@ ThemeData buildOgLTheme({
   required OgLTokens tokens,
   required OgLLayoutSpec layout,
   OgLMotionPolicy motion = OgLMotionPolicy.full,
+  int? accentOverride,
 }) {
-  final palette = pack.paletteFor(brightness);
+  final base = pack.paletteFor(brightness);
+  // 用户自定义强调色：**必须真的用上**。
+  // 之前的版本把它存进了设置却从未消费——那就是典型的"点了没反应"。
+  final palette =
+      accentOverride == null ? base : base.copyWith(accent: Color(accentOverride));
   final scheme = ColorScheme.fromSeed(
     seedColor: palette.accent,
     brightness: brightness.flutter,

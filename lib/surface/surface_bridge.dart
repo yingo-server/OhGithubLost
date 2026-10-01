@@ -94,7 +94,8 @@ class SurfaceBridge {
         textScale: viewport.textScale,
         pointer: viewport.pointer,
         hairline: viewport.hairline,
-        reducedMotion: _reducedMotionOf(null, fallback: viewport.reducedMotion),
+        // 视口里已经带上了系统的"减少动态效果"，直接用，不要再查一遍。
+        reducedMotion: viewport.reducedMotion,
       );
 
   /// 当前设置下的主题包。
@@ -125,6 +126,7 @@ class SurfaceBridge {
       brightness: brightnessFor(systemBrightness),
       tokens: tokensFor(viewport),
       layout: viewport.spec,
+      accentOverride: settings.settings.accentOverride,
       motion: settings.settings.motion.resolve(
         systemReduced: _reducedMotionOf(query),
       ),
@@ -267,3 +269,15 @@ class SurfaceLayerModule extends OgLModule {
     // 展示层没有后台任务：它的"启动"就是主题编译完成（上一步已完成）。
   }
 }
+
+/// 组装 L3 全部模块（供 `main` 一行接入，与 L1/L2 的装配入口保持同构）。
+///
+/// **只暴露一个模块**：展示层的所有能力都从 [SurfaceBridge] 出去，
+/// 不像 L1/L2 那样需要按子系统拆分——因为 UI 本来就是"一张皮"。
+List<OgLModule> surfaceLayerModules({
+  OgLPermissionGateway? gateway,
+  OgLPlatformKind? platform,
+}) =>
+    <OgLModule>[
+      SurfaceLayerModule(gateway: gateway, platform: platform),
+    ];
