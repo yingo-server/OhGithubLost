@@ -226,12 +226,23 @@ class WriteJournal {
   ///
   /// 用于**异常路径**：写请求抛出网络异常时，调用栈里已经拿不到记录 ID，
   /// 但队列里那条 pending 必须被标注（否则 UI 上"已尝试次数"永远是 0）。
+  ///
+  /// **只标注最近的那一条**：同一个键可能因为多次崩溃留下多条 pending
+  /// （A 崩了、B 又崩了），而这次异常只属于"刚刚发出的那一发"。
+  /// 若把它们全部加一遍，历史记录的尝试次数会虚增，UI 会撒谎。
   Future<void> failByKey(CacheKey key, String error) async {
     final encoded = key.encode();
+    JournalRecord? newest;
     for (final record in await records(status: JournalStatus.pending)) {
-      if (record.key.encode() == encoded) {
-        await fail(record.id, error);
+      if (record.key.encode() != encoded) {
+        continue;
       }
+      if (newest == null || record.createdAt.isAfter(newest.createdAt)) {
+        newest = record;
+      }
+    }
+    if (newest != null) {
+      await fail(newest.id, error);
     }
   }
 

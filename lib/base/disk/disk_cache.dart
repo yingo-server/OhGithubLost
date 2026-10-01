@@ -258,8 +258,9 @@ class RepositoryCache {
 
     for (final meta in await _scanMetas()) {
       if (age > Duration.zero && now.difference(meta.fetchedAt) > age) {
-        await _mutex.run(meta.encoded, () => _evictEncoded(meta.encoded));
-        removed++;
+        if (await _evictIfStale(meta.encoded, meta.fetchedAt)) {
+          removed++;
+        }
       } else {
         survivors.add(meta);
       }
@@ -268,9 +269,10 @@ class RepositoryCache {
     if (limit > 0 && survivors.length > limit) {
       survivors.sort((a, b) => a.fetchedAt.compareTo(b.fetchedAt));
       while (survivors.length > limit) {
-        final victim = survivors.removeAt(0).encoded;
-        await _mutex.run(victim, () => _evictEncoded(victim));
-        removed++;
+        final victim = survivors.removeAt(0);
+        if (await _evictIfStale(victim.encoded, victim.fetchedAt)) {
+          removed++;
+        }
       }
     }
 
@@ -337,8 +339,9 @@ class RepositoryCache {
   Future<int> purge() async {
     var removed = 0;
     for (final meta in await _scanMetas()) {
-      await _mutex.run(meta.encoded, () => _evictEncoded(meta.encoded));
-      removed++;
+      if (await _evictIfStale(meta.encoded, meta.fetchedAt)) {
+        removed++;
+      }
     }
     _diagnostics.info(
       'CACHE',
@@ -766,5 +769,29 @@ class RepositoryCache {
   Future<void> _evictEncoded(String encoded) async {
     await _index.remove(_metaKeyOf(encoded));
     await _blobs.delete(_blobPathOf(encoded));
+  }
+
+  /// 在键锁内**复核之后再淘汰**，返回是否真的删掉了。
+  ///
+  /// 扫描（`_scanMetas`）与淘汰之间存在时间窗：这期间用户可能刚打开文件、
+  /// 缓存刚被刷新过。若照扫描结果无脑删，就会把**刚刚取回来的热数据**删掉，
+  /// 下一次读又要回源——在弱网下这就是"越用越慢"的根源。
+  ///
+  /// 判定依据是 `fetchedAt` 是否**晚于**扫描时看到的那一版：
+  /// 晚了 ⇒ 数据已更新 ⇒ 放弃本次淘汰。
+  Future<bool> _evictIfStale(String encoded, DateTime scannedAt) async {
+    var removed = false;
+    await _mutex.run(encoded, () async {
+      final decoded = CacheKey.decode(encoded);
+      if (decoded != null) {
+        final fresh = await _loadLocal(decoded);
+        if (fresh != null && fresh.fetchedAt.isAfter(scannedAt)) {
+          return; // 已被并发写刷新 —— 不淘汰。
+        }
+      }
+      await _evictEncoded(encoded);
+      removed = true;
+    });
+    return removed;
   }
 }
