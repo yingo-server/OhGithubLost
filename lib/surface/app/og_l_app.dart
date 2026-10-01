@@ -594,11 +594,9 @@ class _SettingsPage extends StatelessWidget {
 
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.text, required this.ogL, this.tone});
-
+  const _SectionTitle({required this.text, required this.ogL});
   final String text;
   final OgLTheme ogL;
-  final OgLSemanticColor? tone;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -608,9 +606,7 @@ class _SectionTitle extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: tone == null ? null : ogL.colorFor(tone!),
-              ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
       );
 }
