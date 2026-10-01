@@ -55,7 +55,9 @@ dependencies:
   # ── 展示层 ─────────────────────────────────────────────────────────
   cached_network_image: ^4.0.4     # 图片缓存展示
   flutter_markdown: ^0.7.7+1       # README 渲染
-  font_awesome_flutter: ^10.7.0    # 图标包之一（另两套用 Material 自带字形）
+  # 注：font_awesome_flutter 已移除 —— 它 `extends IconData`，
+  # 而 Flutter 3.47 起 IconData 是 final class，无法编译。
+  # 内置图标包改为纯 Material 字形，见 lib/surface/theme/icon_pack.dart。
 
 dev_dependencies:
   flutter_test:

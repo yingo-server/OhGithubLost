@@ -10,12 +10,26 @@
 /// 2. 语义名是 `enum`，新增语义时 `switch` 会**编译期强制**每套图标包补齐，
 ///    不可能出现"某套主题缺一个图标"；
 /// 3. 图标包可以按风格挑选：极简线性（[OgLIconSets.minimalLine]）、
-///    实心质感（[OgLIconSets.fontAwesomeSolid]）、原生（[OgLIconSets.materialOutlined]）。
+///    实心质感（[OgLIconSets.materialFilled]）、原生（[OgLIconSets.materialOutlined]）。
+/// ## 关于 Font Awesome（重要教训，务必先读）
+/// 最初这里用的第三套包是 `font_awesome_flutter`。**它在 Flutter 3.47 上无法编译**：
+/// ```
+/// font_awesome_flutter-10.12.0/lib/src/icon_data.dart:6:30
+/// Error: The class 'IconData' can't be extended outside of its library
+///        because it's a final class.
+/// class IconDataBrands extends IconData { ... }
+/// ```
+/// 原因是该包整体建立在 `extends IconData` 之上，而新版 Flutter 把 `IconData`
+/// 收成了 `final class`。**换版本也救不了**（历代版本都 extends）。
+///
+/// 因此内置三套改为纯 Material 字形（零外部依赖、零崩溃风险）。
+/// 将来若要真正引入 Font Awesome，正确做法是：
+/// 1. 把 `FontAwesome-Solid.ttf` 放进 `assets/fonts/` 并在 `pubspec.yaml` 声明；
+/// 2. **手写**一张 `OgLIconName → IconData(codePoint, fontFamily: 'FontAwesomeSolid')`
+///    的表 —— 只**实例化** IconData，不继承它，于是不受 `final class` 限制。
 library;
 
-// `Icons` 定义在 material 里（widgets 里没有）——首次编译就是栽在这一行。
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// 图标语义（界面唯一允许引用的"名字"）。
 enum OgLIconName {
@@ -180,7 +194,7 @@ abstract final class OgLIconSets {
   static const List<OgLIconSet> all = <OgLIconSet>[
     materialOutlined,
     minimalLine,
-    fontAwesomeSolid,
+    materialFilled,
   ];
 
   /// 默认包：极简线性（最不抢戏，适合信息密集的代码工具）。
@@ -202,8 +216,70 @@ abstract final class OgLIconSets {
   /// 极简线性：Material Outlined 中笔画最细、留白最大的一组。
   static const OgLIconSet minimalLine = _MinimalLineIcons();
 
-  /// Font Awesome 实心（质感、识别度高）。
-  static const OgLIconSet fontAwesomeSolid = _FontAwesomeSolidIcons();
+  /// Material 实心（质感、识别度高；替代原本的 Font Awesome 位）。
+  static const OgLIconSet materialFilled = _MaterialFilledIcons();
+}
+
+class _MaterialFilledIcons extends OgLIconSet {
+  const _MaterialFilledIcons();
+
+  @override
+  String get id => 'material.filled';
+
+  @override
+  String get displayName => 'Material 实心';
+
+  @override
+  bool get isSolid => true;
+
+  @override
+  IconData resolve(OgLIconName name) => switch (name) {
+        OgLIconName.repository => Icons.folder_special,
+        OgLIconName.folder => Icons.folder,
+        OgLIconName.file => Icons.description,
+        OgLIconName.branch => Icons.account_tree,
+        OgLIconName.commit => Icons.commit,
+        OgLIconName.compare => Icons.compare_arrows,
+        OgLIconName.issue => Icons.report_problem,
+        OgLIconName.pullRequest => Icons.merge_type,
+        OgLIconName.release => Icons.local_offer,
+        OgLIconName.tag => Icons.sell,
+        OgLIconName.workflow => Icons.bolt,
+        OgLIconName.search => Icons.search,
+        OgLIconName.settings => Icons.settings,
+        OgLIconName.sync => Icons.sync,
+        OgLIconName.upload => Icons.upload,
+        OgLIconName.download => Icons.download,
+        OgLIconName.warning => Icons.warning_amber,
+        OgLIconName.error => Icons.error,
+        OgLIconName.info => Icons.info,
+        OgLIconName.success => Icons.check_circle,
+        OgLIconName.conflict => Icons.call_split,
+        OgLIconName.shield => Icons.shield,
+        OgLIconName.key => Icons.vpn_key,
+        OgLIconName.dns => Icons.dns,
+        OgLIconName.mirror => Icons.swap_horiz,
+        OgLIconName.mod => Icons.extension,
+        OgLIconName.theme => Icons.palette,
+        OgLIconName.layout => Icons.view_quilt,
+        OgLIconName.terminal => Icons.terminal,
+        OgLIconName.code => Icons.code,
+        OgLIconName.star => Icons.star,
+        OgLIconName.fork => Icons.call_split,
+        OgLIconName.history => Icons.history,
+        OgLIconName.delete => Icons.delete,
+        OgLIconName.edit => Icons.edit,
+        OgLIconName.add => Icons.add,
+        OgLIconName.close => Icons.close,
+        OgLIconName.chevronRight => Icons.chevron_right,
+        OgLIconName.chevronDown => Icons.expand_more,
+        OgLIconName.external => Icons.open_in_new,
+        OgLIconName.filter => Icons.filter_list,
+        OgLIconName.list => Icons.format_list_bulleted,
+        OgLIconName.bug => Icons.bug_report,
+        OgLIconName.book => Icons.menu_book,
+        OgLIconName.clock => Icons.schedule,
+      };
 }
 
 class _MaterialOutlinedIcons extends OgLIconSet {
@@ -330,64 +406,6 @@ class _MinimalLineIcons extends OgLIconSet {
       };
 }
 
-class _FontAwesomeSolidIcons extends OgLIconSet {
-  const _FontAwesomeSolidIcons();
-
-  @override
-  String get id => 'fontawesome.solid';
-
-  @override
-  String get displayName => 'Font Awesome 实心';
-
-  @override
-  bool get isSolid => true;
-
-  @override
-  IconData resolve(OgLIconName name) => switch (name) {
-        OgLIconName.repository => FontAwesomeIcons.bookBookmark,
-        OgLIconName.folder => FontAwesomeIcons.folder,
-        OgLIconName.file => FontAwesomeIcons.fileLines,
-        OgLIconName.branch => FontAwesomeIcons.codeBranch,
-        OgLIconName.commit => FontAwesomeIcons.codeCommit,
-        OgLIconName.compare => FontAwesomeIcons.codeCompare,
-        OgLIconName.issue => FontAwesomeIcons.circleExclamation,
-        OgLIconName.pullRequest => FontAwesomeIcons.codePullRequest,
-        OgLIconName.release => FontAwesomeIcons.boxOpen,
-        OgLIconName.tag => FontAwesomeIcons.tag,
-        OgLIconName.workflow => FontAwesomeIcons.bolt,
-        OgLIconName.search => FontAwesomeIcons.magnifyingGlass,
-        OgLIconName.settings => FontAwesomeIcons.gear,
-        OgLIconName.sync => FontAwesomeIcons.arrowsRotate,
-        OgLIconName.upload => FontAwesomeIcons.arrowUpFromBracket,
-        OgLIconName.download => FontAwesomeIcons.download,
-        OgLIconName.warning => FontAwesomeIcons.triangleExclamation,
-        OgLIconName.error => FontAwesomeIcons.circleXmark,
-        OgLIconName.info => FontAwesomeIcons.circleInfo,
-        OgLIconName.success => FontAwesomeIcons.circleCheck,
-        OgLIconName.conflict => FontAwesomeIcons.codeMerge,
-        OgLIconName.shield => FontAwesomeIcons.shieldHalved,
-        OgLIconName.key => FontAwesomeIcons.key,
-        OgLIconName.dns => FontAwesomeIcons.globe,
-        OgLIconName.mirror => FontAwesomeIcons.rightLeft,
-        OgLIconName.mod => FontAwesomeIcons.puzzlePiece,
-        OgLIconName.theme => FontAwesomeIcons.palette,
-        OgLIconName.layout => FontAwesomeIcons.tableColumns,
-        OgLIconName.terminal => FontAwesomeIcons.terminal,
-        OgLIconName.code => FontAwesomeIcons.code,
-        OgLIconName.star => FontAwesomeIcons.star,
-        OgLIconName.fork => FontAwesomeIcons.codeFork,
-        OgLIconName.history => FontAwesomeIcons.clockRotateLeft,
-        OgLIconName.delete => FontAwesomeIcons.trashCan,
-        OgLIconName.edit => FontAwesomeIcons.penToSquare,
-        OgLIconName.add => FontAwesomeIcons.plus,
-        OgLIconName.close => FontAwesomeIcons.xmark,
-        OgLIconName.chevronRight => FontAwesomeIcons.chevronRight,
-        OgLIconName.chevronDown => FontAwesomeIcons.chevronDown,
-        OgLIconName.external => FontAwesomeIcons.arrowUpRightFromSquare,
-        OgLIconName.filter => FontAwesomeIcons.filter,
-        OgLIconName.list => FontAwesomeIcons.list,
-        OgLIconName.bug => FontAwesomeIcons.bug,
-        OgLIconName.book => FontAwesomeIcons.book,
-        OgLIconName.clock => FontAwesomeIcons.clock,
-      };
-}
+// （原 Font Awesome 图标包已移除：`font_awesome_flutter` 依赖 `extends IconData`，
+//   而 Flutter 3.47 起 `IconData` 是 `final class`，任何版本都无法编译。
+//   真正引入的做法见文件头注释。）
