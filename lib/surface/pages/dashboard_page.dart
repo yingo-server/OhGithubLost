@@ -16,6 +16,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'repo_page.dart';
 
 /// 首页。
 class OgLDashboardPage extends StatefulWidget {
@@ -134,6 +135,15 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
     await _starredC().load();
   }
 
+  void _openRepo(GhRepo repo) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) =>
+            OgLRepoPage(surface: widget.surface, repo: repo),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
@@ -173,6 +183,7 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
             child: _RepoSection(
               controller: _reposC(),
               onRetry: _refreshAll,
+              onOpen: _openRepo,
               emptyText: '还没有仓库，先在 GitHub 创建一个吧。',
             ),
           ),
@@ -183,6 +194,7 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
             child: _RepoSection(
               controller: _starredC(),
               onRetry: _refreshAll,
+              onOpen: _openRepo,
               emptyText: '还没有星标的仓库。',
             ),
           ),
@@ -227,11 +239,13 @@ class _RepoSection extends StatelessWidget {
   const _RepoSection({
     required this.controller,
     required this.onRetry,
+    required this.onOpen,
     required this.emptyText,
   });
 
   final OgLAsyncController<List<GhRepo>> controller;
   final Future<void> Function() onRetry;
+  final void Function(GhRepo repo) onOpen;
   final String emptyText;
 
   @override
@@ -288,7 +302,7 @@ class _RepoSection extends StatelessWidget {
                   text: '刷新失败：${state.refreshError}',
                 ),
               ),
-            for (final repo in list) _RepoRow(repo: repo),
+            for (final repo in list) _RepoRow(repo: repo, onOpen: onOpen),
           ],
         );
       },
@@ -297,9 +311,10 @@ class _RepoSection extends StatelessWidget {
 }
 
 class _RepoRow extends StatelessWidget {
-  const _RepoRow({required this.repo});
+  const _RepoRow({required this.repo, required this.onOpen});
 
   final GhRepo repo;
+  final void Function(GhRepo repo) onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -323,6 +338,8 @@ class _RepoRow extends StatelessWidget {
       trailing: repo.isArchived
           ? const OgLLabel(text: '归档', variant: OgLLabelVariant.attention)
           : null,
+      showChevron: true,
+      onTap: () => onOpen(repo),
     );
   }
 }
