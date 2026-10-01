@@ -284,16 +284,24 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
       );
     }
 
-    // 列表详情：左列表 + 右详情。
+    // ── 分栏数量必须**严格服从布局结论** ────────────────────────────
+    // 曾经的 bug：只要外壳提供了 detailPane，就无条件塞进 Row——
+    // 于是在 390px 的手机上，列表与详情被按 2:3 劈成 156px + 234px，
+    // 列表被挤扁、文字被截断（像素采样发现"内容区几乎全是背景色"）。
+    // 正确做法：`single` 就**只渲染列表**，剩下的交给页面自己 push 详情。
+    final bool showDetail =
+        layout.panes != OgLPaneLayout.single && widget.detailPane != null;
+    final bool showAux = layout.panes == OgLPaneLayout.threePane &&
+        widget.auxPane != null;
+
     final panes = <Widget>[
       widget.listPane!,
-      if (widget.detailPane != null) widget.detailPane!,
-      if (layout.panes == OgLPaneLayout.threePane && widget.auxPane != null)
-        widget.auxPane!,
+      if (showDetail) widget.detailPane!,
+      if (showAux) widget.auxPane!,
     ];
 
     if (panes.length == 1) {
-      // 单栏：列表占满，选中后由页面自己 push 详情。
+      // 窄屏：列表占满，选中条目时由页面自己 push 详情页。
       return widget.listPane!;
     }
 
