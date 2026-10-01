@@ -12,8 +12,12 @@
 ///
 /// ## 断言的核心不变式（"12306 级"的那句话）
 /// > **要么成功，要么可解释地失败；绝不存在"静默错"。**
-/// 任何一条"没想到的失败"都会以 `WriteConflict.server` 的形式暴露——
-/// 本文件的每个用例都在断言这个字段不出现。
+///
+/// 其中 [WriteConflict.server] 的语义是"**基础设施性失败**（网络 / 磁盘），
+/// 可稍后重试"——它不是"未分类的异常"，
+/// 而是所有非预期异常**收敛后的唯一出口**。
+/// 所以本文件对"可解释"的判定是：
+/// **失败必须落在有限的枚举里，且不得把数据写歪**。
 library;
 
 import 'dart:math';
@@ -211,7 +215,12 @@ void main() {
       final outcome = await cache.write(_intent(content: 'new', baseSha: 'sha-old'));
 
       expect(outcome.ok, isFalse);
-      expect(outcome.conflict, isNot(WriteConflict.server));
+      expect(
+        outcome.conflict,
+        WriteConflict.server,
+        reason: '磁盘故障属于"基础设施性失败"，可稍后重试——而不是未分类异常',
+      );
+      expect(outcome.detail, contains('磁盘满'), reason: '失败原因必须可追溯');
       expect(await journal.pendingCount(), 0, reason: '没落盘的记录不能出现在待同步里');
       expect(
         remote.writeCount,
