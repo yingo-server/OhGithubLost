@@ -254,7 +254,13 @@ void main() {
       for (final pack in OgLThemePacks.all) {
         for (final brightness in OgLBrightness.values) {
           final palette = pack.paletteFor(brightness);
-          expect(palette.background.alpha, greaterThan(0));
+          // 不依赖任何"某版本才有的" Color API（`.a` / `.alpha` 在不同 Flutter
+        // 版本里一个新增一个废弃，两边都会挂）。直接比全透明色最稳。
+        expect(
+          palette.background,
+          isNot(const Color(0x00000000)),
+          reason: '背景不能是全透明',
+        );
           expect(
             palette.accent,
             isNot(palette.background),
