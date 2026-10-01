@@ -101,12 +101,21 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   final TextEditingController _editController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
 
+  /// 当前仓库全名（仓库改名后继续沿用，避免"改名即失联"）。
+  String? _fullName;
+
+  /// 最近一次尝试打开的文件（失败后一键重试用）。
+  GhContent? _pendingFile;
+
+  /// 当前仓库全名（改名后仍指向同一个仓库）。
+  String get _full => _fullName ?? _full;
+
   @override
   void initState() {
     super.initState();
     final raw = widget.repo.raw['viewer_has_starred'];
     _starred = raw is bool ? raw : null;
-    _messageController.text = 'chore: update ${widget.repo.fullName}';
+    _messageController.text = 'chore: update ${_full}';
     _nameCtl = TextEditingController(text: widget.repo.name);
     _descCtl = TextEditingController(text: widget.repo.description ?? '');
     _privateVal = widget.repo.isPrivate;
@@ -155,7 +164,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       isEmpty: (List<GhContent> value) => value.isEmpty,
       loader: () async {
         final list = await widget.surface.domain.api.listDirectory(
-          widget.repo.fullName,
+          _full,
           _path,
           branch: widget.repo.defaultBranch,
         );
@@ -179,7 +188,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<Map<String, dynamic>>>(
       label: '议题',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.issues(widget.repo.fullName),
+      loader: () => widget.surface.domain.api.issues(_full),
     );
     controller.addListener(_onChanged);
     _issues = controller;
@@ -194,7 +203,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<Map<String, dynamic>>>(
       label: 'PR',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.pulls(widget.repo.fullName),
+      loader: () => widget.surface.domain.api.pulls(_full),
     );
     controller.addListener(_onChanged);
     _pulls = controller;
@@ -209,7 +218,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<GhRelease>>(
       label: '发布',
       isEmpty: (List<GhRelease> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.releases(widget.repo.fullName),
+      loader: () => widget.surface.domain.api.releases(_full),
     );
     controller.addListener(_onChanged);
     _releases = controller;
@@ -224,7 +233,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<GhBranch>>(
       label: '分支',
       isEmpty: (List<GhBranch> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.branches(widget.repo.fullName),
+      loader: () => widget.surface.domain.api.branches(_full),
     );
     controller.addListener(_onChanged);
     _branches = controller;
@@ -240,7 +249,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       label: '提交',
       isEmpty: (List<GhCommit> value) => value.isEmpty,
       loader: () => widget.surface.domain.api.commits(
-            widget.repo.fullName,
+            _full,
             branch: widget.repo.defaultBranch,
           ),
     );
@@ -282,7 +291,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       _notice = null;
     });
     try {
-      await widget.surface.domain.api.setStarred(widget.repo.fullName, target);
+      await widget.surface.domain.api.setStarred(_full, target);
       OgLAppLog.instance.add('仓库', target ? '已加星标' : '已取消星标');
       if (!mounted) {
         return;
@@ -313,7 +322,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '复刻仓库',
-      message: '将在你的账户下创建「${widget.repo.fullName}」的副本。',
+      message: '将在你的账户下创建「${_full}」的副本。',
       confirmLabel: '复刻',
     );
     if (!confirmed || !mounted) {
@@ -325,7 +334,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       _notice = null;
     });
     try {
-      final forked = await widget.surface.domain.api.fork(widget.repo.fullName);
+      final forked = await widget.surface.domain.api.fork(_full);
       OgLAppLog.instance.add('仓库', '已复刻为 ${forked.fullName}');
       if (mounted) {
         setState(() => _notice = '已复刻为 ${forked.fullName}');
@@ -353,13 +362,29 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       _path = path;
       _file = null;
       _fileText = null;
+      _fileError = null;
+      _pendingFile = null;
       _editing = false;
     });
     _entriesC().load();
   }
 
+  /// 重试最近一次失败的文件打开。
+  ///
+  /// 历史缺陷：打开文件失败时只改了 `_fileError`，而错误只在"文件视图"
+  /// 里渲染 —— 文件没打开就还在目录视图，于是用户看到的是"点了没反应"
+  /// （错误无声消失，违反红线）。这里给出可见的失败 + 一键重试。
+  Future<void> _retryPendingOpen() async {
+    final pending = _pendingFile;
+    if (pending == null) {
+      return;
+    }
+    await _openFile(pending);
+  }
+
   Future<void> _openFile(GhContent entry) async {
     setState(() {
+      _pendingFile = entry;
       _fileLoading = true;
       _fileError = null;
       _file = null;
@@ -368,7 +393,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       final file = await widget.surface.domain.api.content(
-        widget.repo.fullName,
+        _full,
         entry.path,
         branch: widget.repo.defaultBranch,
       );
@@ -378,7 +403,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       var text = file.text;
       if (text == null && file.isTooLarge) {
         text = await widget.surface.domain.api
-            .blobText(widget.repo.fullName, file.sha);
+            .blobText(_full, file.sha);
       }
       if (!mounted) {
         return;
@@ -423,7 +448,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       await widget.surface.domain.api.putContent(
-        widget.repo.fullName,
+        _full,
         file.path,
         content: _editController.text,
         message: message,
@@ -479,7 +504,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       await widget.surface.domain.api.deleteContent(
-        widget.repo.fullName,
+        _full,
         file.path,
         message: 'chore: delete ${file.path}',
         baseSha: file.sha,
@@ -617,6 +642,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildBrowser(OgLTheme ogL, OgLTokens tokens) {
     final state = _entriesC().state;
     final list = state.data ?? const <GhContent>[];
+    final String? fileError = _fileError;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -654,34 +680,40 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             ),
           ],
         ),
-        if (state.data == null && state.message != null)
+        if (fileError != null) ...<Widget>[
+          SizedBox(height: tokens.space(OgLSpacing.sm)),
           OgLBanner(
             variant: OgLBannerVariant.danger,
-            title: '目录读取失败',
-            text: state.message!,
+            title: '文件打开失败',
+            text: fileError,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
                 size: OgLButtonSize.small,
                 onPressed: () async {
-                  await _entriesC().load();
+                  await _retryPendingOpen();
                 },
               ),
             ],
-          )
-        else if (state.data == null)
-          const OgLSkeletonText(lines: 6)
-        else if (list.isEmpty)
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            text: '这个目录是空的。',
-          )
-        else
-          Column(
+          ),
+        ],
+        SizedBox(height: tokens.space(OgLSpacing.sm)),
+        OgLStateView(
+          loading: state.data == null && state.message == null,
+          error: state.data == null ? state.message : null,
+          errorTitle: '目录读取失败',
+          onRetry: () => _entriesC().load(),
+          isEmpty: list.isEmpty,
+          emptyIcon: OgLIconName.folder,
+          emptyTitle: '这个目录是空的',
+          emptyBody: '换个目录看看；GitHub 不支持提交空目录。',
+          skeletonLines: 6,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               for (final entry in list)
                 OgLActionRow(
+                  showDivider: true,
                   title: entry.path.split('/').last,
                   subtitle: entry.isDirectory ? '目录' : _sizeText(entry.size),
                   leading: Icon(
@@ -706,6 +738,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                 ),
             ],
           ),
+        ),
       ],
     );
   }
@@ -847,7 +880,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       return '分支';
     }
     if (tab == _RepoTab.actions) {
-      return '动作';
+      return '操作';
     }
     if (tab == _RepoTab.settings) {
       return '设置';
@@ -874,32 +907,12 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
 
   String _shortSha(String sha) => sha.length >= 7 ? sha.substring(0, 7) : sha;
 
-  Widget _retryBanner(
-    String title,
-    String message,
-    Future<void> Function() retry,
-  ) =>
-      OgLBanner(
-        variant: OgLBannerVariant.danger,
-        title: title,
-        text: message,
-        actions: <Widget>[
-          OgLButton(
-            label: '重试',
-            size: OgLButtonSize.small,
-            onPressed: () async {
-              await retry();
-            },
-          ),
-        ],
-      );
-
   Future<void> _createRelease() async {
     final created = await Navigator.of(context).push<GhRelease>(
       MaterialPageRoute<GhRelease>(
         builder: (BuildContext context) => OgLNewReleasePage(
           surface: widget.surface,
-          fullName: widget.repo.fullName,
+          fullName: _full,
           defaultBranch: widget.repo.defaultBranch,
         ),
       ),
@@ -924,7 +937,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     setState(() => _releaseBusy = true);
     try {
       await widget.surface.domain.api
-          .deleteRelease(widget.repo.fullName, release.id);
+          .deleteRelease(_full, release.id);
       OgLAppLog.instance.add('发布', '已删除 ${release.tagName}');
       if (mounted) {
         setState(() => _notice = '已删除发布 ${release.tagName}');
@@ -961,7 +974,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     try {
       await widget.surface.domain.api
-          .updateIssue(widget.repo.fullName, number, state: 'closed');
+          .updateIssue(_full, number, state: 'closed');
       OgLAppLog.instance.add('议题', '已关闭 #$number');
       if (mounted) {
         setState(() => _notice = '已关闭 #$number');
@@ -989,7 +1002,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       isEmpty: (Map<String, dynamic> value) => false,
       loader: () async {
         final info =
-            await widget.surface.domain.api.pagesInfo(widget.repo.fullName);
+            await widget.surface.domain.api.pagesInfo(_full);
         return info ?? const <String, dynamic>{};
       },
     );
@@ -1001,7 +1014,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Future<void> _loadCname() async {
     try {
       final file = await widget.surface.domain.api
-          .content(widget.repo.fullName, 'CNAME');
+          .content(_full, 'CNAME');
       if (!mounted) {
         return;
       }
@@ -1022,14 +1035,22 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       final updated = await widget.surface.domain.api.updateRepo(
-        widget.repo.fullName,
+        _full,
         name: _nameCtl.text.trim().isEmpty ? null : _nameCtl.text.trim(),
         description: _descCtl.text.trim(),
         private: _privateVal,
       );
       OgLAppLog.instance.add('设置', '已保存基本信息：${updated.fullName}');
       if (mounted) {
-        setState(() => _notice = '已保存基本信息');
+        setState(() {
+          // 改名后继续用新全名操作 —— 否则后续请求会打到"已不存在的旧名"。
+          if (updated.fullName.isNotEmpty && updated.fullName != _full) {
+            _fullName = updated.fullName;
+            _notice = '已保存基本信息（仓库已改名：${updated.fullName}）';
+          } else {
+            _notice = '已保存基本信息';
+          }
+        });
       }
     } catch (error, stackTrace) {
       OgLAppLog.instance.add(
@@ -1057,7 +1078,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       await widget.surface.domain.api.putContent(
-        widget.repo.fullName,
+        _full,
         'CNAME',
         content: '${_cnameCtl.text.trim()}\n',
         message: 'chore: configure custom domain',
@@ -1095,7 +1116,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       await widget.surface.domain.api.enablePages(
-        widget.repo.fullName,
+        _full,
         branch: widget.repo.defaultBranch,
       );
       OgLAppLog.instance.add('设置', 'Pages 已启用');
@@ -1125,7 +1146,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '停用 Pages',
-      message: '将停止「${widget.repo.fullName}」的 Pages 站点。',
+      message: '将停止「${_full}」的 Pages 站点。',
       confirmLabel: '停用',
       danger: true,
     );
@@ -1134,7 +1155,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     setState(() => _settingsBusy = true);
     try {
-      await widget.surface.domain.api.disablePages(widget.repo.fullName);
+      await widget.surface.domain.api.disablePages(_full);
       OgLAppLog.instance.add('设置', 'Pages 已停用');
       if (mounted) {
         setState(() => _notice = 'Pages 已停用');
@@ -1162,7 +1183,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '删除仓库',
-      message: '将永久删除「${widget.repo.fullName}」及其全部内容。'
+      message: '将永久删除「${_full}」及其全部内容。'
           '该操作不可撤销，也不会进入回收站。',
       confirmLabel: '永久删除',
       danger: true,
@@ -1175,8 +1196,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       _error = null;
     });
     try {
-      await widget.surface.domain.api.deleteRepo(widget.repo.fullName);
-      OgLAppLog.instance.add('设置', '已删除仓库 ${widget.repo.fullName}');
+      await widget.surface.domain.api.deleteRepo(_full);
+      OgLAppLog.instance.add('设置', '已删除仓库 ${_full}');
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -1198,22 +1219,6 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
   }
 
-  Widget _settingsTitle(String text, OgLTheme ogL, OgLTokens tokens) =>
-      Padding(
-        padding: EdgeInsets.only(
-          top: tokens.space(OgLSpacing.lg),
-          bottom: tokens.space(OgLSpacing.sm),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: tokens.fontSize(const OgLTypeScale.standard().title),
-            fontWeight: FontWeight.w600,
-            color: ogL.palette.text,
-          ),
-        ),
-      );
-
   Widget _buildSettings(OgLTheme ogL, OgLTokens tokens) {
     final scale = const OgLTypeScale.standard();
     final pagesState = _pagesC().state;
@@ -1222,84 +1227,134 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _settingsTitle('基本设置', ogL, tokens),
-        OgLTextField(
-          controller: _nameCtl,
-          label: '仓库名',
-          enabled: !_settingsBusy,
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        OgLTextField(
-          controller: _descCtl,
-          label: '描述',
-          enabled: !_settingsBusy,
-        ),
-        SwitchListTile(
-          dense: true,
-          value: _privateVal,
-          onChanged: _settingsBusy
-              ? null
-              : (bool v) => setState(() => _privateVal = v),
-          title: const Text('私有仓库'),
-        ),
-        OgLButton(
-          label: _settingsBusy ? '保存中…' : '保存基本信息',
-          leadingIcon: OgLIconName.upload,
-          loading: _settingsBusy,
-          onPressed: _saveBasic,
-        ),
-        _settingsTitle('Pages / 自定义域名', ogL, tokens),
-        if (pagesState.data == null)
-          const OgLSkeletonText(lines: 2)
-        else if (!pagesEnabled) ...<Widget>[
-          Text(
-            'Pages 未启用。',
-            style: TextStyle(
-              fontSize: tokens.fontSize(scale.body),
-              color: ogL.palette.textDim,
-            ),
+        OgLBox(
+          title: '基本设置',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              OgLTextField(
+                controller: _nameCtl,
+                label: '仓库名',
+                enabled: !_settingsBusy,
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.sm)),
+              OgLTextField(
+                controller: _descCtl,
+                label: '描述',
+                enabled: !_settingsBusy,
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.sm)),
+              OgLToggleSwitch(
+                label: '私有仓库',
+                description: '私有仓库只有你与协作者可见。',
+                value: _privateVal,
+                onChanged: _settingsBusy
+                    ? null
+                    : (bool v) => setState(() => _privateVal = v),
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.md)),
+              OgLButton(
+                label: _settingsBusy ? '保存中…' : '保存基本信息',
+                leadingIcon: OgLIconName.upload,
+                loading: _settingsBusy,
+                onPressed: _saveBasic,
+              ),
+            ],
           ),
-          SizedBox(height: tokens.space(OgLSpacing.sm)),
-          OgLButton(
-            label: '启用 Pages（分支：${widget.repo.defaultBranch}）',
-            leadingIcon: OgLIconName.workflow,
-            onPressed: _settingsBusy ? null : _enablePages,
-          ),
-        ] else ...<Widget>[
-          Text(
-            '已启用：${pages['html_url'] is String ? pages['html_url'] : '（URL 未知）'}',
-            style: TextStyle(
-              fontFamily: kOgLMonoFamily,
-              fontSize: tokens.fontSize(scale.data),
-              color: ogL.palette.text,
-            ),
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.sm)),
-          OgLButton(
-            label: '停用 Pages',
-            variant: OgLButtonVariant.danger,
-            onPressed: _settingsBusy ? null : _disablePages,
-          ),
-        ],
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        OgLTextField(
-          controller: _cnameCtl,
-          label: 'CNAME（自定义域名）',
-          hint: 'example.com',
-          enabled: !_settingsBusy,
         ),
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        OgLButton(
-          label: '保存 CNAME',
-          leadingIcon: OgLIconName.dns,
-          onPressed: _settingsBusy ? null : _saveCname,
+        SizedBox(height: tokens.space(OgLSpacing.md)),
+        OgLBox(
+          title: 'Pages / 自定义域名',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (pagesState.data == null && pagesState.message != null)
+                // 历史缺陷：Pages 读取失败时旧实现永远停在骨架上
+                // （"大面积灰色块"来源之三，而且永远不告诉用户失败了）。
+                OgLBanner(
+                  variant: OgLBannerVariant.danger,
+                  title: 'Pages 状态读取失败',
+                  text: pagesState.message!,
+                  actions: <Widget>[
+                    OgLButton(
+                      label: '重试',
+                      size: OgLButtonSize.small,
+                      onPressed: () async {
+                        await _pagesC().load();
+                      },
+                    ),
+                  ],
+                )
+              else if (pagesState.data == null)
+                const OgLSkeletonText(lines: 2)
+              else if (!pagesEnabled) ...<Widget>[
+                Text(
+                  'Pages 未启用。',
+                  style: TextStyle(
+                    fontSize: tokens.fontSize(scale.body),
+                    color: ogL.palette.textDim,
+                  ),
+                ),
+                SizedBox(height: tokens.space(OgLSpacing.sm)),
+                OgLButton(
+                  label: '启用 Pages（分支：${widget.repo.defaultBranch}）',
+                  leadingIcon: OgLIconName.workflow,
+                  onPressed: _settingsBusy ? null : _enablePages,
+                ),
+              ] else ...<Widget>[
+                Text(
+                  '已启用：${pages['html_url'] is String ? pages['html_url'] : '（URL 未知）'}',
+                  style: TextStyle(
+                    fontFamily: kOgLMonoFamily,
+                    fontSize: tokens.fontSize(scale.data),
+                    color: ogL.palette.text,
+                  ),
+                ),
+                SizedBox(height: tokens.space(OgLSpacing.sm)),
+                OgLButton(
+                  label: '停用 Pages',
+                  variant: OgLButtonVariant.danger,
+                  onPressed: _settingsBusy ? null : _disablePages,
+                ),
+              ],
+              SizedBox(height: tokens.space(OgLSpacing.md)),
+              OgLTextField(
+                controller: _cnameCtl,
+                label: 'CNAME（自定义域名）',
+                hint: 'example.com',
+                enabled: !_settingsBusy,
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.sm)),
+              OgLButton(
+                label: '保存 CNAME',
+                leadingIcon: OgLIconName.dns,
+                onPressed: _settingsBusy ? null : _saveCname,
+              ),
+            ],
+          ),
         ),
-        _settingsTitle('危险区', ogL, tokens),
-        OgLButton(
-          label: '删除仓库',
-          variant: OgLButtonVariant.danger,
-          leadingIcon: OgLIconName.delete,
-          onPressed: _settingsBusy ? null : _deleteRepo,
+        SizedBox(height: tokens.space(OgLSpacing.md)),
+        OgLBox(
+          title: '危险区',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(
+                '删除仓库不可撤销，也不会进入回收站。',
+                style: TextStyle(
+                  fontSize: tokens.fontSize(scale.body),
+                  color: ogL.palette.textDim,
+                ),
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.sm)),
+              OgLButton(
+                label: '删除仓库',
+                variant: OgLButtonVariant.danger,
+                leadingIcon: OgLIconName.delete,
+                onPressed: _settingsBusy ? null : _deleteRepo,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1310,7 +1365,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       MaterialPageRoute<void>(
         builder: (BuildContext context) => OgLIssuePage(
           surface: widget.surface,
-          fullName: widget.repo.fullName,
+          fullName: _full,
           issue: item,
         ),
       ),
@@ -1325,7 +1380,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       MaterialPageRoute<void>(
         builder: (BuildContext context) => OgLCommitPage(
           surface: widget.surface,
-          fullName: widget.repo.fullName,
+          fullName: _full,
           commit: commit,
         ),
       ),
@@ -1341,7 +1396,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       label: '动作',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
       loader: () =>
-          widget.surface.domain.api.workflowRuns(widget.repo.fullName),
+          widget.surface.domain.api.workflowRuns(_full),
     );
     controller.addListener(_onChanged);
     _acts = controller;
@@ -1353,7 +1408,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       MaterialPageRoute<void>(
         builder: (BuildContext context) => OgLPullPage(
           surface: widget.surface,
-          fullName: widget.repo.fullName,
+          fullName: _full,
           pull: item,
         ),
       ),
@@ -1374,7 +1429,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     try {
       await widget.surface.domain.api.createBranch(
-        widget.repo.fullName,
+        _full,
         name: trimmed,
         fromBranch: widget.repo.defaultBranch,
       );
@@ -1409,7 +1464,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     try {
       await widget.surface.domain.api
-          .renameBranch(widget.repo.fullName, branch.name, trimmed);
+          .renameBranch(_full, branch.name, trimmed);
       OgLAppLog.instance.add('分支', '已重命名 ${branch.name} → $trimmed');
       if (mounted) {
         setState(() => _notice = '已重命名：$trimmed');
@@ -1440,7 +1495,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     try {
       await widget.surface.domain.api
-          .deleteBranch(widget.repo.fullName, branch.name);
+          .deleteBranch(_full, branch.name);
       OgLAppLog.instance.add('分支', '已删除 ${branch.name}');
       if (mounted) {
         setState(() => _notice = '已删除分支 ${branch.name}');
@@ -1461,34 +1516,33 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildActions(OgLTheme ogL, OgLTokens tokens) {
     final state = _actsC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('动作读取失败', state.message!, () => _actsC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '没有工作流运行记录。',
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final item in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.workflow),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: '操作记录读取失败',
+      onRetry: () => _actsC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.workflow,
+      emptyTitle: '没有工作流运行记录',
+      emptyBody: '该仓库还没有跑过 Actions，或当前令牌缺少 actions 读取权限。',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final item in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.workflow),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
+              ),
+              title: GhJson.str(item, 'name'),
+              subtitle: '${GhJson.str(item, 'status')} · '
+                  '${GhJson.str(item, 'conclusion').isEmpty ? '—' : GhJson.str(item, 'conclusion')} · '
+                  '${_dateText(GhJson.date(item, 'created_at'))}',
             ),
-            title: GhJson.str(item, 'name'),
-            subtitle: '${GhJson.str(item, 'status')} · '
-                '${GhJson.str(item, 'conclusion').isEmpty ? '—' : GhJson.str(item, 'conclusion')} · '
-                '${_dateText(GhJson.date(item, 'created_at'))}',
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1497,7 +1551,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       MaterialPageRoute<bool>(
         builder: (BuildContext context) => OgLNewIssuePage(
           surface: widget.surface,
-          fullName: widget.repo.fullName,
+          fullName: _full,
         ),
       ),
     );
@@ -1510,19 +1564,36 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
     final state = _issuesC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('议题读取失败', state.message!, () => _issuesC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return Column(
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: '议题读取失败',
+      onRetry: () => _issuesC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.issue,
+      emptyTitle: '没有打开的议题',
+      emptyBody: '议题用来跟踪缺陷与任务；可以从这里直接新建一个。',
+      emptyAction: OgLButton(
+        label: '新建议题',
+        variant: OgLButtonVariant.primary,
+        leadingIcon: OgLIconName.add,
+        onPressed: _createIssue,
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Expanded(child: SizedBox.shrink()),
+              Expanded(
+                child: Text(
+                  '共 ${list.length} 个议题',
+                  style: TextStyle(
+                    fontSize:
+                        tokens.fontSize(const OgLTypeScale.standard().label),
+                    color: ogL.palette.textDim,
+                  ),
+                ),
+              ),
               OgLButton(
                 label: '新建议题',
                 variant: OgLButtonVariant.primary,
@@ -1532,117 +1603,104 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               ),
             ],
           ),
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            text: '没有打开的议题。',
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                '共 ${list.length} 个议题',
-                style: TextStyle(
-                  fontSize:
-                      tokens.fontSize(const OgLTypeScale.standard().label),
-                  color: ogL.palette.textDim,
-                ),
+          for (final item in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.issue),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
               ),
-            ),
-            OgLButton(
-              label: '新建议题',
-              variant: OgLButtonVariant.primary,
-              size: OgLButtonSize.small,
-              leadingIcon: OgLIconName.add,
-              onPressed: _createIssue,
-            ),
-          ],
-        ),
-        for (final item in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.issue),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
-            ),
-            title:
-                '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
-            subtitle: 'by ${_loginOf(item)} · '
-                '${GhJson.integer(item, 'comments')} 条评论',
-            trailing: OgLButton(
-              label: '关闭',
-              variant: OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              onPressed: () async {
-                await _closeIssue(item);
+              title:
+                  '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
+              subtitle: 'by ${_loginOf(item)} · '
+                  '${GhJson.integer(item, 'comments')} 条评论',
+              trailing: OgLButton(
+                label: '关闭',
+                variant: OgLButtonVariant.invisible,
+                size: OgLButtonSize.small,
+                onPressed: () async {
+                  await _closeIssue(item);
+                },
+              ),
+              onTap: () async {
+                await _openIssue(item);
               },
             ),
-            onTap: () async {
-              await _openIssue(item);
-            },
-          ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildPulls(OgLTheme ogL, OgLTokens tokens) {
     final state = _pullsC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('PR 读取失败', state.message!, () => _pullsC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '没有打开的拉取请求。',
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final item in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.pullRequest),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: 'PR 读取失败',
+      onRetry: () => _pullsC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.pullRequest,
+      emptyTitle: '没有打开的拉取请求',
+      emptyBody: '当有人提出变更请求时，会出现在这里。',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final item in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.pullRequest),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
+              ),
+              title:
+                  '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
+              subtitle: 'by ${_loginOf(item)} · ${GhJson.str(item, 'state')}',
+              showChevron: true,
+              onTap: () async {
+                await _openPull(item);
+              },
             ),
-            title:
-                '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
-            subtitle: 'by ${_loginOf(item)} · ${GhJson.str(item, 'state')}',
-            showChevron: true,
-            onTap: () async {
-              await _openPull(item);
-            },
-          ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildReleases(OgLTheme ogL, OgLTokens tokens) {
     final state = _releasesC().state;
     final list = state.data ?? const <GhRelease>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('发布读取失败', state.message!, () => _releasesC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return Column(
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: '发布读取失败',
+      onRetry: () => _releasesC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.release,
+      emptyTitle: '还没有发布',
+      emptyBody: '发布用于给用户一个可下载的稳定版本。',
+      emptyAction: OgLButton(
+        label: '新建发布',
+        variant: OgLButtonVariant.primary,
+        leadingIcon: OgLIconName.add,
+        onPressed: _releaseBusy ? null : _createRelease,
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Expanded(child: SizedBox.shrink()),
+              Expanded(
+                child: Text(
+                  '共 ${list.length} 个发布',
+                  style: TextStyle(
+                    fontSize:
+                        tokens.fontSize(const OgLTypeScale.standard().label),
+                    color: ogL.palette.textDim,
+                  ),
+                ),
+              ),
               OgLButton(
                 label: '新建发布',
                 variant: OgLButtonVariant.primary,
@@ -1652,79 +1710,67 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               ),
             ],
           ),
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            text: '还没有发布。',
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                '共 ${list.length} 个发布',
-                style: TextStyle(
-                  fontSize:
-                      tokens.fontSize(const OgLTypeScale.standard().label),
-                  color: ogL.palette.textDim,
-                ),
+          for (final release in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.release),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
+              ),
+              title: release.name ?? release.tagName,
+              subtitle: '${release.tagName} · '
+                  '${_dateText(release.publishedAt ?? release.createdAt)}'
+                  '${release.isPrerelease ? ' · Pre' : ''}',
+              trailing: OgLButton(
+                label: '删除',
+                variant: OgLButtonVariant.invisible,
+                size: OgLButtonSize.small,
+                onPressed: _releaseBusy
+                    ? null
+                    : () async {
+                        await _deleteRelease(release);
+                      },
               ),
             ),
-            OgLButton(
-              label: '新建发布',
-              variant: OgLButtonVariant.primary,
-              size: OgLButtonSize.small,
-              leadingIcon: OgLIconName.add,
-              onPressed: _releaseBusy ? null : _createRelease,
-            ),
-          ],
-        ),
-        for (final release in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.release),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
-            ),
-            title: release.name ?? release.tagName,
-            subtitle: '${release.tagName} · '
-                '${_dateText(release.publishedAt ?? release.createdAt)}'
-                '${release.isPrerelease ? ' · Pre' : ''}',
-            trailing: OgLButton(
-              label: '删除',
-              variant: OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              onPressed: _releaseBusy
-                  ? null
-                  : () async {
-                      await _deleteRelease(release);
-                    },
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildBranches(OgLTheme ogL, OgLTokens tokens) {
     final state = _branchesC().state;
     final list = state.data ?? const <GhBranch>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('分支读取失败', state.message!, () => _branchesC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return Column(
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: '分支读取失败',
+      onRetry: () => _branchesC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.branch,
+      emptyTitle: '没有分支',
+      emptyBody: '分支用来隔离开发中的改动；可以从默认分支创建一个。',
+      emptyAction: OgLButton(
+        label: '新建分支',
+        variant: OgLButtonVariant.primary,
+        leadingIcon: OgLIconName.add,
+        onPressed: _createBranch,
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Expanded(child: SizedBox.shrink()),
+              Expanded(
+                child: Text(
+                  '共 ${list.length} 个分支',
+                  style: TextStyle(
+                    fontSize:
+                        tokens.fontSize(const OgLTypeScale.standard().label),
+                    color: ogL.palette.textDim,
+                  ),
+                ),
+              ),
               OgLButton(
                 label: '新建分支',
                 variant: OgLButtonVariant.primary,
@@ -1734,110 +1780,80 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               ),
             ],
           ),
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            text: '没有分支。',
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                '共 ${list.length} 个分支',
-                style: TextStyle(
-                  fontSize:
-                      tokens.fontSize(const OgLTypeScale.standard().label),
-                  color: ogL.palette.textDim,
-                ),
+          for (final branch in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.branch),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
+              ),
+              title: branch.name,
+              subtitle:
+                  'sha ${_shortSha(branch.sha)}${branch.isProtected ? ' · 受保护' : ''}',
+              trailing: Wrap(
+                spacing: tokens.space(OgLSpacing.xs),
+                children: <Widget>[
+                  OgLButton(
+                    label: '重命名',
+                    variant: OgLButtonVariant.invisible,
+                    size: OgLButtonSize.small,
+                    onPressed: () async {
+                      await _renameBranch(branch);
+                    },
+                  ),
+                  OgLButton(
+                    label: '删除',
+                    variant: OgLButtonVariant.invisible,
+                    size: OgLButtonSize.small,
+                    onPressed: () async {
+                      await _deleteBranch(branch);
+                    },
+                  ),
+                ],
               ),
             ),
-            OgLButton(
-              label: '新建分支',
-              variant: OgLButtonVariant.primary,
-              size: OgLButtonSize.small,
-              leadingIcon: OgLIconName.add,
-              onPressed: _createBranch,
-            ),
-          ],
-        ),
-        for (final branch in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.branch),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
-            ),
-            title: branch.name,
-            subtitle:
-                'sha ${_shortSha(branch.sha)}${branch.isProtected ? ' · 受保护' : ''}',
-            trailing: Wrap(
-              spacing: tokens.space(OgLSpacing.xs),
-              children: <Widget>[
-                OgLButton(
-                  label: '重命名',
-                  variant: OgLButtonVariant.invisible,
-                  size: OgLButtonSize.small,
-                  onPressed: () async {
-                    await _renameBranch(branch);
-                  },
-                ),
-                OgLButton(
-                  label: '删除',
-                  variant: OgLButtonVariant.invisible,
-                  size: OgLButtonSize.small,
-                  onPressed: () async {
-                    await _deleteBranch(branch);
-                  },
-                ),
-              ],
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildCommits(OgLTheme ogL, OgLTokens tokens) {
     final state = _commitsC().state;
     final list = state.data ?? const <GhCommit>[];
-    if (state.data == null && state.message != null) {
-      return _retryBanner('提交读取失败', state.message!, () => _commitsC().load());
-    }
-    if (state.data == null) {
-      return const OgLSkeletonText(lines: 5);
-    }
-    if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '没有提交记录。',
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final commit in list)
-          OgLActionRow(
-            leading: Icon(
-              ogL.icon(OgLIconName.commit),
-              size: tokens.iconSize(base: 20),
-              color: ogL.palette.textDim,
+    return OgLStateView(
+      loading: state.data == null && state.message == null,
+      error: state.data == null ? state.message : null,
+      errorTitle: '提交读取失败',
+      onRetry: () => _commitsC().load(),
+      isEmpty: list.isEmpty,
+      emptyIcon: OgLIconName.commit,
+      emptyTitle: '没有提交记录',
+      emptyBody: '这个分支上还没有任何提交。',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final commit in list)
+            OgLActionRow(
+              showDivider: true,
+              leading: Icon(
+                ogL.icon(OgLIconName.commit),
+                size: tokens.iconSize(base: 20),
+                color: ogL.palette.textDim,
+              ),
+              title: commit.message.isEmpty
+                  ? '（无提交信息）'
+                  : commit.message.split('\n').first,
+              subtitle: '${_shortSha(commit.sha)} · '
+                  '${commit.authorLogin ?? commit.authorName ?? '未知'} · '
+                  '${_dateText(commit.date)}',
+              showChevron: true,
+              onTap: () async {
+                await _openCommit(commit);
+              },
             ),
-            title: commit.message.isEmpty
-                ? '（无提交信息）'
-                : commit.message.split('\n').first,
-            subtitle: '${_shortSha(commit.sha)} · '
-                '${commit.authorLogin ?? commit.authorName ?? '未知'} · '
-                '${_dateText(commit.date)}',
-            showChevron: true,
-            onTap: () async {
-              await _openCommit(commit);
-            },
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

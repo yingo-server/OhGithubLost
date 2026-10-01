@@ -69,10 +69,16 @@ class OgLBanner extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
       decoration: BoxDecoration(
-        color: color.withAlpha(26),
+        // Primer Banner：底色用**面板色**（surface），语义色只出现在
+        // 图标 / 边框上。旧实现用 `color.withAlpha(26)` 铺满整条，
+        // 在暗色主题下会变成一大块灰蓝色板（"大面积灰色块"来源之二）。
+        color: ogL.palette.surface,
         borderRadius:
             BorderRadius.circular(ogL.tokens.radius(OgLRadius.medium)),
-        border: Border.all(color: color.withAlpha(77), width: ogL.tokens.hairline),
+        border: Border.all(
+          color: color.withAlpha(102),
+          width: ogL.tokens.hairline,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

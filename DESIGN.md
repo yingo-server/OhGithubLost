@@ -199,6 +199,23 @@ components:
   empty-state:
     backgroundColor: "{colors.primer-dark-background}"
     textColor: "{colors.primer-dark-text-dim}"
+  blankslate:
+    backgroundColor: "{colors.primer-dark-background}"
+    textColor: "{colors.primer-dark-text-dim}"
+    rounded: "{rounded.medium}"
+  box:
+    backgroundColor: "{colors.primer-dark-surface}"
+    textColor: "{colors.primer-dark-text}"
+    rounded: "{rounded.medium}"
+  box-header:
+    backgroundColor: "{colors.primer-dark-surface-alt}"
+    textColor: "{colors.primer-dark-text}"
+  toggle-track-off:
+    backgroundColor: "{colors.primer-dark-surface-alt}"
+    rounded: "{rounded.pill}"
+  toggle-track-on:
+    backgroundColor: "{colors.primer-dark-accent}"
+    rounded: "{rounded.pill}"
 ---
 
 ## Overview

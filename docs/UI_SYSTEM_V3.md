@@ -47,6 +47,10 @@
 | 3.9 | OgLPageHeader | `lib/surface/kit/kit_page.dart` | `content/components/page-header.mdx` | ☑ 待 W4 核对 |
 | 3.10 | OgLUnderlineNav | `lib/surface/kit/kit_underline_nav.dart` | `content/components/underline-nav.mdx` | ☑ 待 W4 核对 |
 | 3.11 | OgLSegmented | `lib/surface/kit/kit_segmented.dart` | `content/components/segmented-control.mdx` | ☑ 待 W4 核对 |
+| 3.14 | OgLBlankslate（空态） | `lib/surface/kit/kit_blankslate.dart` | `content/components/blankslate.mdx` | ☑ 新增（W2） |
+| 3.15 | OgLBox（分区容器） | `lib/surface/kit/kit_box.dart` | `box.mdx` · `border-box.mdx` | ☑ 新增（W2） |
+| 3.16 | OgLStateView（三态收敛） | `lib/surface/kit/kit_state_view.dart` | —（内部纪律组件） | ☑ 新增（W2） |
+| 3.17 | OgLToggleSwitch（开关） | `lib/surface/kit/kit_toggle.dart` | `toggle-switch.mdx` | ☑ 新增（W2） |
 
 ### 3.1 OgLButton
 
@@ -63,7 +67,10 @@
 - **结构**：标签（`form-control` 语义）/ 占位 / 错误文本（`danger`）/ 聚焦强调描边（`accent`）
 - **状态**：rest（`border`）/ hover（`borderStrong`）/ focus（`accent` 描边 + `selection` 底）/ invalid（`danger` 描边 + 错误文本）/ disabled
 - **尺寸**：高 32（Primer 基准）；触摸 ≥44；密文模式用于令牌输入
-- **实现**：`lib/surface/kit/kit_text_field.dart` · **测试**：`test/surface/kit_test.dart`
+- **配色纪律（W2 修正）**：**不填充**（`filled: false`）—— Primer TextInput 是
+  `bgColor-default + borderColor-default`；旧实现的 `surfaceAlt` 填充会把每个输入框
+  变成一大块灰底大板（"大面积灰色块"来源之一）
+- **实现**：`lib/surface/kit/kit_text_field.dart` · **测试**：`test/surface/kit_test.dart` · `test/surface/kit_states_test.dart`
 
 ### 3.3 OgLConfirmDialog / OgLPromptDialog
 
@@ -77,9 +84,10 @@
 
 - **Primer 对照**：`docs/refs/prime/content/components/banner.mdx`（+ `inline-message.mdx`）
 - **变体**：`info` / `success` / `warning` / `danger`
-- **结构**：语义图标 + 标题 + 文本 + 可选操作；底色 `surface`，语义色只用在图标 / 标题 / 边框
+- **结构**：语义图标 + 标题 + 文本 + 可选操作；**底色 = `surface`**，语义色只出现在图标 / 边框
+  （旧实现用 `color.withAlpha(26)` 铺满整条，暗色下就是一大块灰蓝色板）
 - **铁律**：**错误不许无声消失** —— 关键失败必须有 Banner 或弹窗 + 应用日志双通道
-- **实现**：`lib/surface/kit/kit_banner.dart` · **测试**：`test/surface/kit_test.dart`
+- **实现**：`lib/surface/kit/kit_banner.dart` · **测试**：`test/surface/kit_test.dart` · `test/surface/kit_states_test.dart`
 
 ### 3.5 OgLLabel / OgLCounterLabel / OgLStateLabel
 
@@ -93,8 +101,8 @@
 
 - **Primer 对照**：`docs/refs/prime/content/components/action-list.mdx`（+ `nav-list.mdx`）
 - **结构**：前导（图标 / 头像）/ 主文本（`title`）/ 副文本（`textDim`）/ 尾部（计数 / 箭头）/ 选中态（`selection`）
-- **行为**：整行可点（命中区 = 整行），触摸 ≥44；hover = `surface-alt`
-- **实现**：`lib/surface/kit/kit_action_list.dart` · **测试**：`test/surface/kit_test.dart`
+- **行为**：整行可点（命中区 = 整行），触摸 ≥44；**hover / focus / press 都有反馈**（`InkWell`）
+- **实现**：`lib/surface/kit/kit_action_list.dart` · **测试**：`test/surface/kit_test.dart` · `test/surface/kit_states_test.dart`
 
 ### 3.7 OgLSpinner / OgLProgressBar
 
@@ -144,6 +152,38 @@
 - **空**：`blankslate` 形态——语义图标 + 一句话 + **下一步动作**（按钮）
 - **错**：`OgLBanner(danger)` + **可重试**按钮 + 应用日志留痕
 - **纪律**：三态一律走 Kit，不许页面自绘临时占位块
+
+### 3.14 OgLBlankslate（空态）
+
+- **Primer 对照**：`docs/refs/prime/content/components/blankslate.mdx`
+- **结构**：语义图标（`textFaint`）+ 标题（`title`）+ 一句话说明（`textDim`）+ 可选动作
+- **铁律**：**空态不许用 Banner 冒充** —— 旧实现把"这个目录是空的 / 没有打开的议题"
+  渲染成半透明色块，既是"大面积灰色块"的主要来源，也误导用户以为出错了
+- **实现**：`lib/surface/kit/kit_blankslate.dart` · **测试**：`test/surface/kit_states_test.dart`
+
+### 3.15 OgLBox（分区容器）
+
+- **Primer 对照**：`docs/refs/prime/content/components/box.mdx` · `border-box.mdx`
+- **结构**：`surface` 底 + 发丝描边（`radius = medium`）；可选头部（`surfaceAlt` 底 + 底线）
+- **用途**：设置页分区（基本设置 / Pages / 危险区）。**分组靠描边，不靠灰底**
+- **实现**：`lib/surface/kit/kit_box.dart` · **测试**：`test/surface/kit_states_test.dart`
+
+### 3.16 OgLStateView（三态收敛）
+
+- **职责**：把"载 / 空 / 错"收敛到**一处**实现，页面不再各写一套
+  - 载 = `OgLSkeletonText`（`<1s 不显示` 的细分由页面按需覆盖）
+  - 空 = `OgLBlankslate`
+  - 错 = `OgLBanner(danger)` + **重试**按钮（错误不许无声消失）
+- **纪律**：仓库页七个标签 + 目录浏览器全部改走它（W1/W2 已落地）
+- **实现**：`lib/surface/kit/kit_state_view.dart` · **测试**：`test/surface/kit_states_test.dart`
+
+### 3.17 OgLToggleSwitch（开关）
+
+- **Primer 对照**：`docs/refs/prime/content/components/toggle-switch.mdx`
+- **规格**：轨道 36×20（`pill` 圆角 + 发丝描边），选中轨道 `accent`、滑块 `onAccent`
+- **为什么不用 Material `Switch`**：水波纹 / 大尺寸 / 材质色与"发丝描边 + 直角偏锐"语言冲突
+- **可访问性**：**整行可点**（点标签也能切换），禁用态降透明度
+- **实现**：`lib/surface/kit/kit_toggle.dart` · **测试**：`test/surface/kit_states_test.dart`
 
 ## 4. 页面版图（`lib/surface/pages/`）
 

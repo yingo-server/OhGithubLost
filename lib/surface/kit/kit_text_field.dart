@@ -74,8 +74,10 @@ class OgLTextField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         isDense: true,
-        filled: true,
-        fillColor: enabled ? palette.surfaceAlt : palette.surface,
+        // Primer TextInput：**不填充**（bgColor-default + 描边）。
+        // 曾经的 `filled: true` + `surfaceAlt` 会把每个输入框画成
+        // 一块灰底大板 —— 那正是"大面积灰色块"的主要来源。
+        filled: false,
         hintText: hint,
         hintStyle: TextStyle(
           fontSize: tokens.fontSize(scale.body),
