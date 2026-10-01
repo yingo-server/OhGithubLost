@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
 import '../app/error_surface.dart';
 import '../kit/kit.dart';
