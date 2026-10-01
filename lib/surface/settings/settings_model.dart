@@ -22,7 +22,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../layout/adaptive.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
