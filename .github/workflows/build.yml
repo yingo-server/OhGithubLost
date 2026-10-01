@@ -324,7 +324,9 @@ jobs:
           --dart-define-from-file=dart_define.json
 
       - name: 网络权限护栏（Android：release 必须含 INTERNET）
-        if: matrix.build == 'android'
+        # 注意：矩阵里 Android 腿的 build 值是 apk / appbundle（不是 'android'）；
+        # 早期条件写错导致本护栏从未执行（已修正为 apk 腿逐一开包验证）。
+        if: matrix.build == 'apk'
         run: |
           for APK in build/app/outputs/flutter-apk/*.apk; do
             python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');assert 'INTERNET'.encode('utf-16-le') in d,('缺 INTERNET 权限: '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1

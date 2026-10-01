@@ -22,6 +22,8 @@
 ### 修复
 - `GhJson` 同名导入漏缺（46 处编译错误：`issue_page` / `pull_page` / `commit_page` / `gists_page` 等）。
 - 构建产物下载链路：断点续跑 + 大小校验（工具侧 `get_artifact_px.py` / `get_release.py`）。
+- CI 护栏修正：`网络权限护栏` 条件把 `matrix.build` 误写为 `'android'`（实际为 `'apk'`）
+  → 从未执行；已修正为 apk 腿逐包开验（护栏从此真正生效）。
 
 ### 验证
 - CI `efa7ed66`：13/13 平台构建成功；`c2dbd711`：一键发布 + 固定证书落地；
