@@ -5,6 +5,8 @@
 /// 重试、镜像、观测一律不在这里做——那是 [ResilientTransport] 的活。
 library;
 
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
