@@ -103,10 +103,10 @@ class DioNetTransport implements NetTransport {
 
         final resolved = await dns.resolve(uri.host);
         // IPv4 优先排序（半死 IPv6 通道场景下先走可达地址）。
-        final addresses = <InternetAddress>[
-          ...resolved.where((a) => a.type == InternetAddressType.IPv4),
-          ...resolved.where((a) => a.type != InternetAddressType.IPv4),
-        ];
+        // 说明：DnsService.resolve 返回 IP 字符串列表（含 ':' 即 IPv6）。
+        final v4List = resolved.where((ip) => !ip.contains(':')).toList();
+        final v6List = resolved.where((ip) => ip.contains(':')).toList();
+        final addresses = <String>[...v4List, ...v6List];
         Object? lastError;
         for (final address in addresses) {
           try {
