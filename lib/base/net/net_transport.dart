@@ -79,10 +79,37 @@ class ResilientTransport implements NetTransport {
 
   @override
   Future<NetResponse> send(NetRequest request) async {
+    // `original` 永远指向**未经改写的原始 URL**（直连）。
+    // 镜像是"附加的一跳"，绝不能把它当成新的基准——
+    // 否则第一次换过镜像之后，后续所有匹配都会落在镜像 URL 上而失败，
+    // 结果是"配了 3 条通道却只试了 1 条"，且**永远回不到直连**。
+    final original = request;
     var current = request;
     final triedMirrors = <String>{};
 
-    for (var attempt = 1; attempt <= _policy.maxAttempts; attempt++) {
+    /// 推进到下一跳：优先换未试过的镜像；镜像用尽则回落直连。
+    /// 返回 `true` 表示 `current` 已改变（这一跳不消耗退避）。
+    bool advanceHop() {
+      final mirror = _mirrors.mirrorFor(original.url, skip: triedMirrors);
+      if (mirror != null) {
+        triedMirrors.add(mirror.id);
+        current = original.copyWith(url: mirror.url);
+        _observer.onMirror(current, mirror.id);
+        return true;
+      }
+      if (current.url != original.url) {
+        current = original; // 通道全部不可用 → 回到直连（最后底线）。
+        return true;
+      }
+      return false;
+    }
+
+    // 重试预算只统计"**在原地**再试一次"的次数。
+    // 换通道（换镜像 / 回落直连）不消耗预算——那是"换一条路"，
+    // 不是"同一条路多试一次"。否则配 2 条通道就会把预算吃完，
+    // 直连永远轮不到（这正是审计中发现的缺陷）。
+    var attempt = 1;
+    while (attempt <= _policy.maxAttempts) {
       // 幂等守卫：非幂等方法既不重试、也不换镜像。
       final mayRetry = _retryableMethods.contains(current.method);
       _observer.onRequest(current);
@@ -93,28 +120,24 @@ class ResilientTransport implements NetTransport {
       } on NetException catch (error) {
         _observer.onFailure(current, error);
 
-        if (mayRetry) {
-          final mirror = _mirrors.mirrorFor(current.url, skip: triedMirrors);
-          if (mirror != null) {
-            triedMirrors.add(mirror.id);
-            current = current.copyWith(url: mirror.url);
-            _observer.onMirror(current, mirror.id);
-            continue;
-          }
+        if (!mayRetry) {
+          rethrow;
+        }
+        if (advanceHop()) {
+          continue;
         }
 
-        final delay = mayRetry
-            ? _policy.delayFor(
-                attempt,
-                kind: error.kind,
-                retryAfter: error.retryAfter,
-              )
-            : null;
+        final delay = _policy.delayFor(
+          attempt,
+          kind: error.kind,
+          retryAfter: error.retryAfter,
+        );
         if (delay == null) {
           rethrow;
         }
         _observer.onRetry(current, attempt, error.kind.name);
         await _sleep(delay);
+        attempt++;
         continue;
       }
 
@@ -123,6 +146,11 @@ class ResilientTransport implements NetTransport {
       // 非"可重试状态码"：属于语义性响应（含 4xx），交还调用方判断。
       if (!_policy.retryableStatuses.contains(response.statusCode)) {
         return response;
+      }
+
+      // 5xx / 429 同样先换跳（镜像也可能只是"半死"），再退避重试。
+      if (mayRetry && advanceHop()) {
+        continue;
       }
 
       final delay = mayRetry
@@ -140,12 +168,13 @@ class ResilientTransport implements NetTransport {
       }
       _observer.onRetry(current, attempt, 'HTTP ${response.statusCode}');
       await _sleep(delay);
+      attempt++;
     }
 
-    // 只有当 maxAttempts < 1（策略配置错误）才可能走到这里。
+    // 预算耗尽（或策略配置错误）——绝不允许"静默返回成功"。
     throw const NetException(
       NetErrorKind.unknown,
-      '重试策略未产出任何结果（请检查 maxAttempts 配置）',
+      '重试预算已耗尽，未取得有效响应（请检查 maxAttempts 配置）',
     );
   }
 

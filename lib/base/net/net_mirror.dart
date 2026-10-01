@@ -31,19 +31,28 @@ class MirrorChannel {
     if (!enabled) {
       return null;
     }
-    final regex = RegExp(pattern);
+    final regex = _compiled(pattern);
     if (!regex.hasMatch(url)) {
       return null;
     }
     final mirrored = url.replaceFirstMapped(regex, (match) {
       var output = replacement;
-      for (var index = 1; index <= match.groupCount; index++) {
+      // **从大到小**替换：否则 `$1` 会先命中 `$10` 的前缀，
+      // 把 `$10` 变成 `<g1>0`（经典反向引用陷阱）。
+      for (var index = match.groupCount; index >= 1; index--) {
         output = output.replaceAll('\$$index', match.group(index) ?? '');
       }
       return output;
     });
     return mirrored == url ? null : mirrored;
   }
+
+  /// 正则编译缓存：`apply` 在每次请求、每条通道上都会被调用，
+  /// 每次重新 `RegExp(pattern)` 是纯浪费（通道数量有限，缓存安全）。
+  static final Map<String, RegExp> _regexCache = <String, RegExp>{};
+
+  static RegExp _compiled(String pattern) =>
+      _regexCache.putIfAbsent(pattern, () => RegExp(pattern));
 
   /// 复制并覆盖启用状态（通道本身不可变，切换开关靠重建）。
   MirrorChannel copyWith({bool? enabled}) => MirrorChannel(

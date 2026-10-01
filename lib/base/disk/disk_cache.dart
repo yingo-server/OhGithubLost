@@ -308,6 +308,10 @@ class RepositoryCache {
       final reason = outcome.detail ?? outcome.conflict.name;
       if (outcome.ok) {
         await journal.complete(record.id);
+      } else if (outcome.conflict == WriteConflict.needsConfirmation) {
+        // D7 未确认：**必须保持 pending**。
+        // 若按"语义冲突"放弃，用户已经在队列里排好的危险操作会被静默丢掉。
+        // 正确语义是"等用户点头，再继续"。
       } else if (_isRetryable(outcome.conflict)) {
         await journal.fail(record.id, reason);
       } else {
@@ -421,6 +425,26 @@ class RepositoryCache {
         baseSha: intent.baseSha,
         threeWay: await _threeWayFor(intent, latest),
         code: 'OGL-CONS-202',
+      );
+    }
+
+    // D2′：基线存在、远端却已消失——大概率是**他人删除了它**。
+    // 这不是"可以写"的情形：带着旧 sha 去覆盖一个已不存在的目标，
+    // 轻则被服务端拒绝，重则在"删除又重建"的竞态里把新内容写歪。
+    // 必须拦下并交回用户（新建请显式传 baseSha = null）。
+    if (!intent.force && intent.baseSha != null && latest == null) {
+      return _fail(
+        intent,
+        WriteConflict.staleSha,
+        '本地基线仍在，但远端目标已不存在（可能被他人删除）：'
+            '${shortSha(intent.baseSha)}（D2）',
+        baseSha: intent.baseSha,
+        threeWay: ConflictThreeWay(
+          local: intent.content,
+          base: null,
+          remote: '',
+        ),
+        code: 'OGL-CONS-209',
       );
     }
 

@@ -81,10 +81,18 @@ class IoDiskFileStore implements DiskFileStore {
     await target.parent.create(recursive: true);
 
     // 原子写：临时文件 → flush（fsync）→ rename 替换。
-    final temp = File('${target.path}.tmp');
+    // 临时文件名必须**唯一**：固定 `<目标>.tmp` 在"同一目标被并发写"时
+    // 会互相踩（A 写完 tmp、B 覆盖 tmp、A rename 时文件已被 B 移走 → ENOENT）。
+    final temp = File(_tempNameOf(target));
     await temp.writeAsString(content, flush: true);
     await temp.rename(target.path);
   }
+
+  static int _tempSeq = 0;
+
+  /// 生成唯一临时文件名（保持 `.tmp` 后缀，便于启动清扫识别）。
+  static String _tempNameOf(File target) =>
+      '${target.path}.${DateTime.now().microsecondsSinceEpoch}-${_tempSeq++}.tmp';
 
   @override
   Future<void> delete(String path) async {

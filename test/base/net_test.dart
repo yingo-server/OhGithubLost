@@ -303,6 +303,50 @@ void main() {
       expect(inner.received.length, 1, reason: '非幂等请求只能发出一次');
     });
 
+    test('多镜像依次尝试，用尽后回落直连（换通道不吃重试预算）', () async {
+      final inner = ScriptedTransport(<Object>[
+        _status(503), // 直连失败 → 换 m1
+        _status(503), // m1 失败 → 换 m2
+        _status(503), // m2 失败 → 回落直连
+        _ok('done'), // 直连成功
+      ]);
+      final observer = NetObserver();
+      final transport = ResilientTransport(
+        inner: inner,
+        observer: observer,
+        sleep: (Duration _) async {},
+        mirrors: MirrorSelector(channels: const <MirrorChannel>[
+          MirrorChannel(
+            id: 'm1',
+            pattern: r'^https://api\.github\.com/(.*)$',
+            replacement: r'https://m1.example/$1',
+          ),
+          MirrorChannel(
+            id: 'm2',
+            pattern: r'^https://api\.github\.com/(.*)$',
+            replacement: r'https://m2.example/$1',
+          ),
+        ]),
+      );
+
+      final response = await transport.send(
+        NetRequest(url: 'https://api.github.com/user', method: NetMethod.get),
+      );
+
+      expect(response.statusCode, 200);
+      expect(
+        inner.received.map((NetRequest r) => r.url).toList(),
+        <String>[
+          'https://api.github.com/user',
+          'https://m1.example/user',
+          'https://m2.example/user',
+          'https://api.github.com/user',
+        ],
+        reason: '必须走完所有通道并**回到直连**，不能卡在第一条镜像上',
+      );
+      expect(observer.snapshot().mirrorSwitches, 2);
+    });
+
     test('GET 重试耗尽必须抛错，绝不把 503 当正常响应', () async {
       final inner = ScriptedTransport(<Object>[
         _status(503),
