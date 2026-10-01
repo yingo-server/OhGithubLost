@@ -40,6 +40,19 @@
   `icon_vector_test`（语义全覆盖 / 可解析 / **结构性拦住 `Icons.xxx`**）、`ui_component_matrix_test`（快照矩阵）。
 - 本地等价自检：`_setup/w0_selfcheck.py`（模拟测试断言；**曾抓到真实的圆角令牌漂移**）。
 
+### 修复（签名接线 · 实证驱动）
+
+- **"证书不一致"的真正根因（本轮实测发现）**：此前只把固定 keystore 铺到
+  `$HOME/.android/debug.keystore`，但 **AGP 实际并未用它签 release 包** ——
+  对两份 CI 产物做**字节级取证**（在 APK Signing Block 窗口里取证书 DER 并比对）：
+  两份构建的证书分别是 `DD:53:A9:…` 与 `AC:F7:9E:…`，**互不相同**，且都**不含**
+  仓库固定证书（`7F:55:58:68:…`）的 DER 字节。这解释了用户"每次更新都报签名不一致"。
+- **修法**：`build.yml` 增加 `重签 APK（固定证书）` 步骤 —— 构建后
+  `zipalign -p -f 4` → `apksigner sign --ks <固定 keystore>`（同时开 v1/v2 签名），
+  随后逐包跑 **`tool/verify_apk_cert.py`** 校验证书指纹，**不一致即让流水线失败**。
+- 新工具：`tool/verify_apk_cert.py`（在签名块窗口内提取证书 DER 并比对，
+  避免把应用内嵌的 CA 误当签名证书）。
+
 ### 新增（UI v3 重写与发布工程 · 随首个 Release `v0.1.0` 发布）
 - **设计系统 v3**：两主题——`primer`（GitHub Primer 官方令牌）/ `ogl.spatial`（自研）；旧三主题退役。
 - **OGL Kit**（`lib/surface/kit/`）：按钮 / 输入框 / 对话框 / 提示横幅 / 标签 / 列表行 / 加载 / 骨架 / 页头，

@@ -323,6 +323,32 @@ jobs:
           --build-number=${{ inputs.version_number }}
           --dart-define-from-file=dart_define.json
 
+      - name: 重签 APK（固定证书 · 保证可覆盖安装）
+        # 背景（实证）：Flutter 模板的 release 用 Gradle "debug" 签名配置，
+        # 而 runner 上 AGP 未必采用我们铺到 ~/.android/debug.keystore 的那把 ——
+        # 两个构建的证书互不相同（DD:53:… vs AC:F7:…），覆盖安装仍然报
+        # "签名不一致"。所以这里在构建后**显式重签**：
+        #   zipalign → apksigner sign（仓库固定 keystore）→ 逐包校验指纹。
+        if: matrix.build == 'apk'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          KS="$HOME/.android/debug.keystore"
+          echo "build-tools: $BT"
+          shopt -s nullglob
+          for APK in build/app/outputs/flutter-apk/*.apk; do
+            echo "== 重签 $APK"
+            "$BT/zipalign" -p -f 4 "$APK" "$APK.aligned"
+            "$BT/apksigner" sign \
+              --ks "$KS" --ks-pass pass:android --key-pass pass:android \
+              --v1-signing-enabled true --v2-signing-enabled true \
+              --out "$APK.signed" "$APK.aligned"
+            mv "$APK.signed" "$APK"
+            rm -f "$APK.aligned"
+            python3 tool/verify_apk_cert.py --apk "$APK" --keystore "$KS"
+          done
+
       - name: 网络权限护栏（Android：release 必须含 INTERNET）
         # 注意：矩阵里 Android 腿的 build 值是 apk / appbundle（不是 'android'）；
         # 早期条件写错导致本护栏从未执行（已修正为 apk 腿逐一开包验证）。
