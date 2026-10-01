@@ -17,12 +17,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../kit/kit.dart';
 import '../layout/adaptive.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 
-import '../kit/kit.dart';
 /// 一页的静态描述。
 class OgLPageSpec {
   /// 创建页描述。

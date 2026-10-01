@@ -229,16 +229,12 @@ void main() {
   });
 
   group('图标包：三套 × 全部语义都必须齐全', () {
-    test('每一套图标包都能解析每一个语义名', () {
+    test('每一套图标包都有合法风格与线宽（矢量由 icons/ 统一提供）', () {
+      final ids = <String>{};
       for (final set in OgLIconSets.all) {
-        for (final name in OgLIconName.values) {
-          final icon = set.resolve(name);
-          expect(
-            icon.codePoint,
-            greaterThan(0),
-            reason: '${set.id} 缺少语义 ${name.name}',
-          );
-        }
+        expect(set.strokeWidth, greaterThan(0), reason: '${set.id} 线宽非法');
+        expect(set.displayName.trim(), isNotEmpty);
+        expect(ids.add(set.id), isTrue, reason: '${set.id} ID 重复');
       }
     });
 

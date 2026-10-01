@@ -21,7 +21,7 @@ class OgLIcon extends StatelessWidget {
   /// 创建图标。
   const OgLIcon({
     required this.name,
-    this.size = 20,
+    this.size,
     this.color,
     this.strokeWidth,
     super.key,
@@ -30,8 +30,8 @@ class OgLIcon extends StatelessWidget {
   /// 语义名（界面唯一允许的图标引用方式）。
   final OgLIconName name;
 
-  /// 边长（正方形）。
-  final double size;
+  /// 边长（正方形；缺省 20，也允许直接喂 `textTheme.x?.fontSize`）。
+  final double? size;
 
   /// 颜色（默认取 `palette.text`）。
   final Color? color;
@@ -44,15 +44,16 @@ class OgLIcon extends StatelessWidget {
     final ogL = OgLTheme.of(context);
     final double design = strokeWidth ?? ogL.iconStroke;
     final bool solid = ogL.iconStyle == OgLIconStyle.solid;
+    final double side = size ?? 20;
 
     return SizedBox(
-      width: size,
-      height: size,
+      width: side,
+      height: side,
       child: CustomPaint(
         painter: _OgLIconPainter(
           name: name,
           color: color ?? ogL.palette.text,
-          strokeWidth: design * size / 24,
+          strokeWidth: design * side / 24,
           fill: solid,
         ),
       ),

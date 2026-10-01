@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import '../../domain/gh/gh_auth.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
+import '../kit/kit.dart';
 import '../layout/adaptive.dart';
 import '../settings/settings_model.dart';
 import '../surface_bridge.dart';
@@ -29,7 +30,6 @@ import 'client_shell.dart';
 import 'error_surface.dart';
 import 'repos_page.dart';
 
-import '../kit/kit.dart';
 /// 设置页：DNS 服务器展示名（与 base 层内置表一一对应）。
 const Map<String, String> _dnsChoiceLabels = <String, String>{
   'alidns': '阿里 AliDNS · 223.5.5.5',

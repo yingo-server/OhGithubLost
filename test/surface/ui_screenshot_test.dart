@@ -15,12 +15,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/app/shell.dart';
+import 'package:ohgithublost/surface/kit/kit.dart';
 import 'package:ohgithublost/surface/layout/adaptive.dart';
 import 'package:ohgithublost/surface/theme/design_tokens.dart';
 import 'package:ohgithublost/surface/theme/icon_pack.dart';
 import 'package:ohgithublost/surface/theme/theme_pack.dart';
 
-import 'package:ohgithublost/surface/kit/kit.dart';
 const Map<String, Size> _forms = <String, Size>{
   'phone': Size(390, 844),
   'phone_land': Size(844, 390),

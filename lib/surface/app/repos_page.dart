@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_auth.dart';
 import '../../domain/gh/gh_models.dart';
+import '../kit/kit.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -26,7 +27,6 @@ import '../theme/theme_pack.dart';
 import 'async_state.dart';
 import 'error_surface.dart';
 
-import '../kit/kit.dart';
 /// 仓库页（含令牌接入向导）。
 class OgLReposPage extends StatefulWidget {
   /// 创建页面。

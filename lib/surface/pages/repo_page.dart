@@ -717,11 +717,9 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                   title: entry.path.split('/').last,
                   subtitle: entry.isDirectory ? '目录' : _sizeText(entry.size),
                   leading: OgLIcon(
-                    name: 
-                      entry.isDirectory
-                          ? OgLIconName.folder
-                          : OgLIconName.file,
-                    ,
+                  name: entry.isDirectory
+                      ? OgLIconName.folder
+                      : OgLIconName.file,
                     size: tokens.iconSize(base: 20),
                     color: entry.isDirectory
                         ? ogL.palette.accent
