@@ -228,7 +228,7 @@ class GhApi implements CacheRemote {
           )
           .sha;
     }
-    if (sha == null || sha.isEmpty) {
+    if (sha.isEmpty) {
       throw GhAuthException('无法确定分支 $name 的起点');
     }
     await client.send(GhRequest(

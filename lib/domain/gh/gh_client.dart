@@ -322,7 +322,7 @@ class GhClient {
     final known = _lastRateLimit;
     if (known != null && known.isExhausted && known.untilReset > Duration.zero) {
       throw GhRateLimitException(
-        '额度已耗尽，将在 ${known.untilReset.inMinutes} 分钟后恢复',
+        message: '额度已耗尽，将在 ${known.untilReset.inMinutes} 分钟后恢复',
         resetAt: known.resetAt,
       );
     }
@@ -335,7 +335,7 @@ class GhClient {
         'x-github-api-version': '2022-11-28',
         if (token != null) 'authorization': 'Bearer ${token.value}',
       };
-      final response = await _net.send(NetRequest(
+      final netResponse = await _net.send(NetRequest(
         method: request.method,
         url: request.toUrl(baseUrl),
         headers: headers,
@@ -344,10 +344,16 @@ class GhClient {
         label: request.label ?? '${request.method.verb} ${request.path}',
       ));
 
-      final rateLimit = GhRateLimit.fromHeaders(response.headers);
+      final rateLimit = GhRateLimit.fromHeaders(netResponse.headers);
       if (rateLimit != null) {
         _lastRateLimit = rateLimit;
       }
+      final response = GhResponse(
+        statusCode: netResponse.statusCode,
+        body: netResponse.body,
+        headers: netResponse.headers,
+        rateLimit: rateLimit,
+      );
       _diagnostics?.debug(
         'GH',
         '${request.method.verb} ${request.path} → ${response.statusCode}',
@@ -357,12 +363,7 @@ class GhClient {
       );
 
       _throwIfFailed(response, request);
-      return GhResponse(
-        statusCode: response.statusCode,
-        body: response.body,
-        headers: response.headers,
-        rateLimit: rateLimit,
-      );
+      return response;
     } finally {
       _semaphore.release();
     }
@@ -445,14 +446,14 @@ class GhClient {
         final remaining = response.rateLimit?.remaining;
         if (remaining != null && remaining <= 0) {
           throw GhRateLimitException(
-            '额度耗尽',
+            message: '额度耗尽',
             resetAt: response.rateLimit?.resetAt,
           );
         }
         // 403 且额度充足 = 多半是 Secondary Rate Limit。
         if (retryAfter != null) {
           throw GhRateLimitException(
-            '触发次要限流，建议退避后重试',
+            message: '触发次要限流，建议退避后重试',
             retryAfter: retryAfter,
             secondary: true,
           );
