@@ -245,15 +245,16 @@ class OgLThemePack {
 
 /// 内置主题包与解析。
 abstract final class OgLThemePacks {
-  /// 全部内置包（顺序即设置页展示顺序）。
+  /// 全部内置包（顺序即设置页展示顺序；Spatial 为默认，置于首位）。
   static List<OgLThemePack> get all => <OgLThemePack>[
+        spatial,
         vscode,
         winui3,
         material3,
       ];
 
-  /// 默认包：**Material Design 3**（产品决策：全局以 MD3 为基准风格）。
-  static OgLThemePack get fallback => material3; // 产品决策：MD3 为全局默认风格（极客 / WinUI3 保留为可选）
+  /// 默认包：**Spatial（自研）**（MD3 为官方次选；规格见 `docs/UI_SYSTEM_V2.md`）。
+  static OgLThemePack get fallback => spatial; // 产品决策：自研 Spatial 为默认风格
 
   /// 按 ID 解析；未知 ID 回落默认（设置里的脏值不该让界面崩）。
   static OgLThemePack byId(String? id) {
@@ -358,6 +359,57 @@ abstract final class OgLThemePacks {
       info: Color(0xFF005FB8),
       selection: Color(0x33005FB8),
       codeBackground: Color(0xFFF6F6F6),
+      shadow: Color(0xFF000000),
+    ),
+  );
+
+  /// Spatial（自研默认风格）：深空底 + 发丝描边 + 单一强调色。
+  ///
+  /// 规格见 `docs/UI_SYSTEM_V2.md`：通用性第一、性能第二、大气简洁。
+  /// 层次模型 = 纯描边（不靠阴影）；明暗双模均提供完整调色板。
+  static const OgLThemePack spatial = OgLThemePack(
+    id: 'ogl.spatial',
+    name: 'Spatial（默认）',
+    description: '自研风格：大留白、发丝描边、单一强调色；通用性优先',
+    iconSetId: 'material.outlined',
+    defaultRadius: OgLRadius.lg,
+    elevation: OgLElevationModel.outlined,
+    paletteDark: OgLPalette(
+      background: Color(0xFF0B0E13),
+      surface: Color(0xFF12161D),
+      surfaceAlt: Color(0xFF181E27),
+      border: Color(0xFF2A3442),
+      borderStrong: Color(0xFF3D4A5C),
+      text: Color(0xFFE8ECF2),
+      textDim: Color(0xFF9AA6B5),
+      textFaint: Color(0xFF5C6B7E),
+      accent: Color(0xFF4C8DFF),
+      onAccent: Color(0xFFFFFFFF),
+      danger: Color(0xFFF2555A),
+      warning: Color(0xFFE5A50A),
+      success: Color(0xFF4CC38A),
+      info: Color(0xFF4C8DFF),
+      selection: Color(0x334C8DFF),
+      codeBackground: Color(0xFF10151C),
+      shadow: Color(0xFF000000),
+    ),
+    paletteLight: OgLPalette(
+      background: Color(0xFFF7F8FA),
+      surface: Color(0xFFFFFFFF),
+      surfaceAlt: Color(0xFFF0F2F5),
+      border: Color(0xFFD8DDE5),
+      borderStrong: Color(0xFFC3CAD4),
+      text: Color(0xFF1A1F26),
+      textDim: Color(0xFF5A6572),
+      textFaint: Color(0xFF8A94A3),
+      accent: Color(0xFF2F6FEB),
+      onAccent: Color(0xFFFFFFFF),
+      danger: Color(0xFFD03036),
+      warning: Color(0xFFB07A00),
+      success: Color(0xFF1F9D61),
+      info: Color(0xFF2F6FEB),
+      selection: Color(0x332F6FEB),
+      codeBackground: Color(0xFFF3F5F8),
       shadow: Color(0xFF000000),
     ),
   );

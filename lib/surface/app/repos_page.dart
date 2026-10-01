@@ -571,7 +571,7 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       if (!mounted) {
         return;
       }
-      setState(() => _error = '验证失败：$error');
+      setState(() => _error = _describeLoginFailure(error));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -652,6 +652,26 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       ),
     );
   }
+}
+
+/// 把登录失败翻译成"人话"。
+///
+/// 覆盖三类最常见失败：网络不可达、令牌无效、被限流。
+/// （release 构建若缺平台网络权限，表现正是"网络不可达"。）
+String _describeLoginFailure(Object error) {
+  final text = error.toString();
+  if (text.contains('SocketException') ||
+      text.contains('Connection') ||
+      text.contains('connection')) {
+    return '网络不可达：请检查网络连接后重试。';
+  }
+  if (text.contains('401') || text.contains('Unauthorized')) {
+    return '令牌无效或已过期：请到 GitHub 重新生成 PAT 后重试。';
+  }
+  if (text.contains('403') || text.contains('rate limit')) {
+    return '被 GitHub 限流：请稍后再试。';
+  }
+  return '验证失败：$text';
 }
 
 /// 相对时间（今天 / N 天前 / 日期）。
