@@ -45,7 +45,7 @@ abstract final class OgLVectorIconData {
     OgLIconName.tag: 'M4 4 H11 L20 13 L13 20 L4 11 Z M8 8 H9 V9 H8 Z',
     OgLIconName.fork:
         'M7 4 V19 M7 12 H16 V5 M5.5 2.5 H8.5 V5.5 H5.5 Z M14.5 3.5 H17.5 V6.5 H14.5 Z M14.5 16.5 H17.5 V19.5 H14.5 Z',
-    OgLIconName.history: 'M9 4 H15 L20 9 V15 L15 20 H9 L4 15 V9 Z M12 8 V12 L15 14',
+    OgLIconName.history: 'M5 4 V20 M9 8 H20 M9 13 H18 M9 18 H15',
     OgLIconName.workflow: 'M5 4 H19 V20 H5 Z M9 10 H15 M9 14 H13',
     // ── 操作 ──────────────────────────────────────────────────────
     OgLIconName.search: 'M9.5 4 H14.5 L19 8.5 V13.5 L14.5 18 H9.5 L5 13.5 V8.5 Z M15.5 15.5 L21 21',
