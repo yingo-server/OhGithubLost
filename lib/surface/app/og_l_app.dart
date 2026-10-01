@@ -25,6 +25,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'client_shell.dart';
 import 'error_surface.dart';
 import 'repos_page.dart';
 
@@ -75,7 +76,7 @@ class OgLApp extends StatelessWidget {
                 query: query,
                 systemBrightness: query.platformBrightness,
               ),
-              home: OgLShell(surface: surface, report: report),
+              home: OgLClientShell(surface: surface, report: report),
             );
           },
         ),
@@ -856,4 +857,28 @@ class _ChoiceRow<T> extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// 设置页（公开视图，供新主壳复用）。
+class OgLSettingsView extends StatelessWidget {
+  /// 创建设置视图。
+  const OgLSettingsView({required this.surface, super.key});
+
+  /// 表面桥。
+  final SurfaceBridge surface;
+
+  @override
+  Widget build(BuildContext context) => _SettingsPage(surface: surface);
+}
+
+/// 关于页（公开视图，供新主壳复用）。
+class OgLAboutView extends StatelessWidget {
+  /// 创建关于视图。
+  const OgLAboutView({required this.report, super.key});
+
+  /// 启动报告。
+  final KernelReport report;
+
+  @override
+  Widget build(BuildContext context) => _AboutPage(report: report);
 }
