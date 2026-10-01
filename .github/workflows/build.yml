@@ -242,6 +242,19 @@ jobs:
       - name: 重新获取依赖（补齐插件注册）
         run: flutter pub get
 
+      # ★ 固定 Android 签名证书（可覆盖安装）。
+      # Flutter 模板默认用构建机随机生成的 debug keystore 签 release 包 ——
+      # 每台 runner 的证书都不同，导致新版 APK 无法覆盖安装旧版
+      # （系统报"应用签名不一致"）。这里把仓库内置的固定 keystore 铺到
+      # 标准位置（$HOME/.android/debug.keystore），所有构建同一证书。
+      - name: 固定 Android 签名证书（可覆盖安装）
+        if: matrix.build == 'apk' || matrix.build == 'appbundle'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          base64 -d .github/signing/ogl-debug.keystore.b64 > "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android | tail -3
+
       - name: 构建 ${{ matrix.label }}
         # 非 dispatch / 非 Android 目标：按 pubspec 默认版本构建。
         if: github.event_name != 'workflow_dispatch' || (matrix.build != 'apk' && matrix.build != 'appbundle')
