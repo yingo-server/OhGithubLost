@@ -68,14 +68,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # 资产目录（M1 阶段填充内容；目录缺失会导致构建失败，故先行占位）
-  assets:
-    - assets/boot/                 # 引导清单（CI 构建时生成 manifest.json）
-    - assets/theme_packs/          # 内置主题包（JSON）
-    - assets/mods/                 # 内置示例 Mod（JSON）
-
-  # 字体：设计系统阶段启用（等宽/Fira 等），当前使用系统字体
-  # fonts:
-  #   - family: OgLMono
-  #     fonts:
-  #       - asset: assets/fonts/OgLMono-Regular.ttf
+  # ── 零外部资源 ────────────────────────────────────────────────────────
+  # 本仓库**不声明任何 assets / fonts**，原因有二：
+  # 1. 产品要求：不引入外部资源文件（GitHub 交互除外）。
+  #    图标用 Flutter 自带字形、主题包与 Mod 示例都在代码里、
+  #    引导清单在启动时**由代码生成**（见 lib/main.dart）；
+  # 2. 工程要求：声明一个不存在的资源目录会让 `flutter build` **直接失败**
+  #    （这里曾经声明过 assets/boot 等三个占位目录）。
+  #
+  # 若将来确需引入字体（例如 Font Awesome），正确做法见
+  # docs/SURFACE.md：自带 ttf + 手写 IconData 表（只实例化、不继承）。

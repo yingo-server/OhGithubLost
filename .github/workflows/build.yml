@@ -1,0 +1,135 @@
+# ============================================================================
+# OGL · 五平台全架构构建（Release）
+#
+# 设计要点：
+# 1. **全架构**：每个平台按"能构建的每一种架构"各出一件产物；
+# 2. **零外部资源**：仓库不含 assets，故这里无需任何"下载字体/图标/清单"的步骤；
+# 3. **必过项与尽力项分开**：稳定目标失败即红；预览期 runner / 实验性架构
+#    标记 best_effort（continue-on-error），红了不阻塞主线但日志可见；
+# 4. 产物按"平台·架构"分别上传，用户直接下自己那一份。
+# ============================================================================
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.best_effort == true }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Android · arm64-v8a
+            os: ubuntu-latest
+            build: apk
+            args: --release --split-per-abi --target-platform android-arm64
+            artifact: build/app/outputs/flutter-apk/*arm64-v8a*.apk
+          - label: Android · armeabi-v7a
+            os: ubuntu-latest
+            build: apk
+            args: --release --split-per-abi --target-platform android-arm
+            artifact: build/app/outputs/flutter-apk/*armeabi-v7a*.apk
+          - label: Android · x86_64
+            os: ubuntu-latest
+            build: apk
+            args: --release --split-per-abi --target-platform android-x64
+            artifact: build/app/outputs/flutter-apk/*x86_64*.apk
+          - label: Android · universal-APK
+            os: ubuntu-latest
+            build: apk
+            args: --release
+            artifact: build/app/outputs/flutter-apk/app-release.apk
+          - label: Android · AAB
+            os: ubuntu-latest
+            build: appbundle
+            args: --release
+            artifact: build/app/outputs/bundle/release/*.aab
+          - label: Windows · x64
+            os: windows-latest
+            build: windows
+            args: --release
+            artifact: build/windows/x64/runner/Release/**
+          - label: Windows · arm64-best-effort
+            os: windows-latest
+            build: windows
+            args: --release --target-platform windows-arm64
+            artifact: build/windows/arm64/runner/Release/**
+            best_effort: true
+          - label: Linux · x64
+            os: ubuntu-latest
+            build: linux
+            args: --release
+            artifact: build/linux/x64/release/bundle/**
+          - label: Linux · arm64-best-effort
+            os: ubuntu-24.04-arm
+            build: linux
+            args: --release
+            artifact: build/linux/arm64/release/bundle/**
+            best_effort: true
+          - label: macOS · arm64
+            os: macos-14
+            build: macos
+            args: --release
+            artifact: build/macos/Build/Products/Release/*.app/**
+          - label: macOS · x64
+            os: macos-13
+            build: macos
+            args: --release
+            artifact: build/macos/Build/Products/Release/*.app/**
+          - label: iOS · device-arm64
+            os: macos-14
+            build: ios
+            args: --release --no-codesign
+            artifact: build/ios/iphoneos/Runner.app/**
+          - label: iOS · simulator
+            os: macos-14
+            build: ios
+            args: --no-codesign --simulator
+            artifact: build/ios/iphonesimulator/Runner.app/**
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 环境信息
+        run: flutter --version
+
+      - name: 获取依赖
+        run: flutter pub get
+
+      - name: 安装 Linux 桌面依赖
+        if: matrix.build == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
+
+      - name: 构建 ${{ matrix.label }}
+        run: flutter build ${{ matrix.build }} ${{ matrix.args }}
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: warn
+          retention-days: 14

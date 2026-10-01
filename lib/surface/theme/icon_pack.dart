@@ -22,9 +22,10 @@
 /// 原因是该包整体建立在 `extends IconData` 之上，而新版 Flutter 把 `IconData`
 /// 收成了 `final class`。**换版本也救不了**（历代版本都 extends）。
 ///
-/// 因此内置三套改为纯 Material 字形（零外部依赖、零崩溃风险）。
+/// 因此内置三套改为纯 Material 字形（**零外部资源**、零崩溃风险）。
 /// 将来若要真正引入 Font Awesome，正确做法是：
-/// 1. 把 `FontAwesome-Solid.ttf` 放进 `assets/fonts/` 并在 `pubspec.yaml` 声明；
+/// 1. 把 ttf 放进 `fonts/` 并在 `pubspec.yaml` 声明（**会引入外部资源**，
+///    与当前"零外部资源"的产品约束冲突，需先取得用户同意）；
 /// 2. **手写**一张 `OgLIconName → IconData(codePoint, fontFamily: 'FontAwesomeSolid')`
 ///    的表 —— 只**实例化** IconData，不继承它，于是不受 `final class` 限制。
 library;
