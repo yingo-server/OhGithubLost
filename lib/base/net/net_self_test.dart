@@ -88,6 +88,47 @@ class NetSelfTest {
         );
       }
     }
+    // ── 追加：两条"原生栈"探针（定位故障层：TLS？HttpClient？）──
+    final ipv4s =
+        v4.addrs.where((a) => a.type == InternetAddressType.IPv4).toList();
+    if (ipv4s.isNotEmpty) {
+      final addr = ipv4s.first;
+      final swT = Stopwatch()..start();
+      try {
+        final raw = await Socket.connect(addr, port, timeout: timeout);
+        final tls = await SecureSocket.secure(raw, host: host).timeout(timeout);
+        tls.write(
+          'GET /zen HTTP/1.1\r\nHost: $host\r\n'
+          'User-Agent: ogl-selftest\r\n'
+          'accept: application/vnd.github+json\r\n'
+          'x-github-api-version: 2022-11-28\r\n'
+          'Connection: close\r\n\r\n',
+        );
+        final first = await tls.first.timeout(timeout);
+        swT.stop();
+        final line1 = String.fromCharCodes(first).split('\r\n').first;
+        lines.add('TLS(原生): $line1 · ${swT.elapsedMilliseconds}ms');
+        await tls.close();
+      } on Object catch (error) {
+        swT.stop();
+        lines.add('TLS(原生): 失败 ${swT.elapsedMilliseconds}ms → $error');
+      }
+      final swH = Stopwatch()..start();
+      try {
+        final hc = HttpClient()..connectionTimeout = timeout;
+        final req =
+            await hc.getUrl(Uri.parse('https://$host/zen')).timeout(timeout);
+        final resp = await req.close().timeout(timeout);
+        swH.stop();
+        lines.add(
+          'HTTP(dart原生): ${resp.statusCode} · ${swH.elapsedMilliseconds}ms',
+        );
+        hc.close(force: true);
+      } on Object catch (error) {
+        swH.stop();
+        lines.add('HTTP(dart原生): 失败 ${swH.elapsedMilliseconds}ms → $error');
+      }
+    }
     return lines.join(' | ');
   }
 }
