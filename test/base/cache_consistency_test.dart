@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/base/disk/disk_cache.dart';
 import 'package:ohgithublost/base/disk/disk_store.dart';
 import 'package:ohgithublost/base/disk/disk_types.dart';
+import 'package:ohgithublost/base/net/net_types.dart';
 import 'package:ohgithublost/kernel/diagnostics.dart';
 
 /// 内存远端：可注入冲突、并发探针与"回读损坏"。
@@ -30,6 +31,9 @@ class FakeCacheRemote implements CacheRemote {
 
   /// 写入后把远端内容改成别的版本（用于验证 D5 回读校验）。
   bool corruptReadback = false;
+
+  /// 写入时抛出的异常（模拟网络 / 磁盘故障）。
+  Object? writeError;
 
   /// 排期若干次冲突。
   void simulateConflict(int times) => _forcedConflicts = times;
@@ -57,6 +61,11 @@ class FakeCacheRemote implements CacheRemote {
       // 让出事件循环：给"并发写"留出交错的机会。
       await Future<void>.delayed(Duration.zero);
       writeCount++;
+
+      final failure = writeError;
+      if (failure != null) {
+        throw failure;
+      }
 
       final current = store[key.encode()];
       if (_forcedConflicts > 0) {
@@ -423,6 +432,184 @@ void main() {
     test('未绑定远端时读写必须显式失败（禁止静默丢数据）', () async {
       final unbound = RepositoryCache(diagnostics: diagnostics);
       await expectLater(unbound.read(_keyA), throwsA(isA<StateError>()));
+    });
+  });
+
+  // ─────────────── 以下是针对自审发现的缺陷所加的回归测试 ───────────────
+
+  group('D7 扩展：强制覆盖与危险操作同等对待', () {
+    test('force 未确认 → 拒绝，且不发出任何写请求', () async {
+      remote.seed(_keyA, 'remote-v1', 'sha-v1');
+      final outcome = await cache.write(
+        const WriteIntent(
+          key: _keyA,
+          content: 'mine',
+          message: 'force',
+          force: true,
+        ),
+      );
+      expect(outcome.ok, isFalse);
+      expect(outcome.conflict, WriteConflict.needsConfirmation);
+      expect(outcome.detail, contains('强制覆盖'));
+      expect(remote.writeCount, 0, reason: '拒绝必须发生在触碰远端之前');
+    });
+
+    test('force 已确认 → 放行，且仍以"刚读到的远端版本"为期望值', () async {
+      remote.seed(_keyA, 'remote-v1', 'sha-v1');
+      final outcome = await cache.write(
+        const WriteIntent(
+          key: _keyA,
+          content: 'mine',
+          message: 'force',
+          force: true,
+        ),
+        confirmed: true,
+      );
+      expect(outcome.ok, isTrue);
+      expect(remote.store[_keyA.encode()]?.content, 'mine');
+    });
+  });
+
+  group('异常必须转成结果（绝不外抛）', () {
+    test('写入期网络异常 → WriteOutcome.failure，而非抛出异常', () async {
+      remote.seed(_keyA, 'remote-v1', 'sha-v1');
+      remote.writeError =
+          const NetException(NetErrorKind.connection, '断网');
+
+      final outcome = await cache.write(
+        const WriteIntent(
+          key: _keyA,
+          content: 'mine',
+          message: 't',
+          baseSha: 'sha-v1',
+        ),
+      );
+
+      expect(outcome.ok, isFalse);
+      expect(outcome.conflict, WriteConflict.server);
+      expect(outcome.detail, contains('写入异常终止'));
+      expect(
+        diagnostics.logTail.any((entry) => entry.code == 'OGL-CONS-206'),
+        isTrue,
+      );
+    });
+
+    test('远端未绑定 → 写入返回失败结果（而非 StateError 穿透）', () async {
+      final unbound = RepositoryCache(diagnostics: diagnostics);
+      final outcome = await unbound.write(
+        const WriteIntent(key: _keyA, content: 'x', message: 't', baseSha: 's'),
+      );
+      expect(outcome.ok, isFalse);
+      expect(outcome.conflict, WriteConflict.server);
+    });
+  });
+
+  group('本地内容完整性（撕裂写防护）', () {
+    test('内容被篡改 → 丢弃并回源，绝不把坏内容交给上层', () async {
+      final blobs = InMemoryFileStore();
+      final isolated = RepositoryCache(
+        remote: remote,
+        index: InMemoryKv(),
+        blobs: blobs,
+        diagnostics: diagnostics,
+      );
+      remote.seed(_keyA, 'clean-content', 'sha-1');
+      await isolated.read(_keyA);
+
+      final path = blobs.snapshot.keys.first;
+      await blobs.writeText(path, 'TAMPERED');
+
+      final again = await isolated.read(_keyA);
+      expect(again?.content, 'clean-content', reason: '必须回源取干净内容');
+      expect(
+        diagnostics.logTail.any((entry) => entry.code == 'OGL-CONS-208'),
+        isTrue,
+      );
+    });
+
+    test('长度被截断 → 判定损坏', () async {
+      final blobs = InMemoryFileStore();
+      final isolated = RepositoryCache(
+        remote: remote,
+        index: InMemoryKv(),
+        blobs: blobs,
+        diagnostics: diagnostics,
+      );
+      remote.seed(_keyA, 'abcdefghij', 'sha-1');
+      await isolated.read(_keyA);
+      final path = blobs.snapshot.keys.first;
+      await blobs.writeText(path, 'abc'); // 截断，但哈希前缀不同
+
+      final again = await isolated.read(_keyA);
+      expect(again?.content, 'abcdefghij');
+    });
+  });
+
+  group('键校验（安全边界）', () {
+    test('绝对路径 / 穿越 / 反斜杠 / 空路径一律拒绝', () async {
+      for (final bad in <String>['/etc/passwd', '../escape', r'a\b', '']) {
+        await expectLater(
+          cache.read(CacheKey(scope: _scopeA, path: bad)),
+          throwsA(isA<CacheKeyException>()),
+          reason: '路径 $bad 必须被拒绝',
+        );
+      }
+    });
+
+    test('作用域含分隔符 → 拒绝（防止作用域漂移）', () {
+      const drifting = CacheScope(
+        schemaVersion: 1,
+        accountId: 'a|b',
+        repo: 'r',
+        branch: 'main',
+      );
+      expect(drifting.isWellFormed, isFalse);
+      expect(CacheScope.parse(drifting.encode()), isNull);
+    });
+  });
+
+  group('有界缓存（TTL / 淘汰 / 清空）', () {
+    test('TTL 过期 → 回源取新版本', () async {
+      final ttlCache = RepositoryCache(
+        remote: remote,
+        index: InMemoryKv(),
+        blobs: InMemoryFileStore(),
+        diagnostics: diagnostics,
+        defaultMaxAge: const Duration(milliseconds: 1),
+      );
+      remote.seed(_keyA, 'v1', 'sha-1');
+      expect((await ttlCache.read(_keyA))?.content, 'v1');
+
+      remote.seed(_keyA, 'v2', 'sha-2');
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      expect((await ttlCache.read(_keyA))?.content, 'v2');
+    });
+
+    test('prune 按条目上限淘汰最旧者', () async {
+      final keys = <CacheKey>[
+        for (final name in <String>['a.txt', 'b.txt', 'c.txt'])
+          CacheKey(scope: _scopeA, path: name),
+      ];
+      for (var index = 0; index < keys.length; index++) {
+        remote.seed(keys[index], 'content-$index', 'sha-$index');
+        await cache.read(keys[index]);
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+      }
+      expect(await cache.localCount(), 3);
+
+      final removed = await cache.prune(maxEntries: 2);
+      expect(removed, 1);
+      expect(await cache.localCount(), 2);
+    });
+
+    test('purge 清空全部本地缓存', () async {
+      remote.seed(_keyA, 'c', 'sha-c');
+      await cache.read(_keyA);
+      expect(await cache.localCount(), 1);
+
+      expect(await cache.purge(), 1);
+      expect(await cache.localCount(), 0);
     });
   });
 }

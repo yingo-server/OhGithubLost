@@ -78,6 +78,7 @@ class NetException implements Exception {
     this.statusCode,
     this.cause,
     this.retryAfter,
+    this.body,
   });
 
   /// 错误类别。
@@ -94,6 +95,9 @@ class NetException implements Exception {
 
   /// 服务端要求的等待时长（`Retry-After`）。
   final Duration? retryAfter;
+
+  /// 响应体片段（**仅在重试耗尽抛错时**携带，便于上层读取服务端错误说明）。
+  final String? body;
 
   @override
   String toString() {

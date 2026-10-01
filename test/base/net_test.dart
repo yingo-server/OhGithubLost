@@ -281,4 +281,96 @@ void main() {
       expect(observer.snapshot().requests, 0);
     });
   });
+
+  group('安全铁律（幂等与显式失败）', () {
+    test('POST 绝不自动重试（防重复创建），且失败必须显式抛出', () async {
+      final inner = ScriptedTransport(<Object>[_status(503)]);
+      final transport = ResilientTransport(
+        inner: inner,
+        policy: const RetryPolicy(jitterRatio: 0),
+        sleep: (Duration _) async {},
+      );
+
+      await expectLater(
+        transport.send(
+          const NetRequest(
+            method: NetMethod.post,
+            url: 'https://api.github.com/repos/o/r/releases',
+          ),
+        ),
+        throwsA(isA<NetException>()),
+      );
+      expect(inner.received.length, 1, reason: '非幂等请求只能发出一次');
+    });
+
+    test('GET 重试耗尽必须抛错，绝不把 503 当正常响应', () async {
+      final inner = ScriptedTransport(<Object>[
+        _status(503),
+        _status(503),
+        _status(503),
+      ]);
+      final transport = ResilientTransport(
+        inner: inner,
+        policy: const RetryPolicy(maxAttempts: 3, jitterRatio: 0),
+        sleep: (Duration _) async {},
+      );
+
+      await expectLater(
+        transport.send(_request()),
+        throwsA(
+          isA<NetException>().having(
+            (NetException error) => error.statusCode,
+            'statusCode',
+            503,
+          ),
+        ),
+      );
+      expect(inner.received.length, 3);
+    });
+
+    test('语义性 4xx 原样返回（不重试、不抛错，交上层判断）', () async {
+      final inner = ScriptedTransport(<Object>[_status(404)]);
+      final transport = ResilientTransport(
+        inner: inner,
+        policy: const RetryPolicy(jitterRatio: 0),
+        sleep: (Duration _) async {},
+      );
+
+      final response = await transport.send(_request());
+      expect(response.statusCode, 404);
+      expect(inner.received.length, 1);
+    });
+
+    test('非幂等方法也不走镜像回落', () async {
+      final inner = ScriptedTransport(<Object>[
+        const NetException(NetErrorKind.connection, '断网'),
+      ]);
+      final transport = ResilientTransport(
+        inner: inner,
+        mirrors: MirrorSelector(
+          channels: <MirrorChannel>[
+            const MirrorChannel(
+              id: 'proxy',
+              pattern: r'^https://api\.github\.com/(.*)$',
+              replacement: r'https://proxy.example/$1',
+            ),
+          ],
+        ),
+        policy: const RetryPolicy(jitterRatio: 0),
+        sleep: (Duration _) async {},
+      );
+
+      await expectLater(
+        transport.send(
+          const NetRequest(
+            method: NetMethod.patch,
+            url: 'https://api.github.com/repos/o/r',
+          ),
+        ),
+        throwsA(isA<NetException>()),
+      );
+      expect(inner.received.length, 1);
+      expect(transport.observer.snapshot().mirrorSwitches, 0);
+    });
+  });
 }

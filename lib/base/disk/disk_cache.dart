@@ -1,23 +1,30 @@
-/// L1 底座级 · 硬盘逻辑：缓存一致性引擎（七道防线 D1–D7）。
+/// L1 底座级 · 硬盘逻辑：缓存一致性引擎（七道防线 D1–D7 + 完整性 + 有界淘汰）。
 ///
 /// 这是全项目**最危险**的一段代码：它决定了用户的代码会不会被悄悄覆盖。
 /// 因此这里的每一条规则都对应 `docs/CONSISTENCY.md` 的一道防线，
-/// 并且**不提供任何"绕过"开关**——想绕过必须显式传 `force` + `dangerous`
-/// 并经过 [RepositoryCache.write] 的二次确认，且全程留痕。
+/// 并且**不提供任何"绕过"开关**——想绕过必须显式传 `force` / `dangerous`
+/// **且**经过二次确认，且全程留痕。
 ///
 /// | 防线 | 含义 | 落点 |
 /// | --- | --- | --- |
 /// | D1 | 写前必读 | 缺少 `baseSha` 直接拒绝（`requiresRead`） |
 /// | D2 | SHA 乐观锁 | `baseSha != 远端 sha` ⇒ `staleSha` |
 /// | D3 | 409/422 冲突重试 | 仅在提供 `rebase` 时按上限重试，否则上报 |
-/// | D4 | 本地写队列串行化 | 逐键互斥（`_KeyedMutex`） |
-/// | D5 | 写后失效 + 回读 | 写成功必须回读校验，不一致即 `verificationFailed` |
-/// | D6 | 失败可感知 | 每次失败都写诊断日志并带回 `detail` |
-/// | D7 | 危险操作二次确认 | `dangerous && !confirmed` ⇒ `needsConfirmation` |
+/// | D4 | 本地写队列串行化 | 逐键互斥，**读写一并纳入** |
+/// | D5 | 写后失效 + 回读 | 回读带少量重试；仍不一致即 `verificationFailed` |
+/// | D6 | 失败可感知 | 一切失败都**返回结果 + 记审计**，绝不外抛 |
+/// | D7 | 危险操作二次确认 | `dangerous` **或** `force` 未确认 ⇒ `needsConfirmation` |
+///
+/// 除七道防线外，本文件还负责三件"数据无价"的前提：
+/// 1. **完整性**：索引保存内容长度与 SHA-256，读取时校验，损坏即丢弃；
+/// 2. **有界**：支持 TTL 与条目上限，并提供 [RepositoryCache.prune] / [RepositoryCache.purge]；
+/// 3. **审计**：诊断中枢可绑定（[RepositoryCache.attachDiagnostics]），D6 不落空。
 library;
 
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 
 import '../../kernel/diagnostics.dart';
 import 'disk_store.dart';
@@ -31,6 +38,8 @@ abstract class CacheRemote {
   Future<RemoteDocument?> read(CacheKey key);
 
   /// 按 [expectedSha] 写入；版本不符必须抛 [RemoteConflictException]。
+  ///
+  /// [expectedSha] 为 `null` 表示新建（远端不应存在该路径）。
   Future<RemoteDocument> write(
     CacheKey key,
     String content, {
@@ -60,12 +69,11 @@ class UnavailableCacheRemote implements CacheRemote {
       throw StateError('缓存远端未绑定（等待 API 中枢注入）');
 }
 
-/// 逐键互斥：保证**同一目标**的写操作串行执行（D4）。
+/// 逐键互斥：保证**同一目标**的读写按提交顺序串行执行（D4）。
 ///
-/// 为什么必须串行：同一路径的"读→改→写"若并发交错，
-/// 后发请求会基于过期基线覆盖先发结果——这正是错位覆盖的经典成因。
-/// 注意：这里只保证**顺序**，不保证"前序失败则后续不执行"
-/// （后续请求有自己的基线校验步骤，会独立判定）。
+/// 为什么读也要进来：写已落远端、本地尚未刷新时，一次并发读会把
+/// **旧内容写回本地**，本地版本随之倒退。看起来只是"显示旧了"，
+/// 但它会成为下一次写的基线来源——所以必须同锁串行。
 class _KeyedMutex {
   final Map<String, Future<void>> _tails = <String, Future<void>>{};
 
@@ -92,15 +100,26 @@ class _KeyedMutex {
   int get pendingKeys => _tails.length;
 }
 
+/// 本地索引元数据（用于淘汰扫描）。
+typedef _LocalMeta = ({String encoded, DateTime fetchedAt});
+
 /// 仓库缓存（一致性引擎）。
 class RepositoryCache {
   /// 创建缓存。
+  ///
+  /// [defaultMaxAge] 为条目存活时长（`<= Duration.zero` 表示不设 TTL）；
+  /// [defaultMaxEntries] 为条目上限（`<= 0` 表示不设上限）；
+  /// [readbackAttempts] 为 D5 回读校验的尝试次数（抵御读路径的瞬时陈旧）。
   RepositoryCache({
     CacheRemote? remote,
     DiskKv? index,
     DiskFileStore? blobs,
     KernelDiagnostics? diagnostics,
     this.maxConflictRetries = 2,
+    this.defaultMaxEntries = 512,
+    this.defaultMaxAge = const Duration(days: 30),
+    this.readbackAttempts = 2,
+    this.readbackDelay = const Duration(milliseconds: 150),
   })  : _remote = remote ?? const UnavailableCacheRemote(),
         _index = index ?? InMemoryKv(),
         _blobs = blobs ?? InMemoryFileStore(),
@@ -111,16 +130,34 @@ class RepositoryCache {
 
   final DiskKv _index;
   final DiskFileStore _blobs;
-  final KernelDiagnostics _diagnostics;
-  final _KeyedMutex _mutex = _KeyedMutex();
 
   /// D3 冲突重试上限。
   final int maxConflictRetries;
 
+  /// 条目数量上限。
+  final int defaultMaxEntries;
+
+  /// 条目存活时长。
+  final Duration defaultMaxAge;
+
+  /// D5 回读校验尝试次数。
+  final int readbackAttempts;
+
+  /// D5 回读重试间隔。
+  final Duration readbackDelay;
+
+  KernelDiagnostics _diagnostics;
   CacheRemote _remote;
   int _revision = 0;
 
-  /// 绑定远端实现（API 中枢在装配阶段调用；之后不可再改）。
+  /// 绑定诊断中枢（装配阶段调用）。
+  ///
+  /// 不绑定也"能用"，但 D6 的审计链会断——数据事故后无从追溯。
+  void attachDiagnostics(KernelDiagnostics diagnostics) {
+    _diagnostics = diagnostics;
+  }
+
+  /// 绑定远端实现（API 中枢在装配阶段调用）。
   void bindRemote(CacheRemote remote) {
     _remote = remote;
   }
@@ -128,25 +165,139 @@ class RepositoryCache {
   /// 当前远端实现。
   CacheRemote get remote => _remote;
 
-  /// 读取：优先本地，缺失或强制刷新时回源。
+  /// 读取：优先本地（未过期），缺失 / 过期 / 强制刷新时回源。
+  ///
+  /// **永不同步抛出**：失败以 Future 异常形式返回（非法键则抛
+  /// [CacheScopeException] / [CacheKeyException]），调用方可统一 try/catch。
   Future<CacheEntry?> read(CacheKey key, {bool refresh = false}) async {
-    _ensureScope(key);
+    _ensureKey(key);
+    return _mutex.run(key.encode(), () => _readLocked(key, refresh: refresh));
+  }
 
+  /// 写入：完整走 D1–D7。
+  ///
+  /// **永不外抛**（除非法键这一编程错误外）：一切失败都体现在
+  /// [WriteOutcome.conflict] 与 [WriteOutcome.detail] 上。
+  Future<WriteOutcome> write(
+    WriteIntent intent, {
+    bool confirmed = false,
+  }) async {
+    _ensureKey(intent.key);
+    return _mutex.run(intent.key.encode(), () async {
+      try {
+        return await _writeLocked(intent, confirmed: confirmed);
+      } on CacheScopeException {
+        rethrow;
+      } on CacheKeyException {
+        rethrow;
+      } catch (error) {
+        // D6：任何非预期异常（网络 / 磁盘 / 解析）都必须变成可感知的失败结果。
+        return _fail(
+          intent,
+          WriteConflict.server,
+          '写入异常终止：$error',
+          code: 'OGL-CONS-206',
+        );
+      }
+    });
+  }
+
+  /// 仅失效本地缓存（D5 的"写后失效"也可独立调用）。
+  Future<void> invalidate(CacheKey key) async {
+    _ensureKey(key);
+    return _mutex.run(key.encode(), () => _evictEncoded(key.encode()));
+  }
+
+  /// 本地有效条目数（诊断）。
+  Future<int> localCount() async {
+    final metas = await _scanMetas();
+    return metas.length;
+  }
+
+  /// 按上限与 TTL 淘汰本地缓存，返回清理条目数。
+  ///
+  /// **磁盘是有界的**。没有淘汰策略的缓存，最终会写满磁盘，
+  /// 之后连"保存用户刚写的文件"都会失败——那才是真的事故。
+  Future<int> prune({int? maxEntries, Duration? maxAge}) async {
+    final limit = maxEntries ?? defaultMaxEntries;
+    final age = maxAge ?? defaultMaxAge;
+    final now = DateTime.now();
+    final survivors = <_LocalMeta>[];
+    var removed = 0;
+
+    for (final meta in await _scanMetas()) {
+      if (age > Duration.zero && now.difference(meta.fetchedAt) > age) {
+        await _mutex.run(meta.encoded, () => _evictEncoded(meta.encoded));
+        removed++;
+      } else {
+        survivors.add(meta);
+      }
+    }
+
+    if (limit > 0 && survivors.length > limit) {
+      survivors.sort((a, b) => a.fetchedAt.compareTo(b.fetchedAt));
+      while (survivors.length > limit) {
+        final victim = survivors.removeAt(0).encoded;
+        await _mutex.run(victim, () => _evictEncoded(victim));
+        removed++;
+      }
+    }
+
+    if (removed > 0) {
+      _diagnostics.info(
+        'CACHE',
+        '缓存淘汰完成',
+        code: 'OGL-CONS-002',
+        data: <String, Object?>{'removed': removed, 'remaining': survivors.length},
+      );
+    }
+    return removed;
+  }
+
+  /// 清空全部本地缓存（schema 升级 / 用户手动清理），返回清理条目数。
+  Future<int> purge() async {
+    var removed = 0;
+    for (final meta in await _scanMetas()) {
+      await _mutex.run(meta.encoded, () => _evictEncoded(meta.encoded));
+      removed++;
+    }
+    _diagnostics.info(
+      'CACHE',
+      '缓存已清空',
+      code: 'OGL-CONS-003',
+      data: <String, Object?>{'removed': removed},
+    );
+    return removed;
+  }
+
+  // ───────────────────────── 内部实现 ─────────────────────────
+
+  final _KeyedMutex _mutex = _KeyedMutex();
+
+  Future<CacheEntry?> _readLocked(CacheKey key, {required bool refresh}) async {
     if (!refresh) {
       final cached = await _loadLocal(key);
       if (cached != null) {
-        _diagnostics.debug(
-          'CACHE',
-          '本地命中',
-          data: <String, Object?>{'key': key.encode(), 'sha': shortSha(cached.sha)},
-        );
-        return cached;
+        if (_isExpired(cached)) {
+          // 过期即清理，随后回源——宁可多一次请求，也不给上层陈旧数据。
+          await _evictEncoded(key.encode());
+        } else {
+          _diagnostics.debug(
+            'CACHE',
+            '本地命中',
+            data: <String, Object?>{
+              'key': key.encode(),
+              'sha': shortSha(cached.sha),
+            },
+          );
+          return cached;
+        }
       }
     }
 
     final document = await _remote.read(key);
     if (document == null) {
-      await _evict(key);
+      await _evictEncoded(key.encode());
       return null;
     }
     final entry = _entryOf(key, document);
@@ -154,43 +305,20 @@ class RepositoryCache {
     return entry;
   }
 
-  /// 写入：完整走 D1–D7。
-  Future<WriteOutcome> write(
-    WriteIntent intent, {
-    bool confirmed = false,
-  }) {
-    return _mutex.run(
-      intent.key.encode(),
-      () => _writeLocked(intent, confirmed: confirmed),
-    );
-  }
-
-  /// 仅失效本地缓存（D5 的"写后失效"也可独立调用）。
-  Future<void> invalidate(CacheKey key) async {
-    _ensureScope(key);
-    await _mutex.run(key.encode(), () => _evict(key));
-  }
-
-  /// 本地缓存条目数（诊断）。
-  Future<int> localCount() async {
-    final keys = await _index.keys();
-    return keys.where((key) => key.startsWith(_indexPrefix)).length;
-  }
-
-  // ───────────────────────── 内部实现 ─────────────────────────
-
   Future<WriteOutcome> _writeLocked(
     WriteIntent intent, {
     required bool confirmed,
   }) async {
-    _ensureScope(intent.key);
-
-    // D7：危险操作二次确认。
-    if (intent.dangerous && !confirmed) {
+    // D7：危险操作与强制覆盖都必须二次确认。
+    // force 会跳过 D2 对"本地基线"的校验，等价于放宽覆盖条件——
+    // 它与删除同属"可能顶掉别人提交"的操作，必须同等对待。
+    if ((intent.dangerous || intent.force) && !confirmed) {
       return _fail(
         intent,
         WriteConflict.needsConfirmation,
-        '危险操作需二次确认（D7）',
+        intent.force
+            ? '强制覆盖需二次确认（D7）：将跳过本地基线校验'
+            : '危险操作需二次确认（D7）',
         code: 'OGL-CONS-207',
       );
     }
@@ -207,9 +335,7 @@ class RepositoryCache {
     }
 
     // D2：SHA 乐观锁——本地基线必须与远端一致。
-    if (!intent.force &&
-        latest != null &&
-        intent.baseSha != latest.sha) {
+    if (!intent.force && latest != null && intent.baseSha != latest.sha) {
       return _fail(
         intent,
         WriteConflict.staleSha,
@@ -221,6 +347,7 @@ class RepositoryCache {
     }
 
     var content = intent.content;
+    // force 仍然以"刚读到的远端版本"为期望值：既不盲写，也不放行并发覆盖。
     var expectedSha = intent.force ? latest?.sha : intent.baseSha;
     var attempt = 0;
 
@@ -235,25 +362,14 @@ class RepositoryCache {
         );
 
         // D5：写后失效 + 回读校验。
-        await _evict(intent.key);
-        final verified = await _remote.read(intent.key);
-        if (verified == null || verified.sha != written.sha) {
-          _diagnostics.error(
-            'CACHE',
-            '写后回读不一致',
-            code: 'OGL-CONS-205',
-            data: <String, Object?>{
-              'key': intent.key.encode(),
-              'expected': shortSha(written.sha),
-              'actual': shortSha(verified?.sha),
-            },
-          );
+        await _evictEncoded(intent.key.encode());
+        final verified = await _verifyReadback(intent.key, written.sha);
+        if (verified == null) {
           return _fail(
             intent,
             WriteConflict.verificationFailed,
-            '写后回读不一致：期望 ${shortSha(written.sha)}，'
-                '实际 ${shortSha(verified?.sha)}（D5）',
-            sha: verified?.sha,
+            '写后回读不一致：期望 ${shortSha(written.sha)}（D5）',
+            sha: written.sha,
             code: 'OGL-CONS-205',
             attempts: attempt,
           );
@@ -279,13 +395,7 @@ class RepositoryCache {
             intent.rebase == null) {
           return _fail(
             intent,
-            error.statusCode == 404
-                ? WriteConflict.notFound
-                : (error.statusCode == 403
-                    ? WriteConflict.forbidden
-                    : (error.isStale
-                        ? WriteConflict.staleSha
-                        : WriteConflict.server)),
+            _classify(error),
             '远端冲突未解决（D3, HTTP ${error.statusCode}）'
             '${intent.rebase == null ? '：未提供重定基函数，拒绝自动覆盖' : ''}',
             sha: error.currentSha,
@@ -295,8 +405,7 @@ class RepositoryCache {
         }
 
         final fresh = await _remote.read(intent.key);
-        final latestContent = fresh?.content ?? '';
-        content = intent.rebase!(latestContent, intent.content);
+        content = intent.rebase!(fresh?.content ?? '', intent.content);
         expectedSha = error.currentSha ?? fresh?.sha;
         _diagnostics.warn(
           'CACHE',
@@ -310,6 +419,33 @@ class RepositoryCache {
         );
       }
     }
+  }
+
+  /// D5：回读校验（带少量重试，抵御读路径的瞬时陈旧，避免误报失败）。
+  Future<RemoteDocument?> _verifyReadback(
+    CacheKey key,
+    String expectedSha,
+  ) async {
+    for (var index = 0; index < readbackAttempts; index++) {
+      final document = await _remote.read(key);
+      if (document != null && document.sha == expectedSha) {
+        return document;
+      }
+      if (index < readbackAttempts - 1) {
+        await Future<void>.delayed(readbackDelay);
+      }
+    }
+    return null;
+  }
+
+  static WriteConflict _classify(RemoteConflictException error) {
+    if (error.statusCode == 404) {
+      return WriteConflict.notFound;
+    }
+    if (error.statusCode == 403) {
+      return WriteConflict.forbidden;
+    }
+    return error.isStale ? WriteConflict.staleSha : WriteConflict.server;
   }
 
   WriteOutcome _fail(
@@ -343,54 +479,126 @@ class RepositoryCache {
         sha: document.sha,
         fetchedAt: DateTime.now(),
         revision: ++_revision,
+        contentHash: _hashOf(document.content),
       );
 
-  void _ensureScope(CacheKey key) {
+  bool _isExpired(CacheEntry entry) {
+    if (defaultMaxAge <= Duration.zero) {
+      return false;
+    }
+    return DateTime.now().difference(entry.fetchedAt) > defaultMaxAge;
+  }
+
+  void _ensureKey(CacheKey key) {
     if (!key.scope.isWellFormed) {
       throw CacheScopeException(
         '缓存作用域非法（拒绝进入缓存层，防止错位覆盖）: ${key.scope.encode()}',
       );
     }
+    if (!key.isPathWellFormed) {
+      throw CacheKeyException(
+        '缓存路径非法（拒绝进入缓存层）: ${key.path}',
+      );
+    }
   }
 
-  String _metaKey(CacheKey key) => '$_indexPrefix${key.encode()}';
+  static String _hashOf(String content) =>
+      sha256.convert(utf8.encode(content)).toString();
 
-  String _blobPath(CacheKey key) => '$_blobPrefix${key.encode()}.txt';
+  String _metaKeyOf(String encoded) => '$_indexPrefix$encoded';
+
+  String _blobPathOf(String encoded) => '$_blobPrefix$encoded.txt';
+
+  Future<List<_LocalMeta>> _scanMetas() async {
+    final result = <_LocalMeta>[];
+    for (final key in await _index.keys()) {
+      if (!key.startsWith(_indexPrefix)) {
+        continue;
+      }
+      final meta = await _readMeta(key);
+      if (meta == null) {
+        // 索引损坏：直接清掉（内容由 _loadLocal / purge 兜底）。
+        await _index.remove(key);
+        continue;
+      }
+      result.add(meta);
+    }
+    return result;
+  }
+
+  Future<_LocalMeta?> _readMeta(String indexKey) async {
+    final raw = await _index.read(indexKey);
+    if (raw == null) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return (
+        encoded: indexKey.substring(_indexPrefix.length),
+        fetchedAt: DateTime.parse(decoded['fetchedAt'] as String),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _saveLocal(CacheEntry entry) async {
-    await _blobs.writeText(_blobPath(entry.key), entry.content);
-    await _index.write(_metaKey(entry.key), jsonEncode(entry.toJson()));
+    final encoded = entry.key.encode();
+    await _blobs.writeText(_blobPathOf(encoded), entry.content);
+    await _index.write(_metaKeyOf(encoded), jsonEncode(entry.toJson()));
   }
 
   Future<CacheEntry?> _loadLocal(CacheKey key) async {
-    final meta = await _index.read(_metaKey(key));
+    final encoded = key.encode();
+    final meta = await _index.read(_metaKeyOf(encoded));
     if (meta == null) {
       return null;
     }
-    final content = await _blobs.readText(_blobPath(key));
+    final content = await _blobs.readText(_blobPathOf(encoded));
     if (content == null) {
       // 索引在、内容丢：视为未命中并清掉脏索引。
-      await _index.remove(_metaKey(key));
+      await _evictEncoded(encoded);
       return null;
     }
     try {
       final decoded = jsonDecode(meta) as Map<String, dynamic>;
+      final expectedLength = decoded['len'] as int;
+      final expectedHash = decoded['hash'] as String;
+
+      // 完整性校验：长度 + SHA-256，任一不符即判定损坏并丢弃。
+      // 撕裂写（掉电 / 中断）在这里被挡住，坏内容绝不会流向上层或远端。
+      if (content.length != expectedLength || _hashOf(content) != expectedHash) {
+        _diagnostics.error(
+          'CACHE',
+          '本地内容完整性校验失败，已丢弃',
+          code: 'OGL-CONS-208',
+          data: <String, Object?>{
+            'key': encoded,
+            'expectedLen': expectedLength,
+            'actualLen': content.length,
+          },
+        );
+        await _evictEncoded(encoded);
+        return null;
+      }
+
       return CacheEntry(
         key: key,
         content: content,
         sha: decoded['sha'] as String,
         fetchedAt: DateTime.parse(decoded['fetchedAt'] as String),
         revision: decoded['revision'] as int,
+        contentHash: expectedHash,
       );
     } catch (_) {
       // 结构不兼容（旧 schema / 损坏）：静默丢弃，下次回源重建。
-      await _evict(key);
+      await _evictEncoded(encoded);
       return null;
     }
   }
 
-  Future<void> _evict(CacheKey key) async {
-    await _index.remove(_metaKey(key));
-    await _blobs.delete(_blobPath(key));
+  Future<void> _evictEncoded(String encoded) async {
+    await _index.remove(_metaKeyOf(encoded));
+    await _blobs.delete(_blobPathOf(encoded));
   }
 }

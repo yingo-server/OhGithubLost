@@ -96,7 +96,9 @@ class DiskModule extends OgLModule {
   @override
   Future<void> onRegister(KernelContext context) async {
     // 缓存引擎与诊断中枢接线：让 D1–D7 的每一次拒绝都进入审计日志。
+    // 这一步不能省——没有它，D6「失败可感知」在内核侧就是空的。
     final repositoryCache = cache;
+    repositoryCache.attachDiagnostics(context.diagnostics);
     bridge = DiskBridge(
       kv: kv,
       vault: vault,

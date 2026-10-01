@@ -32,12 +32,18 @@ class CacheScope {
   /// 分支（`main` / `dev` …）。
   final String branch;
 
-  /// 是否合法（四个维度都有效）。
+  /// 是否合法（四个维度都有效，且不含编码分隔符）。
+  ///
+  /// 分隔符校验不是洁癖：字段里混入 `|` 会让 [encode] / [parse] 产生歧义，
+  /// 而歧义的后果是**作用域漂移**——即错位覆盖。
   bool get isWellFormed =>
       schemaVersion > 0 &&
       accountId.isNotEmpty &&
       repo.isNotEmpty &&
-      branch.isNotEmpty;
+      branch.isNotEmpty &&
+      !accountId.contains('|') &&
+      !repo.contains('|') &&
+      !branch.contains('|');
 
   /// 编码为可持久化字符串。
   String encode() => '$schemaVersion|$accountId|$repo|$branch';
@@ -80,8 +86,23 @@ class CacheKey {
   /// 作用域。
   final CacheScope scope;
 
-  /// 仓库内 POSIX 路径（不含前导 `/`）。
+  /// 仓库内 POSIX 路径（相对、不含前导 `/`、不含 `..`）。
   final String path;
+
+  /// 路径是否合法。
+  ///
+  /// 拒绝三类路径：空、绝对/反斜杠、含 `..` 段。
+  /// 最后一条是**安全边界**：缓存落在真实文件系统上，
+  /// 未校验的 `..` 会让写入逃出缓存目录。
+  bool get isPathWellFormed {
+    if (path.isEmpty || path.startsWith('/') || path.contains(r'\')) {
+      return false;
+    }
+    return !path.split('/').contains('..');
+  }
+
+  /// 键是否合法（作用域与路径都合法）。
+  bool get isWellFormed => scope.isWellFormed && isPathWellFormed;
 
   /// 编码为可持久化字符串。
   String encode() => '${scope.encode()}|$path';
@@ -95,6 +116,18 @@ class CacheKey {
 
   @override
   String toString() => 'CacheKey(${encode()})';
+}
+
+/// 缓存路径非法（不允许进入缓存层）。
+class CacheKeyException implements Exception {
+  /// 创建异常。
+  const CacheKeyException(this.message);
+
+  /// 说明。
+  final String message;
+
+  @override
+  String toString() => 'CacheKeyException: $message';
 }
 
 /// 作用域非法（不允许进入缓存层）。
@@ -282,7 +315,7 @@ class WriteOutcome {
       '${detail == null ? '' : ', detail=$detail'})';
 }
 
-/// 缓存条目（本地索引 + 内容 + 版本）。
+/// 缓存条目（本地索引 + 内容 + 版本 + **内容完整性凭据**）。
 class CacheEntry {
   /// 创建条目。
   const CacheEntry({
@@ -291,6 +324,7 @@ class CacheEntry {
     required this.sha,
     required this.fetchedAt,
     required this.revision,
+    this.contentHash = '',
   });
 
   /// 键。
@@ -299,21 +333,30 @@ class CacheEntry {
   /// 内容。
   final String content;
 
-  /// 版本指纹。
+  /// 版本指纹（远端 SHA）。
   final String sha;
 
   /// 抓取时间。
   final DateTime fetchedAt;
 
-  /// 本地修订号（单调递增，用于判断"本地是否被更新过"）。
+  /// 本地修订号（单调递增，用于诊断排序）。
   final int revision;
 
+  /// 内容的 SHA-256（本地完整性凭据）。
+  ///
+  /// 落盘内容若因掉电/中断而截断，读取时凭据对不上——
+  /// 此时必须**判定为损坏并丢弃**，绝不允许把坏内容当合法数据交给上层。
+  final String contentHash;
+
   /// 序列化（索引持久化；**不含内容**，内容单独存 blob）。
+  ///
+  /// `hash` 与 `len` 是完整性校验的两道凭据，缺一不可。
   Map<String, Object?> toJson() => <String, Object?>{
         'sha': sha,
         'fetchedAt': fetchedAt.toIso8601String(),
         'revision': revision,
-        'bytes': content.length,
+        'len': content.length,
+        'hash': contentHash,
       };
 
   @override
