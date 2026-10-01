@@ -23,6 +23,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'error_surface.dart';
 import 'repos_page.dart';
 
 /// 应用根。
@@ -54,7 +55,10 @@ class OgLApp extends StatelessWidget {
                   MediaQuery.withClampedTextScaling(
                 minScaleFactor: 0.85,
                 maxScaleFactor: 2,
-                child: child ?? const SizedBox.shrink(),
+                // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
+                child: OgLNoticeHost(
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
               theme: surface.themeFor(
                 query: query,

@@ -24,6 +24,7 @@ import 'kernel/boot/trust_warnings.dart';
 import 'kernel/contract/module.dart';
 import 'kernel/diagnostics.dart';
 import 'kernel/kernel.dart';
+import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
 import 'surface/surface_bridge.dart';
 
@@ -37,6 +38,29 @@ const String kOgLBootManifestPath = String.fromEnvironment('OGL_BOOT_MANIFEST');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── 全局错误捕获：任何未捕获异常都必须"被看见"，不许无声消失 ──────────
+  // 1) Flutter 框架异常（构建/布局/绘制）：先走默认呈现（控制台），
+  //    再上报全局通知中心 → 由 OgLNoticeHost 弹窗给用户。
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    OgLNoticeCenter.instance.report(
+      title: '界面异常',
+      detail: details.exceptionAsString(),
+      severity: OgLNoticeSeverity.critical,
+    );
+  };
+  // 2) 平台/异步未捕获异常：返回 true 表示"已处理"（已呈现给用户），
+  //    避免被框架静默吞掉。
+  WidgetsBinding.instance.platformDispatcher.onError =
+      (Object error, StackTrace stack) {
+    OgLNoticeCenter.instance.report(
+      title: '未捕获异常',
+      detail: error.toString(),
+      severity: OgLNoticeSeverity.critical,
+    );
+    return true;
+  };
 
   final diagnostics = KernelDiagnostics(appVersion: kOgLAppVersion);
   final warnings = TrustWarningCollector();
