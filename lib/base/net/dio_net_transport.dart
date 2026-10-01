@@ -76,28 +76,23 @@ class DioNetTransport implements NetTransport {
       ) async {
         const connectTimeout = Duration(seconds: 15);
         if (proxyHost != null && proxyPort != null) {
-          return Socket.startConnect(
-            proxyHost,
-            proxyPort,
-            timeout: connectTimeout,
-          );
+          return Socket.startConnect(proxyHost, proxyPort)
+              .timeout(connectTimeout);
         }
         final port = uri.hasPort && uri.port != 0
             ? uri.port
             : (uri.scheme == 'https' ? 443 : 80);
         if (dns.policy.mode != NetDnsMode.custom) {
-          return Socket.startConnect(uri.host, port, timeout: connectTimeout);
+          // 与平台默认一致：交给系统解析，保证开关切换可逆。
+          return Socket.startConnect(uri.host, port).timeout(connectTimeout);
         }
 
         final addresses = await dns.resolve(uri.host);
         Object? lastError;
         for (final address in addresses) {
           try {
-            return await Socket.startConnect(
-              address,
-              port,
-              timeout: connectTimeout,
-            );
+            return await Socket.startConnect(address, port)
+                .timeout(connectTimeout);
           } catch (error) {
             lastError = error;
           }
