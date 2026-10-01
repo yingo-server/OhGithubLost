@@ -85,13 +85,23 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
 
-        final boundary =
-            _key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-        final image = await boundary.toImage();
-        final data = await image.toByteData(format: ui.ImageByteFormat.png);
-        image.dispose();
-        File('build/ui_shots/${pack.id}__${entry.key}.png')
-            .writeAsBytesSync(data!.buffer.asUint8List());
+        // ★ 图像编码**必须**在 `runAsync` 里做。
+        //
+        // 根因（踩了两次才定位）：`testWidgets` 默认把测试跑在 **FakeAsync**
+        // 区域里，时间由测试自己推进；而 `toImage()` / `toByteData()` 需要等
+        // 引擎的**光栅线程真实返回** —— 在假时钟下这个 Future 永远不会完成。
+        // 表现就是：第一张图侥幸成功，之后卡到 10 分钟超时（`10:02 +321 -1`）。
+        //
+        // `runAsync` 会临时切回真实异步环境，让光栅与编码真正跑完。
+        await tester.runAsync(() async {
+          final boundary =
+              _key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final image = await boundary.toImage();
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          image.dispose();
+          File('build/ui_shots/${pack.id}__${entry.key}.png')
+              .writeAsBytesSync(data!.buffer.asUint8List());
+        });
       }
     }
 
