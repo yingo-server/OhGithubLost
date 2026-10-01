@@ -35,6 +35,9 @@ enum _RepoTab {
 
   /// 提交历史。
   commits,
+
+  /// 设置与危险区。
+  settings,
 }
 
 /// 仓库详情页。
@@ -66,6 +69,15 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   // 标签页
   _RepoTab _tab = _RepoTab.code;
   bool _releaseBusy = false;
+
+  // 设置标签状态
+  late final TextEditingController _nameCtl;
+  late final TextEditingController _descCtl;
+  final TextEditingController _cnameCtl = TextEditingController();
+  bool _privateVal = false;
+  bool _settingsBusy = false;
+  OgLAsyncController<Map<String, dynamic>>? _pages;
+  String? _cnameSha;
   OgLAsyncController<List<Map<String, dynamic>>>? _issues;
   OgLAsyncController<List<Map<String, dynamic>>>? _pulls;
   OgLAsyncController<List<GhRelease>>? _releases;
@@ -87,6 +99,9 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final raw = widget.repo.raw['viewer_has_starred'];
     _starred = raw is bool ? raw : null;
     _messageController.text = 'chore: update ${widget.repo.fullName}';
+    _nameCtl = TextEditingController(text: widget.repo.name);
+    _descCtl = TextEditingController(text: widget.repo.description ?? '');
+    _privateVal = widget.repo.isPrivate;
     _entriesC().loadIfNeeded();
   }
 
@@ -104,6 +119,11 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     _branches?.dispose();
     _commits?.removeListener(_onChanged);
     _commits?.dispose();
+    _pages?.removeListener(_onChanged);
+    _pages?.dispose();
+    _nameCtl.dispose();
+    _descCtl.dispose();
+    _cnameCtl.dispose();
     _editController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -234,8 +254,11 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       await _releasesC().loadIfNeeded();
     } else if (tab == _RepoTab.branches) {
       await _branchesC().loadIfNeeded();
-    } else {
+    } else if (tab == _RepoTab.commits) {
       await _commitsC().loadIfNeeded();
+    } else {
+      await _pagesC().loadIfNeeded();
+      await _loadCname();
     }
   }
 
@@ -573,8 +596,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           _buildReleases(ogL, tokens)
         else if (_tab == _RepoTab.branches)
           _buildBranches(ogL, tokens)
+        else if (_tab == _RepoTab.commits)
+          _buildCommits(ogL, tokens)
         else
-          _buildCommits(ogL, tokens),
+          _buildSettings(ogL, tokens),
       ],
     );
   }
@@ -811,6 +836,9 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     if (tab == _RepoTab.branches) {
       return '分支';
     }
+    if (tab == _RepoTab.settings) {
+      return '设置';
+    }
     return '提交';
   }
 
@@ -936,6 +964,332 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         setState(() => _error = '关闭失败：$error');
       }
     }
+  }
+
+  OgLAsyncController<Map<String, dynamic>> _pagesC() {
+    final existing = _pages;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<Map<String, dynamic>>(
+      label: 'Pages',
+      isEmpty: (Map<String, dynamic> value) => false,
+      loader: () async {
+        final info =
+            await widget.surface.domain.api.pagesInfo(widget.repo.fullName);
+        return info ?? const <String, dynamic>{};
+      },
+    );
+    controller.addListener(_onChanged);
+    _pages = controller;
+    return controller;
+  }
+
+  Future<void> _loadCname() async {
+    try {
+      final file = await widget.surface.domain.api
+          .content(widget.repo.fullName, 'CNAME');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cnameSha = file?.sha;
+        _cnameCtl.text = file?.text?.trim() ?? '';
+      });
+    } catch (error) {
+      OgLAppLog.instance.add('设置', '读取 CNAME 失败：$error');
+    }
+  }
+
+  Future<void> _saveBasic() async {
+    setState(() {
+      _settingsBusy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      final updated = await widget.surface.domain.api.updateRepo(
+        widget.repo.fullName,
+        name: _nameCtl.text.trim().isEmpty ? null : _nameCtl.text.trim(),
+        description: _descCtl.text.trim(),
+        private: _privateVal,
+      );
+      OgLAppLog.instance.add('设置', '已保存基本信息：${updated.fullName}');
+      if (mounted) {
+        setState(() => _notice = '已保存基本信息');
+      }
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '设置',
+        '保存失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '保存失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _settingsBusy = false);
+      } else {
+        _settingsBusy = false;
+      }
+    }
+  }
+
+  Future<void> _saveCname() async {
+    setState(() {
+      _settingsBusy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      await widget.surface.domain.api.putContent(
+        widget.repo.fullName,
+        'CNAME',
+        content: '${_cnameCtl.text.trim()}\n',
+        message: 'chore: configure custom domain',
+        baseSha: _cnameSha,
+        branch: widget.repo.defaultBranch,
+      );
+      OgLAppLog.instance.add('设置', '已保存 CNAME');
+      if (mounted) {
+        setState(() => _notice = '已保存 CNAME');
+      }
+      await _loadCname();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '设置',
+        'CNAME 保存失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = 'CNAME 保存失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _settingsBusy = false);
+      } else {
+        _settingsBusy = false;
+      }
+    }
+  }
+
+  Future<void> _enablePages() async {
+    setState(() {
+      _settingsBusy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      await widget.surface.domain.api.enablePages(
+        widget.repo.fullName,
+        branch: widget.repo.defaultBranch,
+      );
+      OgLAppLog.instance.add('设置', 'Pages 已启用');
+      if (mounted) {
+        setState(() => _notice = 'Pages 已启用');
+      }
+      await _pagesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '设置',
+        'Pages 启用失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = 'Pages 启用失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _settingsBusy = false);
+      } else {
+        _settingsBusy = false;
+      }
+    }
+  }
+
+  Future<void> _disablePages() async {
+    final confirmed = await ogLConfirmDialog(
+      context,
+      title: '停用 Pages',
+      message: '将停止「${widget.repo.fullName}」的 Pages 站点。',
+      confirmLabel: '停用',
+      danger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() => _settingsBusy = true);
+    try {
+      await widget.surface.domain.api.disablePages(widget.repo.fullName);
+      OgLAppLog.instance.add('设置', 'Pages 已停用');
+      if (mounted) {
+        setState(() => _notice = 'Pages 已停用');
+      }
+      await _pagesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '设置',
+        'Pages 停用失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = 'Pages 停用失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _settingsBusy = false);
+      } else {
+        _settingsBusy = false;
+      }
+    }
+  }
+
+  Future<void> _deleteRepo() async {
+    final confirmed = await ogLConfirmDialog(
+      context,
+      title: '删除仓库',
+      message: '将永久删除「${widget.repo.fullName}」及其全部内容。'
+          '该操作不可撤销，也不会进入回收站。',
+      confirmLabel: '永久删除',
+      danger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() {
+      _settingsBusy = true;
+      _error = null;
+    });
+    try {
+      await widget.surface.domain.api.deleteRepo(widget.repo.fullName);
+      OgLAppLog.instance.add('设置', '已删除仓库 ${widget.repo.fullName}');
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '设置',
+        '删除失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '删除失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _settingsBusy = false);
+      } else {
+        _settingsBusy = false;
+      }
+    }
+  }
+
+  Widget _settingsTitle(String text, OgLTheme ogL, OgLTokens tokens) =>
+      Padding(
+        padding: EdgeInsets.only(
+          top: tokens.space(OgLSpacing.lg),
+          bottom: tokens.space(OgLSpacing.sm),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: tokens.fontSize(const OgLTypeScale.standard().title),
+            fontWeight: FontWeight.w600,
+            color: ogL.palette.text,
+          ),
+        ),
+      );
+
+  Widget _buildSettings(OgLTheme ogL, OgLTokens tokens) {
+    final scale = const OgLTypeScale.standard();
+    final pagesState = _pagesC().state;
+    final pages = pagesState.data ?? const <String, dynamic>{};
+    final bool pagesEnabled = pages.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _settingsTitle('基本设置', ogL, tokens),
+        OgLTextField(
+          controller: _nameCtl,
+          label: '仓库名',
+          enabled: !_settingsBusy,
+        ),
+        SizedBox(height: tokens.space(OgLSpacing.sm)),
+        OgLTextField(
+          controller: _descCtl,
+          label: '描述',
+          enabled: !_settingsBusy,
+        ),
+        SwitchListTile(
+          dense: true,
+          value: _privateVal,
+          onChanged: _settingsBusy
+              ? null
+              : (bool v) => setState(() => _privateVal = v),
+          title: const Text('私有仓库'),
+        ),
+        OgLButton(
+          label: _settingsBusy ? '保存中…' : '保存基本信息',
+          leadingIcon: OgLIconName.upload,
+          loading: _settingsBusy,
+          onPressed: _saveBasic,
+        ),
+        _settingsTitle('Pages / 自定义域名', ogL, tokens),
+        if (pagesState.data == null)
+          const OgLSkeletonText(lines: 2)
+        else if (!pagesEnabled) ...<Widget>[
+          Text(
+            'Pages 未启用。',
+            style: TextStyle(
+              fontSize: tokens.fontSize(scale.body),
+              color: ogL.palette.textDim,
+            ),
+          ),
+          SizedBox(height: tokens.space(OgLSpacing.sm)),
+          OgLButton(
+            label: '启用 Pages（分支：${widget.repo.defaultBranch}）',
+            leadingIcon: OgLIconName.workflow,
+            onPressed: _settingsBusy ? null : _enablePages,
+          ),
+        ] else ...<Widget>[
+          Text(
+            '已启用：${pages['html_url'] is String ? pages['html_url'] : '（URL 未知）'}',
+            style: TextStyle(
+              fontFamily: kOgLMonoFamily,
+              fontSize: tokens.fontSize(scale.data),
+              color: ogL.palette.text,
+            ),
+          ),
+          SizedBox(height: tokens.space(OgLSpacing.sm)),
+          OgLButton(
+            label: '停用 Pages',
+            variant: OgLButtonVariant.danger,
+            onPressed: _settingsBusy ? null : _disablePages,
+          ),
+        ],
+        SizedBox(height: tokens.space(OgLSpacing.sm)),
+        OgLTextField(
+          controller: _cnameCtl,
+          label: 'CNAME（自定义域名）',
+          hint: 'example.com',
+          enabled: !_settingsBusy,
+        ),
+        SizedBox(height: tokens.space(OgLSpacing.sm)),
+        OgLButton(
+          label: '保存 CNAME',
+          leadingIcon: OgLIconName.dns,
+          onPressed: _settingsBusy ? null : _saveCname,
+        ),
+        _settingsTitle('危险区', ogL, tokens),
+        OgLButton(
+          label: '删除仓库',
+          variant: OgLButtonVariant.danger,
+          leadingIcon: OgLIconName.delete,
+          onPressed: _settingsBusy ? null : _deleteRepo,
+        ),
+      ],
+    );
   }
 
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
