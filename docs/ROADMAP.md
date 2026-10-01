@@ -37,7 +37,8 @@
 - [x] `base_bridge` 与 L1 模块装配（`base.net` / `base.disk` / `base.layer`）
 - [x] **持久性防线 D8–D10**：提交日志（写前落盘 / 可恢复 / 可重放）、草稿持久化、冲突三方信息与处置建议
 - [x] 键校验（作用域分隔符 / 路径穿越）、内容完整性（长度 + SHA-256）、有界淘汰（TTL / prune / purge）
-- [ ] `base/disk/platform_io.dart`：真实平台持久化（原子写：临时文件 + rename）
+- [x] `base/disk/platform_io.dart`：真实平台持久化（**原子写：临时文件 + fsync + rename**；启动清扫残骸；`IoDiskKv` 摘要文件名防路径越界）
+- [x] **能力冲突交由用户选择**原则落档（搜索策略 / 批量提交方式 / 下载通道 / 大文件通路 / 目录树获取）
 
 ### C L2 中枢级
 - [ ] `domain/gh`：认证、仓库、内容、Releases、搜索、更新检查
