@@ -16,6 +16,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'new_repo_page.dart';
 import 'repo_page.dart';
 
 /// 首页。
@@ -144,6 +145,19 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
     );
   }
 
+  Future<void> _createRepo() async {
+    final created = await Navigator.of(context).push<GhRepo>(
+      MaterialPageRoute<GhRepo>(
+        builder: (BuildContext context) =>
+            OgLNewRepoPage(surface: widget.surface),
+      ),
+    );
+    if (created != null && mounted) {
+      await _refreshAll();
+      _openRepo(created);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
@@ -162,6 +176,11 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
               ? '未登录'
               : '${account.name ?? account.login} · @${account.login}',
           actions: <Widget>[
+            OgLButton(
+              label: '新建',
+              leadingIcon: OgLIconName.add,
+              onPressed: account == null ? null : _createRepo,
+            ),
             OgLButton(
               label: '刷新',
               variant: OgLButtonVariant.invisible,

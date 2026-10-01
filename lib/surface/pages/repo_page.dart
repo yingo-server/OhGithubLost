@@ -14,6 +14,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'new_release_page.dart';
 
 /// 仓库页内的标签。
 enum _RepoTab {
@@ -64,6 +65,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
 
   // 标签页
   _RepoTab _tab = _RepoTab.code;
+  bool _releaseBusy = false;
   OgLAsyncController<List<Map<String, dynamic>>>? _issues;
   OgLAsyncController<List<Map<String, dynamic>>>? _pulls;
   OgLAsyncController<List<GhRelease>>? _releases;
@@ -851,6 +853,91 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         ],
       );
 
+  Future<void> _createRelease() async {
+    final created = await Navigator.of(context).push<GhRelease>(
+      MaterialPageRoute<GhRelease>(
+        builder: (BuildContext context) => OgLNewReleasePage(
+          surface: widget.surface,
+          fullName: widget.repo.fullName,
+          defaultBranch: widget.repo.defaultBranch,
+        ),
+      ),
+    );
+    if (created != null && mounted) {
+      setState(() => _notice = '已发布 ${created.tagName}');
+      await _releasesC().load();
+    }
+  }
+
+  Future<void> _deleteRelease(GhRelease release) async {
+    final confirmed = await ogLConfirmDialog(
+      context,
+      title: '删除发布',
+      message: '将删除「${release.tagName}」的 Release（tag 本身保留）。',
+      confirmLabel: '删除',
+      danger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() => _releaseBusy = true);
+    try {
+      await widget.surface.domain.api
+          .deleteRelease(widget.repo.fullName, release.id);
+      OgLAppLog.instance.add('发布', '已删除 ${release.tagName}');
+      if (mounted) {
+        setState(() => _notice = '已删除发布 ${release.tagName}');
+      }
+      await _releasesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '发布',
+        '删除失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '删除失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _releaseBusy = false);
+      } else {
+        _releaseBusy = false;
+      }
+    }
+  }
+
+  Future<void> _closeIssue(Map<String, dynamic> item) async {
+    final number = GhJson.integer(item, 'number');
+    final confirmed = await ogLConfirmDialog(
+      context,
+      title: '关闭议题',
+      message: '将把 #$number 标记为已关闭（可在 GitHub 网页端重新打开）。',
+      confirmLabel: '关闭',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .updateIssue(widget.repo.fullName, number, state: 'closed');
+      OgLAppLog.instance.add('议题', '已关闭 #$number');
+      if (mounted) {
+        setState(() => _notice = '已关闭 #$number');
+      }
+      await _issuesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '议题',
+        '关闭失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '关闭失败：$error');
+      }
+    }
+  }
+
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
     final state = _issuesC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
@@ -880,6 +967,14 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                 '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
             subtitle: 'by ${_loginOf(item)} · '
                 '${GhJson.integer(item, 'comments')} 条评论',
+            trailing: OgLButton(
+              label: '关闭',
+              variant: OgLButtonVariant.invisible,
+              size: OgLButtonSize.small,
+              onPressed: () async {
+                await _closeIssue(item);
+              },
+            ),
           ),
       ],
     );
@@ -928,14 +1023,52 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       return const OgLSkeletonText(lines: 5);
     }
     if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '还没有发布。',
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(child: SizedBox.shrink()),
+              OgLButton(
+                label: '新建发布',
+                variant: OgLButtonVariant.primary,
+                size: OgLButtonSize.small,
+                leadingIcon: OgLIconName.add,
+                onPressed: _releaseBusy ? null : _createRelease,
+              ),
+            ],
+          ),
+          const OgLBanner(
+            variant: OgLBannerVariant.info,
+            text: '还没有发布。',
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '共 ${list.length} 个发布',
+                style: TextStyle(
+                  fontSize:
+                      tokens.fontSize(const OgLTypeScale.standard().label),
+                  color: ogL.palette.textDim,
+                ),
+              ),
+            ),
+            OgLButton(
+              label: '新建发布',
+              variant: OgLButtonVariant.primary,
+              size: OgLButtonSize.small,
+              leadingIcon: OgLIconName.add,
+              onPressed: _releaseBusy ? null : _createRelease,
+            ),
+          ],
+        ),
         for (final release in list)
           OgLActionRow(
             leading: Icon(
@@ -945,15 +1078,18 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             ),
             title: release.name ?? release.tagName,
             subtitle: '${release.tagName} · '
-                '${_dateText(release.publishedAt ?? release.createdAt)}',
-            trailing: release.isPrerelease
-                ? const OgLLabel(
-                    text: 'Pre',
-                    variant: OgLLabelVariant.attention,
-                  )
-                : (release.isDraft
-                    ? const OgLLabel(text: 'Draft')
-                    : null),
+                '${_dateText(release.publishedAt ?? release.createdAt)}'
+                '${release.isPrerelease ? ' · Pre' : ''}',
+            trailing: OgLButton(
+              label: '删除',
+              variant: OgLButtonVariant.invisible,
+              size: OgLButtonSize.small,
+              onPressed: _releaseBusy
+                  ? null
+                  : () async {
+                      await _deleteRelease(release);
+                    },
+            ),
           ),
       ],
     );
