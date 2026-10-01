@@ -8,8 +8,12 @@
 /// 3. 触摸目标 ≥44 与"减少动效"由令牌层保证，组件不各写各的。
 library;
 
+export 'kit_action_list.dart';
 export 'kit_banner.dart';
 export 'kit_button.dart';
+export 'kit_dialog.dart';
 export 'kit_label.dart';
+export 'kit_page.dart';
 export 'kit_skeleton.dart';
 export 'kit_spinner.dart';
+export 'kit_text_field.dart';

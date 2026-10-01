@@ -122,4 +122,83 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   });
+
+  group('OGL Kit · 输入框', () {
+    testWidgets('渲染标签并接受输入', (WidgetTester tester) async {
+      final controller = TextEditingController();
+      await tester.pumpWidget(_host(OgLTextField(
+        controller: controller,
+        label: '个人访问令牌',
+        hint: 'ghp_…',
+      )));
+      expect(find.text('个人访问令牌'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'ghp_demo');
+      expect(controller.text, 'ghp_demo');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('错误文本展示', (WidgetTester tester) async {
+      await tester.pumpWidget(_host(const OgLTextField(
+        label: '令牌',
+        error: '令牌不能为空',
+      )));
+      expect(find.text('令牌不能为空'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  group('OGL Kit · 对话框', () {
+    testWidgets('确认返回 true、取消返回 false', (WidgetTester tester) async {
+      bool? confirmed;
+      await tester.pumpWidget(_host(Builder(
+        builder: (BuildContext context) => OgLButton(
+          label: '打开',
+          onPressed: () async {
+            confirmed = await ogLConfirmDialog(
+              context,
+              title: '删除仓库',
+              message: '该操作不可撤销。',
+              danger: true,
+            );
+          },
+        ),
+      )));
+      await tester.tap(find.text('打开'));
+      await tester.pumpAndSettle();
+      expect(find.text('删除仓库'), findsOneWidget);
+
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(confirmed, isFalse);
+
+      await tester.tap(find.text('打开'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认'));
+      await tester.pumpAndSettle();
+      expect(confirmed, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  group('OGL Kit · 列表行 / 页头', () {
+    testWidgets('行点击回调', (WidgetTester tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_host(OgLActionRow(
+        title: 'yingo-server/OhGithubLost',
+        subtitle: 'public · Dart',
+        onTap: () => taps++,
+      )));
+      await tester.tap(find.text('yingo-server/OhGithubLost'));
+      expect(taps, 1);
+    });
+
+    testWidgets('页头渲染标题与说明', (WidgetTester tester) async {
+      await tester.pumpWidget(_host(const OgLPageHeader(
+        title: '仓库',
+        description: '你的全部仓库',
+      )));
+      expect(find.text('仓库'), findsOneWidget);
+      expect(find.text('你的全部仓库'), findsOneWidget);
+    });
+  });
 }
