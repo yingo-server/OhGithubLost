@@ -575,22 +575,18 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         SizedBox(height: tokens.space(OgLSpacing.lg)),
         Divider(color: ogL.palette.border, height: tokens.hairline),
         SizedBox(height: tokens.space(OgLSpacing.sm)),
-        Wrap(
-          spacing: tokens.space(OgLSpacing.xs),
-          runSpacing: tokens.space(OgLSpacing.xs),
-          children: <Widget>[
+        OgLUnderlineNav<_RepoTab>(
+          items: <OgLUnderlineNavItem<_RepoTab>>[
             for (final tab in _RepoTab.values)
-              OgLButton(
+              OgLUnderlineNavItem<_RepoTab>(
+                value: tab,
                 label: _tabLabel(tab),
-                variant: tab == _tab
-                    ? OgLButtonVariant.primary
-                    : OgLButtonVariant.invisible,
-                size: OgLButtonSize.small,
-                onPressed: () async {
-                  await _switchTab(tab);
-                },
               ),
           ],
+          value: _tab,
+          onChanged: (tab) async {
+            await _switchTab(tab);
+          },
         ),
         SizedBox(height: tokens.space(OgLSpacing.md)),
         if (_tab == _RepoTab.code)

@@ -57,6 +57,7 @@ class OgLPalette {
     required this.surfaceAlt,
     required this.border,
     required this.borderStrong,
+    required this.borderActive,
     required this.text,
     required this.textDim,
     required this.textFaint,
@@ -81,6 +82,7 @@ class OgLPalette {
         surfaceAlt: scheme.surfaceContainerHigh,
         border: scheme.outlineVariant,
         borderStrong: scheme.outline,
+        borderActive: scheme.primary,
         text: scheme.onSurface,
         textDim: scheme.onSurfaceVariant,
         textFaint: scheme.outline,
@@ -109,6 +111,9 @@ class OgLPalette {
 
   /// 强描边（输入框、聚焦）。
   final Color borderStrong;
+
+  /// 活动下划线（UnderlineNav 选中项 / tab 高亮）。
+  final Color borderActive;
 
   /// 主文字。
   final Color text;
@@ -153,6 +158,7 @@ class OgLPalette {
         surfaceAlt: surfaceAlt,
         border: border,
         borderStrong: borderStrong,
+        borderActive: borderActive,
         text: text,
         textDim: textDim,
         textFaint: textFaint,
@@ -282,6 +288,7 @@ abstract final class OgLThemePacks {
       surfaceAlt: Color(0xFF21262D), // hover / 次级面板
       border: Color(0xFF30363D), // borderColor-default（dark）
       borderStrong: Color(0xFF484F58), // 强描边（控件边界）
+      borderActive: Color(0xFFF78166), // borderColor-active（dark，选中下划线）
       text: Color(0xFFE6EDF3), // fgColor-default（dark）
       textDim: Color(0xFF8B949E), // fgColor-muted（dark）
       textFaint: Color(0xFF6E7681), // fgColor-subtle（dark）
@@ -301,6 +308,7 @@ abstract final class OgLThemePacks {
       surfaceAlt: Color(0xFFEAEEF2), // hover / 次级面板
       border: Color(0xFFD0D7DE), // borderColor-default（light）
       borderStrong: Color(0xFFAFB8C1),
+      borderActive: Color(0xFFFD8C73), // borderColor-active（light）
       text: Color(0xFF1F2328), // fgColor-default（light）
       textDim: Color(0xFF656D76), // fgColor-muted（light）
       textFaint: Color(0xFF6E7781), // fgColor-subtle（light）
@@ -330,6 +338,7 @@ abstract final class OgLThemePacks {
       surfaceAlt: Color(0xFF181E27),
       border: Color(0xFF2A3442),
       borderStrong: Color(0xFF3D4A5C),
+      borderActive: Color(0xFF4C8DFF),
       text: Color(0xFFE8ECF2),
       textDim: Color(0xFF9AA6B5),
       textFaint: Color(0xFF5C6B7E),
@@ -349,6 +358,7 @@ abstract final class OgLThemePacks {
       surfaceAlt: Color(0xFFF0F2F5),
       border: Color(0xFFD8DDE5),
       borderStrong: Color(0xFFC3CAD4),
+      borderActive: Color(0xFF2F6FEB),
       text: Color(0xFF1A1F26),
       textDim: Color(0xFF5A6572),
       textFaint: Color(0xFF8A94A3),
@@ -482,6 +492,7 @@ class OgLTheme extends ThemeExtension<OgLTheme> {
         surfaceAlt: Color.lerp(a.surfaceAlt, b.surfaceAlt, t)!,
         border: Color.lerp(a.border, b.border, t)!,
         borderStrong: Color.lerp(a.borderStrong, b.borderStrong, t)!,
+        borderActive: Color.lerp(a.borderActive, b.borderActive, t)!,
         text: Color.lerp(a.text, b.text, t)!,
         textDim: Color.lerp(a.textDim, b.textDim, t)!,
         textFaint: Color.lerp(a.textFaint, b.textFaint, t)!,

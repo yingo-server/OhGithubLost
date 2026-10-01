@@ -14,7 +14,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'base/base_bridge.dart';
+import 'base/base_bootstrap.dart';
 import 'domain/domain_bridge.dart';
 import 'kernel/boot/boot_fs.dart';
 import 'kernel/boot/boot_loader.dart';
@@ -102,14 +102,32 @@ void main() async {
   // 展示层模块单独持有，方便拿到装配好的桥（避免依赖内核内部结构）。
   final surfaceModule = SurfaceLayerModule();
 
+  // ★ 组合根：装配 L1 —— 解析平台存储（登录 / 设置 / 缓存真正落盘）；
+  // 失败退回内存并把错误原样带上来（下面大声上报，绝不静默）。
+  final bootstrap = await baseLayerModulesOnPlatform();
+
   final List<OgLModule> modules = <OgLModule>[
-    ...baseLayerModules(),
+    ...bootstrap.modules,
     ...domainLayerModules(),
     surfaceModule,
   ];
 
   try {
     final report = await kernel.boot(modules);
+    final storageError = bootstrap.storageError;
+    if (storageError != null) {
+      // 不静默：进应用级日志（关于页可见），并弹窗提醒。
+      OgLAppLog.instance.add(
+        '存储',
+        '平台存储不可用，本次会话不保存任何数据：$storageError',
+        severity: OgLNoticeSeverity.critical,
+      );
+      OgLNoticeCenter.instance.report(
+        title: '存储不可用',
+        detail: '平台存储初始化失败，登录与设置将无法保存到本机。\n$storageError',
+        severity: OgLNoticeSeverity.critical,
+      );
+    }
     runApp(OgLApp(surface: surfaceModule.bridge, report: report));
   } on KernelBootException catch (error) {
     // 启动被拒（清单签名失败 / 模块依赖不满足）：**不静默降级**，

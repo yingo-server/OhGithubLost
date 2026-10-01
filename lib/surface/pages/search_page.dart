@@ -172,30 +172,24 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
           ],
         ),
         SizedBox(height: tokens.space(OgLSpacing.sm)),
-        Wrap(
-          spacing: tokens.space(OgLSpacing.xs),
-          children: <Widget>[
-            OgLButton(
-              label: '仓库',
-              variant: _mode == _SearchMode.repos
-                  ? OgLButtonVariant.primary
-                  : OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              onPressed: () async {
-                await _switchMode(_SearchMode.repos);
-              },
-            ),
-            OgLButton(
-              label: '代码',
-              variant: _mode == _SearchMode.code
-                  ? OgLButtonVariant.primary
-                  : OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              onPressed: () async {
-                await _switchMode(_SearchMode.code);
-              },
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OgLSegmented<_SearchMode>(
+            items: const <OgLSegmentedItem<_SearchMode>>[
+              OgLSegmentedItem<_SearchMode>(
+                value: _SearchMode.repos,
+                label: '仓库',
+              ),
+              OgLSegmentedItem<_SearchMode>(
+                value: _SearchMode.code,
+                label: '代码',
+              ),
+            ],
+            value: _mode,
+            onChanged: (mode) async {
+              await _switchMode(mode);
+            },
+          ),
         ),
         SizedBox(height: tokens.space(OgLSpacing.md)),
         if (!_searched)
