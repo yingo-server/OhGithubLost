@@ -312,6 +312,7 @@ class OgLPermissionPolicy {
             askKind: OgLAskKind.systemSettingsOnly,
             denyBehavior: OgLDenyBehavior.degrade,
             consequence: '关闭窗口后同步停止（可开启"最小化到托盘"缓解）',
+            settingsHint: '设置 → 隐私和安全性 → 后台应用权限',
           ),
         ];
 
