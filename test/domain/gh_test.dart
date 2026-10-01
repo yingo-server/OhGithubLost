@@ -86,7 +86,8 @@ void main() {
       expect(tree.directories.length, 2);
       expect(
         tree.childrenOf('src').map((GhTreeEntry e) => e.path),
-        <String>['src', 'src/main.dart', 'src/ui'],
+        <String>['src/main.dart', 'src/ui'],
+        reason: 'childrenOf 返回的是"该目录的子项"，不含目录自身',
       );
       expect(
         tree.childrenOf('').map((GhTreeEntry e) => e.path),
