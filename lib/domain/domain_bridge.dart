@@ -14,6 +14,7 @@ import '../../base/net/net_bridge.dart';
 import '../../base/net/net_transport.dart';
 import '../../kernel/bridge_registry.dart';
 import '../../kernel/contract/module.dart';
+import '../../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';
