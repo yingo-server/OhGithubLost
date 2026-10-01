@@ -288,9 +288,19 @@ typedef IxChannelApplier = Future<void> Function(IxBatchDecision decision);
 /// 任务运行器。
 class IxTaskRunner extends ChangeNotifier {
   /// 创建运行器。
-  IxTaskRunner({KernelDiagnostics? diagnostics}) : _diagnostics = diagnostics;
+  ///
+  /// [channelApplier] 是**通道选择的落地实现**：把 `直连 / 自动 / 指定镜像`
+  /// 真正作用到网络底座上。装配层（`IxModule`）会注入它；
+  /// 不注入时，`run()` 仍要求调用方显式传 `applyChannel`——
+  /// **绝不允许"用户选了镜像，实际走直连"这种事静默发生**。
+  IxTaskRunner({
+    KernelDiagnostics? diagnostics,
+    IxChannelApplier? channelApplier,
+  })  : _diagnostics = diagnostics,
+        _channelApplier = channelApplier;
 
   KernelDiagnostics? _diagnostics;
+  IxChannelApplier? _channelApplier;
 
   IxTaskProgress _progress = const IxTaskProgress(done: 0, total: 0);
   IxTaskReport? _lastReport;
@@ -310,6 +320,14 @@ class IxTaskRunner extends ChangeNotifier {
   void attachDiagnostics(KernelDiagnostics diagnostics) {
     _diagnostics = diagnostics;
   }
+
+  /// 绑定通道落地实现（装配阶段调用）。
+  void attachChannelApplier(IxChannelApplier applier) {
+    _channelApplier = applier;
+  }
+
+  /// 当前是否具备通道落地能力。
+  bool get hasChannelApplier => _channelApplier != null;
 
   /// 请求取消（下一次循环立即生效）。
   void cancel() {
@@ -370,8 +388,9 @@ class IxTaskRunner extends ChangeNotifier {
     try {
       // 通道切换必须发生在**第一个请求之前**，且失败即整体失败——
       // 否则用户以为走的是镜像，实际走了直连。
-      if (applyChannel != null) {
-        await applyChannel(decision);
+      final applier = applyChannel ?? _channelApplier;
+      if (applier != null) {
+        await applier(decision);
       }
 
       for (final item in plan.items) {

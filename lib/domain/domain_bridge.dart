@@ -247,7 +247,12 @@ class IxModule extends OgLModule {
       store: base.disk.kv,
       diagnostics: context.diagnostics,
     );
-    tasks = IxTaskRunner(diagnostics: context.diagnostics);
+    // ★ 通道落地：把「直连 / 自动 / 指定镜像」真正作用到网络底座的镜像选择器上。
+    // 没有这一段，"批量必须让用户选通道"就只是 UI 上的一句空话。
+    tasks = IxTaskRunner(
+      diagnostics: context.diagnostics,
+      channelApplier: buildChannelApplier(base.net),
+    );
     notifications = IxNotificationCenter();
 
     context.di.register<IxSession>(session);
@@ -260,6 +265,7 @@ class IxModule extends OgLModule {
       data: <String, Object?>{
         'channelOptions': IxChannel.values.length,
         'batchConfirmRequired': true,
+        'channelWired': tasks.hasChannelApplier,
       },
     );
   }
@@ -320,6 +326,32 @@ List<OgLModule> domainLayerModules({
       ix ?? IxModule(),
       DomainLayerModule(),
     ];
+
+/// 把批量任务的通道选择**真正落到网络底座**上（装配层使用）。
+///
+/// 三种选择对应三种真实动作：
+/// - `direct` → 停用全部镜像通道（真·直连）
+/// - `auto`   → 启用全部通道（交给选择器按顺序 / 竞速挑）
+/// - `mirror` → 只保留指定通道
+///
+/// 非 IO / 无镜像能力时静默跳过是可接受的：那本来就等价于"直连"。
+IxChannelApplier buildChannelApplier(NetBridge net) {
+  return (IxBatchDecision decision) async {
+    final transport = net.transport;
+    if (transport is! ResilientTransport) {
+      return;
+    }
+    final mirrors = transport.mirrors;
+    switch (decision.channel) {
+      case IxChannel.direct:
+        mirrors.setAllEnabled(false);
+      case IxChannel.auto:
+        mirrors.setAllEnabled(true);
+      case IxChannel.mirror:
+        mirrors.restrictTo(decision.mirrorId);
+    }
+  };
+}
 
 /// 把 `NetBridge` 的网络状态包装成 [SysNetworkSource]。
 class _BridgeNetworkSource implements SysNetworkSource {

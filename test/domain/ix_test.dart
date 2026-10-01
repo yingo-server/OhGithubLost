@@ -261,6 +261,33 @@ void main() {
       expect(sequence[1], 'work:a');
     });
 
+    test('运行器自带通道落地实现时，未显式传 applyChannel 也会生效', () async {
+      final applied = <String>[];
+      final runner = IxTaskRunner(
+        channelApplier: (IxBatchDecision decision) async {
+          applied.add('${decision.channel.name}:${decision.mirrorId}');
+        },
+      );
+      expect(runner.hasChannelApplier, isTrue);
+
+      await runner.run(
+        plan: _plan(),
+        decision: const IxBatchDecision(
+          confirmed: true,
+          channel: IxChannel.mirror,
+          mirrorId: 'ghproxy',
+        ),
+        work: (IxBatchItem item) async =>
+            IxTaskResult.success(item.id, item.label),
+      );
+
+      expect(
+        applied,
+        <String>['mirror:ghproxy'],
+        reason: '默认接线也必须真的切通道，不能只写在 UI 上',
+      );
+    });
+
     test('运行中不允许再开一批', () async {
       final runner = IxTaskRunner();
       final first = runner.run(
