@@ -274,10 +274,10 @@ void main() {
     test('合法 ID 原样保留（护栏不能误伤正常值）', () {
       final settings = OgLSettings.fromJson(<String, dynamic>{
         'themeId': 'winui3',
-        'iconSetId': 'fontawesome.solid',
+        'iconSetId': 'material.filled',
       });
       expect(settings.themeId, 'winui3');
-      expect(settings.iconSetId, 'fontawesome.solid');
+      expect(settings.iconSetId, 'material.filled');
       expect(settings.lastRepairs, isEmpty);
     });
   });
@@ -362,12 +362,12 @@ void main() {
       expect(controller.isLoaded, isTrue);
 
       await controller.setTheme('winui3');
-      await controller.setIconSet('fontawesome.solid');
+      await controller.setIconSet('material.filled');
 
       final reloaded = OgLSettingsController(persistence: persistence);
       await reloaded.load();
       expect(reloaded.settings.themeId, 'winui3');
-      expect(reloaded.settings.iconSetId, 'fontawesome.solid');
+      expect(reloaded.settings.iconSetId, 'material.filled');
     });
 
     test('读取失败 ⇒ 回落默认并上报错误（绝不抛）', () async {

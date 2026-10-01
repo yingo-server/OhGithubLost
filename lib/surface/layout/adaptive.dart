@@ -243,12 +243,12 @@ class OgLViewport {
   /// 屏幕尺寸等级。
   OgLScreenSize get sizeClass => OgLScreenSize.fromWidth(width);
 
-  /// 物理对角线（英寸）。
+  /// 屏幕对角线（英寸）。
   ///
-  /// 用 `160dp = 1 英寸` 这一 Android 基线换算——它比"逻辑宽度"
+  /// 用 `dp = 1/160 英寸` 这一 Android 基线换算——它比"逻辑宽度"
   /// 更能反映"这台设备到底有多大"，从而正确区分手机与平板。
-  double get diagonalInches =>
-      OgLAdaptive.diagonalInches(size, devicePixelRatio);
+  /// 注意：dp 已经密度无关，**不再参与 DPR 运算**（详见 [OgLAdaptive.diagonalInches]）。
+  double get diagonalInches => OgLAdaptive.diagonalInches(size);
 
   /// 设备形态。
   OgLFormFactor get formFactor {
@@ -349,10 +349,7 @@ class OgLLayoutSpec {
       formFactor: viewport.formFactor,
       navigation: navigation,
       panes: panes,
-      gridColumns: OgLAdaptive.gridColumns(
-        width: width,
-        formFactor: viewport.formFactor,
-      ),
+      gridColumns: OgLAdaptive.gridColumns(width: width),
       contentMaxWidth: OgLAdaptive.contentMaxWidth(viewport.formFactor),
       navigationWidth: navigation.width,
       showNavLabels: navigation == OgLNavKind.extendedRail,
@@ -398,12 +395,17 @@ class OgLLayoutSpec {
 
 /// 自适应工具函数（纯函数，全部可单测）。
 abstract final class OgLAdaptive {
-  /// 每个网格瓦片的目标宽度（按形态区分，保证"信息密度随屏幕增大而提高"）。
-  static double tileWidthFor(OgLFormFactor formFactor) => switch (formFactor) {
-        OgLFormFactor.phone => 150,
-        OgLFormFactor.tablet => 190,
-        OgLFormFactor.desktop => 230,
-        OgLFormFactor.tv => 300,
+  /// 网格瓦片的目标宽度。
+  ///
+  /// **按窗口宽度分级，而不是按设备形态**——这一点是踩过坑才定下来的：
+  /// 若瓦片宽度跟着"手机/平板"跳变，那么窗口被拖宽、跨过形态阈值的那一刻，
+  /// 瓦片会突然变大，**列数反而减少**（用户看到的就是"越拖越挤"的跳动）。
+  /// 现在的分级只与宽度有关，于是列数对宽度**严格单调**。
+  static double tileWidthFor(double width) => switch (width) {
+        < 600 => 150, // 手机竖屏：一行 2–3 个
+        < 1200 => 190, // 平板 / 桌面小窗
+        < 1920 => 230, // 桌面
+        _ => 260, // 大屏
       };
 
   /// 内容区最大宽度：避免在 4K 上出现"一行 2000px 的正文"。
@@ -416,13 +418,14 @@ abstract final class OgLAdaptive {
       };
 
   /// 网格列数：由宽度与瓦片目标宽度推导，夹在 `[2, 6]`。
+  ///
+  /// 只依赖宽度 ⇒ 对宽度单调 ⇒ 拖窗口时列数只增不减，不会来回跳。
   static int gridColumns({
     required double width,
-    required OgLFormFactor formFactor,
     double spacing = 12,
   }) {
-    final tile = tileWidthFor(formFactor);
-    // 注意：先按"含间距"的等效宽度算，否则瓦片实际会比目标窄一档。
+    final tile = tileWidthFor(width);
+    // 先按"含间距"的等效宽度算，否则瓦片实际会比目标窄一档。
     final raw = ((width + spacing) / (tile + spacing)).floor();
     return raw.clamp(2, 6);
   }
@@ -437,17 +440,18 @@ abstract final class OgLAdaptive {
     return (1 / devicePixelRatio).clamp(0.25, 1);
   }
 
-  /// 物理对角线（英寸）。`160dp = 1 英寸`。
-  static double diagonalInches(Size logicalSize, double devicePixelRatio) {
-    if (!devicePixelRatio.isFinite || devicePixelRatio <= 0) {
-      return 0;
-    }
-    final physicalW = logicalSize.width * devicePixelRatio;
-    final physicalH = logicalSize.height * devicePixelRatio;
-    return math.sqrt(physicalW * physicalW + physicalH * physicalH) /
-        devicePixelRatio /
-        160;
-  }
+  /// 对角线长度（英寸，**dp 模型**）。
+  ///
+  /// `1 dp = 1/160 英寸` 是 Android 的定义——dp 本身已经是"密度无关"单位，
+  /// 所以这里**不能**再乘除 [devicePixelRatio]：那等于把密度重复计入，
+  /// 会让"高 DPI 手机"被误判成更小的设备（一个曾经真实存在过的 bug）。
+  /// 设备像素比只在一处用到：[hairlineFor]。
+  static double diagonalInches(Size logicalSize) =>
+      math.sqrt(
+        logicalSize.width * logicalSize.width +
+            logicalSize.height * logicalSize.height,
+      ) /
+      160;
 
   /// 从若干候选值里按屏幕等级挑一个（页面书写更紧凑）。
   static T pick<T>(

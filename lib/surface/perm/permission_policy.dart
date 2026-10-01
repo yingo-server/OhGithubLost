@@ -232,6 +232,7 @@ class OgLPermissionPolicy {
             askKind: OgLAskKind.systemSettingsOnly,
             denyBehavior: OgLDenyBehavior.degrade,
             consequence: '切到后台后同步会暂停，回到前台继续',
+            settingsHint: '系统设置 → 应用 → OhGithubLost → 电池 → 不受限制',
           ),
           OgLPermissionRule(
             permission: OgLPermission.biometric,

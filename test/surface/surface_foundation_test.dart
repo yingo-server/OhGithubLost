@@ -60,13 +60,19 @@ void main() {
       expect(viewport.formFactor, OgLFormFactor.tablet);
     });
 
-    test('同样的逻辑宽度，DPR 不同 ⇒ 形态判定不同（这正是 DPI 必须参与的原因）', () {
+    test('同样的逻辑尺寸，DPR 不同 ⇒ 对角线**相同**（dp 已密度无关，不能重复计入）', () {
       final highDpi = _viewport(width: 800, height: 1280, dpr: 4);
       final lowDpi = _viewport(width: 800, height: 1280, dpr: 1);
-      // DPR=4 时物理尺寸只有 DPR=1 的 1/4，自然不该被判成平板。
-      expect(highDpi.diagonalInches, lessThan(lowDpi.diagonalInches));
-      expect(lowDpi.formFactor, OgLFormFactor.tablet);
-      expect(highDpi.formFactor, OgLFormFactor.phone);
+      expect(
+        highDpi.diagonalInches,
+        closeTo(lowDpi.diagonalInches, 0.0001),
+        reason: 'dp 模型下 DPR 与物理尺寸无关；乘除 DPR 会把密度算两遍',
+      );
+      expect(highDpi.diagonalInches, closeTo(9.43, 0.1));
+      expect(highDpi.formFactor, OgLFormFactor.tablet);
+
+      // DPR 真正该起作用的唯一地方是发丝线。
+      expect(highDpi.hairline, lessThan(lowDpi.hairline));
     });
 
     test('桌面平台永远是桌面（不因为外接大屏就变成"电视"以外的东西）', () {
@@ -160,15 +166,17 @@ void main() {
       }
     });
 
-    test('网格列数始终落在 [2, 6]', () {
+    test('网格列数始终落在 [2, 6]，且对宽度严格单调（拖窗口不闪）', () {
+      var previous = 0;
       for (var width = 200.0; width <= 4000; width += 37) {
-        for (final form in OgLFormFactor.values) {
-          final columns = OgLAdaptive.gridColumns(
-            width: width,
-            formFactor: form,
-          );
-          expect(columns, inInclusiveRange(2, 6));
-        }
+        final columns = OgLAdaptive.gridColumns(width: width);
+        expect(columns, inInclusiveRange(2, 6));
+        expect(
+          columns,
+          greaterThanOrEqualTo(previous),
+          reason: '宽度 $width 处列数回退了——这正是"拖宽反而更挤"的 bug',
+        );
+        previous = columns;
       }
     });
   });
