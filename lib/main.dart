@@ -14,6 +14,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'base/base_bridge.dart';
 import 'domain/domain_bridge.dart';
 import 'kernel/boot/boot_fs.dart';
 import 'kernel/boot/boot_loader.dart';
