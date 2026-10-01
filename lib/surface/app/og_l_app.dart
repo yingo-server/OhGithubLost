@@ -159,21 +159,19 @@ class _OgLShellState extends State<OgLShell> {
   int _index = 0;
 
   static const List<OgLIconName> _icons = <OgLIconName>[
-    OgLIconName.shield,
     OgLIconName.repository,
     OgLIconName.settings,
-    OgLIconName.bug,
+    OgLIconName.info,
   ];
-  static const List<String> _titles = <String>['概览', '仓库', '设置', '诊断'];
+  static const List<String> _titles = <String>['仓库', '设置', '关于'];
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
     final layout = ogL.layout;
     final destinations = <Widget>[
-      _OverviewPage(report: widget.report),
       OgLReposPage(surface: widget.surface),
       _SettingsPage(surface: widget.surface),
-      _DiagnosticsPage(report: widget.report),
+      _AboutPage(report: widget.report),
     ];
 
     final body = _ContentFrame(

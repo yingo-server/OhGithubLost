@@ -522,6 +522,8 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
   final TextEditingController _input = TextEditingController();
   bool _busy = false;
   String? _error;
+  /// 原始异常全文（详细文本，供取证 / 复制）。
+  String? _errorRaw;
 
   @override
   void dispose() {
@@ -543,6 +545,7 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
     setState(() {
       _busy = true;
       _error = null;
+      _errorRaw = null;
     });
     final pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
     try {
@@ -567,11 +570,17 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       _input.clear();
       await widget.onDone();
     } catch (error) {
+      // ★ 先落日志、再翻译：异常全文进 logcat（tag=OGL_LOGIN_FAILURE），
+      //   供设备侧取证；界面同时给出"人话"与原始文本。
+      debugPrint('OGL_LOGIN_FAILURE: $error');
       await widget.surface.domain.auth.removeAccount(pendingId);
       if (!mounted) {
         return;
       }
-      setState(() => _error = _describeLoginFailure(error));
+      setState(() {
+        _errorRaw = error.toString();
+        _error = _describeLoginFailure(error);
+      });
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -635,6 +644,15 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
                   style: text.bodySmall?.copyWith(color: palette.accent),
                 ),
               ],
+              if (_errorRaw != null && _errorRaw != _error)
+                Padding(
+                  padding: EdgeInsets.only(top: ogL.tokens.space(OgLSpacing.sm)),
+                  child: SelectableText(
+                    _errorRaw!,
+                    maxLines: 4,
+                    style: text.labelSmall?.copyWith(color: palette.textFaint),
+                  ),
+                ),
               SizedBox(height: ogL.tokens.space(OgLSpacing.md)),
               FilledButton(
                 onPressed: _busy ? null : _submit,

@@ -102,6 +102,72 @@ class OgLNoticeCenter extends ChangeNotifier {
   }
 }
 
+/// 应用级日志环（surface 层）：记录用户操作与**原始错误**，供「关于页」展示。
+///
+/// 与内核日志（`KernelReport.logTail`）互补：
+/// 内核管"启动与治理"，这里管"用户行为与网络/认证失败"。
+class OgLAppLog extends ChangeNotifier {
+  OgLAppLog._();
+
+  /// 单例。
+  static final OgLAppLog instance = OgLAppLog._();
+
+  /// 条目上限（环形丢弃最旧）。
+  static const int maxEntries = 200;
+
+  final List<OgLAppLogEntry> _entries = <OgLAppLogEntry>[];
+
+  /// 全部条目（**最新在前**，方便直接看）。
+  List<OgLAppLogEntry> get entries =>
+      List<OgLAppLogEntry>.unmodifiable(_entries.reversed.toList());
+
+  /// 追加一条。
+  void add(
+    String area,
+    String message, {
+    OgLNoticeSeverity severity = OgLNoticeSeverity.info,
+  }) {
+    _entries.add(OgLAppLogEntry(
+      at: DateTime.now(),
+      area: area,
+      message: message,
+      severity: severity,
+    ));
+    while (_entries.length > maxEntries) {
+      _entries.removeAt(0);
+    }
+    notifyListeners();
+  }
+}
+
+/// 一条应用日志。
+class OgLAppLogEntry {
+  /// 创建条目。
+  const OgLAppLogEntry({
+    required this.at,
+    required this.area,
+    required this.message,
+    required this.severity,
+  });
+
+  /// 时间。
+  final DateTime at;
+  /// 区域（认证 / 仓库 / …）。
+  final String area;
+  /// 正文（含原始异常与堆栈）。
+  final String message;
+  /// 级别。
+  final OgLNoticeSeverity severity;
+
+  /// 展示格式：`[HH:mm:ss][区域] 正文`。
+  String toDisplay() {
+    final h = at.hour.toString().padLeft(2, '0');
+    final m = at.minute.toString().padLeft(2, '0');
+    final s = at.second.toString().padLeft(2, '0');
+    return '[$h:$m:$s][$area] $message';
+  }
+}
+
 /// 宿主：把通知中心里的条目渲染成弹窗 / 横幅。
 ///
 /// 挂在 `MaterialApp.builder` —— 这样**整棵应用树**里的错误都能抛到这里。
