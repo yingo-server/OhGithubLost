@@ -32,13 +32,23 @@ class _FakeUdpChannel implements DnsUdpChannel {
     List<int> query, {
     Duration timeout = const Duration(seconds: 5),
   }) async {
+++) {
     calls++;
     lastServerIp = serverIp;
     lastQuery = query;
-    return silent ? null : response;
+    if (silent || response == null) {
+      return null;
+    }
+    // 真实服务器会把请求的事务 ID 原样回填到响应头部——
+    // 假通道必须模仿这一点，否则测的是"假实现"而不是"真逻辑"。
+    final patched = List<int>.of(response!);
+    if (query.length >= 2) {
+      patched[0] = query[0];
+      patched[1] = query[1];
+    }
+    return patched;
   }
 }
-
 /// 可控解析器。
 class _FakeResolver implements DnsResolver {
   _FakeResolver({
