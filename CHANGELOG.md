@@ -5,6 +5,41 @@
 
 ## [未发布]
 
+### 新增（第二阶段 · UI 精修与功能复查 W0–W4）
+
+- **UI 设计规范落库（W0）**：仓库根 `DESIGN.md`（design-md 格式：72 个颜色令牌 × 4 套调色板、
+  字阶 / 间距 / 圆角 / 18 个组件令牌 + 8 章散文）；`docs/UI_SYSTEM_V3.md` 升级为**逐控件清单**
+  （Primer 对照路径 / 状态 / 尺寸 / 实现 / 测试 / 勾选）。
+- **新组件（W2）**：`OgLBlankslate`（空态）· `OgLBox`（分区容器）· `OgLStateView`（载/空/错三态收敛）·
+  `OgLToggleSwitch`（自绘开关，整行可点）。
+- **自绘矢量图标体系（W3）**：`lib/surface/icons/og_l_vector_icon.dart`（45 个语义的手写路径，
+  24×24 网格、**纯直线**、端点 butt / 拐角 miter）+ `lib/surface/kit/kit_icon.dart`（`OgLIcon`）；
+  图标包改为只描述风格（标准线性 1.75 / 极简细线 1.35 / 锐利实心 1.7），历史 ID 保持兼容。
+- **组件快照矩阵（W4）**：`test/surface/ui_component_matrix_test.dart` 产出
+  `build/ui_shots/matrix_<主题>__<明暗>.png`（两主题 × 明暗 × 全部 Kit 组件 + 45 图标总览，CI 工件可下载）。
+
+### 修复（第二阶段）
+
+- **解码错误**：`GhContent.decodeContent` 用 `String.fromCharCodes` → 改 `utf8.decode(allowMalformed: true)`
+  （中文 / emoji 不再乱码）。
+- **登录不缓存**：`PlatformStorage.open()` 从未接线 → 新增 `lib/base/base_bootstrap.dart`
+  （真机用 `IoDiskKv` / `SecureDiskVault`，失败回内存并**大声上报**）。
+- **仓库页标签竖排**：`Wrap + OgLButton` → `OgLUnderlineNav`（水平下划线导航）；
+  搜索页模式切换 → `OgLSegmented`。
+- **"大面积灰色块"（W1/W2，三条根因）**：① 输入框 `filled: true + surfaceAlt` 灰底大板 → 改 Primer 描边不填充；
+  ② `OgLBanner` 用 `color.withAlpha(26)` 铺满整条 → 改面板色 + 语义描边；③ 空态被 Banner 冒充 / Pages 失败
+  永远停在骨架 → 改 `OgLBlankslate` + 明确错误与重试。
+- **文件打开失败＝静默失败**：错误只在文件视图渲染而失败时仍在目录视图 → 目录视图显示"文件打开失败 + 重试"。
+- **仓库改名后失联**：后续请求仍用旧全名 → 引入 `_full` 全名状态，改名后继续可用。
+- **图标未更换**：全仓库 53 处 `Icon(ogL.icon(X))` → `OgLIcon(name: X)`，清掉最后一处 Material 字形。
+
+### 验证（第二阶段）
+
+- CI 全绿：`8b51367c`（W1+W2）· `7c6cfdeb`（W3）· `b634b863`（W4）。
+- 新增测试：`design_spec_sync_test`（规范 ↔ 代码令牌 + 控件覆盖）、`kit_states_test`（三态 / 空态 / 交互反馈）、
+  `icon_vector_test`（语义全覆盖 / 可解析 / **结构性拦住 `Icons.xxx`**）、`ui_component_matrix_test`（快照矩阵）。
+- 本地等价自检：`_setup/w0_selfcheck.py`（模拟测试断言；**曾抓到真实的圆角令牌漂移**）。
+
 ### 新增（UI v3 重写与发布工程 · 随首个 Release `v0.1.0` 发布）
 - **设计系统 v3**：两主题——`primer`（GitHub Primer 官方令牌）/ `ogl.spatial`（自研）；旧三主题退役。
 - **OGL Kit**（`lib/surface/kit/`）：按钮 / 输入框 / 对话框 / 提示横幅 / 标签 / 列表行 / 加载 / 骨架 / 页头，

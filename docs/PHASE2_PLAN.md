@@ -82,9 +82,11 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [x] `UI_SYSTEM_V3.md` 标注 W4 核对结论
 - [x] 推送（本批）
 
-### W5 · 收口 ⏳
-- [ ] 文档勾选：CHANGELOG / ROADMAP / FEATURES / PHASE2 / UI_SYSTEM_V3
-- [ ] 构建 13/13 核验；备份归档；记忆终档
+### W5 · 收口 ✅
+- [x] 文档勾选：CHANGELOG / ROADMAP / FEATURES / PHASE2 / UI_SYSTEM_V3
+- [x] 备份归档（每波推送前 / 后各一份 `_backup/ogl-p2-w*-{pre,post}-*.tar.gz`）
+- [x] 记忆终档（状态卡 / 工程决策库 / 架构与代码地图）
+- [ ] 构建 13/13 核验（随末次推送的 build 流水线，异步跑完即达）
 
 ## 3. 推送策略（硬性）
 

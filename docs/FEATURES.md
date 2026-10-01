@@ -9,6 +9,37 @@
 
 ---
 
+## 零、第二阶段新增与修复（W0–W4，已 CI 绿）
+
+```
+第二阶段交付
+├─ UI 设计规范（W0）                            ✅ DESIGN.md（仓库根）
+│  ├─ 机器可读令牌：4 套调色板 × 18 角色 = 72 色 + 字阶 / 间距 / 圆角 / 组件令牌
+│  ├─ 人读规范：8 章（Overview → Do's and Don'ts）
+│  └─ 一致性护栏                                   ✅ test/surface/design_spec_sync_test.dart
+│     ├─ 令牌 ↔ theme_pack / design_tokens 双向对账
+│     └─ 控件清单必须覆盖 lib/surface/kit/ 全部组件
+│
+├─ 仓库页功能复查与结构（W1+W2）                  ✅ CI 8b51367c
+│  ├─ 三态收敛：OgLStateView（载 / 空 / 错）      ✅ lib/surface/kit/kit_state_view.dart
+│  ├─ 空态：OgLBlankslate（不再用 Banner 冒充）   ✅ lib/surface/kit/kit_blankslate.dart
+│  ├─ 分区：OgLBox（设置页三分区）                ✅ lib/surface/kit/kit_box.dart
+│  ├─ 开关：OgLToggleSwitch（自绘、整行可点）     ✅ lib/surface/kit/kit_toggle.dart
+│  ├─ 输入框不填充 + 横幅用面板色（灰块根因）      ✅ kit_text_field / kit_banner
+│  └─ 文件打开失败可见化 + 仓库改名后继续可用      ✅ repo_page（_pendingFile / _full）
+│
+├─ 自绘矢量图标（W3）                             ✅ CI 7c6cfdeb
+│  ├─ 45 语义 × 手写路径（24 网格、纯直线、butt/miter）  ✅ lib/surface/icons/og_l_vector_icon.dart
+│  ├─ 渲染组件 OgLIcon（随主题风格：细线 / 标准 / 实心） ✅ lib/surface/kit/kit_icon.dart
+│  └─ 结构性回归：全仓库不得出现 Icons.xxx / Icon(ogL.icon) ✅ test/surface/icon_vector_test.dart
+│
+└─ 快照矩阵（W4）                                 ✅ CI b634b863
+   └─ 两主题 × 明暗 × 全部组件 → build/ui_shots/matrix_*.png（CI 工件）
+      ✅ test/surface/ui_component_matrix_test.dart
+```
+
+---
+
 ## 一、L0 内核级（`lib/kernel/`，14 文件 / 2,801 行）
 
 ```
