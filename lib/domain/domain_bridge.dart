@@ -14,14 +14,14 @@ import '../../base/net/net_bridge.dart';
 import '../../base/net/net_transport.dart';
 import '../../kernel/bridge_registry.dart';
 import '../../kernel/contract/module.dart';
-import '../gh/gh_api.dart';
-import '../gh/gh_auth.dart';
-import '../gh/gh_client.dart';
-import '../ix/ix_notify.dart';
-import '../ix/ix_session.dart';
-import '../ix/ix_task.dart';
-import '../sys/sys_access.dart';
-import '../sys/sys_info.dart';
+import 'gh/gh_api.dart';
+import 'gh/gh_auth.dart';
+import 'gh/gh_client.dart';
+import 'ix/ix_notify.dart';
+import 'ix/ix_session.dart';
+import 'ix/ix_task.dart';
+import 'sys/sys_access.dart';
+import 'sys/sys_info.dart';
 
 /// 中枢层桥（L2 唯一出口）。
 class DomainBridge {
