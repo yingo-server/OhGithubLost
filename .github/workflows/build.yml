@@ -255,6 +255,18 @@ jobs:
           base64 -d .github/signing/ogl-debug.keystore.b64 > "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android | tail -3
 
+      # ★ 预装 CMake（防御性）。个别插件含原生代码，Gradle 会在构建中途用 SDK
+      # Manager 下载 cmake；若恰逢网络截断会报 "Archive is not a ZIP archive"
+      # 整条腿失败（run 36872184715 实证）。这里提前装好，失败不阻塞
+      # （构建时 Gradle 还会自行重试）。
+      - name: 预装 CMake（防中途下载损坏）
+        if: matrix.build == 'apk' || matrix.build == 'appbundle'
+        continue-on-error: true
+        shell: bash
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.22.1" >/dev/null 2>&1 \
+            && echo 'CMake 预装完成' || echo 'CMake 预装未完成（不阻塞）'
+
       - name: 构建 ${{ matrix.label }}
         # 非 dispatch / 非 Android 目标：按 pubspec 默认版本构建。
         if: github.event_name != 'workflow_dispatch' || (matrix.build != 'apk' && matrix.build != 'appbundle')

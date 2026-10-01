@@ -1,6 +1,7 @@
 # OGL 功能树（FEATURES）
 
-> 状态：**L0 / L1 / L2 已完成并 CI 全绿**（run `36811401922`，248 项测试）。
+> 状态：**L0 / L1 / L2 已完成；L3 UI v3（两主题 + OGL Kit + 客户端页面群）已落地**。
+> CI：分析 + 测试全绿（`c2dbd711`）；构建：13/13 平台目标全绿（`efa7ed66`）。
 > 本文只列**代码里真实存在**的能力，每一项都可追到源文件与测试。
 > 未实现的部分集中在文末，**不粉饰**。
 
@@ -281,12 +282,15 @@ GitHub API
 ├─ CI                                           ✅ .github/workflows/ci.yml
 │  ├─ flutter analyze --fatal-infos --fatal-warnings（警告即失败）
 │  └─ flutter test
+├─ 构建与发布                                   ✅ .github/workflows/build.yml
+│  ├─ 13 个"平台 × 架构"目标（best-effort 分级，失败不拦主线）
+│  └─ 一键发布 → 自动 GitHub Release（见 docs/RELEASE.md）
 ├─ 增量推送                                     ✅ _setup/push_batch.py
 │  ├─ 比对远端 tree 的 blob sha，只传变更
 │  ├─ base_tree 增量提交 + 删除项（sha: null）
 │  └─ 网络抖动重试（HTTP 4xx/5xx 不重试）
-├─ 测试                                         ✅ 11 文件 / 4,647 行 / 248 项
-└─ 文档                                         ✅ 10 份（见 docs/README.md）
+├─ 测试                                         ✅ 16 文件 / 6,293 行 / 330+ 项（含渲染快照）
+└─ 文档                                         ✅ 15 份（见 docs/README.md）
 ```
 
 ---
@@ -295,15 +299,15 @@ GitHub API
 
 | # | 项目 | 状态 |
 | --- | --- | --- |
-| 1 | **L3 展示层**：主题（设计令牌 / 双风格 / 主题包）、UI、Mod 运行时与强制告警弹窗 | ⏳ 未开始 |
+| 1 | **Mod 运行时 + 强制告警弹窗**（红线；主题 / UI / Kit / 页面群已落地） | ⏳ |
 | 2 | **Phase E**：UI 三项打磨（动效 / 性能 / 代码之美） | ⏳ 未开始 |
 | 3 | **真机探针装配**：`AndroidProbe` / `AppProbe` 接 `device_info_plus` / `package_info_plus` | ⏳ 未接线 |
 | 4 | **通道并发测速与记忆**（老项目有，我们目前只做顺序回退） | ⏳ |
 | 5 | **代理源远端订阅**（需显式授权 + 来源提示） | ⏳ |
 | 6 | **OAuth Device Flow**（需外部 OAuth App） | ⏳ 按决策暂不做 |
-| 7 | **提交历史 / diff 的服务端渲染层**（API 已就绪，缺 UI） | ⚙️ 半成品 |
-| 8 | **Issues / PR / Gist / Actions 的 UI**（API 已就绪，缺 UI） | ⚙️ 半成品 |
+| 7 | **内核功能全量接线**（通知中心 / Mod 门 / 诊断 → UI） | ⏳ |
+| 8 | **权限网关五平台实现**（接口已定） | ⏳ |
 | 9 | **`PlatformStorage` / `SecureDiskVault` 的真机验收**（CI 无法覆盖） | ⚙️ 待真机 |
-| 10 | **VSCode 极简 / 圆角毛玻璃两套风格**（属 L3） | ⏳ 未开始 |
+| 10 | **快照矩阵扩展**（新页面 × 两主题） | ⏳ |
 
 *本文与 `docs/ROADMAP.md` 同步维护：功能落地后勾掉，新增能力必须回填。*

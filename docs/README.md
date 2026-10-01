@@ -10,6 +10,8 @@
 | [BOOT.md](BOOT.md) | 谁能被装载？签名/指纹/信任策略？扩展怎么告警？ | **强制验收** |
 | [NAMING.md](NAMING.md) | 层级、模块、类前缀、告警码怎么取名？ | 强制 |
 | [SURFACE.md](SURFACE.md) | 界面法则：布局断点 / DPI / 主题 / 图标 / 权限 / 设置护栏 | 强制 |
+| [UI_SYSTEM_V3.md](UI_SYSTEM_V3.md) | 双主题（Primer 官方 / OGL 自研）与 OGL Kit 组件规范 | 设计真源 |
+| [RELEASE.md](RELEASE.md) | 怎么发版？通道/标签/证书/产物/排查？ | 发布手册 |
 | [FEATURES.md](FEATURES.md) | **现在到底有哪些能力？哪些还没做？** | 功能真源 |
 | [CODE_MAP.md](CODE_MAP.md) | **每个文件干什么？哪些不变量不能破？** | 改动前必读 |
 | [LEGACY_FEATURES.md](LEGACY_FEATURES.md) | 老 App 有哪些功能？覆盖到哪了？还缺什么？ | 功能对照 |

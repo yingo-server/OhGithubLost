@@ -5,12 +5,24 @@
 
 ## [未发布]
 
-### 新增
-- `docs/ROADMAP.md`：唯一进度真源（阶段勾选 + CI 运行号）。
-- `CHANGELOG.md`、`CONTRIBUTING.md`：变更记录与贡献约定。
+### 新增（UI v3 重写与发布工程 · 随首个 Release `v0.1.0` 发布）
+- **设计系统 v3**：两主题——`primer`（GitHub Primer 官方令牌）/ `ogl.spatial`（自研）；旧三主题退役。
+- **OGL Kit**（`lib/surface/kit/`）：按钮 / 输入框 / 对话框 / 提示横幅 / 标签 / 列表行 / 加载 / 骨架 / 页头，
+  全令牌驱动、零硬编码。
+- **客户端主壳与页面群**：登录门（令牌向导 + 游客）、首页（我的/星标/新建仓库）、搜索（仓库/代码）、
+  我的（账户管理）、仓库七标签（代码 / 议题 / PR / 发布 / 分支 / 提交 / 设置）、议题详情、提交对比、
+  PR 文件变更、Gist 列表、设置（账户 / 网络·DNS / Pages·CNAME / 危险区）、关于页（启动报告 / 日志）。
+- **CI 一键发布**：`workflow_dispatch` 可选通道（stable / beta / alpha）+ 版本号 / 版本名 / 说明，
+  构建成功后自动创建 GitHub Release（资产含全平台产物 + 源码 zip/tar.gz）。
+- **固定 Android 签名证书**（`.github/signing/`）：所有构建同一签名，支持覆盖安装。
 
-### 变更
-- 无（本轮仅新增文档与清理）。
+### 修复
+- `GhJson` 同名导入漏缺（46 处编译错误：`issue_page` / `pull_page` / `commit_page` / `gists_page` 等）。
+- 构建产物下载链路：断点续跑 + 大小校验（工具侧 `get_artifact_px.py` / `get_release.py`）。
+
+### 验证
+- CI `efa7ed66`：13/13 平台构建成功；`c2dbd711`：一键发布 + 固定证书落地；
+  首个 Release `v0.1.0`（run `36872184715`）。
 
 ## [0.2.0] — L2 中枢级
 

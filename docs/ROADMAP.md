@@ -10,7 +10,7 @@
 | A | 代码整理与文档完善 | barrel / 规范 / 文档索引 / 变更记录 | ✅ |
 | B | **L1 底座级** `base/` | `net/` + `disk/`（含缓存一致性 D1–D7）+ `base_bridge` | ✅ |
 | C | **L2 中枢级** `domain/` | `gh/` + `ix/` + `sys/` + `domain_bridge` | ✅ |
-| D | **L3 展示级** `surface/` | `theme/` + `ui/` + `mod/` + `surface_bridge` | ⏳ 下一步 |
+| D | **L3 展示级** `surface/` | `theme/` + `ui/` + `mod/` + `surface_bridge` | 🔄 进行中 |
 | E | **UI 三项打磨** | E1 动效 / E2 性能 / E3 代码之美 | ⏳ |
 
 ## 已完成
@@ -81,6 +81,8 @@
 | — | L3 设计系统 v3：两主题（Primer 官方 / OGL 自研）+ OGL Kit（9 组件） | `e59dc38d`~`e40f2e36` ✅ |
 | — | 客户端主壳（登录门 + 四页导航）+ 首页/搜索/我的 | `346cf656`~`c27dbb9a` ✅ |
 | — | 仓库页七标签（代码/议题/PR/发布/分支/提交/设置）+ 新建仓库/发布 | `247b03f9`~`4703e17f` ✅ |
+| — | 修复 `GhJson` 导入（46 处）+ 议题详情/提交 diff/PR 文件/分支/动作/Gist | `efa7ed66` ✅（13 平台构建成功） |
+| — | **CI 一键发布**（通道 stable/beta/alpha + 版本号/版本名/说明）+ **固定 Android 签名证书** | `c2dbd711` ✅（首个 Release [`v0.1.0`](https://github.com/yingo-server/OhGithubLost/releases/tag/v0.1.0)） |
 
 ---
 
@@ -101,7 +103,7 @@
 - [x] **渲染快照流水线**（3 主题 × 4 形态 = 12 张真实 PNG，CI 产物 `ui-shots`）
 - [ ] 权限网关平台实现（接口已定；`permission_handler` 因要求 compileSdk 37 已暂时移除，
       实现时重新引入并把 compileSdk 提升到 37）
-- [ ] **五平台全架构构建 CI 收敛**（13 个目标当前仅 `macOS arm64` 成功）
+- [x] **五平台全架构构建 CI 收敛**（13/13 目标全绿，`4703e17f` / `efa7ed66` 连续达成）
 - [ ] Mod 运行时 + **强制告警弹窗**（红线）
 - [ ] 真实数据页（仓库列表起步：`GhApi` + `OgLAsyncView` + 选中态联动）
 - [ ] 动效打磨（仅状态反馈 / 切换 / 面板展开）
@@ -118,7 +120,9 @@
 - [x] 仓库页七标签：
       代码（浏览/查看/编辑提交(基线 sha)/删除）· 议题（列表/关闭）· PR（列表）·
       发布（列表/新建/删除）· 分支 · 提交历史 · 设置（基本信息/Pages/CNAME/危险区）
-- [ ] 议题详情与评论；PR 文件视图；提交 diff（compare）；分支增删改
+- [x] 议题详情与评论；PR 文件视图；提交 diff（compare）；分支增删改（`b9a70f04`+`efa7ed66`）
 - [ ] Gists / Actions / 标签页；仓库列表筛选与排序
 - [ ] 设置 / 关于按 Kit 换肤；内核功能全量接线（通知中心 / Mod 门 / 诊断）
-- [ ] 快照矩阵扩展（新页面 × 两主题）；最终 APK 归档
+- [x] 最终 APK 归档（`efa7ed66` → SD 卡 `List/`，md5 `307a7461…`）
+- [x] CI 一键发布 + 固定签名证书（`.github/signing/`）→ 首个 Release `v0.1.0`（run `36872184715`）
+- [ ] 快照矩阵扩展（新页面 × 两主题）

@@ -1,48 +1,44 @@
 # OhGithubLost（OGL）
 
 [![CI](https://github.com/yingo-server/OhGithubLost/actions/workflows/ci.yml/badge.svg)](https://github.com/yingo-server/OhGithubLost/actions/workflows/ci.yml)
+[![Build](https://github.com/yingo-server/OhGithubLost/actions/workflows/build.yml/badge.svg)](https://github.com/yingo-server/OhGithubLost/actions/workflows/build.yml)
 
-> 全能 GitHub 仓库管理器 · Flutter 全平台重构版
-> 移动优先 · 全平台（Android 5.1+ / Windows / Linux）· 商业级工程质量
+> **GitHub 第三方客户端** · Flutter 全平台（Android / Windows / Linux / macOS / iOS）
+> Linux 内核式四层架构（L0 内核 → L1 底座 → L2 中枢 → L3 展示） · 零外部资源 · 双主题（Primer 官方 / OGL 自研）
 
 ## 这是什么
 
-OGL 是一个"像管理本地文件一样管理 GitHub 仓库"的跨平台应用：
-浏览与编辑文件、批量上传下载、发版管理、**一键建站（GitHub Pages）与自定义域名**、
-主题包与 Mod 扩展体系——并对"代码仓库最怕的事"（版本不一致、错位覆盖）做工程级防护。
+OGL 是一个完整的 **GitHub 第三方客户端**：
 
-## 架构（三层四段）
+- **仓库全功能**：文件浏览 / 编辑提交（基线 sha 防错位覆盖）/ 删除文件、议题（新建 / 评论 / 关闭）、
+  Pull Request（列表 / 文件变更）、发布（新建 / 删除）、分支（增 / 删 / 改）、提交历史与 compare 对比、
+  Pages / CNAME / 危险区；
+- **发现与组织**：仓库与代码搜索、星标仓库、多账户切换、Gist 列表；
+- **工程底盘**：缓存一致性防线（D1–D10）、启动层信任策略（Ed25519 + 指纹）、
+  应用级日志环（原始异常 + 堆栈）、一键发布的 CI（13 个全架构构建目标）。
+
+## 下载与安装
+
+- **稳定版**：在 [Releases](https://github.com/yingo-server/OhGithubLost/releases) 页面下载
+  `OGL-v*-arm64-v8a-release.apk`（绝大多数安卓手机适用）；
+- 全部平台产物见 `build` 工作流最近一次运行（13 个"平台 × 架构"目标）；
+- **签名**：自 v0.1.0 起使用固定证书 → 可直接覆盖安装；更早的随机证书安装包需先卸载一次。
+
+## 架构（L0–L3 · 每层一座桥）
 
 ```
-消费层 SURFACE   UI · Mod · 主题包（全部挂载在交互逻辑之上）
-中枢层 DOMAIN    API 逻辑（GitHub 语义 + 冲突治理） · 交互逻辑（状态/命令/任务/扩展点）
-底座层 BASE      网络连接 net ‖平行‖ 硬盘逻辑 disk（含缓存一致性介质）
-内核级 KERNEL    启动层 BootLoader · 模块总线 · 依赖容器 · 生命周期 · 桥发现 · 诊断
+L3 展示 SURFACE   UI · OGL Kit · 主题（primer / ogl.spatial） · Mod
+L2 中枢 DOMAIN    GitHub 语义与治理 · 会话/任务/冲突 · 设备信息与能力守门
+L1 底座 BASE      网络（DNS 策略 / 重试 / 镜像） ‖ 硬盘（KV / 保险库 / 一致性介质）
+L0 内核 KERNEL    启动层 BootLoader · 模块总线 · 依赖容器 · 生命周期 · 诊断
 ```
 
-- **每层一座桥**：跨层只允许 import 对方 `*_bridge`，禁止直连实现；
-- **依赖单向**：`surface → domain → base → kernel`，由 lint 与评审强制；
-- **启动层（BL 锁）**：Ed25519 清单签名 + 逐层模块目录指纹校验；
-  第三方主题**不设限制**，第三方 Mod **放行但必须总线告警 + UI 弹窗通知**。
+- **依赖单向**：`surface → domain → base → kernel`；跨层只允许 import 对方 `*_bridge`；
+- **启动层**：Ed25519 清单签名 + 逐层模块指纹；第三方主题不设限，第三方 Mod 放行但必须告警（UI 弹窗）。
 
-## 文档（先设计后编码）
+## 文档
 
-| 文档 | 内容 |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 分层架构 / 目录分布 / 依赖规则 / 数据流 |
-| [docs/CONSISTENCY.md](docs/CONSISTENCY.md) | 缓存与一致性协议（七道防线，防错位覆盖） |
-| [docs/BOOT.md](docs/BOOT.md) | 启动层与信任策略（BL 锁 / 主题开放 / Mod 告警） |
-| [docs/STANDARDS.md](docs/STANDARDS.md) | 商业级交付标准 + 设计自审报告 + PR 清单 |
-| [docs/NAMING.md](docs/NAMING.md) | 层级 / 模块 / 类前缀 / 告警码 命名规范 |
-
-## 当前进度
-
-- ✅ **M0 架构冻结**：三份强制协议（架构 / 一致性 / 启动层）与规范落地
-- ✅ **L0 内核级**：启动层（签名 + 指纹 + 信任策略 + 告警）、模块总线、依赖容器、
-  生命周期（含失败回滚）、桥注册、诊断中枢 —— 23 项单元测试
-- ⏳ M1：底座（`base/net` 传输引擎与镜像通道 · `base/disk` 缓存一致性与平台 IO）
-- ⏳ M2：中枢（GitHub API 冲突治理 + 交互控制器/任务队列）
-- ⏳ M3：UI 最小闭环；⏳ M4：Mod / 主题包生态
+完整索引见 [docs/README.md](docs/README.md)（架构 / 一致性 / 持久化 / 启动 / 界面法则 / **发布手册**）。
 
 ## 开发
 
@@ -52,9 +48,8 @@ flutter analyze --fatal-infos --fatal-warnings
 flutter test
 ```
 
-> 引导清单（`assets/boot/manifest.json`）由 CI 构建时生成并签名；
-> 本地调试可用 `BootLoader(developmentBypass: true)`，该旁路必然产生
-> `OGL-BOOT-107` 告警，发布构建严禁开启。
+> 发布新版本：Actions → `build` → Run workflow（选通道 stable/beta/alpha + 版本号/版本名/说明），
+> 详见 [docs/RELEASE.md](docs/RELEASE.md)。
 
 ## 许可证
 
