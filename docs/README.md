@@ -23,6 +23,7 @@
 
 | 文件 | 用途 |
 | --- | --- |
+| [DESIGN.md](../DESIGN.md) | **视觉身份规范**（design-md 格式：令牌 + 理念 + 组件索引） |
 | [README.md](../README.md) | 项目介绍、特性、构建方式 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献约定与提交前自检 |
 | [CHANGELOG.md](../CHANGELOG.md) | 版本变更记录 |
