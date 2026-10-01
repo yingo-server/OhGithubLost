@@ -23,6 +23,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'repos_page.dart';
 
 /// 应用根。
 class OgLApp extends StatelessWidget {
@@ -154,19 +155,19 @@ class _OgLShellState extends State<OgLShell> {
   int _index = 0;
 
   static const List<OgLIconName> _icons = <OgLIconName>[
+    OgLIconName.shield,
     OgLIconName.repository,
     OgLIconName.settings,
     OgLIconName.bug,
   ];
-
-  static const List<String> _titles = <String>['概览', '设置', '诊断'];
-
+  static const List<String> _titles = <String>['概览', '仓库', '设置', '诊断'];
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
     final layout = ogL.layout;
     final destinations = <Widget>[
       _OverviewPage(report: widget.report),
+      OgLReposPage(surface: widget.surface),
       _SettingsPage(surface: widget.surface),
       _DiagnosticsPage(report: widget.report),
     ];
