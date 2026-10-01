@@ -19,6 +19,7 @@ import 'domain/domain_bridge.dart';
 import 'kernel/boot/boot_fs.dart';
 import 'kernel/boot/boot_loader.dart';
 import 'kernel/boot/integrity_verifier.dart';
+import 'kernel/boot/release_trust_root.dart';
 import 'kernel/boot/trust_policy.dart';
 import 'kernel/boot/trust_warnings.dart';
 import 'kernel/contract/module.dart';
@@ -33,8 +34,11 @@ import 'surface/surface_bridge.dart';
 /// 与 `pubspec.yaml` 的 `version:` 保持一致，发布流程会做一致性校验。
 const String kOgLAppVersion = '0.3.0';
 
-/// 发布构建注入的引导清单路径（由 `--dart-define` 提供；调试构建为空）。
-const String kOgLBootManifestPath = String.fromEnvironment('OGL_BOOT_MANIFEST');
+/// 发布构建注入的引导清单 JSON（由 `--dart-define-from-file` 提供；调试构建为空）。
+///
+/// 零外部资源：清单不落盘、不进 assets，直接编译进二进制；
+/// 由 CI（`tool/boot_manifest.py`）生成并 Ed25519 签名，见 `.github/signing/`。
+const String kOgLBootManifestJson = String.fromEnvironment('OGL_BOOT_MANIFEST');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,10 +71,14 @@ void main() async {
 
   // ★ 零外部资源的关键一步：
   // 引导文件系统完全在内存里，仓库不含任何 assets 文件。
-  // 发布构建时由 CI 把签名后的清单写进 `kOgLBootManifestPath` 指定的位置
-  // （通过 `--dart-define` 传入），调试构建则允许缺失并告警。
+  // 发布构建时把 CI 签名好的清单（经 `--dart-define-from-file` 注入）
+  // 写入内存文件系统；调试构建允许缺失（开发旁路 + OGL-BOOT-107 告警）。
   final bootFileSystem = InMemoryBootFileSystem();
-  final hasSignedManifest = kReleaseMode && kOgLBootManifestPath.isNotEmpty;
+  // 发布构建必须携带已签名清单（CI 注入）；缺失 = 拒绝启动，不静默降级。
+  final hasSignedManifest = kOgLBootManifestJson.isNotEmpty;
+  if (hasSignedManifest) {
+    bootFileSystem.writeText('boot/manifest.json', kOgLBootManifestJson);
+  }
 
   final kernel = OgLKernel(
     diagnostics: diagnostics,
@@ -79,18 +87,15 @@ void main() async {
       fileSystem: bootFileSystem,
       verifier: BootIntegrityVerifier(
         fileSystem: bootFileSystem,
-        // 32 字节 Ed25519 公钥；调试构建下不参与签名校验（清单本就缺失）。
-        releasePublicKey: List<int>.filled(
-          BootIntegrityVerifier.ed25519PublicKeyLength,
-          0,
-        ),
+        // 发布信任根：内嵌 Ed25519 公钥（私钥仅 CI 持有，见 `.github/signing/`）。
+        releasePublicKey: kOgLReleasePublicKey,
       ),
       diagnostics: diagnostics,
       warnings: warnings,
       policy: const BootTrustPolicy(),
       manifestPath: 'boot/manifest.json',
-      // 调试放行；发布构建**必须**有已签名清单，否则启动即拒绝。
-      developmentBypass: !hasSignedManifest,
+      // 开发旁路**仅对调试构建开放**：发布构建缺清单 / 签名无效 = 拒绝启动。
+      developmentBypass: !hasSignedManifest && !kReleaseMode,
     ),
   );
 

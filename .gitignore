@@ -25,3 +25,7 @@ android/key.properties
 *.aab
 *.zip
 *.tar.gz
+
+# 构建时生成的引导清单注入件（CI 产物，勿入库）
+dart_define.json
+boot_manifest.json

@@ -23,6 +23,7 @@
   - 启动层：`boot_loader` / `boot_manifest` / `boot_fs` / `integrity_verifier` / `trust_policy` / `trust_warnings`
 - [x] CI 接入（Flutter 3.47.5，`analyze --fatal-infos --fatal-warnings` + `test`）
 - [x] CI run `36752266286` **全绿**（23/23 测试通过）
+- [x] 发布信任链：引导清单生成 / Ed25519 签名 / 编译期注入；发布包零旁路（见 `docs/BOOT.md` §2）
 
 ## 阶段细则
 
@@ -83,6 +84,7 @@
 | — | 仓库页七标签（代码/议题/PR/发布/分支/提交/设置）+ 新建仓库/发布 | `247b03f9`~`4703e17f` ✅ |
 | — | 修复 `GhJson` 导入（46 处）+ 议题详情/提交 diff/PR 文件/分支/动作/Gist | `efa7ed66` ✅（13 平台构建成功） |
 | — | **CI 一键发布**（通道 stable/beta/alpha + 版本号/版本名/说明）+ **固定 Android 签名证书** | `c2dbd711` ✅（首个 Release [`v0.1.0`](https://github.com/yingo-server/OhGithubLost/releases/tag/v0.1.0)） |
+| — | **发布包彻底关闭开发旁路**（引导清单 Ed25519 签名 + dart-define 注入 + CI 防回归） | ✅（本批） |
 
 ---
 

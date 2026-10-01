@@ -20,28 +20,31 @@ Stage 4 就绪上报 ▸ 依赖图 /启动耗时 /告警清单 →交互层 → 
 
 ## 2. 引导清单（Boot Manifest）
 
-随发布产物分发，CI 构建时自动生成（禁止手工维护）：
+CI 构建时自动生成（禁止手工维护），**经 `--dart-define-from-file` 编译期注入**
+（零外部资源：不进 assets、不落盘）：
 
 ```json
 {
- "schema": 1,
- "appVersion": "0.1.0",
- "buildId": "2026.09.30-abcdef",
- "generatedAt": "2026-09-30T17:00:00Z",
- "modules": [
- { "id": "base.net", "layer": "base", "path": "lib/base/net/", "sha256": "…", "version": "0.1.0" },
- { "id": "base.disk", "layer": "base", "path": "lib/base/disk/", "sha256": "…", "version": "0.1.0" },
- { "id": "domain.api", "layer": "domain", "path": "lib/domain/api/", "sha256": "…", "version": "0.1.0" },
- { "id": "domain.interaction", "layer": "domain", "path": "lib/domain/interaction/", "sha256": "…", "version": "0.1.0" },
- { "id": "surface.ui", "layer": "surface", "path": "lib/surface/ui/", "sha256": "…", "version": "0.1.0" }
- ],
- "extra": {}
+  "schema": 1,
+  "appVersion": "0.1.0",
+  "buildId": "<git-sha>",
+  "generatedAt": "2026-10-01T14:00:00Z",
+  "modules": [],
+  "coreDigest": "<四层源码目录指纹聚合（构建期证据，签名覆盖）>",
+  "signature": "<Ed25519 / base64>"
 }
 ```
 
-- **清单签名**：清单整体用发布私钥签名（Ed25519），公钥内嵌应用；签名不符 → 拒绝启动（Stage 1）。
-- **模块指纹**：每模块目录 sha256（规范化排序）；不符 → 拒绝该模块（Stage 2）。
-- **清单冗余**：`extra` 字段保留未知内容；schema 版本化，向前兼容。
+- **清单签名**：签名覆盖去掉 `signature` 后的规范化 JSON（键字典序、无空白）；
+  私钥仅存于 `.github/signing/ogl-boot-ed25519.key`，公钥内嵌应用
+  （`kernel/boot/release_trust_root.dart`）；签名不符 → 拒绝启动（Stage 1）。
+- **模块指纹**：`coreDigest` 为构建期对 `lib/{kernel,base,domain,surface}` 的
+  目录指纹聚合（算法与 `integrity_verifier.dart` 一致，签名覆盖、可审计）；
+  运行时的逐模块目录指纹校验保留给**有真实文件落地的扩展包**（Mod / 主题）——
+  核心模块为 AOT 编译产物，不适用目录指纹，以「签名清单 + 平台包签名」为准。
+- **开发旁路**：`developmentBypass` 仅对调试构建开放；发布构建缺清单 / 签名无效
+  = 拒绝启动（fail-safe，不静默降级）。
+- **清单冗余**：未识别字段原样保留；schema 版本化，向前兼容。
 
 ## 3. 信任分级（Trust Tiers）
 

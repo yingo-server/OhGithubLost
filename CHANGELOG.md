@@ -15,6 +15,9 @@
 - **CI 一键发布**：`workflow_dispatch` 可选通道（stable / beta / alpha）+ 版本号 / 版本名 / 说明，
   构建成功后自动创建 GitHub Release（资产含全平台产物 + 源码 zip/tar.gz）。
 - **固定 Android 签名证书**（`.github/signing/`）：所有构建同一签名，支持覆盖安装。
+- **发布包关闭开发旁路**：引导清单（Boot Manifest）由 CI 生成 + Ed25519 签名，
+  `--dart-define-from-file` 编译期注入（零外部资源）；发布构建缺清单 = 拒绝启动，
+  正式包不再出现 OGL-BOOT-107；新增两条防回归测试（信任链 / 注入防空）。
 
 ### 修复
 - `GhJson` 同名导入漏缺（46 处编译错误：`issue_page` / `pull_page` / `commit_page` / `gists_page` 等）。
@@ -23,6 +26,8 @@
 ### 验证
 - CI `efa7ed66`：13/13 平台构建成功；`c2dbd711`：一键发布 + 固定证书落地；
   首个 Release `v0.1.0`（run `36872184715`）。
+- 发布信任链：`test/kernel/boot_release_chain_test.dart`（私钥 ↔ 公钥 ↔ 签名）
+  + 构建腿注入防空回归（`boot_define_injection_test.dart`）。
 
 ## [0.2.0] — L2 中枢级
 

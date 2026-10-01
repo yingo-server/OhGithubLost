@@ -55,9 +55,44 @@ env:
   FLUTTER_VERSION: '3.47.5'
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 引导清单（Boot Manifest）生成 + Ed25519 签名。产物 `dart_define.json`
+  # 由各构建腿下载并以 `--dart-define-from-file` 注入；没有它，release 包会在
+  # 启动时拒绝启动（开发旁路只对调试构建开放）。见 `tool/boot_manifest.py`。
+  # ---------------------------------------------------------------------------
+  manifest:
+    name: 生成引导清单（Ed25519签名）
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装签名依赖
+        run: python3 -m pip install --quiet --disable-pip-version-check cryptography
+
+      - name: 生成并注入 .dart_define.json
+        env:
+          VERSION_INPUT: ${{ github.event.inputs.version_name }}
+        run: |
+          python3 tool/boot_manifest.py \
+            --version "$VERSION_INPUT" \
+            --build-id "$GITHUB_SHA" \
+            --key .github/signing/ogl-boot-ed25519.key \
+            --out dart_define.json
+
+      - name: 上传注入件
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-manifest
+          path: |
+            dart_define.json
+            boot_manifest.json
+          retention-days: 14
+
   build:
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    needs: [manifest]
     continue-on-error: ${{ matrix.best_effort == true }}
     strategy:
       fail-fast: false
@@ -145,6 +180,11 @@ jobs:
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
+
+      - name: 下载引导清单注入件
+        uses: actions/download-artifact@v4
+        with:
+          name: boot-manifest
 
       - name: 安装 Flutter
         # arm64 宿主（Linux/Windows）没有官方 SDK 归档，走下面独立的 git 安装。
@@ -270,7 +310,9 @@ jobs:
       - name: 构建 ${{ matrix.label }}
         # 非 dispatch / 非 Android 目标：按 pubspec 默认版本构建。
         if: github.event_name != 'workflow_dispatch' || (matrix.build != 'apk' && matrix.build != 'appbundle')
-        run: flutter build ${{ matrix.build }} ${{ matrix.args }}
+        run: >-
+          flutter build ${{ matrix.build }} ${{ matrix.args }}
+          --dart-define-from-file=dart_define.json
 
       - name: 构建 ${{ matrix.label }}（dispatch · 带版本号）
         # 手动发布时：把输入框里的 versionName / versionCode 灌进 Android 产物。
@@ -279,6 +321,7 @@ jobs:
           flutter build ${{ matrix.build }} ${{ matrix.args }}
           --build-name=${{ inputs.version_name }}
           --build-number=${{ inputs.version_number }}
+          --dart-define-from-file=dart_define.json
 
       - name: 网络权限护栏（Android：release 必须含 INTERNET）
         if: matrix.build == 'android'
@@ -286,6 +329,16 @@ jobs:
           for APK in build/app/outputs/flutter-apk/*.apk; do
             python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');assert 'INTERNET'.encode('utf-16-le') in d,('缺 INTERNET 权限: '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
           done
+
+      - name: 引导清单注入校验（防空注入回归）
+        # 用与构建同一份 `dart_define.json` 跑聚焦测试：注入必须非空、
+        # 可解析、且签名能被内嵌公钥验证 —— 防"注入静默失败 → 发布包拒绝启动"。
+        if: matrix.label == 'Android · arm64-v8a'
+        run: |
+          flutter test \
+            --dart-define="OGL_BOOT_MANIFEST=$(python3 -c 'import json;print(json.load(open("dart_define.json"))["OGL_BOOT_MANIFEST"])')" \
+            test/kernel/boot_define_injection_test.dart
+
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:

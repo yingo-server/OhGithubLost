@@ -40,3 +40,18 @@ base64 -d .github/signing/ogl-debug.keystore.b64 > "$HOME/.android/debug.keystor
 - 如需上架，请单独生成正式发布密钥（且不要入库）；
 - **一旦证书丢失，所有存量安装包将永远无法再收到可覆盖安装的升级** ——
   故该文件必须长期保留在仓库中（即使更换 CI 平台）。
+
+---
+
+## Ed25519 发布密钥（引导清单签名）
+
+| 项 | 值 |
+| --- | --- |
+| 私钥 | `ogl-boot-ed25519.key`（32 字节 seed 的 base64） |
+| 公钥（内嵌应用） | `lib/kernel/boot/release_trust_root.dart` · `3sPk7i1MNSkRE1VCzgpli7e/zWJxrnPWazVS7cfGcjc=` |
+| 用途 | 给引导清单（Boot Manifest）签名；应用启动时用内嵌公钥验签，签错 = 拒绝启动 |
+| 生成与签名 | `tool/boot_manifest.py`（CI 的 `manifest` 任务；本地可手工跑演练） |
+
+> **轮换红线**：公钥内嵌在历史版本里。换密钥 = 旧版本无法验证新清单 →
+> 必须：① 先生成新密钥对；② 公钥升级随新版本发布；③ 过渡期保留旧公钥/双签。
+> 私钥丢失 = 无法再发布"能通过启动校验"的新版本（只能再走一次轮换流程）。

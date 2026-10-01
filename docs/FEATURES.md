@@ -290,7 +290,9 @@ GitHub API
 │  ├─ base_tree 增量提交 + 删除项（sha: null）
 │  └─ 网络抖动重试（HTTP 4xx/5xx 不重试）
 ├─ 测试                                         ✅ 16 文件 / 6,293 行 / 330+ 项（含渲染快照）
-└─ 文档                                         ✅ 15 份（见 docs/README.md）
+├─ 签名与信任根                                 ✅ .github/signing/ + kernel/boot/release_trust_root.dart
+│  ├─ APK 固定证书（可覆盖安装）｜引导清单 Ed25519（私钥入库、公钥内嵌）
+├─ 文档                                         ✅ 15 份（见 docs/README.md）
 ```
 
 ---
