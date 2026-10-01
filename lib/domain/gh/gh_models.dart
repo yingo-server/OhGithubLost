@@ -110,6 +110,12 @@ class GhJson {
 
 /// 所有领域模型的公共契约。
 abstract class GhRecord {
+  /// 创建记录。
+  ///
+  /// 提供 `const` 构造，使各子类保持 `const` 构造能力
+  /// （模型在测试与常量场景下会被大量以 `const` 使用）。
+  const GhRecord();
+
   /// 原始 JSON（未知字段保留在此，供 Mod / 高级用户读取）。
   Map<String, dynamic> get raw;
 
