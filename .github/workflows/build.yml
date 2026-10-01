@@ -74,9 +74,12 @@ jobs:
             args: --release
             artifact: build/linux/x64/release/bundle/**
           - label: Linux · arm64-best-effort
-            os: ubuntu-24.04-arm
+            # 说明：Flutter 官方**不发布** linux-arm64 宿主的 SDK 包
+            # （releases_linux.json stable 通道无 arm64 归档，CI 实证 404），
+            # 因此改为在 x64 宿主上交叉编译 arm64 产物。
+            os: ubuntu-latest
             build: linux
-            args: --release
+            args: --release --target-platform=linux-arm64
             artifact: build/linux/arm64/release/bundle/**
             best_effort: true
           - label: macOS · arm64
@@ -128,6 +131,9 @@ jobs:
       # 插件列表）是按"平台目录是否存在"来生成的；先 pub get 后 create 会让
       # 这些文件缺内容，表现为 Linux/Windows 链接期找不到插件符号。
       - name: 生成平台工程脚手架
+        # ★ Windows 默认 shell 是 pwsh，而下面的 `flutter create` / `rm -f`
+        #   是 bash 语法；pwsh 会把 `-f` 判为歧义参数并直接退出（CI 实证）。
+        shell: bash
         run: |
           flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
           rm -f test/widget_test.dart
@@ -141,7 +147,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa
+            libgtk-3-dev libsecret-1-dev liblzma-dev libstdc++-12-dev libglu1-mesa \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       # 脚手架生成后**再跑一次** pub get：让插件按平台目录补齐注册文件。
       - name: 重新获取依赖（补齐插件注册）

@@ -51,8 +51,11 @@ dependencies:
   # （`Execution failed for task ':app:checkReleaseAarMetadata'`）。
   # 而**它当前根本没被任何代码 import**（权限网关只有接口，平台实现待做），
   # 所以正确做法是：实现网关时再引入，并同时把 compileSdk 提到所需版本。
-  device_info_plus: ^13.2.0        # 设备信息（诊断 / 审计）
-  package_info_plus: ^10.2.1       # 应用版本（更新检查）
+  # 注意：device_info_plus / package_info_plus **暂不引入**（同 permission_handler）。
+  # 原因（CI 实证）：device_info_plus 13.2.0 在 iOS 构建链上报
+  #   "No visible @interface for 'NSProcessInfo' declares the selector 'isiOSAppOnVision'"，
+  # 直接炸掉 iOS 两个目标；且当前两者**只出现在注释里**、无任何代码 import。
+  # 实现真机探针时再引入，并选定与 CI 构建链兼容的版本。
   url_launcher: ^6.3.2             # 外链 / 打开文件
   file_picker: ^13.1.0             # 文件选择（上传 / 导入）
   window_manager: ^0.5.2           # 桌面窗口管理（Windows / Linux）
