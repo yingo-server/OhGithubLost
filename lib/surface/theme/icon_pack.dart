@@ -13,7 +13,8 @@
 ///    实心质感（[OgLIconSets.fontAwesomeSolid]）、原生（[OgLIconSets.materialOutlined]）。
 library;
 
-import 'package:flutter/widgets.dart';
+// `Icons` 定义在 material 里（widgets 里没有）——首次编译就是栽在这一行。
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// 图标语义（界面唯一允许引用的"名字"）。
@@ -156,6 +157,10 @@ enum OgLIconName {
 
 /// 图标包契约。
 abstract class OgLIconSet {
+  /// 常量构造：三套内置包都是 `const` 单例，
+  /// 父类没有 const 构造会让子类的 `const` 直接编译失败。
+  const OgLIconSet();
+
   /// 包 ID（进设置持久化）。
   String get id;
 
