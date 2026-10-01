@@ -1,12 +1,18 @@
 # ============================================================================
-# OGL · 五平台全架构构建（Release）
+# OGL · 五平台全架构构建（Release）+ 一键发布
 #
 # 设计要点：
 # 1. **全架构**：每个平台按"能构建的每一种架构"各出一件产物；
 # 2. **零外部资源**：仓库不含 assets，故这里无需任何"下载字体/图标/清单"的步骤；
 # 3. **必过项与尽力项分开**：稳定目标失败即红；预览期 runner / 实验性架构
 #    标记 best_effort（continue-on-error），红了不阻塞主线但日志可见；
-# 4. 产物按"平台·架构"分别上传，用户直接下自己那一份。
+# 4. 产物按"平台·架构"分别上传，用户直接下自己那一份；
+# 5. **一键发布**：手动触发（workflow_dispatch）时选择发布通道
+#    （stable / beta / alpha）+ 版本号 + 版本名 + 说明；
+#    全平台构建成功后由 release 任务自动创建 GitHub Release：
+#      - stable            → 正式版（tag v{版本名}）
+#      - beta / alpha      → Pre-release（tag v{版本名}-{通道}）
+#    版本名 / 版本号会灌进 Android 产物（versionName / versionCode）。
 # ============================================================================
 name: build
 
@@ -15,6 +21,31 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      channel:
+        description: '发布通道（stable=正式版；beta / alpha=预发布）'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - stable
+          - beta
+          - alpha
+      version_number:
+        description: '版本号（正整数，写入 Android versionCode）'
+        required: true
+        default: '1'
+        type: string
+      version_name:
+        description: '版本名（如 0.1.0，写入 Android versionName）'
+        required: true
+        default: '0.1.0'
+        type: string
+      release_notes:
+        description: 'Release 说明（可留空，留空用自动模板）'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: build-${{ github.ref }}
@@ -212,7 +243,18 @@ jobs:
         run: flutter pub get
 
       - name: 构建 ${{ matrix.label }}
+        # 非 dispatch / 非 Android 目标：按 pubspec 默认版本构建。
+        if: github.event_name != 'workflow_dispatch' || (matrix.build != 'apk' && matrix.build != 'appbundle')
         run: flutter build ${{ matrix.build }} ${{ matrix.args }}
+
+      - name: 构建 ${{ matrix.label }}（dispatch · 带版本号）
+        # 手动发布时：把输入框里的 versionName / versionCode 灌进 Android 产物。
+        if: github.event_name == 'workflow_dispatch' && (matrix.build == 'apk' || matrix.build == 'appbundle')
+        run: >-
+          flutter build ${{ matrix.build }} ${{ matrix.args }}
+          --build-name=${{ inputs.version_name }}
+          --build-number=${{ inputs.version_number }}
+
       - name: 网络权限护栏（Android：release 必须含 INTERNET）
         if: matrix.build == 'android'
         run: |
@@ -226,3 +268,94 @@ jobs:
           path: ${{ matrix.artifact }}
           if-no-files-found: warn
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 发布任务：仅手动触发（workflow_dispatch）且全部必过矩阵成功后执行。
+  #   - 标签：v{版本名}；beta / alpha 追加 -{通道}（版本名已含通道则不重复）。
+  #   - 预发布：通道非 stable 即标 Pre-release。
+  #   - 产物：APK / AAB 加版本前缀原样上传，其余平台打包为 zip。
+  # 说明：best_effort 腿失败不影响本任务（continue-on-error 不污染 result）。
+  # ---------------------------------------------------------------------------
+  release:
+    name: 发布 Release
+    needs: [build]
+    if: github.event_name == 'workflow_dispatch' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VN: ${{ inputs.version_name }}
+      CH: ${{ inputs.channel }}
+      VNUM: ${{ inputs.version_number }}
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: 整理产物
+        shell: bash
+        run: |
+          set -u
+          mkdir -p out
+          shopt -s nullglob
+          # ① APK / AAB：加版本前缀，手机上一眼可辨。
+          for f in dist/*/*.apk dist/*/*.aab; do
+            base=$(basename "$f")
+            cp "$f" "out/OGL-v${VN}-${base}"
+            echo "包: OGL-v${VN}-${base}"
+          done
+          # ② 桌面 / 移动整包：按平台目录打成 zip，保持目录结构。
+          cd dist
+          for d in */; do
+            n="${d%/}"
+            zip -qr "../out/${n}.zip" "$n"
+          done
+          cd ..
+          echo '=== 最终产物 ==='
+          ls -la out/
+
+      - name: 计算标签
+        id: tag
+        shell: bash
+        run: |
+          set -u
+          V=${VN#v}
+          if [ "$CH" = "stable" ]; then
+            T="v$V"
+          elif echo "$V" | grep -qi "$CH"; then
+            T="v$V"
+          else
+            T="v$V-$CH"
+          fi
+          echo "tag=$T" >> "$GITHUB_OUTPUT"
+          echo "→ 标签: $T"
+
+      - name: 生成发布说明
+        shell: bash
+        env:
+          NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -u
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" > notes.md
+          else
+            {
+              echo "OGL（OhGithubLost）自动构建发布。"
+              echo ""
+              echo "- 通道：**$CH**"
+              echo "- 版本：**${VN}**（build ${VNUM}）"
+              echo "- 产物：Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）+ Windows + Linux + macOS + iOS"
+            } > notes.md
+          fi
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          body_path: notes.md
+          prerelease: ${{ inputs.channel != 'stable' }}
+          draft: false
+          files: out/*
+          fail_on_unmatched_files: false
