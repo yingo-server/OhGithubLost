@@ -162,6 +162,39 @@ jobs:
           flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
           rm -f test/widget_test.dart
 
+      - name: 注入平台网络权限（release 必需）
+        # ★ Android：Flutter 模板的 INTERNET 权限只在 debug/profile 清单里，
+        #   release 主清单**没有** → 不注入则安装包能启动但任何网络请求直接失败。
+        #   （CI 实证：release APK 的 AndroidManifest.xml 中查无 INTERNET ——
+        #    这正是"令牌验证连接失败"的根因。）
+        # ★ macOS：沙箱的 Release entitlements 需要 network.client，
+        #   否则同样拒绝出网。
+        if: matrix.build != 'windows'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          m = 'android/app/src/main/AndroidManifest.xml'
+          if os.path.exists(m):
+              t = open(m, encoding='utf-8').read()
+              if 'android.permission.INTERNET' not in t:
+                  t = t.replace('<application',
+                                '<uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
+                  open(m, 'w', encoding='utf-8').write(t)
+                  print('AndroidManifest: INTERNET 已注入')
+              else:
+                  print('AndroidManifest: 已存在')
+          for e in ('macos/Runner/Release.entitlements',
+                    'macos/Runner/DebugProfile.entitlements'):
+              if os.path.exists(e):
+                  t = open(e, encoding='utf-8').read()
+                  if 'com.apple.security.network.client' not in t:
+                      t = t.replace('</dict>',
+                                    '\t<key>com.apple.security.network.client</key>\n\t<true/>\n</dict>')
+                      open(e, 'w', encoding='utf-8').write(t)
+                      print(e, 'network.client 已注入')
+          PY
+
       # GTK 工具链：Flutter Linux 桌面构建的**必需**依赖。
       # 缺 libgtk-3-dev 时 CMake 会报
       # `FindPkgConfig ... The following required packages were not found`。

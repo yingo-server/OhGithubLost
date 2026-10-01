@@ -252,8 +252,8 @@ abstract final class OgLThemePacks {
         material3,
       ];
 
-  /// 默认包：极客风（与产品定位一致）。
-  static OgLThemePack get fallback => vscode;
+  /// 默认包：**Material Design 3**（产品决策：全局以 MD3 为基准风格）。
+  static OgLThemePack get fallback => material3; // 产品决策：MD3 为全局默认风格（极客 / WinUI3 保留为可选）
 
   /// 按 ID 解析；未知 ID 回落默认（设置里的脏值不该让界面崩）。
   static OgLThemePack byId(String? id) {
