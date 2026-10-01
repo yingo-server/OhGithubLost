@@ -213,7 +213,12 @@ jobs:
 
       - name: 构建 ${{ matrix.label }}
         run: flutter build ${{ matrix.build }} ${{ matrix.args }}
-
+      - name: 网络权限护栏（Android：release 必须含 INTERNET）
+        if: matrix.build == 'android'
+        run: |
+          for APK in build/app/outputs/flutter-apk/*.apk; do
+            python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');assert 'INTERNET'.encode('utf-16-le') in d,('缺 INTERNET 权限: '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
+          done
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
