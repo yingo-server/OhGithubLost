@@ -128,7 +128,13 @@ jobs:
         run: |
           git clone --depth 1 --branch ${{ env.FLUTTER_VERSION }} \
             https://github.com/flutter/flutter.git "$HOME/flutter-sdk"
-          echo "$HOME/flutter-sdk/bin" >> "$GITHUB_PATH"
+          # Windows（pwsh）只认原生路径：用 cygpath 转换后再写给 GITHUB_PATH，
+          # 否则下一步 `flutter --version` 会报 "not recognized as a name"（CI 实证）。
+          if command -v cygpath >/dev/null 2>&1; then
+            echo "$(cygpath -w "$HOME/flutter-sdk/bin")" >> "$GITHUB_PATH"
+          else
+            echo "$HOME/flutter-sdk/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: 环境信息
         run: flutter --version

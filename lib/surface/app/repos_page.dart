@@ -125,7 +125,6 @@ class _OgLReposPageState extends State<OgLReposPage> {
 
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
     if (!_bootChecked) {
       return const Center(child: CircularProgressIndicator());
     }
