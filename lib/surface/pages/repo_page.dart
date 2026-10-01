@@ -108,14 +108,14 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   GhContent? _pendingFile;
 
   /// 当前仓库全名（改名后仍指向同一个仓库）。
-  String get _full => _fullName ?? _full;
+  String get _full => _fullName ?? widget.repo.fullName;
 
   @override
   void initState() {
     super.initState();
     final raw = widget.repo.raw['viewer_has_starred'];
     _starred = raw is bool ? raw : null;
-    _messageController.text = 'chore: update ${_full}';
+    _messageController.text = 'chore: update $_full';
     _nameCtl = TextEditingController(text: widget.repo.name);
     _descCtl = TextEditingController(text: widget.repo.description ?? '');
     _privateVal = widget.repo.isPrivate;
@@ -322,7 +322,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '复刻仓库',
-      message: '将在你的账户下创建「${_full}」的副本。',
+      message: '将在你的账户下创建「$_full」的副本。',
       confirmLabel: '复刻',
     );
     if (!confirmed || !mounted) {
@@ -1146,7 +1146,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '停用 Pages',
-      message: '将停止「${_full}」的 Pages 站点。',
+      message: '将停止「$_full」的 Pages 站点。',
       confirmLabel: '停用',
       danger: true,
     );
@@ -1183,7 +1183,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final confirmed = await ogLConfirmDialog(
       context,
       title: '删除仓库',
-      message: '将永久删除「${_full}」及其全部内容。'
+      message: '将永久删除「$_full」及其全部内容。'
           '该操作不可撤销，也不会进入回收站。',
       confirmLabel: '永久删除',
       danger: true,
@@ -1197,7 +1197,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     });
     try {
       await widget.surface.domain.api.deleteRepo(_full);
-      OgLAppLog.instance.add('设置', '已删除仓库 ${_full}');
+      OgLAppLog.instance.add('设置', '已删除仓库 $_full');
       if (mounted) {
         Navigator.of(context).pop();
       }
