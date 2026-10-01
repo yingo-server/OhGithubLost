@@ -209,6 +209,7 @@ class OgLKernel {
       diagnostics: diagnostics,
       bridges: bridges,
       warnings: warnings,
+      probes: probes,
     );
 
     await lifecycle.registerAll(ordered, context);

@@ -45,6 +45,14 @@ class MirrorChannel {
     return mirrored == url ? null : mirrored;
   }
 
+  /// 复制并覆盖启用状态（通道本身不可变，切换开关靠重建）。
+  MirrorChannel copyWith({bool? enabled}) => MirrorChannel(
+        id: id,
+        pattern: pattern,
+        replacement: replacement,
+        enabled: enabled ?? this.enabled,
+      );
+
   @override
   String toString() => 'MirrorChannel($id, enabled=$enabled)';
 }
@@ -68,6 +76,34 @@ class MirrorSelector {
 
   /// 追加通道（诊断页手动添加加速源）。
   void add(MirrorChannel channel) => _channels.add(channel);
+
+  /// 批量启停全部通道（批量任务选择"直连"时全停、"自动"时全开）。
+  void setAllEnabled(bool enabled) {
+    final replaced = <MirrorChannel>[
+      for (final MirrorChannel channel in _channels)
+        channel.copyWith(enabled: enabled),
+    ];
+    _channels
+      ..clear()
+      ..addAll(replaced);
+  }
+
+  /// 只保留某个通道可用（其余停用）；[only] 为 `null` 表示全部停用。
+  void restrictTo(String? only) {
+    final replaced = <MirrorChannel>[
+      for (final MirrorChannel channel in _channels)
+        channel.copyWith(enabled: only != null && channel.id == only),
+    ];
+    _channels
+      ..clear()
+      ..addAll(replaced);
+  }
+
+  /// 当前启用的通道 ID。
+  List<String> get enabledIds => <String>[
+        for (final MirrorChannel channel in _channels)
+          if (channel.enabled) channel.id,
+      ];
 
   /// 挑选下一个可用通道；无可用通道时返回 `null`（回落直连）。
   ({String id, String url})? mirrorFor(

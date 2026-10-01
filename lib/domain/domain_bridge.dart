@@ -1,0 +1,368 @@
+/// L2 中枢级 · 层桥与模块装配。
+///
+/// ## 这一层最重要的三根线
+/// 1. **`base.disk.cache ↔ GhApi`**：把底座的一致性引擎（D1–D10）接到真实
+///    GitHub API 上。**没有这根线，D1–D7 就是空转**——它必须在这里、
+///    且只在这里接。
+/// 2. **`NetBridge ↔ IxTaskRunner`**：批量任务选了"直连/镜像/自动"，
+///    必须在第一个请求之前落到镜像选择器上。
+/// 3. **`kernel.probes`**：各层把自己的自检项挂上去，启动报告才看得见全貌。
+library;
+
+import '../../base/base_bridge.dart';
+import '../../base/net/net_bridge.dart';
+import '../../base/net/net_transport.dart';
+import '../../kernel/bridge_registry.dart';
+import '../../kernel/contract/module.dart';
+import '../gh/gh_api.dart';
+import '../gh/gh_auth.dart';
+import '../gh/gh_client.dart';
+import '../ix/ix_notify.dart';
+import '../ix/ix_session.dart';
+import '../ix/ix_task.dart';
+import '../sys/sys_access.dart';
+import '../sys/sys_info.dart';
+
+/// 中枢层桥（L2 唯一出口）。
+class DomainBridge {
+  /// 创建桥。
+  const DomainBridge({
+    required this.auth,
+    required this.api,
+    required this.client,
+    required this.session,
+    required this.tasks,
+    required this.notifications,
+    required this.sysInfo,
+    required this.sysAccess,
+  });
+
+  /// 认证（多账号 / 令牌）。
+  final GhAuthService auth;
+
+  /// GitHub 端点封装（同时是底座的 `CacheRemote`）。
+  final GhApi api;
+
+  /// 请求客户端（限流 / 并发 / 分页）。
+  final GhClient client;
+
+  /// 会话（上下文 + 偏好）。
+  final IxSession session;
+
+  /// 批量任务运行器（**强制先确认**）。
+  final IxTaskRunner tasks;
+
+  /// 通知中心。
+  final IxNotificationCenter notifications;
+
+  /// 本地深层信息。
+  final SysInfoService sysInfo;
+
+  /// Mod 能力守门。
+  final SysAccessGuard sysAccess;
+
+  /// 从内核桥表解析中枢桥（展示层的标准取用方式）。
+  static DomainBridge of(KernelBridgeRegistry bridges) =>
+      bridges.resolve<DomainBridge>(ModuleLayer.domain.key);
+
+  @override
+  String toString() =>
+      'DomainBridge(account=${session.account?.login ?? '未登录'}, '
+      'repo=${session.context.repo ?? '-'})';
+}
+
+/// GitHub 中枢模块（`domain.gh`）。
+///
+/// 依赖：`base.layer`（拿底座桥）。
+/// 提供：`gh.auth` / `gh.client` / `gh.api`。
+class GhModule extends OgLModule {
+  /// 创建模块。
+  GhModule({
+    this.maxConcurrent = 4,
+    this.baseUrl = 'https://api.github.com',
+  });
+
+  /// 请求并发上限。
+  final int maxConcurrent;
+
+  /// API 根。
+  final String baseUrl;
+
+  /// 装配出的服务（[onRegister] 后可用）。
+  late final GhAuthService auth;
+  late final GhClient client;
+  late final GhApi api;
+
+  @override
+  ModuleDescriptor get descriptor => const ModuleDescriptor(
+        id: 'domain.gh',
+        layer: ModuleLayer.domain,
+        version: '0.1.0',
+        requires: <String>['base.layer'],
+        provides: <String>['gh.auth', 'gh.client', 'gh.api'],
+        description: '中枢·API 逻辑（认证 / 请求 / 端点封装 / CacheRemote 适配）',
+      );
+
+  @override
+  Future<void> onRegister(KernelContext context) async {
+    final base = BaseBridge.of(context.bridges);
+
+    auth = GhAuthService(
+      vault: base.disk.vault,
+      store: base.disk.kv,
+      diagnostics: context.diagnostics,
+    );
+    client = GhClient(
+      net: base.net,
+      auth: auth,
+      baseUrl: baseUrl,
+      maxConcurrent: maxConcurrent,
+      diagnostics: context.diagnostics,
+    );
+    api = GhApi(client: client);
+
+    // ── 关键接线：一致性引擎 ← 真实 API ──
+    // 绑定之后，D1–D10 的每一次读写都会落到 GitHub 上。
+    base.disk.cache.bindRemote(api);
+
+    context.di.register<GhAuthService>(auth);
+    context.di.register<GhClient>(client);
+    context.di.register<GhApi>(api);
+    context.diagnostics.info(
+      'GH',
+      'API 逻辑就绪',
+      code: 'OGL-GH-001',
+      data: <String, Object?>{
+        'baseUrl': baseUrl,
+        'maxConcurrent': maxConcurrent,
+        'cacheBound': true,
+      },
+    );
+  }
+}
+
+/// 本地信息模块（`domain.sys`）。
+///
+/// 依赖：`base.layer`。
+/// 提供：`sys.info` / `sys.access`。
+class SysModule extends OgLModule {
+  /// 创建模块。
+  SysModule({
+    AndroidProbe? androidProbe,
+    AppProbe? appProbe,
+    MemoryProbe? memoryProbe,
+    SysNetworkSource? networkSource,
+    bool installDefaultAppProbe = true,
+  })  : _androidProbe = androidProbe,
+        _appProbe = appProbe,
+        _memoryProbe = memoryProbe,
+        _networkSource = networkSource,
+        _installDefaultAppProbe = installDefaultAppProbe;
+
+  final AndroidProbe? _androidProbe;
+  final AppProbe? _appProbe;
+  final MemoryProbe? _memoryProbe;
+  final SysNetworkSource? _networkSource;
+  final bool _installDefaultAppProbe;
+
+  /// 装配出的服务。
+  late final SysInfoService info;
+  late final SysAccessGuard access;
+
+  @override
+  ModuleDescriptor get descriptor => const ModuleDescriptor(
+        id: 'domain.sys',
+        layer: ModuleLayer.domain,
+        version: '0.1.0',
+        requires: <String>['base.layer'],
+        provides: <String>['sys.info', 'sys.access'],
+        description: '中枢·本地深层信息（设备/应用/环境）与 Mod 能力守门',
+      );
+
+  @override
+  Future<void> onRegister(KernelContext context) async {
+    final base = BaseBridge.of(context.bridges);
+
+    // 网络状态由底座推导，不另开探测路径。
+    final networkSource = _networkSource ?? _BridgeNetworkSource(base.net);
+
+    info = SysInfoService(
+      androidProbe: _androidProbe,
+      appProbe: _appProbe,
+      memoryProbe: _memoryProbe,
+      networkSource: networkSource,
+      diagnostics: context.diagnostics,
+    );
+    access = SysAccessGuard(
+      store: base.disk.kv,
+      diagnostics: context.diagnostics,
+    );
+
+    context.di.register<SysInfoService>(info);
+    context.di.register<SysAccessGuard>(access);
+    context.probes?.register(_SysEnvProbe(info));
+    context.diagnostics.info(
+      'SYS',
+      '本地信息就绪',
+      code: 'OGL-SYS-001',
+      data: <String, Object?>{
+        'dns': base.net.dnsSummary,
+        'customMemoryProbe': _memoryProbe != null,
+      },
+    );
+  }
+
+  /// 是否装入了默认的应用信息探测（真机装配层用 package_info_plus）。
+  bool get hasDefaultAppProbe => _installDefaultAppProbe;
+}
+
+/// 交互模块（`domain.ix`）。
+///
+/// 依赖：`domain.gh` / `domain.sys`。
+/// 提供：`ix.session` / `ix.task` / `ix.notify`。
+class IxModule extends OgLModule {
+  @override
+  ModuleDescriptor get descriptor => const ModuleDescriptor(
+        id: 'domain.ix',
+        layer: ModuleLayer.domain,
+        version: '0.1.0',
+        requires: <String>['domain.gh', 'domain.sys'],
+        provides: <String>['ix.session', 'ix.task', 'ix.notify'],
+        description: '中枢·交互逻辑（会话 / 批量任务 / 冲突编排 / 通知）',
+      );
+
+  /// 装配出的服务。
+  late final IxSession session;
+  late final IxTaskRunner tasks;
+  late final IxNotificationCenter notifications;
+
+  @override
+  Future<void> onRegister(KernelContext context) async {
+    final base = BaseBridge.of(context.bridges);
+    final auth = context.di.resolve<GhAuthService>();
+
+    session = IxSession(
+      auth: auth,
+      store: base.disk.kv,
+      diagnostics: context.diagnostics,
+    );
+    tasks = IxTaskRunner(diagnostics: context.diagnostics);
+    notifications = IxNotificationCenter();
+
+    context.di.register<IxSession>(session);
+    context.di.register<IxTaskRunner>(tasks);
+    context.di.register<IxNotificationCenter>(notifications);
+    context.diagnostics.info(
+      'IX',
+      '交互逻辑就绪',
+      code: 'OGL-IX-001',
+      data: <String, Object?>{
+        'channelOptions': IxChannel.values.length,
+        'batchConfirmRequired': true,
+      },
+    );
+  }
+
+  @override
+  Future<void> onStart() async {
+    // 恢复上次会话（上下文 + 偏好），失败不影响启动。
+    await session.restore();
+  }
+}
+
+/// 中枢层装配模块（`domain.layer`）。
+///
+/// 依赖：`domain.gh` / `domain.ix` / `domain.sys`。
+/// 提供：`domain.bridge`。
+class DomainLayerModule extends OgLModule {
+  @override
+  ModuleDescriptor get descriptor => const ModuleDescriptor(
+        id: 'domain.layer',
+        layer: ModuleLayer.domain,
+        version: '0.1.0',
+        requires: <String>['domain.gh', 'domain.ix', 'domain.sys'],
+        provides: <String>['domain.bridge'],
+        description: '中枢·层桥装配（API 逻辑 + 交互逻辑 → 单一出口）',
+      );
+
+  @override
+  Future<void> onRegister(KernelContext context) async {
+    final bridge = DomainBridge(
+      auth: context.di.resolve<GhAuthService>(),
+      api: context.di.resolve<GhApi>(),
+      client: context.di.resolve<GhClient>(),
+      session: context.di.resolve<IxSession>(),
+      tasks: context.di.resolve<IxTaskRunner>(),
+      notifications: context.di.resolve<IxNotificationCenter>(),
+      sysInfo: context.di.resolve<SysInfoService>(),
+      sysAccess: context.di.resolve<SysAccessGuard>(),
+    );
+    context.bridges.register(ModuleLayer.domain.key, bridge);
+    context.diagnostics.info(
+      'DOMAIN',
+      '中枢桥已注册',
+      code: 'OGL-DOMAIN-001',
+      data: <String, Object?>{'layer': ModuleLayer.domain.key},
+    );
+  }
+}
+
+/// 组装 L2 全部模块（供 `main` 一行接入）。
+List<OgLModule> domainLayerModules({
+  GhModule? gh,
+  SysModule? sys,
+  IxModule? ix,
+}) =>
+    <OgLModule>[
+      sys ?? SysModule(),
+      gh ?? GhModule(),
+      ix ?? IxModule(),
+      DomainLayerModule(),
+    ];
+
+/// 把 `NetBridge` 的网络状态包装成 [SysNetworkSource]。
+class _BridgeNetworkSource implements SysNetworkSource {
+  _BridgeNetworkSource(this._net);
+
+  final NetBridge _net;
+
+  @override
+  Future<SysNetworkInfo> collect() async {
+    final stats = _net.stats;
+    final transport = _net.transport;
+    final mirrors = transport is ResilientTransport
+        ? transport.mirrors.enabledIds
+        : const <String>[];
+    return SysNetworkInfo(
+      dnsMode: _net.dns?.policy.mode.name ?? 'system',
+      dnsSummary: _net.dnsSummary,
+      mirrorChannels: mirrors,
+      requests: stats.requests,
+      failures: stats.failures,
+      retries: stats.retries,
+    );
+  }
+}
+
+/// 设备/环境自检项。
+class _SysEnvProbe implements KernelEnvironmentProbe {
+  _SysEnvProbe(this._info);
+
+  final SysInfoService _info;
+
+  @override
+  String get id => 'domain.sys.env';
+
+  @override
+  String get title => '运行环境';
+
+  @override
+  Future<KernelProbeResult> run() async {
+    final runtime = _info.collectRuntime();
+    return KernelProbeResult(
+      ok: true,
+      summary: '${runtime.localeName} · UTC${runtime.utcOffsetHoursText}',
+      detail: runtime.toJson(),
+    );
+  }
+}

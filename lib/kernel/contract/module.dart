@@ -8,6 +8,7 @@ import '../boot/trust_warnings.dart';
 import '../bridge_registry.dart';
 import '../di.dart';
 import '../diagnostics.dart';
+import '../environment.dart';
 
 /// 层级标识（L0–L3，见 `docs/NAMING.md`）。
 enum ModuleLayer {
@@ -126,6 +127,7 @@ class KernelContext {
     required this.diagnostics,
     required this.bridges,
     required this.warnings,
+    this.probes,
   });
 
   /// 类型化依赖容器。
@@ -139,6 +141,12 @@ class KernelContext {
 
   /// 信任告警收集器（装载第三方扩展时必须上报，见 `docs/BOOT.md`）。
   final TrustWarningCollector warnings;
+
+  /// 环境自检注册表（可空：内核未传入时为 `null`，模块需容错）。
+  ///
+  /// 有了它，各层就能在**注册阶段**把自己的自检项挂上去
+  /// （如底座的 DNS 自检、中枢的设备信息自检），而内核仍然不认识这些概念。
+  final KernelProbeRegistry? probes;
 }
 
 /// OGL 模块契约：所有层级模块的统一生命周期入口。

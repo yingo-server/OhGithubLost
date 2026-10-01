@@ -886,7 +886,11 @@ class GhApi implements CacheRemote {
     // 这里显式改走 Blobs API —— 否则会"静默拿到空内容"。
     final oversized = parsed.size > _contentSizeLimit;
     if (text == null && (parsed.isTooLarge || oversized)) {
-      text = await blobText(repo, parsed.sha);
+      try {
+        text = await blobText(repo, parsed.sha);
+      } on GhNotFoundException {
+        text = null; // Blobs 也拿不到：如实当作读不到，不编内容。
+      }
     }
     if (text == null) {
       // 拿不到内容就当作不存在，**不返回空串**——空串会被写回远端，是数据事故。

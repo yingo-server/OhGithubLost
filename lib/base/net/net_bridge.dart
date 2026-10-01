@@ -131,6 +131,8 @@ class NetModule extends OgLModule {
 
     context.di.register<NetBridge>(bridge);
     context.di.register<DnsService>(_dns);
+    // 把 DNS 自检挂到内核自检表：启动报告里就能看到"当前用的是哪家 DNS"。
+    context.probes?.register(_dns.probe());
     context.diagnostics.info(
       'NET',
       '网络连接就绪',
