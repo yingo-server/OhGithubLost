@@ -32,7 +32,6 @@ class _FakeUdpChannel implements DnsUdpChannel {
     List<int> query, {
     Duration timeout = const Duration(seconds: 5),
   }) async {
-++) {
     calls++;
     lastServerIp = serverIp;
     lastQuery = query;
@@ -49,6 +48,7 @@ class _FakeUdpChannel implements DnsUdpChannel {
     return patched;
   }
 }
+
 /// 可控解析器。
 class _FakeResolver implements DnsResolver {
   _FakeResolver({
