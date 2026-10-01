@@ -240,6 +240,14 @@ class SurfaceLayerModule extends OgLModule {
     );
     // 设置读取失败也必须让应用起来（load 内部已兜底，这里再包一层是双保险）。
     await settings.load();
+    // 把持久化的 DNS 选择应用到网络底座（策略为可变设计，即刻生效；
+    // 连接路径接管在客户端创建时判定，因此完全生效以重启为准）。
+    final persisted = settings.settings;
+    base.net.applyDnsSelection(
+      custom: persisted.dnsMode == 'custom',
+      serverId: persisted.dnsServerId,
+      preferDoh: persisted.dnsPreferDoh,
+    );
 
     bridge = SurfaceBridge(
       settings: settings,

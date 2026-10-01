@@ -294,6 +294,9 @@ class OgLSettings {
     this.writeChannel = OgLWriteChannelChoice.ask,
     this.localeTag,
     this.developerMode = false,
+    this.dnsMode = 'system',
+    this.dnsServerId = 'alidns',
+    this.dnsPreferDoh = true,
     this.dev = OgLDevOptions.none,
     this.acknowledgedWarnings = const <String>{},
     this.lastRepairs = const <String>[],
@@ -346,7 +349,12 @@ class OgLSettings {
 
   /// 开发者模式总开关。
   final bool developerMode;
-
+  /// DNS 解析模式（`system` / `custom`）。
+  final String dnsMode;
+  /// 自定义模式下选中的内置 DNS id（默认 `alidns`）。
+  final String dnsServerId;
+  /// 是否优先 DoH（加密解析）。
+  final bool dnsPreferDoh;
   /// 开发者选项。
   final OgLDevOptions dev;
 
@@ -415,6 +423,9 @@ class OgLSettings {
       writeChannel: OgLWriteChannelChoice.parse(raw['writeChannel']),
       localeTag: raw['localeTag'] is String ? raw['localeTag'] as String : null,
       developerMode: developerMode,
+      dnsMode: raw['dnsMode'] == 'custom' ? 'custom' : 'system',
+      dnsServerId: stringOf('dnsServerId', defaults.dnsServerId),
+      dnsPreferDoh: raw['dnsPreferDoh'] != false,
       dev: OgLDevOptions.fromJson(raw['dev']),
       acknowledgedWarnings: acknowledged,
     );
@@ -475,6 +486,9 @@ class OgLSettings {
     OgLWriteChannelChoice? writeChannel,
     String? localeTag,
     bool? developerMode,
+    String? dnsMode,
+    String? dnsServerId,
+    bool? dnsPreferDoh,
     OgLDevOptions? dev,
     Set<String>? acknowledgedWarnings,
     List<String>? lastRepairs,
@@ -494,6 +508,9 @@ class OgLSettings {
         writeChannel: writeChannel ?? this.writeChannel,
         localeTag: localeTag ?? this.localeTag,
         developerMode: developerMode ?? this.developerMode,
+        dnsMode: dnsMode ?? this.dnsMode,
+        dnsServerId: dnsServerId ?? this.dnsServerId,
+        dnsPreferDoh: dnsPreferDoh ?? this.dnsPreferDoh,
         dev: dev ?? this.dev,
         acknowledgedWarnings: acknowledgedWarnings ?? this.acknowledgedWarnings,
         lastRepairs: lastRepairs ?? this.lastRepairs,
@@ -522,6 +539,9 @@ class OgLSettings {
         'writeChannel': writeChannel.name,
         if (localeTag != null) 'localeTag': localeTag,
         'developerMode': developerMode,
+        'dnsMode': dnsMode,
+        'dnsServerId': dnsServerId,
+        'dnsPreferDoh': dnsPreferDoh,
         'dev': dev.toJson(),
         'acknowledgedWarnings': acknowledgedWarnings.toList(),
       };
@@ -650,6 +670,18 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：切换图标包。
   Future<void> setIconSet(String iconSetId) =>
       apply(_settings.copyWith(iconSetId: iconSetId));
+
+  /// 设置 DNS 解析模式（`system` / `custom`）。
+  Future<void> setDnsMode(String mode) => apply(
+      _settings.copyWith(dnsMode: mode == 'custom' ? 'custom' : 'system'));
+
+  /// 设置自定义模式下的内置 DNS。
+  Future<void> setDnsServer(String serverId) =>
+      apply(_settings.copyWith(dnsServerId: serverId));
+
+  /// 设置 DoH 优先。
+  Future<void> setDnsPreferDoh(bool enabled) =>
+      apply(_settings.copyWith(dnsPreferDoh: enabled));
 
   /// 便捷：切换密度偏好。
   Future<void> applyDensity(OgLDensityChoice density) =>

@@ -16,6 +16,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/gh/gh_models.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
 import '../layout/adaptive.dart';
@@ -26,6 +27,15 @@ import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 import 'error_surface.dart';
 import 'repos_page.dart';
+
+/// 设置页：DNS 服务器展示名（与 base 层内置表一一对应）。
+const Map<String, String> _dnsChoiceLabels = <String, String>{
+  'alidns': '阿里 AliDNS · 223.5.5.5',
+  'dnspod': '腾讯 DNSPod · 119.29.29.29',
+  'dns114': '114 DNS · 114.114.114.114',
+  'cloudflare': 'Cloudflare · 1.1.1.1',
+  'google': 'Google · 8.8.8.8',
+};
 
 /// 应用根。
 class OgLApp extends StatelessWidget {
@@ -487,6 +497,97 @@ class _SettingsPage extends StatelessWidget {
 
     return ListView(
       children: <Widget>[
+        _SectionTitle(text: '账户', ogL: ogL),
+        FutureBuilder<GhAccount?>(
+          future: surface.domain.auth.activeAccount(),
+          builder: (BuildContext context, AsyncSnapshot<GhAccount?> snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              );
+            }
+            final account = snap.data;
+            if (account == null) {
+              return Text(
+                '未登录（到「仓库」页接入令牌）',
+                style: TextStyle(color: ogL.palette.textDim),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _KeyValue(
+                  ogL: ogL,
+                  rows: <String, String>{
+                    '登录名': '@${account.login}',
+                    '账号 ID': account.id,
+                  },
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await surface.domain.auth.removeAccount(account.id);
+                    OgLAppLog.instance
+                        .add('账户', '已退出登录（@${account.login}）');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('已退出登录')),
+                      );
+                    }
+                  },
+                  child: Text(
+                    '退出登录',
+                    style: TextStyle(color: ogL.palette.danger),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        _SectionTitle(text: '网络 / DNS', ogL: ogL),
+        _ChoiceRow<String>(
+          ogL: ogL,
+          title: '解析模式',
+          selected: value.dnsMode,
+          options: const <String, String>{
+            'system': '系统（默认）',
+            'custom': '自定义',
+          },
+          onPick: settings.setDnsMode,
+        ),
+        if (value.dnsMode == 'custom') ...<Widget>[
+          _ChoiceRow<String>(
+            ogL: ogL,
+            title: 'DNS 服务器',
+            selected: value.dnsServerId,
+            options: _dnsChoiceLabels,
+            onPick: settings.setDnsServer,
+          ),
+          SwitchListTile(
+            dense: true,
+            value: value.dnsPreferDoh,
+            onChanged: settings.setDnsPreferDoh,
+            title: const Text('DoH 优先（加密解析）'),
+          ),
+          Text(
+            '提示：自定义解析为进阶选项；如遇连接异常请切回系统。',
+            style: TextStyle(color: ogL.palette.textDim),
+          ),
+        ],
+        Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: ogL.tokens.space(OgLSpacing.sm),
+          ),
+          child: Text(
+            value.dnsMode == 'custom'
+                ? '当前：自定义 · '
+                    '${_dnsChoiceLabels[value.dnsServerId] ?? value.dnsServerId}'
+                    '${value.dnsPreferDoh ? ' · DoH 优先' : ' · 明文'}'
+                    '（切换在重启应用后完全生效）'
+                : '当前：系统解析（默认）',
+            style: TextStyle(color: ogL.palette.textDim),
+          ),
+        ),
         _SectionTitle(text: '外观', ogL: ogL),
         _ChoiceRow<OgLThemeMode>(
           ogL: ogL,

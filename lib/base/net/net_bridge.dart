@@ -41,6 +41,35 @@ class NetBridge {
         '${policy.raceServers ? '并发竞速' : '顺序尝试'}';
   }
 
+  /// 设置页：内置 DNS 服务器（id → 展示名）。
+  Map<String, String> get dnsServerChoices => <String, String>{
+        for (final server in builtinDnsServers)
+          server.id: '${server.label} · ${server.ip}',
+      };
+
+  /// 设置页：应用 DNS 选择（策略对象为可变设计——即时生效）。
+  void applyDnsSelection({
+    required bool custom,
+    required String serverId,
+    required bool preferDoh,
+  }) {
+    final service = dns;
+    if (service == null) {
+      return;
+    }
+    final policy = service.policy;
+    policy.mode = custom ? NetDnsMode.custom : NetDnsMode.system;
+    policy.preferDoh = preferDoh;
+    final picked = builtinDnsServers
+        .where((server) => server.id == serverId)
+        .toList();
+    if (picked.isNotEmpty) {
+      policy.servers
+        ..clear()
+        ..addAll(picked);
+    }
+  }
+
   /// 发送请求。
   Future<NetResponse> send(NetRequest request) => transport.send(request);
 
