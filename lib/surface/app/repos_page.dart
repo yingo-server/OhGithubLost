@@ -571,8 +571,14 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
         token,
       );
       await auth.switchTo(pendingId);
-      // 2) 真实请求验证令牌（这一步会经过限流/并发/重试全套底座）。
-      final me = await api.currentUser();
+    // 1.5) 回读自检：确认保险库往返后的令牌长度与掩码（防低级错误）。
+    final rb = await auth.activeToken();
+    OgLAppLog.instance.add(
+      '认证',
+      '回读自检：len=${rb?.value.length ?? -1} · ${rb?.masked ?? 'null'}',
+    );
+    // 2) 真实请求验证令牌（这一步会经过限流/并发/重试全套底座）。
+    final me = await api.currentUser();
       OgLAppLog.instance.add('认证', '令牌有效：@${me.login}');
       // 3) 验证通过：换成正式账号（临时账号移除）。
       await auth.removeAccount(pendingId);

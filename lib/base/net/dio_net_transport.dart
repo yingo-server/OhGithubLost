@@ -70,6 +70,15 @@ class DioNetTransport implements NetTransport {
     }
     adapter.createHttpClient = () {
       final client = HttpClient();
+      // ★ 线上实证终版修复：system 模式**不安装 connectionFactory**，
+      //   完全交还平台默认路径（多轮真机对照：TLS/HTTP 原生探针全绿、
+      //   python/curl 全绿；而"系统模式也接管"的三代实现——15s 超时包装 /
+      //   直通 / IPv4 优先——全部被 "Connection closed before full header"
+      //   掐断）。仅 custom 模式（用户明确选择）才接管连接路径；
+      //   DNS 模式切换需重启应用生效。
+      if (dns.policy.mode != NetDnsMode.custom) {
+        return client;
+      }
       client.connectionFactory = (
         Uri uri,
         String? proxyHost,

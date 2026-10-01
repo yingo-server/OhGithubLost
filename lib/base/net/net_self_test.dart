@@ -123,6 +123,18 @@ class NetSelfTest {
         lines.add(
           'HTTP(dart原生): ${resp.statusCode} · ${swH.elapsedMilliseconds}ms',
         );
+        // 追加：带「凭据头」的 /user 探测（复刻登录请求的头部形状，假令牌）。
+        try {
+          final req2 =
+              await hc.getUrl(Uri.parse('https://$host/user')).timeout(timeout);
+          req2.headers.set('accept', 'application/vnd.github+json');
+          req2.headers.set('x-github-api-version', '2022-11-28');
+          req2.headers.set('authorization', 'Bearer selftest-fake');
+          final resp2 = await req2.close().timeout(timeout);
+          lines.add('HTTP(带凭据头 /user): ${resp2.statusCode}');
+        } on Object catch (error) {
+          lines.add('HTTP(带凭据头 /user): 失败 → $error');
+        }
         hc.close(force: true);
       } on Object catch (error) {
         swH.stop();
