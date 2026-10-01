@@ -31,6 +31,7 @@ class OgLPageSpec {
     required this.icon,
     required this.builder,
     this.showInNav = true,
+    this.usesPanes = false,
   });
 
   /// 稳定 ID（进快捷键与状态持久化）。
@@ -47,6 +48,13 @@ class OgLPageSpec {
 
   /// 是否出现在主导航里（设置这类可以藏进 AppBar）。
   final bool showInNav;
+
+  /// 该页是否使用分栏（列表 + 详情）。
+  ///
+  /// **默认 false**：只有"列表类"页面（仓库 / 文件 / 提交…）才参与分栏；
+  /// 设置、诊断这类页面永远单栏铺满。否则会出现
+  /// "切到设置页却还在显示列表"这种低级错误——本字段就是为堵住它而存在。
+  final bool usesPanes;
 }
 
 /// 键盘意图（抽象出来便于测试与自定义）。
@@ -266,9 +274,14 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
     OgLLayoutSpec layout,
     OgLPageSpec current,
   ) {
-    // 非列表类页面（设置 / 诊断）永远单栏。
-    if (widget.listPane == null) {
-      return _Frame(maxWidth: layout.contentMaxWidth, gutter: ogL.tokens.space(OgLSpacing.lg), child: current.builder(context));
+    // 非列表类页面（设置 / 诊断）永远单栏铺满——
+    // 不能因为"外壳提供了分栏"就让所有页面都套进分栏里。
+    if (!current.usesPanes || widget.listPane == null) {
+      return _Frame(
+        maxWidth: layout.contentMaxWidth,
+        gutter: ogL.tokens.space(OgLSpacing.lg),
+        child: current.builder(context),
+      );
     }
 
     // 列表详情：左列表 + 右详情。
