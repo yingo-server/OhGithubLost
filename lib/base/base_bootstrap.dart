@@ -16,13 +16,19 @@ import 'disk/platform_io.dart';
 import 'net/net_bridge.dart';
 
 /// 组装 L1 全部模块（**真机默认路径**）。
+///
+/// [rootOverride] 供测试注入临时目录；真机保持缺省（应用私有目录）。
 Future<({List<OgLModule> modules, Object? storageError})>
     baseLayerModulesOnPlatform({
   NetModule? net,
   String folder = 'ohgithublost',
+  String? rootOverride,
 }) async {
   try {
-    final storage = await PlatformStorage.open(folder: folder);
+    final storage = await PlatformStorage.open(
+      folder: folder,
+      rootOverride: rootOverride,
+    );
     return (
       modules: baseLayerModules(net: net, disk: storage.toDiskModule()),
       storageError: null,
