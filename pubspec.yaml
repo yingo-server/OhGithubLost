@@ -45,7 +45,12 @@ dependencies:
   cryptography: ^2.9.0             # Ed25519 引导清单签名验证
 
   # ── 系统 / 平台能力 ─────────────────────────────────────────────────
-  permission_handler: ^13.0.2      # Android 权限交互（minSdk 22 → 最新全兼容）
+  # 注意：permission_handler **暂不引入**。
+  # 原因（CI 实证）：`permission_handler_android` 要求宿主 compileSdk ≥ 37，
+  # 而 Flutter 3.47 默认 compileSdk 是 36 → Android 构建全部失败
+  # （`Execution failed for task ':app:checkReleaseAarMetadata'`）。
+  # 而**它当前根本没被任何代码 import**（权限网关只有接口，平台实现待做），
+  # 所以正确做法是：实现网关时再引入，并同时把 compileSdk 提到所需版本。
   device_info_plus: ^13.2.0        # 设备信息（诊断 / 审计）
   package_info_plus: ^10.2.1       # 应用版本（更新检查）
   url_launcher: ^6.3.2             # 外链 / 打开文件

@@ -122,16 +122,30 @@ jobs:
       # CMakeLists … 全部由 Flutter 按当前 SDK 版本生成），既满足"零外部资源"，
       # 也避免了"仓库里的脚手架与 SDK 版本漂移"。
       # 生成物里的示例测试会引用不存在的 MyApp，这里顺手删掉。
+      #
+      # 顺序很关键：**生成脚手架必须在 `pub get` 之前**。
+      # 插件注册文件（GeneratedPluginRegistrant / Podfile 的插件段 / CMake 的
+      # 插件列表）是按"平台目录是否存在"来生成的；先 pub get 后 create 会让
+      # 这些文件缺内容，表现为 Linux/Windows 链接期找不到插件符号。
       - name: 生成平台工程脚手架
         run: |
           flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
           rm -f test/widget_test.dart
 
+      # GTK 工具链：Flutter Linux 桌面构建的**必需**依赖。
+      # 缺 libgtk-3-dev 时 CMake 会报
+      # `FindPkgConfig ... The following required packages were not found`。
       - name: 安装 Linux 桌面依赖
         if: matrix.build == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa
+
+      # 脚手架生成后**再跑一次** pub get：让插件按平台目录补齐注册文件。
+      - name: 重新获取依赖（补齐插件注册）
+        run: flutter pub get
 
       - name: 构建 ${{ matrix.label }}
         run: flutter build ${{ matrix.build }} ${{ matrix.args }}
