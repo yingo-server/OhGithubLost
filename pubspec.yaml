@@ -55,6 +55,7 @@ dependencies:
   # ── 展示层 ─────────────────────────────────────────────────────────
   cached_network_image: ^4.0.4     # 图片缓存展示
   flutter_markdown: ^0.7.7+1       # README 渲染
+  font_awesome_flutter: ^10.7.0    # 图标包之一（另两套用 Material 自带字形）
 
 dev_dependencies:
   flutter_test:
