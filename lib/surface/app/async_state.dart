@@ -83,7 +83,7 @@ class OgLAsync<T> {
       : this._(phase: OgLAsyncPhase.empty, updatedAt: DateTime.now());
 
   /// 失败（无数据可显示）。
-  OgLAsync.failed(String message)
+  const OgLAsync.failed(String message)
       : this._(phase: OgLAsyncPhase.failed, message: message);
 
   /// 带数据的类型标注（用于 `const` 构造之外的场景）。
@@ -177,7 +177,9 @@ class OgLAsyncController<T> extends ChangeNotifier {
   /// 中文名（进错误文案）。
   final String label;
 
-  OgLAsync<T> _state = const OgLAsync<T>.idle();
+  // `OgLAsync.idle()` 本身是 const 构造，但**不能**在这里写 `const`：
+  // 带类型参数的 const 创建是非法的（`const_with_type_parameters`）。
+  OgLAsync<T> _state = OgLAsync<T>.idle();
   bool _inFlight = false;
 
   /// 当前状态。

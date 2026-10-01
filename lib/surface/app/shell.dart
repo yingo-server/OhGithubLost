@@ -138,12 +138,10 @@ class _OgLShellFrameState extends State<OgLShellFrame> {
   Map<ShortcutActivator, VoidCallback> _bindings() {
     final bool isApple = Theme.of(context).platform == TargetPlatform.iOS ||
         Theme.of(context).platform == TargetPlatform.macOS;
-    final SingleActivator Function(LogicalKeyboardKey) withMeta =
-        (LogicalKeyboardKey key) => SingleActivator(
-              key,
-              control: !isApple,
-              meta: isApple,
-            );
+    // 用函数声明而不是"把闭包赋给变量"：后者会被 lint 拦下，
+    // 而且函数声明更利于阅读与调试。
+    SingleActivator withMeta(LogicalKeyboardKey key) =>
+        SingleActivator(key, control: !isApple, meta: isApple);
 
     final bindings = <ShortcutActivator, VoidCallback>{
       withMeta(LogicalKeyboardKey.keyR): () => widget.onRefresh(),
