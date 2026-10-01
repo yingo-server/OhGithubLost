@@ -24,6 +24,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 import 'async_state.dart';
+import 'error_surface.dart';
 
 /// 仓库页（含令牌接入向导）。
 class OgLReposPage extends StatefulWidget {
@@ -84,7 +85,21 @@ class _OgLReposPageState extends State<OgLReposPage> {
     final controller = OgLAsyncController<List<GhRepo>>(
       label: '仓库',
       isEmpty: (List<GhRepo> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.myRepos(perPage: 100),
+      loader: () async {
+        OgLAppLog.instance.add('仓库', '拉取仓库列表…');
+        try {
+          final list = await widget.surface.domain.api.myRepos(perPage: 100);
+          OgLAppLog.instance.add('仓库', '拉取成功：${list.length} 个仓库');
+          return list;
+        } catch (error, stackTrace) {
+          OgLAppLog.instance.add(
+            '仓库',
+            '拉取失败（原始异常）：$error\n$stackTrace',
+            severity: OgLNoticeSeverity.critical,
+          );
+          rethrow;
+        }
+      },
     );
     controller.addListener(_onChanged);
     _repos = controller;
@@ -548,6 +563,7 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       _errorRaw = null;
     });
     final pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
+    OgLAppLog.instance.add('认证', '开始验证令牌（${token.masked}）');
     try {
       // 1) 先以临时账号落盘 + 切换，让客户端用这把令牌发请求；
       await auth.saveAccount(
@@ -557,6 +573,7 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       await auth.switchTo(pendingId);
       // 2) 真实请求验证令牌（这一步会经过限流/并发/重试全套底座）。
       final me = await api.currentUser();
+      OgLAppLog.instance.add('认证', '令牌有效：@${me.login}');
       // 3) 验证通过：换成正式账号（临时账号移除）。
       await auth.removeAccount(pendingId);
       await auth.saveAccount(
@@ -569,7 +586,12 @@ class _TokenOnboardingState extends State<_TokenOnboarding> {
       }
       _input.clear();
       await widget.onDone();
-    } catch (error) {
+} catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '认证',
+        '验证失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
       // ★ 先落日志、再翻译：异常全文进 logcat（tag=OGL_LOGIN_FAILURE），
       //   供设备侧取证；界面同时给出"人话"与原始文本。
       debugPrint('OGL_LOGIN_FAILURE: $error');

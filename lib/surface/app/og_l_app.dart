@@ -301,54 +301,148 @@ class _ContentFrame extends StatelessWidget {
       );
 }
 
-/// 概览页：把启动报告摊给用户看。
-class _OverviewPage extends StatelessWidget {
-  const _OverviewPage({required this.report});
+/// 关于页：启动概览 / 模块 / 信任告警 / 依赖图 / 阶段 / 日志 —— 全部收进折叠栏。
+///
+/// 这是导航的最后一页（产品决策：导航收敛为 仓库 / 设置 / 关于；
+/// 原「概览」与「诊断」两页整体并入本页，不再各占一个入口）。
+class _AboutPage extends StatelessWidget {
+  const _AboutPage({required this.report});
 
+  /// 启动报告（内核在启动时定格的快照）。
   final KernelReport report;
 
   @override
-  Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    return ListView(
-      children: <Widget>[
-        _SectionTitle(text: '启动报告', ogL: ogL),
-        _KeyValue(
-          ogL: ogL,
-          rows: <String, String>{
-            '版本': report.appVersion,
-            '生成时间': '${report.generatedAt}',
-            '安全模式': report.safeMode ? '是' : '否',
-            '引导摘要': report.bootSummary,
-          },
-        ),
-        _SectionTitle(text: '已装载模块（${report.moduleStates.length}）', ogL: ogL),
-        _KeyValue(ogL: ogL, rows: report.moduleStates),
-        _SectionTitle(text: '桥与能力', ogL: ogL),
-        _KeyValue(
-          ogL: ogL,
-          rows: <String, String>{
-            '层级桥': report.bridges.join('、'),
-            '服务': '${report.services.length} 项',
-          },
-        ),
-        if (report.trustWarnings.isNotEmpty) ...<Widget>[
-          _SectionTitle(
-            text: '信任告警（${report.trustWarnings.length}）',
-            ogL: ogL,
-            tone: OgLSemanticColor.warning,
-          ),
-          for (final warning in report.trustWarnings)
-            _Banner(
-              ogL: ogL,
-              color: ogL.palette.warning,
-              icon: OgLIconName.warning,
-              text: warning.toString(),
-            ),
-        ],
-      ],
-    );
-  }
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: OgLAppLog.instance,
+        builder: (BuildContext context, Widget? _) {
+          final ogL = OgLTheme.of(context);
+          final appLog = OgLAppLog.instance.entries;
+          return ListView(
+            children: <Widget>[
+              ExpansionTile(
+                initiallyExpanded: true,
+                title: const Text('启动报告'),
+                children: <Widget>[
+                  _KeyValue(
+                    ogL: ogL,
+                    rows: <String, String>{
+                      '版本': report.appVersion,
+                      '生成时间': '${report.generatedAt}',
+                      '安全模式': report.safeMode ? '是' : '否',
+                      '引导摘要': report.bootSummary,
+                    },
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: ogL.tokens.space(OgLSpacing.sm),
+                    ),
+                    child: _KeyValue(ogL: ogL, rows: report.moduleStates),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: ogL.tokens.space(OgLSpacing.sm),
+                    ),
+                    child: _KeyValue(
+                      ogL: ogL,
+                      rows: <String, String>{
+                        '层级桥': report.bridges.join('、'),
+                        '服务': '${report.services.length} 项',
+                      },
+                    ),
+                  ),
+                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
+                ],
+              ),
+              if (report.trustWarnings.isNotEmpty)
+                ExpansionTile(
+                  initiallyExpanded: true,
+                  title: Text('信任告警（${report.trustWarnings.length}）'),
+                  children: <Widget>[
+                    for (final warning in report.trustWarnings)
+                      _Banner(
+                        ogL: ogL,
+                        color: ogL.palette.warning,
+                        icon: OgLIconName.warning,
+                        text: warning.toString(),
+                      ),
+                  ],
+                ),
+              ExpansionTile(
+                title: const Text('依赖图'),
+                children: <Widget>[
+                  Padding(
+                    padding: EdgeInsets.all(
+                      ogL.tokens.space(OgLSpacing.sm),
+                    ),
+                    child: Text(
+                      report.moduleGraph,
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+              ExpansionTile(
+                title: Text('启动阶段（${report.stages.length}）'),
+                children: <Widget>[
+                  for (final stage in report.stages)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: ogL.tokens.space(OgLSpacing.xxs),
+                      ),
+                      child: Text(stage.toString()),
+                    ),
+                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
+                ],
+              ),
+              ExpansionTile(
+                initiallyExpanded: true,
+                title: Text(
+                  '日志（内核 ${report.logTail.length} · 应用 ${appLog.length}）',
+                ),
+                children: <Widget>[
+                  for (final entry in report.logTail)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: ogL.tokens.space(OgLSpacing.xxs),
+                      ),
+                      child: SelectableText(
+                        entry.toString(),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: ogL.tokens
+                              .fontSize(const OgLTypeScale.standard().label),
+                          color: entry.level == KernelLogLevel.error
+                              ? ogL.palette.danger
+                              : ogL.palette.textDim,
+                        ),
+                      ),
+                    ),
+                  for (final entry in appLog)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: ogL.tokens.space(OgLSpacing.xxs),
+                      ),
+                      child: SelectableText(
+                        entry.toDisplay(),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: ogL.tokens
+                              .fontSize(const OgLTypeScale.standard().label),
+                          color: switch (entry.severity) {
+                            OgLNoticeSeverity.critical => ogL.palette.danger,
+                            OgLNoticeSeverity.warning => ogL.palette.warning,
+                            OgLNoticeSeverity.info => ogL.palette.textDim,
+                          },
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
+                ],
+              ),
+            ],
+          );
+        },
+      );
 }
 
 /// 设置页：外观 / 行为 / 开发者选项（含总闸护栏）。
@@ -496,43 +590,8 @@ class _SettingsPage extends StatelessWidget {
   }
 }
 
-/// 诊断页：模块 / 桥 / 日志尾部。
-class _DiagnosticsPage extends StatelessWidget {
-  const _DiagnosticsPage({required this.report});
+// （诊断页已并入 _AboutPage 的折叠栏，见文件上方。）
 
-  final KernelReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    return ListView(
-      children: <Widget>[
-        _SectionTitle(text: '依赖图', ogL: ogL),
-        Text(report.moduleGraph, style: const TextStyle(fontFamily: 'monospace')),
-        _SectionTitle(text: '启动阶段', ogL: ogL),
-        for (final stage in report.stages)
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: ogL.tokens.space(OgLSpacing.xxs),
-            ),
-            child: Text(stage.toString()),
-          ),
-        _SectionTitle(text: '日志尾部（${report.logTail.length}）', ogL: ogL),
-        for (final entry in report.logTail)
-          Text(
-            entry.toString(),
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: ogL.tokens.fontSize(const OgLTypeScale.standard().label),
-              color: entry.level == KernelLogLevel.error
-                  ? ogL.palette.danger
-                  : ogL.palette.textDim,
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.text, required this.ogL, this.tone});
