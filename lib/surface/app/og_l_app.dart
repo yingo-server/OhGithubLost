@@ -16,7 +16,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../domain/gh/gh_models.dart';
+import '../../domain/gh/gh_auth.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
 import '../layout/adaptive.dart';
