@@ -94,7 +94,9 @@ jobs:
             args: --release
             artifact: build/macos/Build/Products/Release/*.app/**
           - label: macOS · x64
-            os: macos-13
+            # CI 实证：macos-13 队列连续多轮被平台取消（cancelled，
+            # 非构建失败）——Intel 容量/淘汰策略所致。改用 macos-15-intel。
+            os: macos-15-intel
             build: macos
             args: --release
             artifact: build/macos/Build/Products/Release/*.app/**
