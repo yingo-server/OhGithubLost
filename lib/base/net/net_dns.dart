@@ -608,7 +608,13 @@ class DnsService {
     if (host.isEmpty) {
       throw const DnsException('主机名为空');
     }
-    if (_ipv4.hasMatch(host) || host.contains(':')) {
+    if (_ipv4.hasMatch(host)) {
+      return <String>[host];
+    }
+    // IPv6 字面量（含压缩写法）直接返回，不做无谓查询。
+    // 注意：**不能用 `contains(':')` 判断**——那会把 `host:port` 这类输入
+    // 误当成 IP 直接返回，于是"解析成功"了一个根本连不上的地址。
+    if (InternetAddress.tryParse(host) != null) {
       return <String>[host];
     }
 

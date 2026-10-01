@@ -417,6 +417,21 @@ class GhApi implements CacheRemote {
     required String message,
     String? expectedHeadSha,
   }) async {
+    // ① 先校验基线，**再**创建任何 blob。
+    // 顺序很重要：若把 blob 建在前面，一旦期望 sha 不匹配就会白建一堆
+    // 永远不会被引用的孤儿对象（虽然 GitHub 最终会回收，但没必要）。
+    final headSha = await _headShaOf(fullName, branch);
+    if (headSha.isEmpty) {
+      throw GhAuthException('无法确定分支 $branch 的顶端提交');
+    }
+    if (expectedHeadSha != null && headSha != expectedHeadSha) {
+      throw RemoteConflictException(
+        statusCode: 409,
+        currentSha: headSha,
+        message: '分支已前进，拒绝批量提交',
+      );
+    }
+
     final entries = <Map<String, Object?>>[];
 
     for (final MapEntry<String, String> entry in upserts.entries) {
@@ -450,19 +465,6 @@ class GhApi implements CacheRemote {
     }
     if (entries.isEmpty) {
       throw GhAuthException('批量提交内容为空');
-    }
-
-    // 以当前分支顶端为基线（若调用方给了期望 sha，则先校验——相当于批量版的 D2）。
-    final headSha = await _headShaOf(fullName, branch);
-    if (expectedHeadSha != null && headSha != expectedHeadSha) {
-      throw RemoteConflictException(
-        statusCode: 409,
-        currentSha: headSha,
-        message: '分支已前进，拒绝批量提交',
-      );
-    }
-    if (headSha.isEmpty) {
-      throw GhAuthException('无法确定分支 $branch 的顶端提交');
     }
 
     final baseTree = await _treeShaOfCommit(fullName, headSha);

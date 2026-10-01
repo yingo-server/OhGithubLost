@@ -331,9 +331,10 @@ class PlatformStorage {
 
   /// 组装成 L1 硬盘模块（缓存 / 日志 / 草稿全部落到真实磁盘）。
   ///
-  /// 注意：`_resolveDefaultRoot` 之外不再触碰插件通道，
-  /// 因此本方法可安全用于「先初始化、后建模块」的启动顺序。
-  DiskModule toDiskModule({bool enableJournalAndDrafts = true}) {
+  /// 这里**不提供"关掉日志/草稿"的开关**：一旦关掉，`DiskModule` 会用内存实现
+  /// 兜底，反而造出"以为关了、其实在内存里漂"的假象。
+  /// 真要换实现，请直接给 `DiskModule` 注入自己的 `store`。
+  DiskModule toDiskModule() {
     final indexKv = kv;
     return DiskModule(
       kv: kv,
@@ -344,8 +345,8 @@ class PlatformStorage {
         index: indexKv,
         blobs: IoDiskFileStore(root: '$root/cache'),
       ),
-      journal: enableJournalAndDrafts ? WriteJournal(store: indexKv) : null,
-      drafts: enableJournalAndDrafts ? DraftStore(store: indexKv) : null,
+      journal: WriteJournal(store: indexKv),
+      drafts: DraftStore(store: indexKv),
     );
   }
 

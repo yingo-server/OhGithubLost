@@ -291,6 +291,47 @@ void main() {
         contains(SysCapability.memory),
       );
     });
+
+    test('并发授权不丢更新（读-改-写必须串行）', () async {
+      final kv = InMemoryKv();
+      final guarded = SysAccessGuard(store: kv);
+
+      // 四个授权同时发出：如果不串行，后写者会基于旧快照抹掉前者的结果。
+      await Future.wait(<Future<void>>[
+        guarded.grant('mod.a', SysCapability.memory),
+        guarded.grant('mod.a', SysCapability.network),
+        guarded.grant('mod.b', SysCapability.memory),
+        guarded.grant('mod.a', SysCapability.fileSystem),
+      ]);
+
+      expect((await guarded.allGrants()).length, 4);
+      expect(
+        await guarded.grantsFor('mod.a'),
+        containsAll(<SysCapability>[
+          SysCapability.memory,
+          SysCapability.network,
+          SysCapability.fileSystem,
+        ]),
+      );
+      expect(await guarded.grantsFor('mod.b'), contains(SysCapability.memory));
+    });
+
+    test('并发撤销与授权不互相覆盖', () async {
+      final guarded = SysAccessGuard(store: InMemoryKv());
+      await guarded.grant('mod.a', SysCapability.memory);
+      await guarded.grant('mod.a', SysCapability.network);
+      await guarded.grant('mod.b', SysCapability.memory);
+
+      await Future.wait(<Future<void>>[
+        guarded.revoke('mod.a', SysCapability.memory),
+        guarded.grant('mod.c', SysCapability.network),
+      ]);
+
+      expect(await guarded.grantsFor('mod.a'), isNot(contains(SysCapability.memory)));
+      expect(await guarded.grantsFor('mod.a'), contains(SysCapability.network));
+      expect(await guarded.grantsFor('mod.b'), contains(SysCapability.memory));
+      expect(await guarded.grantsFor('mod.c'), contains(SysCapability.network));
+    });
   });
 
   group('按授权裁剪（默认最小披露）', () {

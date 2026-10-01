@@ -281,6 +281,20 @@ void main() {
       expect(system.calls, 0);
     });
 
+    test('IPv6 字面量直返；`host:port` 不得被误判为 IP', () async {
+      final system = _FakeResolver(id: 'system');
+      final service = DnsService(systemResolver: system);
+
+      expect(await service.resolve('::1'), <String>['::1']);
+      expect(system.calls, 0, reason: 'IPv6 字面量无需解析');
+
+      // 关键回归：'example.com:8080' 含冒号但**不是** IP，
+      // 早期用 `contains(':')` 判断会把它当 IP 直接返回，
+      // 于是"解析成功"了一个根本连不上的地址。
+      expect(await service.resolve('example.com:8080'), <String>['9.9.9.9']);
+      expect(system.calls, 1, reason: '带端口的主机名必须真正走解析');
+    });
+
     test('custom 模式：命中缓存不重复解析', () async {
       final resolver = _FakeResolver(id: 'alidns');
       final service = DnsService(

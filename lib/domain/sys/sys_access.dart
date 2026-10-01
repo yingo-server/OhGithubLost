@@ -13,6 +13,7 @@
 /// 本文档对应的是"**运行期**越权访问"。两者一前一后，缺一不可。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
 import '../../base/disk/disk_store.dart';
@@ -233,6 +234,29 @@ class SysAccessGuard {
   /// 无持久化时的内存兜底（测试 / 纯内存模式）。
   final List<SysGrant> _memory = <SysGrant>[];
 
+  /// 写操作的串行化尾指针。
+  ///
+  /// `grant` / `revoke` 都是"读全部 → 改 → 写全部"，**必须串行**，
+  /// 否则两个并发授权会各自基于旧快照写回，后写者把前者的授权抹掉
+  /// （经典 read-modify-write 丢失更新）。
+  Future<void> _serial = Future<void>.value();
+
+  Future<T> _serialized<T>(Future<T> Function() action) async {
+    final previous = _serial;
+    final completer = Completer<void>();
+    _serial = completer.future;
+    try {
+      await previous;
+    } catch (_) {
+      // 前序写操作失败不影响本次（各自独立判定）。
+    }
+    try {
+      return await action();
+    } finally {
+      completer.complete();
+    }
+  }
+
   /// 绑定诊断中枢（装配阶段调用）。
   void attachDiagnostics(KernelDiagnostics diagnostics) {
     _diagnostics = diagnostics;
@@ -262,74 +286,79 @@ class SysAccessGuard {
   Future<List<SysGrant>> allGrants() async => _allGrants();
 
   /// 授权。
+  ///
+  /// **串行执行**：读-改-写必须原子，否则并发授权会丢失更新。
   Future<void> grant(
     String modId,
     SysCapability capability, {
     String? note,
-  }) async {
+  }) {
     if (isPublic(capability)) {
-      return; // 公开能力无需授权，也不留记录。
+      return Future<void>.value(); // 公开能力无需授权，也不留记录。
     }
-    final grants = await _allGrants();
-    grants.removeWhere((SysGrant grant) =>
-        grant.modId == modId && grant.capability == capability);
-    final grant = SysGrant(
-      modId: modId,
-      capability: capability,
-      grantedAt: DateTime.now(),
-      note: note,
-    );
-    grants.add(grant);
-    await _saveAll(grants);
-    _diagnostics?.warn(
-      'SYSACC',
-      'Mod 获得能力授权',
-      code: 'OGL-SYSACC-001',
-      data: <String, Object?>{
-        'modId': modId,
-        'capability': capability.name,
-        'sensitive': sysCapabilityInfo(capability).sensitive,
-      },
-    );
-  }
-
-  /// 撤销。
-  Future<void> revoke(String modId, SysCapability capability) async {
-    final grants = await _allGrants();
-    final before = grants.length;
-    grants.removeWhere((SysGrant grant) =>
-        grant.modId == modId && grant.capability == capability);
-    if (grants.length != before) {
+    return _serialized(() async {
+      final grants = await _allGrants();
+      grants.removeWhere((SysGrant grant) =>
+          grant.modId == modId && grant.capability == capability);
+      final grant = SysGrant(
+        modId: modId,
+        capability: capability,
+        grantedAt: DateTime.now(),
+        note: note,
+      );
+      grants.add(grant);
       await _saveAll(grants);
-      _diagnostics?.info(
+      _diagnostics?.warn(
         'SYSACC',
-        'Mod 能力已撤销',
-        code: 'OGL-SYSACC-002',
+        'Mod 获得能力授权',
+        code: 'OGL-SYSACC-001',
         data: <String, Object?>{
           'modId': modId,
           'capability': capability.name,
+          'sensitive': sysCapabilityInfo(capability).sensitive,
         },
       );
-    }
+    });
   }
 
+  /// 撤销。
+  Future<void> revoke(String modId, SysCapability capability) =>
+      _serialized(() async {
+        final grants = await _allGrants();
+        final before = grants.length;
+        grants.removeWhere((SysGrant grant) =>
+            grant.modId == modId && grant.capability == capability);
+        if (grants.length != before) {
+          await _saveAll(grants);
+          _diagnostics?.info(
+            'SYSACC',
+            'Mod 能力已撤销',
+            code: 'OGL-SYSACC-002',
+            data: <String, Object?>{
+              'modId': modId,
+              'capability': capability.name,
+            },
+          );
+        }
+      });
+
   /// 撤销某 Mod 的全部能力（卸载 Mod 时必须调用）。
-  Future<int> revokeAll(String modId) async {
-    final grants = await _allGrants();
-    final before = grants.length;
-    grants.removeWhere((SysGrant grant) => grant.modId == modId);
-    await _saveAll(grants);
-    final removed = before - grants.length;
-    if (removed > 0) {
-      _diagnostics?.warn(
-        'SYSACC',
-        'Mod 全部能力已撤销',
-        code: 'OGL-SYSACC-003',
-        data: <String, Object?>{'modId': modId, 'removed': removed},
-      );
-    }
-    return removed;
-  }
+  Future<int> revokeAll(String modId) => _serialized(() async {
+        final grants = await _allGrants();
+        final before = grants.length;
+        grants.removeWhere((SysGrant grant) => grant.modId == modId);
+        await _saveAll(grants);
+        final removed = before - grants.length;
+        if (removed > 0) {
+          _diagnostics?.warn(
+            'SYSACC',
+            'Mod 全部能力已撤销',
+            code: 'OGL-SYSACC-003',
+            data: <String, Object?>{'modId': modId, 'removed': removed},
+          );
+        }
+        return removed;
+      });
 
   /// 断言某 Mod 拥有某能力；缺失则抛 [SysAccessDenied]（并留审计）。
   Future<void> require(

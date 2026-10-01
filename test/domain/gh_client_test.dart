@@ -297,18 +297,18 @@ void main() {
       expect(await api.listDirectory('alice/blog', 'src'), isEmpty);
     });
 
-    test('批量提交按 blob→tree→commit→ref 顺序，且带 base_tree', () async {
+    test('批量提交：先校验基线，再建 blob，最后成树成提交移引用', () async {
       final holding = ScriptedTransport(<Object>[
-        // 1) 建 blob
-        _json(<String, dynamic>{'sha': 'blob1'}),
-        // 2) 取分支顶端
+        // 1) 取分支顶端（**必须在建 blob 之前**）
         _json(<String, dynamic>{
           'object': <String, dynamic>{'sha': 'head1'},
         }),
-        // 3) 取该提交的 tree
+        // 2) 取该提交的 tree
         _json(<String, dynamic>{
           'tree': <String, dynamic>{'sha': 'basetree'},
         }),
+        // 3) 建 blob
+        _json(<String, dynamic>{'sha': 'blob1'}),
         // 4) 建 tree
         _json(<String, dynamic>{'sha': 'tree1'}),
         // 5) 建 commit
@@ -329,19 +329,21 @@ void main() {
 
       expect(sha, 'commit1');
       expect(holding.received.length, 6);
-      expect(holding.received[0].url, contains('/git/blobs'));
-      expect(holding.received[1].url, contains('/git/ref/heads/main'));
+      expect(
+        holding.received[0].url,
+        contains('/git/ref/heads/main'),
+        reason: '基线校验必须排在第一位，避免白建孤儿 blob',
+      );
+      expect(holding.received[2].url, contains('/git/blobs'));
       final treeBody = jsonDecode(holding.received[3].body! as String);
       expect(treeBody['base_tree'], 'basetree');
       expect(treeBody['tree'][0]['path'], 'a.txt');
       expect(holding.received[5].url, contains('/git/refs/heads/main'));
     });
 
-    test('批量提交前校验期望 sha，分支已前进则拒绝', () async {
+    test('批量提交前校验期望 sha，分支已前进则拒绝（且不建任何 blob）', () async {
       final holding = ScriptedTransport(<Object>[
-        // 1) 建 blob
-        _json(<String, dynamic>{'sha': 'blob1'}),
-        // 2) 分支顶端已经前进
+        // 只有"取分支顶端"这一次调用——校验失败就不该继续。
         _json(<String, dynamic>{
           'object': <String, dynamic>{'sha': 'moved'},
         }),
