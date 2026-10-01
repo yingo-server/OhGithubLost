@@ -83,8 +83,13 @@ class DioNetTransport implements NetTransport {
             ? uri.port
             : (uri.scheme == 'https' ? 443 : 80);
         if (dns.policy.mode != NetDnsMode.custom) {
-          // 与平台默认一致：交给系统解析，保证开关切换可逆。
-          return Socket.startConnect(uri.host, port).timeout(connectTimeout);
+          // 与平台默认一致：交给系统解析（**不加外层超时**）。
+          // ★ 教训（线上实证）：`.timeout(15s)` 会把"坏 IPv6 黑洞"场景
+          //   下的地址轮换直接掐死——首个地址（IPv6）还没失败就被外层
+          //   超时判死，永远轮不到可用的 IPv4（curl 有 Happy Eyeballs
+          //   所以正常，App 却"网络不可达"）。交给 platform 自己按
+          //   地址逐个尝试，慢但一定能走通。
+          return Socket.startConnect(uri.host, port);
         }
 
         final addresses = await dns.resolve(uri.host);
