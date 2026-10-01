@@ -279,7 +279,7 @@ void main() {
     });
 
     test('亮暗两套确实是不同的配色（而不是复制粘贴）', () {
-      final pack = OgLThemePacks.vscode;
+      final pack = OgLThemePacks.primer;
       final light = pack.paletteFor(OgLBrightness.light);
       final dark = pack.paletteFor(OgLBrightness.dark);
       expect(light.background, isNot(dark.background));
@@ -293,7 +293,7 @@ void main() {
     test('编译出的 ThemeData 带上我们的扩展，且分割线是发丝线', () {
       final tokens = OgLTokens.resolve(hairline: 1 / 3);
       final theme = buildOgLTheme(
-        pack: OgLThemePacks.vscode,
+        pack: OgLThemePacks.primer,
         brightness: OgLBrightness.dark,
         tokens: tokens,
         layout: _viewport(width: 800).spec,
@@ -301,7 +301,7 @@ void main() {
 
       final extension = theme.extension<OgLTheme>();
       expect(extension, isNotNull);
-      expect(extension!.themeId, OgLThemePacks.vscode.id);
+      expect(extension!.themeId, OgLThemePacks.primer.id);
       expect(theme.dividerTheme.thickness, closeTo(1 / 3, 0.0001));
       expect(theme.useMaterial3, isTrue);
       // 极客风不要水波纹。
@@ -311,7 +311,7 @@ void main() {
     test('色板插值：中点既不是起点也不是终点', () {
       final theme = OgLTheme.fallback;
       final mid = theme.lerp(
-        theme.copyWith(palette: OgLThemePacks.winui3.paletteFor(OgLBrightness.dark)),
+        theme.copyWith(palette: OgLThemePacks.ogl.paletteFor(OgLBrightness.dark)),
         0.5,
       );
       expect(mid.palette.background, isNot(theme.palette.background));

@@ -798,9 +798,7 @@ class _Banner extends StatelessWidget {
         decoration: BoxDecoration(
           color: ogL.palette.surfaceAlt,
           borderRadius: BorderRadius.circular(
-            ogL.tokens.radius(ogL.themeId == OgLThemePacks.vscode.id
-                ? OgLRadius.xs
-                : OgLRadius.md),
+            ogL.tokens.radius(OgLRadius.medium),
           ),
           border: Border.all(color: color, width: ogL.tokens.hairline),
         ),

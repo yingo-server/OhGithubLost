@@ -204,7 +204,7 @@ void main() {
   group('设置护栏：手改配置文件也不能进入危险状态', () {
     test('未开开发者模式时，危险开关被强制拧回关闭', () {
       final hostile = jsonDecode(jsonEncode(<String, Object?>{
-        'themeId': 'vscode.geek',
+        'themeId': 'primer',
         'developerMode': false,
         'dev': <String, Object?>{
           'skipConfirmations': true,
@@ -273,10 +273,10 @@ void main() {
 
     test('合法 ID 原样保留（护栏不能误伤正常值）', () {
       final settings = OgLSettings.fromJson(<String, dynamic>{
-        'themeId': 'winui3',
+        'themeId': 'primer',
         'iconSetId': 'material.filled',
       });
-      expect(settings.themeId, 'winui3');
+      expect(settings.themeId, 'primer');
       expect(settings.iconSetId, 'material.filled');
       expect(settings.lastRepairs, isEmpty);
     });
@@ -336,7 +336,7 @@ void main() {
 
     test('编码—解码往返恒等', () {
       const settings = OgLSettings(
-        themeId: 'winui3',
+        themeId: 'primer',
         mode: OgLThemeMode.dark,
         density: OgLDensityChoice.compact,
         iconSetId: 'minimal.line',
@@ -361,12 +361,12 @@ void main() {
       await controller.load();
       expect(controller.isLoaded, isTrue);
 
-      await controller.setTheme('winui3');
+      await controller.setTheme('primer');
       await controller.setIconSet('material.filled');
 
       final reloaded = OgLSettingsController(persistence: persistence);
       await reloaded.load();
-      expect(reloaded.settings.themeId, 'winui3');
+      expect(reloaded.settings.themeId, 'primer');
       expect(reloaded.settings.iconSetId, 'material.filled');
     });
 
@@ -384,10 +384,10 @@ void main() {
       final controller = OgLSettingsController(
         persistence: _ThrowingWritePersistence(),
       );
-      await controller.setTheme('material3');
+      await controller.setTheme('ogl.spatial');
       expect(
         controller.settings.themeId,
-        'material3',
+        'ogl.spatial',
         reason: '点了没反应比"提示会丢"更糟',
       );
       expect(controller.lastError, isNotNull);

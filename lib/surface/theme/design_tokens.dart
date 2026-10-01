@@ -88,6 +88,15 @@ abstract final class OgLRadius {
   /// 16。
   static const double xl = 16;
 
+  /// 3（Primer small：小徽标 / 小控件）。
+  static const double small = 3;
+
+  /// 6（Primer medium：按钮 / 输入框 / 卡片默认）。
+  static const double medium = 6;
+
+  /// 12（Primer large：面板 / 对话框）。
+  static const double large = 12;
+
   /// 999（胶囊）。
   static const double pill = 999;
 }

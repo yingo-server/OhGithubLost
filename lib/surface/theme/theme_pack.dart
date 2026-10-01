@@ -1,12 +1,11 @@
 /// L3 展示级 · 主题体系：主题包（Theme Pack）。
 ///
 /// ## 一套主题包 = 一份可序列化的"外观契约"
-/// 内置三套（用户还可以加自己的）：
+/// 内置两套（产品决策：只保留两个主题）：
 /// | 包 | 风格 | 圆角 | 层次 | 字体倾向 |
 /// | --- | --- | --- | --- | --- |
-/// | [OgLThemePacks.vscode] | 极客 · 冷峻 · 信息密集 | 2（锐利） | 纯描边 | 等宽优先 |
-/// | [OgLThemePacks.winui3] | 原生 · 云母 · 柔和 | 8 | 柔和阴影 | 无衬线 |
-/// | [OgLThemePacks.material3] | 圆润 · 通透 · 分色 | 12 | 色调抬升 | 无衬线 |
+/// | [OgLThemePacks.primer] | GitHub Primer 官方规范 | 6 | 纯描边 | 无衬线 |
+/// | [OgLThemePacks.ogl] | OGL 自研 · 深空极简 | 12 | 纯描边 | 无衬线 |
 ///
 /// ## 与设计令牌的分工
 /// - **令牌**回答"多高、多快、多重"（与主题无关的物理量）；
@@ -233,7 +232,7 @@ class OgLThemePack {
         ),
       );
     }
-    return OgLThemePacks.vscode.paletteFor(brightness);
+    return OgLThemePacks.primer.paletteFor(brightness);
   }
 
   /// 该包是否支持指定明暗（决定设置页是否显示"跟随系统"之外的选项）。
@@ -245,16 +244,14 @@ class OgLThemePack {
 
 /// 内置主题包与解析。
 abstract final class OgLThemePacks {
-  /// 全部内置包（顺序即设置页展示顺序；Spatial 为默认，置于首位）。
+  /// 全部内置包（顺序即设置页展示顺序；Primer 官方置于首位）。
   static List<OgLThemePack> get all => <OgLThemePack>[
-        spatial,
-        vscode,
-        winui3,
-        material3,
+        primer,
+        ogl,
       ];
 
-  /// 默认包：**Spatial（自研）**（MD3 为官方次选；规格见 `docs/UI_SYSTEM_V2.md`）。
-  static OgLThemePack get fallback => spatial; // 产品决策：自研 Spatial 为默认风格
+  /// 默认包：**Primer（官方）**（按 GitHub Primer 规范落地）。
+  static OgLThemePack get fallback => primer;
 
   /// 按 ID 解析；未知 ID 回落默认（设置里的脏值不该让界面崩）。
   static OgLThemePack byId(String? id) {
@@ -266,44 +263,48 @@ abstract final class OgLThemePacks {
     return fallback;
   }
 
-  /// VS Code 极客风：冷灰底 + 1px 描边 + 锐角 + 等宽优先。
-  static const OgLThemePack vscode = OgLThemePack(
-    id: 'vscode.geek',
-    name: '极客（VS Code）',
-    description: '冷灰底、1px 描边、锐角、等宽字体优先——为长时间读代码而设计',
-    iconSetId: 'minimal.line',
-    defaultRadius: OgLRadius.xs,
+  /// Primer（官方）：GitHub 产品界面的设计语言 —— 功能色角色 + 发丝描边 + 6px 圆角。
+  ///
+  /// 取值按 Primer 功能令牌（bgColor-default / bgColor-muted /
+  /// borderColor-default / fgColor-default / fgColor-muted /
+  /// fgColor-accent / bgColor-accent-emphasis / fgColor-onEmphasis +
+  /// success / attention / danger 语义色），明暗双模均齐。
+  static const OgLThemePack primer = OgLThemePack(
+    id: 'primer',
+    name: 'Primer（官方）',
+    description: 'GitHub 官方设计系统：功能色角色、发丝描边、6px 圆角、信息密度适中',
+    iconSetId: 'material.outlined',
+    defaultRadius: OgLRadius.medium,
     elevation: OgLElevationModel.outlined,
-    monospaceFirst: true,
     paletteDark: OgLPalette(
-      background: Color(0xFF0D1117),
-      surface: Color(0xFF161B22),
-      surfaceAlt: Color(0xFF21262D),
-      border: Color(0xFF30363D),
-      borderStrong: Color(0xFF484F58),
-      text: Color(0xFFE6EDF3),
-      textDim: Color(0xFF8B949E),
-      textFaint: Color(0xFF6E7681),
-      accent: Color(0xFF58A6FF),
-      onAccent: Color(0xFF0D1117),
-      danger: Color(0xFFF85149),
-      warning: Color(0xFFD29922),
-      success: Color(0xFF3FB950),
-      info: Color(0xFF58A6FF),
-      selection: Color(0x3358A6FF),
+      background: Color(0xFF0D1117), // bgColor-default（dark）
+      surface: Color(0xFF161B22), // bgColor-muted（dark）
+      surfaceAlt: Color(0xFF21262D), // hover / 次级面板
+      border: Color(0xFF30363D), // borderColor-default（dark）
+      borderStrong: Color(0xFF484F58), // 强描边（控件边界）
+      text: Color(0xFFE6EDF3), // fgColor-default（dark）
+      textDim: Color(0xFF8B949E), // fgColor-muted（dark）
+      textFaint: Color(0xFF6E7681), // fgColor-subtle（dark）
+      accent: Color(0xFF2F81F7), // fgColor-accent（dark）
+      onAccent: Color(0xFFFFFFFF), // fgColor-onEmphasis
+      danger: Color(0xFFF85149), // fgColor-danger（dark）
+      warning: Color(0xFFD29922), // fgColor-attention（dark）
+      success: Color(0xFF3FB950), // fgColor-success（dark）
+      info: Color(0xFF2F81F7),
+      selection: Color(0x332F81F7), // accent-muted ≈ 20% 选中底
       codeBackground: Color(0xFF161B22),
-      shadow: Color(0xFF000000),
+      shadow: Color(0xFF010409),
     ),
     paletteLight: OgLPalette(
-      background: Color(0xFFFFFFFF),
-      surface: Color(0xFFF6F8FA),
-      surfaceAlt: Color(0xFFEAEEF2),
-      border: Color(0xFFD0D7DE),
+      background: Color(0xFFFFFFFF), // bgColor-default（light）
+      surface: Color(0xFFF6F8FA), // bgColor-muted（light）
+      surfaceAlt: Color(0xFFEAEEF2), // hover / 次级面板
+      border: Color(0xFFD0D7DE), // borderColor-default（light）
       borderStrong: Color(0xFFAFB8C1),
-      text: Color(0xFF1F2328),
-      textDim: Color(0xFF656D76),
-      textFaint: Color(0xFF8C959F),
-      accent: Color(0xFF0969DA),
+      text: Color(0xFF1F2328), // fgColor-default（light）
+      textDim: Color(0xFF656D76), // fgColor-muted（light）
+      textFaint: Color(0xFF6E7781), // fgColor-subtle（light）
+      accent: Color(0xFF0969DA), // fgColor-accent（light）
       onAccent: Color(0xFFFFFFFF),
       danger: Color(0xFFCF222E),
       warning: Color(0xFF9A6700),
@@ -315,61 +316,10 @@ abstract final class OgLThemePacks {
     ),
   );
 
-  /// WinUI 3：云母底、8px 圆角、柔和阴影。
-  static const OgLThemePack winui3 = OgLThemePack(
-    id: 'winui3',
-    name: 'WinUI 3',
-    description: '原生 Windows 观感：云母质感、8px 圆角、柔和层次',
-    iconSetId: 'material.outlined',
-    defaultRadius: OgLRadius.md,
-    elevation: OgLElevationModel.soft,
-    paletteDark: OgLPalette(
-      background: Color(0xFF202020),
-      surface: Color(0xFF2B2B2B),
-      surfaceAlt: Color(0xFF323232),
-      border: Color(0xFF3D3D3D),
-      borderStrong: Color(0xFF5A5A5A),
-      text: Color(0xFFFFFFFF),
-      textDim: Color(0xFFC5C5C5),
-      textFaint: Color(0xFF9A9A9A),
-      accent: Color(0xFF60CDFF),
-      onAccent: Color(0xFF003A5C),
-      danger: Color(0xFFFF99A4),
-      warning: Color(0xFFFCE100),
-      success: Color(0xFF6CCB5F),
-      info: Color(0xFF60CDFF),
-      selection: Color(0x3360CDFF),
-      codeBackground: Color(0xFF272727),
-      shadow: Color(0xFF000000),
-    ),
-    paletteLight: OgLPalette(
-      background: Color(0xFFF3F3F3),
-      surface: Color(0xFFFFFFFF),
-      surfaceAlt: Color(0xFFEAEAEA),
-      border: Color(0xFFE1E1E1),
-      borderStrong: Color(0xFFC8C8C8),
-      text: Color(0xFF1A1A1A),
-      textDim: Color(0xFF5D5D5D),
-      textFaint: Color(0xFF8A8A8A),
-      accent: Color(0xFF005FB8),
-      onAccent: Color(0xFFFFFFFF),
-      danger: Color(0xFFC42B1C),
-      warning: Color(0xFF9D5D00),
-      success: Color(0xFF0F7B0F),
-      info: Color(0xFF005FB8),
-      selection: Color(0x33005FB8),
-      codeBackground: Color(0xFFF6F6F6),
-      shadow: Color(0xFF000000),
-    ),
-  );
-
-  /// Spatial（自研默认风格）：深空底 + 发丝描边 + 单一强调色。
-  ///
-  /// 规格见 `docs/UI_SYSTEM_V2.md`：通用性第一、性能第二、大气简洁。
-  /// 层次模型 = 纯描边（不靠阴影）；明暗双模均提供完整调色板。
-  static const OgLThemePack spatial = OgLThemePack(
+  /// 「OGL」自研：深空底 + 发丝描边 + 单一强调色（通用性第一、性能第二）。
+  static const OgLThemePack ogl = OgLThemePack(
     id: 'ogl.spatial',
-    name: 'Spatial（默认）',
+    name: 'OGL（自研）',
     description: '自研风格：大留白、发丝描边、单一强调色；通用性优先',
     iconSetId: 'material.outlined',
     defaultRadius: OgLRadius.lg,
@@ -414,16 +364,8 @@ abstract final class OgLThemePacks {
     ),
   );
 
-  /// Material 3：由种子色生成整套色调（对比度由 M3 算法保证）。
-  static final OgLThemePack material3 = OgLThemePack(
-    id: 'material3',
-    name: 'Material 3',
-    description: '通过种子色生成完整色调体系，圆润通透，跨平台观感统一',
-    iconSetId: 'material.outlined',
-    defaultRadius: OgLRadius.lg,
-    elevation: OgLElevationModel.tonal,
-    seed: const Color(0xFF6750A4),
-  );
+  // （历史上还有 vscode / winui3 / material3 / spatial 多套实验主题；
+  //   产品决策：只保留「Primer（官方）」与「OGL（自研）」两套。）
 }
 
 /// 主题上下文：把"令牌 / 调色板 / 图标包 / 动效"打包进 Widget 树。
