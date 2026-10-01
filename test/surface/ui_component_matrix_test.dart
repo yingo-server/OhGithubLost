@@ -289,8 +289,7 @@ void main() {
           final RenderRepaintBoundary boundary =
               _key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
           final ui.Image image = await boundary.toImage();
-          final ByteData? data =
-              await image.toByteData(format: ui.ImageByteFormat.png);
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
           File('build/ui_shots/matrix_${pack.id}__${brightness.name}.png')
               .writeAsBytesSync(data!.buffer.asUint8List());
