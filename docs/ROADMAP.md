@@ -91,8 +91,15 @@
 - [x] 设置与开发者选项（总闸护栏 + 容错反序列化 + 控制器）
 - [x] 表面桥 + 展示层模块 + `surfaceLayerModules()` 装配入口
 - [x] `docs/SURFACE.md`（界面法则，强制验收）
-- [ ] **应用入口 `main.dart`**（阻塞：`IoBootFileSystem` 根目录 + 引导清单生成方式）
-- [ ] 权限网关平台实现（`permission_handler` 接线）
-- [ ] 设置页 UI / 主壳 shell / Mod 运行时与告警弹窗
+- [x] **应用入口 `main.dart`**（组装 L0–L3 → 内核启动 → `KernelReport`；拒绝启动走专用失败页，不静默降级）
+- [x] **异步状态模型** `surface/app/async_state.dart`（四态 + 并发抑制 + 刷新失败不丢数据）
+- [x] **主壳 `surface/app/shell.dart`**（导航四形态 / 单栏·列表详情·三栏 / 键盘操控）
+- [x] **设置与开发者选项 UI 地基**（总闸护栏 + 容错反序列化 + 控制器）
+- [x] **渲染快照流水线**（3 主题 × 4 形态 = 12 张真实 PNG，CI 产物 `ui-shots`）
+- [ ] 权限网关平台实现（接口已定；`permission_handler` 因要求 compileSdk 37 已暂时移除，
+      实现时重新引入并把 compileSdk 提升到 37）
+- [ ] **五平台全架构构建 CI 收敛**（13 个目标当前仅 `macOS arm64` 成功）
+- [ ] Mod 运行时 + **强制告警弹窗**（红线）
+- [ ] 真实数据页（仓库列表起步：`GhApi` + `OgLAsyncView` + 选中态联动）
 - [ ] 动效打磨（仅状态反馈 / 切换 / 面板展开）
 - [ ] 缓存上限与 TTL 接到 L1（需先把 `RepositoryCache` 的上限/TTL 改为可调）
