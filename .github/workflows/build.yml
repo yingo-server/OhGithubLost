@@ -117,6 +117,16 @@ jobs:
       - name: 获取依赖
         run: flutter pub get
 
+      # ★ 平台工程脚手架在**构建时生成**，不提交进仓库。
+      # 这样仓库里没有任何平台相关的外部文件（AndroidManifest / xcodeproj /
+      # CMakeLists … 全部由 Flutter 按当前 SDK 版本生成），既满足"零外部资源"，
+      # 也避免了"仓库里的脚手架与 SDK 版本漂移"。
+      # 生成物里的示例测试会引用不存在的 MyApp，这里顺手删掉。
+      - name: 生成平台工程脚手架
+        run: |
+          flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
+          rm -f test/widget_test.dart
+
       - name: 安装 Linux 桌面依赖
         if: matrix.build == 'linux'
         run: |

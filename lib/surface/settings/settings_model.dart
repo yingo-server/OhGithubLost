@@ -651,6 +651,18 @@ class OgLSettingsController extends ChangeNotifier {
   Future<void> setIconSet(String iconSetId) =>
       apply(_settings.copyWith(iconSetId: iconSetId));
 
+  /// 便捷：切换密度偏好。
+  Future<void> applyDensity(OgLDensityChoice density) =>
+      apply(_settings.copyWith(density: density));
+
+  /// 便捷：切换动效偏好。
+  Future<void> applyMotion(OgLMotionSetting motion) =>
+      apply(_settings.copyWith(motion: motion));
+
+  /// 便捷：切换批量写入通道偏好。
+  Future<void> applyWriteChannel(OgLWriteChannelChoice channel) =>
+      apply(_settings.copyWith(writeChannel: channel));
+
   /// 便捷：开发者总闸。
   ///
   /// **关掉总闸会自动清空所有开发者开关**——避免"看起来关了其实还开着"。
