@@ -9,7 +9,9 @@
 | [DURABILITY.md](DURABILITY.md) | 提交/编辑会不会丢？冲突怎么解释给用户？ | **强制验收** |
 | [BOOT.md](BOOT.md) | 谁能被装载？签名/指纹/信任策略？扩展怎么告警？ | **强制验收** |
 | [NAMING.md](NAMING.md) | 层级、模块、类前缀、告警码怎么取名？ | 强制 |
-| [LEGACY_FEATURES.md](LEGACY_FEATURES.md) | 老 App 有哪些功能？覆盖到哪了？还缺什么？ | 功能真源 |
+| [FEATURES.md](FEATURES.md) | **现在到底有哪些能力？哪些还没做？** | 功能真源 |
+| [CODE_MAP.md](CODE_MAP.md) | **每个文件干什么？哪些不变量不能破？** | 改动前必读 |
+| [LEGACY_FEATURES.md](LEGACY_FEATURES.md) | 老 App 有哪些功能？覆盖到哪了？还缺什么？ | 功能对照 |
 | [STANDARDS.md](STANDARDS.md) | 什么叫商业级？自审发现了什么？ | 标准 + 记录 |
 | [ROADMAP.md](ROADMAP.md) | 现在做到哪一步了？下一步是什么？ | 进度真源 |
 

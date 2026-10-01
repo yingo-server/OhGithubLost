@@ -130,7 +130,7 @@
 | 功能 | 原项目 | OGL |
 | --- | --- | --- |
 | 直接进入指定仓库 | ✅ `direct_entry_repos` | `ix.session` |
-| 大容量本地库 | ✅ IndexedDB 5 GB | `base.disk` + `platform_io`（待补） |
+| 大容量本地库 | ✅ IndexedDB 5 GB | `base.disk` + `platform_io`（**已实现**） |
 | 搜索分页 | ✅ `state.publicSearchPerPage` | `domain.gh.search` |
 
 ---
