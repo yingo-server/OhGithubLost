@@ -6,6 +6,7 @@ library;
 
 import '../../kernel/contract/module.dart';
 import 'dio_net_transport.dart';
+import 'net_dns.dart';
 import 'net_mirror.dart';
 import 'net_retry.dart';
 import 'net_transport.dart';
@@ -14,13 +15,31 @@ import 'net_types.dart';
 /// 网络连接门面。
 class NetBridge {
   /// 创建门面。
-  NetBridge({required this.transport, required this.observer});
+  NetBridge({required this.transport, required this.observer, this.dns});
 
   /// 韧性传输（重试 + 镜像 + 观测）。
   final NetTransport transport;
 
   /// 观测器。
   final NetObserver observer;
+
+  /// DNS 策略服务（`null` 表示只用系统解析）。
+  final DnsService? dns;
+
+  /// 当前 DNS 策略摘要（UI 必须向用户展示，不得让用户猜）。
+  String get dnsSummary {
+    final service = dns;
+    if (service == null) {
+      return '系统解析';
+    }
+    final policy = service.policy;
+    if (policy.mode == NetDnsMode.system) {
+      return '系统解析';
+    }
+    return '${policy.servers.length} 家 DNS · '
+        '${policy.preferDoh ? 'DoH 优先' : '明文'} · '
+        '${policy.raceServers ? '并发竞速' : '顺序尝试'}';
+  }
 
   /// 发送请求。
   Future<NetResponse> send(NetRequest request) => transport.send(request);
@@ -51,13 +70,19 @@ class NetBridge {
 /// 提供：`net.transport`。
 class NetModule extends OgLModule {
   /// 创建模块。
+  ///
+  /// [dns] 为 `null` 时会自动建一个**默认策略**的 [DnsService]
+  /// （模式 = `system`，内置五家 DNS 已就绪，等用户在设置里选择）。
+  /// 这样"内置 DNS"始终可用，而**默认行为与不加 DNS 完全一致**。
   NetModule({
     NetTransport? transport,
     NetObserver? observer,
     RetryPolicy policy = const RetryPolicy(),
     MirrorSelector? mirrors,
     NetTransport Function()? transportFactory,
+    DnsService? dns,
   })  : _observer = observer ?? NetObserver(),
+        _dns = dns ?? DnsService(),
         _explicit = transport {
     _policy = policy;
     _mirrors = mirrors ?? MirrorSelector();
@@ -65,6 +90,7 @@ class NetModule extends OgLModule {
   }
 
   final NetObserver _observer;
+  final DnsService _dns;
   final NetTransport? _explicit;
   late final RetryPolicy _policy;
   late final MirrorSelector _mirrors;
@@ -78,13 +104,20 @@ class NetModule extends OgLModule {
         id: 'base.net',
         layer: ModuleLayer.base,
         version: '0.1.0',
-        provides: <String>['net.transport'],
-        description: '底座·网络连接（传输 / 重试 / 镜像加速 / 观测）',
+        provides: <String>['net.transport', 'net.dns'],
+        description: '底座·网络连接（传输 / 重试 / 镜像加速 / 观测 / DNS 策略）',
       );
 
   @override
   Future<void> onRegister(KernelContext context) async {
-    final inner = _explicit ?? _factory?.call() ?? DioNetTransport();
+    _dns.attachDiagnostics(context.diagnostics);
+
+    final inner = _explicit ??
+        _factory?.call() ??
+        DioNetTransport(
+          dns: _dns,
+          connectTimeout: const Duration(seconds: 15),
+        );
     final transport = inner is ResilientTransport
         ? inner
         : ResilientTransport(
@@ -93,13 +126,21 @@ class NetModule extends OgLModule {
             mirrors: _mirrors,
             observer: _observer,
           );
-    bridge = NetBridge(transport: transport, observer: _observer);
+
+    bridge = NetBridge(transport: transport, observer: _observer, dns: _dns);
+
     context.di.register<NetBridge>(bridge);
+    context.di.register<DnsService>(_dns);
     context.diagnostics.info(
       'NET',
       '网络连接就绪',
       code: 'OGL-NET-001',
-      data: <String, Object?>{'policy': _policy.toString(), 'mirrors': _mirrors.channels.length},
+      data: <String, Object?>{
+        'policy': _policy.toString(),
+        'mirrors': _mirrors.channels.length,
+        'dns': bridge.dnsSummary,
+        'syslog': 'DNS 策略可随时切换，不重建传输层',
+      },
     );
   }
 }

@@ -39,6 +39,10 @@
 - [x] 键校验（作用域分隔符 / 路径穿越）、内容完整性（长度 + SHA-256）、有界淘汰（TTL / prune / purge）
 - [x] `base/disk/platform_io.dart`：真实平台持久化（**原子写：临时文件 + fsync + rename**；启动清扫残骸；`IoDiskKv` 摘要文件名防路径越界）
 - [x] **能力冲突交由用户选择**原则落档（搜索策略 / 批量提交方式 / 下载通道 / 大文件通路 / 目录树获取）
+- [x] **DNS 支持**：策略层（系统解析 / 自定义，内置阿里·腾讯·114·Cloudflare·Google 五家）、
+      RFC 1035 报文编解码、DoH（注入式 HTTP）、明文 UDP、TTL 缓存、并发竞速、失败回退系统（留痕）、
+      接入真实传输（`connectionFactory` 接管，代理与 SNI 不受影响）
+- [x] **内核环境自检扩展点**（`KernelEnvironmentProbe` + 注册表 + `kernel.runProbes()`），内核保持零依赖
 
 ### C L2 中枢级
 - [ ] `domain/gh`：认证、仓库、内容、Releases、搜索、更新检查

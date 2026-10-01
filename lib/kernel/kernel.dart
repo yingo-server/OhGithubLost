@@ -20,6 +20,7 @@ import 'bridge_registry.dart';
 import 'contract/module.dart';
 import 'di.dart';
 import 'diagnostics.dart';
+import 'environment.dart';
 import 'lifecycle.dart';
 import 'module_bus.dart';
 
@@ -138,6 +139,12 @@ class OgLKernel {
   /// 信任告警收集器。
   final TrustWarningCollector warnings = TrustWarningCollector();
 
+  /// 环境自检注册表。
+  ///
+  /// 内核不认识 DNS / 代理 / 存储——各层级把自检项注册到这里，
+  /// 由 [runProbes] 统一执行（见 `environment.dart`）。
+  final KernelProbeRegistry probes = KernelProbeRegistry();
+
   /// 模块总线。
   late final KernelModuleBus bus = KernelModuleBus(
     di: di,
@@ -207,6 +214,7 @@ class OgLKernel {
     await lifecycle.registerAll(ordered, context);
     di.seal();
     bridges.seal();
+    probes.seal();
     await lifecycle.startAll(ordered);
 
     final report = KernelReport(
@@ -237,6 +245,37 @@ class OgLKernel {
     await lifecycle.stopAll();
     _report = null;
     diagnostics.info('KERNEL', '内核已停止', code: 'OGL-KERNEL-002');
+  }
+
+  /// 执行全部环境自检并写入诊断（引导完成后调用）。
+  ///
+  /// 之所以**不在 `boot()` 里自动执行**：自检会发起真实网络/磁盘动作，
+  /// 把它塞进启动关键路径会拖慢冷启动，也会让启动结果依赖外部环境。
+  /// 由装配层在合适的时机（首帧之后 / 用户点"诊断"）显式调用。
+  ///
+  /// **单项失败不影响内核状态**：自检只产出报告，不改生命周期。
+  Future<List<KernelProbeReport>> runProbes({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    final reports = await probes.runAll(timeout: timeout);
+    for (final report in reports) {
+      if (report.result.ok) {
+        diagnostics.info(
+          'PROBE',
+          '${report.title}：${report.result.summary}',
+          code: 'OGL-PROBE-001',
+          data: report.toJson(),
+        );
+      } else {
+        diagnostics.warn(
+          'PROBE',
+          '${report.title}：${report.result.summary}',
+          code: 'OGL-PROBE-101',
+          data: report.toJson(),
+        );
+      }
+    }
+    return reports;
   }
 
   /// 对扩展种类作出信任裁决（消费层装载 Mod / 主题时调用）。
