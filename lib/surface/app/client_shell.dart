@@ -13,6 +13,7 @@ import '../layout/adaptive.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/search_page.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -44,9 +45,10 @@ class _OgLClientShellState extends State<OgLClientShell> {
   bool _guest = false;
   String? _accountId;
 
-  static const List<String> _titles = <String>['首页', '我的', '设置', '关于'];
+  static const List<String> _titles = <String>['首页', '搜索', '我的', '设置', '关于'];
   static const List<OgLIconName> _icons = <OgLIconName>[
     OgLIconName.repository,
+    OgLIconName.search,
     OgLIconName.key,
     OgLIconName.settings,
     OgLIconName.info,
@@ -102,6 +104,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
         key: ValueKey<String>('dash-${_accountId ?? "guest"}'),
         surface: widget.surface,
       ),
+      OgLSearchPage(surface: widget.surface),
       OgLProfilePage(
         surface: widget.surface,
         onAccountsChanged: _check,
