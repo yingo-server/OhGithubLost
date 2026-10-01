@@ -431,6 +431,9 @@ class GhApi implements CacheRemote {
         message: '分支已前进，拒绝批量提交',
       );
     }
+    // ② 基线 tree 也在建 blob 之前读出来：**先把所有读做完，再开始写**。
+    // 这样一旦中途失败，留在远端的至少有意义的记录，而不是一堆孤儿 blob。
+    final baseTree = await _treeShaOfCommit(fullName, headSha);
 
     final entries = <Map<String, Object?>>[];
 
@@ -466,8 +469,6 @@ class GhApi implements CacheRemote {
     if (entries.isEmpty) {
       throw GhAuthException('批量提交内容为空');
     }
-
-    final baseTree = await _treeShaOfCommit(fullName, headSha);
 
     final tree = await client.send(GhRequest(
       path: '/repos/$fullName/git/trees',
