@@ -32,9 +32,12 @@
 - [ ] 代码风格自查（import 次序 / 文档头 / 无死代码）
 
 ### B L1 底座级
-- [ ] `base/net`：请求/响应类型、重试退避、镜像通道、传输抽象、Dio 实现、观测
-- [ ] `base/disk`：KV / 保险库 / 文件原语 / **缓存一致性引擎（D1–D7）**
-- [ ] `base_bridge` 与 L1 模块装配（`base.net` / `base.disk` / `base.layer`）
+- [x] `base/net`：请求/响应类型、重试退避（**幂等守卫**）、镜像通道、传输抽象、Dio 实现、观测
+- [x] `base/disk`：KV / 保险库 / 文件原语 / **缓存一致性引擎（D1–D7）**
+- [x] `base_bridge` 与 L1 模块装配（`base.net` / `base.disk` / `base.layer`）
+- [x] **持久性防线 D8–D10**：提交日志（写前落盘 / 可恢复 / 可重放）、草稿持久化、冲突三方信息与处置建议
+- [x] 键校验（作用域分隔符 / 路径穿越）、内容完整性（长度 + SHA-256）、有界淘汰（TTL / prune / purge）
+- [ ] `base/disk/platform_io.dart`：真实平台持久化（原子写：临时文件 + rename）
 
 ### C L2 中枢级
 - [ ] `domain/gh`：认证、仓库、内容、Releases、搜索、更新检查

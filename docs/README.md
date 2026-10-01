@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 系统怎么分层、每层放什么、依赖往哪个方向流？ | 架构基线 |
 | [CONSISTENCY.md](CONSISTENCY.md) | 缓存为什么是致命区？七道防线怎么落地？ | **强制验收** |
+| [DURABILITY.md](DURABILITY.md) | 提交/编辑会不会丢？冲突怎么解释给用户？ | **强制验收** |
 | [BOOT.md](BOOT.md) | 谁能被装载？签名/指纹/信任策略？扩展怎么告警？ | **强制验收** |
 | [NAMING.md](NAMING.md) | 层级、模块、类前缀、告警码怎么取名？ | 强制 |
 | [STANDARDS.md](STANDARDS.md) | 什么叫商业级？自审发现了什么？ | 标准 + 记录 |

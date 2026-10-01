@@ -107,6 +107,22 @@ class CacheKey {
   /// 编码为可持久化字符串。
   String encode() => '${scope.encode()}|$path';
 
+  /// 从编码字符串反解键；不合法返回 `null`（绝不猜测、绝不兜底）。
+  ///
+  /// 注意：路径本身可能含 `|`，因此只把**前四段**当作作用域，其余全部还原为路径。
+  static CacheKey? decode(String raw) {
+    final parts = raw.split('|');
+    if (parts.length < 5) {
+      return null;
+    }
+    final scope = CacheScope.parse(parts.sublist(0, 4).join('|'));
+    if (scope == null) {
+      return null;
+    }
+    final key = CacheKey(scope: scope, path: parts.sublist(4).join('|'));
+    return key.isWellFormed ? key : null;
+  }
+
   @override
   bool operator ==(Object other) =>
       other is CacheKey && other.encode() == encode();
@@ -210,6 +226,100 @@ enum WriteConflict {
   verificationFailed,
 }
 
+/// 冲突处置建议（**给 UI 的契约**，不含任何界面代码）。
+///
+/// 底座不认识按钮，只回答"这个冲突允许用户做哪几件事"。
+/// 展示层照此渲染即可，禁止自行发明处置方式——
+/// 尤其禁止在 `staleSha` 时只给"覆盖"而不给"先看看差异"。
+enum ConflictAction {
+  /// 查看三方差异（base / remote / local）。
+  viewDiff,
+
+  /// 先拉取远端最新版本再决定。
+  pullRemote,
+
+  /// 重新发起（例如网络恢复后重试）。
+  retry,
+
+  /// 用户确认后强制覆盖（必须二次确认，且全程留痕）。
+  forceOverwrite,
+
+  /// 需要重新授权 / 提升权限。
+  reauthorize,
+
+  /// 目标已不存在，改为「新建」或取消。
+  createInstead,
+
+  /// 稍后重试（进入待同步队列）。
+  retryLater,
+}
+
+/// 给定冲突类型，给出**允许**的处置方式（顺序即推荐顺序）。
+List<ConflictAction> resolveConflictActions(WriteConflict conflict) {
+  switch (conflict) {
+    case WriteConflict.none:
+      return const <ConflictAction>[];
+    case WriteConflict.requiresRead:
+      return const <ConflictAction>[ConflictAction.pullRemote, ConflictAction.retry];
+    case WriteConflict.staleSha:
+      return const <ConflictAction>[
+        ConflictAction.viewDiff,
+        ConflictAction.pullRemote,
+        ConflictAction.forceOverwrite,
+      ];
+    case WriteConflict.needsConfirmation:
+      return const <ConflictAction>[ConflictAction.forceOverwrite, ConflictAction.retryLater];
+    case WriteConflict.notFound:
+      return const <ConflictAction>[ConflictAction.createInstead, ConflictAction.pullRemote];
+    case WriteConflict.forbidden:
+      return const <ConflictAction>[ConflictAction.reauthorize];
+    case WriteConflict.server:
+      return const <ConflictAction>[ConflictAction.retryLater, ConflictAction.retry];
+    case WriteConflict.verificationFailed:
+      return const <ConflictAction>[ConflictAction.retry, ConflictAction.pullRemote];
+  }
+}
+
+/// 冲突的三方内容（供 UI 做差异展示）。
+///
+/// 三者齐备才是"真三方分歧"：远端被别人改了，本地也改了，
+/// 两边都基于同一个 base。缺 base 时只能说"基线不明"，不能假装知道。
+class ConflictThreeWay {
+  /// 创建三方信息。
+  const ConflictThreeWay({required this.local, this.base, this.remote});
+
+  /// 用户本地要写入的内容。
+  final String local;
+
+  /// 用户编辑所基于的版本内容（本地缓存中若已丢失，则为 `null`）。
+  final String? base;
+
+  /// 远端最新内容（冲突时读到）。
+  final String? remote;
+
+  /// 是否拿到了基线内容。
+  bool get hasBase => base != null;
+
+  /// 是否拿到了远端内容。
+  bool get hasRemote => remote != null;
+
+  /// 是否存在真正的三方分歧（本地与远端各改各的）。
+  bool get diverged {
+    final baseText = base;
+    final remoteText = remote;
+    if (baseText == null || remoteText == null) {
+      return false;
+    }
+    return remoteText != baseText && local != baseText;
+  }
+
+  @override
+  String toString() => 'ConflictThreeWay(local=${local.length}B, '
+      'base=${base == null ? '未知' : '${base!.length}B'}, '
+      'remote=${remote == null ? '未知' : '${remote!.length}B'}, '
+      'diverged=$diverged)';
+}
+
 /// 写意图。
 class WriteIntent {
   /// 创建写意图。
@@ -258,9 +368,11 @@ class WriteOutcome {
     required this.ok,
     required this.conflict,
     this.sha,
+    this.baseSha,
     this.attempts = 1,
     this.detail,
     this.entry,
+    this.threeWay,
   });
 
   /// 成功结果。
@@ -281,14 +393,18 @@ class WriteOutcome {
     WriteConflict conflict, {
     String? detail,
     String? sha,
+    String? baseSha,
     int attempts = 1,
+    ConflictThreeWay? threeWay,
   }) =>
       WriteOutcome(
         ok: false,
         conflict: conflict,
         sha: sha,
+        baseSha: baseSha,
         attempts: attempts,
         detail: detail,
+        threeWay: threeWay,
       );
 
   /// 是否成功。
@@ -300,6 +416,9 @@ class WriteOutcome {
   /// 结果指纹（成功时为新版本；冲突时为远端最新版本）。
   final String? sha;
 
+  /// 本地基线指纹（供 UI 展示"你的基线是哪一个版本"）。
+  final String? baseSha;
+
   /// 实际尝试次数（含冲突重试）。
   final int attempts;
 
@@ -308,6 +427,12 @@ class WriteOutcome {
 
   /// 成功时写入的本地条目。
   final CacheEntry? entry;
+
+  /// 冲突三方内容（D10：冲突必须可解释）。
+  final ConflictThreeWay? threeWay;
+
+  /// 本冲突允许的处置方式（**给 UI 的契约**）。
+  List<ConflictAction> get actions => resolveConflictActions(conflict);
 
   @override
   String toString() => 'WriteOutcome(ok=$ok, conflict=${conflict.name}, '

@@ -27,6 +27,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../../kernel/diagnostics.dart';
+import 'disk_draft.dart';
+import 'disk_journal.dart';
 import 'disk_store.dart';
 import 'disk_types.dart';
 
@@ -148,7 +150,25 @@ class RepositoryCache {
 
   KernelDiagnostics _diagnostics;
   CacheRemote _remote;
+  WriteJournal? _journal;
+  DraftStore? _drafts;
   int _revision = 0;
+
+  /// 绑定提交日志（D8：写前落盘，崩溃可恢复）。
+  void attachJournal(WriteJournal journal) {
+    _journal = journal;
+  }
+
+  /// 绑定草稿仓库（D9：提交成功后自动清草稿）。
+  void attachDrafts(DraftStore drafts) {
+    _drafts = drafts;
+  }
+
+  /// 当前提交日志（未绑定为 `null`）。
+  WriteJournal? get journal => _journal;
+
+  /// 当前草稿仓库（未绑定为 `null`）。
+  DraftStore? get drafts => _drafts;
 
   /// 绑定诊断中枢（装配阶段调用）。
   ///
@@ -178,24 +198,35 @@ class RepositoryCache {
   ///
   /// **永不外抛**（除非法键这一编程错误外）：一切失败都体现在
   /// [WriteOutcome.conflict] 与 [WriteOutcome.detail] 上。
+  ///
+  /// [recordJournal] 为 `false` 时**不写提交日志**——仅供
+  /// [replayPending] 使用（它自己负责原记录的收尾，避免重复入队）。
   Future<WriteOutcome> write(
     WriteIntent intent, {
     bool confirmed = false,
+    bool recordJournal = true,
   }) async {
     _ensureKey(intent.key);
     return _mutex.run(intent.key.encode(), () async {
       try {
-        return await _writeLocked(intent, confirmed: confirmed);
+        return await _writeLocked(
+          intent,
+          confirmed: confirmed,
+          recordJournal: recordJournal,
+        );
       } on CacheScopeException {
         rethrow;
       } on CacheKeyException {
         rethrow;
       } catch (error) {
         // D6：任何非预期异常（网络 / 磁盘 / 解析）都必须变成可感知的失败结果。
+        // D8：队列里那条 pending 要同步标注，否则 UI 的"待同步"会失真。
+        const detail = '写入异常终止';
+        await _journal?.failByKey(intent.key, '$detail：$error');
         return _fail(
           intent,
           WriteConflict.server,
-          '写入异常终止：$error',
+          '$detail：$error',
           code: 'OGL-CONS-206',
         );
       }
@@ -254,6 +285,50 @@ class RepositoryCache {
     return removed;
   }
 
+  /// 重放待完成提交（启动 / 网络恢复 / 用户点「重试」时调用）。
+  ///
+  /// 重放会**完整重走 D1–D7**：基线过期的记录仍会被拦下并返回冲突，
+  /// 绝不会因为"它来自队列"就降低标准。
+  ///
+  /// 每条记录的重放都**不重复入队**（[write] 的 `recordJournal: false`），
+  /// 由本方法按结果对**原记录**收尾，避免队列出现"重影"。
+  Future<List<WriteOutcome>> replayPending({bool confirmed = false}) async {
+    final journal = _journal;
+    if (journal == null) {
+      return const <WriteOutcome>[];
+    }
+
+    final outcomes = <WriteOutcome>[];
+    for (final record in await journal.records(status: JournalStatus.pending)) {
+      final outcome = await write(
+        record.toIntent(),
+        confirmed: confirmed,
+        recordJournal: false,
+      );
+      final reason = outcome.detail ?? outcome.conflict.name;
+      if (outcome.ok) {
+        await journal.complete(record.id);
+      } else if (_isRetryable(outcome.conflict)) {
+        await journal.fail(record.id, reason);
+      } else {
+        // 语义性冲突：不自动重放，交回用户重新决策。
+        await journal.abandon(record.id, reason);
+      }
+      outcomes.add(outcome);
+    }
+
+    _diagnostics.info(
+      'JOURNAL',
+      '待完成提交已重放',
+      code: 'OGL-JOURNAL-004',
+      data: <String, Object?>{
+        'total': outcomes.length,
+        'succeeded': outcomes.where((WriteOutcome o) => o.ok).length,
+      },
+    );
+    return outcomes;
+  }
+
   /// 清空全部本地缓存（schema 升级 / 用户手动清理），返回清理条目数。
   Future<int> purge() async {
     var removed = 0;
@@ -308,6 +383,7 @@ class RepositoryCache {
   Future<WriteOutcome> _writeLocked(
     WriteIntent intent, {
     required bool confirmed,
+    required bool recordJournal,
   }) async {
     // D7：危险操作与强制覆盖都必须二次确认。
     // force 会跳过 D2 对"本地基线"的校验，等价于放宽覆盖条件——
@@ -342,9 +418,17 @@ class RepositoryCache {
         '本地基线已过期：期望 ${shortSha(intent.baseSha)}，'
             '远端 ${shortSha(latest.sha)}（D2）',
         sha: latest.sha,
+        baseSha: intent.baseSha,
+        threeWay: await _threeWayFor(intent, latest),
         code: 'OGL-CONS-202',
       );
     }
+
+    // D8：写前落盘。只有"真正要发出去的写"才入队——
+    // D1/D2/D7 拦下的意图不产生待办，避免污染用户看到的"待同步"列表。
+    final journalRecord = (!recordJournal || _journal == null)
+        ? null
+        : await _journal!.enqueue(intent);
 
     var content = intent.content;
     // force 仍然以"刚读到的远端版本"为期望值：既不盲写，也不放行并发覆盖。
@@ -370,13 +454,24 @@ class RepositoryCache {
             WriteConflict.verificationFailed,
             '写后回读不一致：期望 ${shortSha(written.sha)}（D5）',
             sha: written.sha,
+            baseSha: intent.baseSha,
             code: 'OGL-CONS-205',
             attempts: attempt,
+            journalId: journalRecord?.id,
           );
         }
 
         final entry = _entryOf(intent.key, verified);
         await _saveLocal(entry);
+
+        // D9：提交成功 → 草稿必须清空，否则旧草稿会盖住刚提交的新内容。
+        await _drafts?.discard(intent.key);
+
+        // D8：提交落定 → 移出待同步队列。
+        if (journalRecord != null) {
+          await _journal!.complete(journalRecord.id);
+        }
+
         _diagnostics.info(
           'CACHE',
           '写入成功',
@@ -399,8 +494,10 @@ class RepositoryCache {
             '远端冲突未解决（D3, HTTP ${error.statusCode}）'
             '${intent.rebase == null ? '：未提供重定基函数，拒绝自动覆盖' : ''}',
             sha: error.currentSha,
+            baseSha: intent.baseSha,
             code: 'OGL-CONS-203',
             attempts: attempt,
+            journalId: journalRecord?.id,
           );
         }
 
@@ -448,14 +545,23 @@ class RepositoryCache {
     return error.isStale ? WriteConflict.staleSha : WriteConflict.server;
   }
 
-  WriteOutcome _fail(
+  /// 统一失败出口：**先记账，再返回**。
+  ///
+  /// 这里同时承担 D8 的队列状态机：
+  /// - 可重试的失败（网络 / 回读校验）→ 保留 `pending`，等待重放；
+  /// - 语义性冲突（基线过期 / 权限 / 目标不存在）→ 标记 `abandoned`，
+  ///   **绝不自动重放**——因为重放它就意味着覆盖别人。
+  Future<WriteOutcome> _fail(
     WriteIntent intent,
     WriteConflict conflict,
     String detail, {
     required String code,
     String? sha,
+    String? baseSha,
     int attempts = 1,
-  }) {
+    ConflictThreeWay? threeWay,
+    String? journalId,
+  }) async {
     _diagnostics.error(
       'CACHE',
       '写入失败：${conflict.name}',
@@ -463,13 +569,49 @@ class RepositoryCache {
       data: <String, Object?>{
         'key': intent.key.encode(),
         'detail': detail,
+        if (journalId != null) 'journalId': journalId,
       },
     );
+
+    final journal = _journal;
+    if (journalId != null && journal != null) {
+      if (_isRetryable(conflict)) {
+        await journal.fail(journalId, detail);
+      } else {
+        await journal.abandon(journalId, detail);
+      }
+    }
+
     return WriteOutcome.failure(
       conflict,
       detail: detail, // D6：失败必须可感知（返回 + 日志双通道）。
       sha: sha,
+      baseSha: baseSha,
       attempts: attempts,
+      threeWay: threeWay,
+    );
+  }
+
+  /// 该冲突是否值得重放（只有"可能因为外部原因失败"的才重放）。
+  static bool _isRetryable(WriteConflict conflict) =>
+      conflict == WriteConflict.server ||
+      conflict == WriteConflict.verificationFailed;
+
+  /// D10：组装冲突三方信息。
+  ///
+  /// base 只在"本地缓存仍持有用户基线那一版"时才敢给出；
+  /// 若本地已被刷新过，就如实返回 `null`——**不知道就说不知道**。
+  Future<ConflictThreeWay> _threeWayFor(
+    WriteIntent intent,
+    RemoteDocument latest,
+  ) async {
+    final localBase = await _loadLocal(intent.key);
+    return ConflictThreeWay(
+      local: intent.content,
+      base: (localBase != null && localBase.sha == intent.baseSha)
+          ? localBase.content
+          : null,
+      remote: latest.content,
     );
   }
 

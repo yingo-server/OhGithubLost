@@ -7,6 +7,8 @@ library;
 
 import '../../kernel/contract/module.dart';
 import 'disk_cache.dart';
+import 'disk_draft.dart';
+import 'disk_journal.dart';
 import 'disk_store.dart';
 
 /// 硬盘逻辑门面。
@@ -18,6 +20,8 @@ class DiskBridge {
     required this.files,
     required this.paths,
     required this.cache,
+    required this.journal,
+    required this.drafts,
   });
 
   /// 键值存储。
@@ -34,6 +38,12 @@ class DiskBridge {
 
   /// 一致性缓存（**致命区**，见 `docs/CONSISTENCY.md`）。
   final RepositoryCache cache;
+
+  /// 提交日志（D8：写前落盘，崩溃可恢复）。
+  final WriteJournal journal;
+
+  /// 草稿仓库（D9：编辑不丢）。
+  final DraftStore drafts;
 
   @override
   String toString() => 'DiskBridge(kv=${kv.runtimeType}, '
@@ -55,11 +65,15 @@ class DiskModule extends OgLModule {
     DiskFileStore? files,
     DiskPaths? paths,
     RepositoryCache? cache,
+    WriteJournal? journal,
+    DraftStore? drafts,
   })  : kv = kv ?? InMemoryKv(),
         vault = vault ?? InMemoryVault(),
         files = files ?? InMemoryFileStore(),
         paths = paths ?? const InMemoryPaths(),
-        cache = cache ?? RepositoryCache();
+        cache = cache ?? RepositoryCache(),
+        journal = journal ?? WriteJournal(),
+        drafts = drafts ?? DraftStore();
 
   /// 键值存储。
   final DiskKv kv;
@@ -76,6 +90,12 @@ class DiskModule extends OgLModule {
   /// 一致性缓存。
   final RepositoryCache cache;
 
+  /// 提交日志。
+  final WriteJournal journal;
+
+  /// 草稿仓库。
+  final DraftStore drafts;
+
   /// 门面实例（[onRegister] 后可用）。
   late final DiskBridge bridge;
 
@@ -89,25 +109,41 @@ class DiskModule extends OgLModule {
           'disk.vault',
           'disk.files',
           'disk.cache',
+          'disk.journal',
+          'disk.draft',
         ],
-        description: '底座·硬盘逻辑（KV / 保险库 / 文件 / 缓存一致性 D1–D7）',
+        description: '底座·硬盘逻辑（KV / 保险库 / 文件 / 缓存一致性 D1–D7 / 提交日志 D8 / 草稿 D9）',
       );
 
   @override
   Future<void> onRegister(KernelContext context) async {
-    // 缓存引擎与诊断中枢接线：让 D1–D7 的每一次拒绝都进入审计日志。
-    // 这一步不能省——没有它，D6「失败可感知」在内核侧就是空的。
+    // 三处接线一个都不能省：
+    // ① 诊断中枢 → 让 D1–D10 的每次判定都进审计日志；
+    // ② 提交日志 → 让"提交"成为可恢复事务（D8）；
+    // ③ 草稿仓库 → 提交成功即清草稿（D9）。
     final repositoryCache = cache;
+    final writeJournal = journal;
+    final draftStore = drafts;
+
     repositoryCache.attachDiagnostics(context.diagnostics);
+    repositoryCache.attachJournal(writeJournal);
+    repositoryCache.attachDrafts(draftStore);
+    writeJournal.attachDiagnostics(context.diagnostics);
+    draftStore.attachDiagnostics(context.diagnostics);
+
     bridge = DiskBridge(
       kv: kv,
       vault: vault,
       files: files,
       paths: paths,
       cache: repositoryCache,
+      journal: writeJournal,
+      drafts: draftStore,
     );
     context.di.register<DiskBridge>(bridge);
     context.di.register<RepositoryCache>(repositoryCache);
+    context.di.register<WriteJournal>(writeJournal);
+    context.di.register<DraftStore>(draftStore);
     context.diagnostics.info(
       'DISK',
       '硬盘逻辑就绪',
@@ -116,6 +152,8 @@ class DiskModule extends OgLModule {
         'kv': kv.runtimeType.toString(),
         'files': files.runtimeType.toString(),
         'vault': vault.runtimeType.toString(),
+        'pendingWrites': await writeJournal.pendingCount(),
+        'draftCount': await draftStore.count(),
       },
     );
   }
