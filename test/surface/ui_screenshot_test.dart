@@ -78,7 +78,12 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        // **不能用 `pumpAndSettle()`**：这套界面里有会持续调度帧的元素
+        // （指示器 / 滚动条 / 水波纹），`pumpAndSettle` 会一直等到超时
+        // —— 上一条流水线就是这样卡了 10 分钟，只出了 1 张图。
+        // 固定"推进 350ms"足够走完入场动画，且**必然返回**。
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
 
         final boundary =
             _key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
