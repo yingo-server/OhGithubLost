@@ -14,7 +14,11 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'commit_page.dart';
+import 'issue_page.dart';
+import 'new_issue_page.dart';
 import 'new_release_page.dart';
+import 'pull_page.dart';
 
 /// 仓库页内的标签。
 enum _RepoTab {
@@ -35,6 +39,9 @@ enum _RepoTab {
 
   /// 提交历史。
   commits,
+
+  /// 工作流运行。
+  actions,
 
   /// 设置与危险区。
   settings,
@@ -83,6 +90,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   OgLAsyncController<List<GhRelease>>? _releases;
   OgLAsyncController<List<GhBranch>>? _branches;
   OgLAsyncController<List<GhCommit>>? _commits;
+  OgLAsyncController<List<Map<String, dynamic>>>? _acts;
 
   // 文件状态
   GhContent? _file;
@@ -119,6 +127,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     _branches?.dispose();
     _commits?.removeListener(_onChanged);
     _commits?.dispose();
+    _acts?.removeListener(_onChanged);
+    _acts?.dispose();
     _pages?.removeListener(_onChanged);
     _pages?.dispose();
     _nameCtl.dispose();
@@ -256,6 +266,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       await _branchesC().loadIfNeeded();
     } else if (tab == _RepoTab.commits) {
       await _commitsC().loadIfNeeded();
+    } else if (tab == _RepoTab.actions) {
+      await _actsC().loadIfNeeded();
     } else {
       await _pagesC().loadIfNeeded();
       await _loadCname();
@@ -598,6 +610,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           _buildBranches(ogL, tokens)
         else if (_tab == _RepoTab.commits)
           _buildCommits(ogL, tokens)
+        else if (_tab == _RepoTab.actions)
+          _buildActions(ogL, tokens)
         else
           _buildSettings(ogL, tokens),
       ],
@@ -835,6 +849,9 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
     if (tab == _RepoTab.branches) {
       return '分支';
+    }
+    if (tab == _RepoTab.actions) {
+      return '动作';
     }
     if (tab == _RepoTab.settings) {
       return '设置';
@@ -1292,6 +1309,208 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     );
   }
 
+  Future<void> _openIssue(Map<String, dynamic> item) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLIssuePage(
+          surface: widget.surface,
+          fullName: widget.repo.fullName,
+          issue: item,
+        ),
+      ),
+    );
+    if (mounted) {
+      await _issuesC().load();
+    }
+  }
+
+  Future<void> _openCommit(GhCommit commit) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLCommitPage(
+          surface: widget.surface,
+          fullName: widget.repo.fullName,
+          commit: commit,
+        ),
+      ),
+    );
+  }
+
+  OgLAsyncController<List<Map<String, dynamic>>> _actsC() {
+    final existing = _acts;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
+      label: '动作',
+      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
+      loader: () =>
+          widget.surface.domain.api.workflowRuns(widget.repo.fullName),
+    );
+    controller.addListener(_onChanged);
+    _acts = controller;
+    return controller;
+  }
+
+  Future<void> _openPull(Map<String, dynamic> item) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLPullPage(
+          surface: widget.surface,
+          fullName: widget.repo.fullName,
+          pull: item,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createBranch() async {
+    final name = await ogLPromptDialog(
+      context,
+      title: '新建分支',
+      label: '分支名',
+      hint: 'feature/xxx',
+      confirmLabel: '创建',
+    );
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api.createBranch(
+        widget.repo.fullName,
+        name: trimmed,
+        fromBranch: widget.repo.defaultBranch,
+      );
+      OgLAppLog.instance.add('分支', '已创建 $trimmed');
+      if (mounted) {
+        setState(() => _notice = '已创建分支 $trimmed');
+      }
+      await _branchesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '分支',
+        '创建失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '创建分支失败：$error');
+      }
+    }
+  }
+
+  Future<void> _renameBranch(GhBranch branch) async {
+    final name = await ogLPromptDialog(
+      context,
+      title: '重命名分支',
+      label: '新名称',
+      initial: branch.name,
+      confirmLabel: '重命名',
+    );
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == branch.name || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .renameBranch(widget.repo.fullName, branch.name, trimmed);
+      OgLAppLog.instance.add('分支', '已重命名 ${branch.name} → $trimmed');
+      if (mounted) {
+        setState(() => _notice = '已重命名：$trimmed');
+      }
+      await _branchesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '分支',
+        '重命名失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '重命名失败：$error');
+      }
+    }
+  }
+
+  Future<void> _deleteBranch(GhBranch branch) async {
+    final confirmed = await ogLConfirmDialog(
+      context,
+      title: '删除分支',
+      message: '将删除分支「${branch.name}」。该操作不可直接撤销。',
+      confirmLabel: '删除',
+      danger: true,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .deleteBranch(widget.repo.fullName, branch.name);
+      OgLAppLog.instance.add('分支', '已删除 ${branch.name}');
+      if (mounted) {
+        setState(() => _notice = '已删除分支 ${branch.name}');
+      }
+      await _branchesC().load();
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '分支',
+        '删除失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '删除分支失败：$error');
+      }
+    }
+  }
+
+  Widget _buildActions(OgLTheme ogL, OgLTokens tokens) {
+    final state = _actsC().state;
+    final list = state.data ?? const <Map<String, dynamic>>[];
+    if (state.data == null && state.message != null) {
+      return _retryBanner('动作读取失败', state.message!, () => _actsC().load());
+    }
+    if (state.data == null) {
+      return const OgLSkeletonText(lines: 5);
+    }
+    if (list.isEmpty) {
+      return const OgLBanner(
+        variant: OgLBannerVariant.info,
+        text: '没有工作流运行记录。',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        for (final item in list)
+          OgLActionRow(
+            leading: Icon(
+              ogL.icon(OgLIconName.workflow),
+              size: tokens.iconSize(base: 20),
+              color: ogL.palette.textDim,
+            ),
+            title: GhJson.str(item, 'name'),
+            subtitle: '${GhJson.str(item, 'status')} · '
+                '${GhJson.str(item, 'conclusion').isEmpty ? '—' : GhJson.str(item, 'conclusion')} · '
+                '${_dateText(GhJson.date(item, 'created_at'))}',
+          ),
+      ],
+    );
+  }
+
+  Future<void> _createIssue() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => OgLNewIssuePage(
+          surface: widget.surface,
+          fullName: widget.repo.fullName,
+        ),
+      ),
+    );
+    if (created == true && mounted) {
+      setState(() => _notice = '已创建议题');
+      await _issuesC().load();
+    }
+  }
+
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
     final state = _issuesC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
@@ -1302,14 +1521,52 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       return const OgLSkeletonText(lines: 5);
     }
     if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '没有打开的议题。',
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(child: SizedBox.shrink()),
+              OgLButton(
+                label: '新建议题',
+                variant: OgLButtonVariant.primary,
+                size: OgLButtonSize.small,
+                leadingIcon: OgLIconName.add,
+                onPressed: _createIssue,
+              ),
+            ],
+          ),
+          const OgLBanner(
+            variant: OgLBannerVariant.info,
+            text: '没有打开的议题。',
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '共 ${list.length} 个议题',
+                style: TextStyle(
+                  fontSize:
+                      tokens.fontSize(const OgLTypeScale.standard().label),
+                  color: ogL.palette.textDim,
+                ),
+              ),
+            ),
+            OgLButton(
+              label: '新建议题',
+              variant: OgLButtonVariant.primary,
+              size: OgLButtonSize.small,
+              leadingIcon: OgLIconName.add,
+              onPressed: _createIssue,
+            ),
+          ],
+        ),
         for (final item in list)
           OgLActionRow(
             leading: Icon(
@@ -1329,6 +1586,9 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                 await _closeIssue(item);
               },
             ),
+            onTap: () async {
+              await _openIssue(item);
+            },
           ),
       ],
     );
@@ -1362,6 +1622,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             title:
                 '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
             subtitle: 'by ${_loginOf(item)} · ${GhJson.str(item, 'state')}',
+            showChevron: true,
+            onTap: () async {
+              await _openPull(item);
+            },
           ),
       ],
     );
@@ -1459,14 +1723,52 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       return const OgLSkeletonText(lines: 5);
     }
     if (list.isEmpty) {
-      return const OgLBanner(
-        variant: OgLBannerVariant.info,
-        text: '没有分支。',
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(child: SizedBox.shrink()),
+              OgLButton(
+                label: '新建分支',
+                variant: OgLButtonVariant.primary,
+                size: OgLButtonSize.small,
+                leadingIcon: OgLIconName.add,
+                onPressed: _createBranch,
+              ),
+            ],
+          ),
+          const OgLBanner(
+            variant: OgLBannerVariant.info,
+            text: '没有分支。',
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                '共 ${list.length} 个分支',
+                style: TextStyle(
+                  fontSize:
+                      tokens.fontSize(const OgLTypeScale.standard().label),
+                  color: ogL.palette.textDim,
+                ),
+              ),
+            ),
+            OgLButton(
+              label: '新建分支',
+              variant: OgLButtonVariant.primary,
+              size: OgLButtonSize.small,
+              leadingIcon: OgLIconName.add,
+              onPressed: _createBranch,
+            ),
+          ],
+        ),
         for (final branch in list)
           OgLActionRow(
             leading: Icon(
@@ -1477,6 +1779,27 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             title: branch.name,
             subtitle:
                 'sha ${_shortSha(branch.sha)}${branch.isProtected ? ' · 受保护' : ''}',
+            trailing: Wrap(
+              spacing: tokens.space(OgLSpacing.xs),
+              children: <Widget>[
+                OgLButton(
+                  label: '重命名',
+                  variant: OgLButtonVariant.invisible,
+                  size: OgLButtonSize.small,
+                  onPressed: () async {
+                    await _renameBranch(branch);
+                  },
+                ),
+                OgLButton(
+                  label: '删除',
+                  variant: OgLButtonVariant.invisible,
+                  size: OgLButtonSize.small,
+                  onPressed: () async {
+                    await _deleteBranch(branch);
+                  },
+                ),
+              ],
+            ),
           ),
       ],
     );
@@ -1513,6 +1836,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             subtitle: '${_shortSha(commit.sha)} · '
                 '${commit.authorLogin ?? commit.authorName ?? '未知'} · '
                 '${_dateText(commit.date)}',
+            showChevron: true,
+            onTap: () async {
+              await _openCommit(commit);
+            },
           ),
       ],
     );

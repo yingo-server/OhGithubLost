@@ -11,6 +11,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'gists_page.dart';
 import 'login_page.dart';
 
 /// 我的（账户管理）页。
@@ -149,6 +150,14 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
     }
   }
 
+  void _openGists() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLGistsPage(surface: widget.surface),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
@@ -164,6 +173,11 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
           title: '我的',
           description: '本机已接入 ${list.length} 个账户',
           actions: <Widget>[
+            OgLButton(
+              label: 'Gist',
+              leadingIcon: OgLIconName.code,
+              onPressed: _openGists,
+            ),
             OgLButton(
               label: '刷新',
               variant: OgLButtonVariant.invisible,
