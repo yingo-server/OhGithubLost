@@ -27,6 +27,7 @@ import 'layout/adaptive.dart';
 import 'perm/permission_policy.dart';
 import 'settings/settings_model.dart';
 import 'theme/design_tokens.dart';
+import 'theme/icon_pack.dart';
 import 'theme/theme_pack.dart';
 
 /// 表面桥：展示层对外的唯一入口。
