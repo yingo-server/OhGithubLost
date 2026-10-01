@@ -320,7 +320,6 @@ class _AboutPage extends StatelessWidget {
           return ListView(
             children: <Widget>[
               ExpansionTile(
-                initiallyExpanded: true,
                 title: const Text('启动报告'),
                 children: <Widget>[
                   _KeyValue(
@@ -355,7 +354,6 @@ class _AboutPage extends StatelessWidget {
               ),
               if (report.trustWarnings.isNotEmpty)
                 ExpansionTile(
-                  initiallyExpanded: true,
                   title: Text('信任告警（${report.trustWarnings.length}）'),
                   children: <Widget>[
                     for (final warning in report.trustWarnings)
@@ -395,7 +393,6 @@ class _AboutPage extends StatelessWidget {
                 ],
               ),
               ExpansionTile(
-                initiallyExpanded: true,
                 title: Text(
                   '日志（内核 ${report.logTail.length} · 应用 ${appLog.length}）',
                 ),

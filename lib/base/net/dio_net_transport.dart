@@ -11,6 +11,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import 'net_dns.dart';
+import 'net_self_test.dart';
 import 'net_transport.dart';
 import 'net_types.dart';
 
@@ -136,7 +137,25 @@ class DioNetTransport implements NetTransport {
       );
     } on DioException catch (error) {
       stopwatch.stop();
-      throw _translate(error);
+      final translated = _translate(error);
+      if (translated.kind == NetErrorKind.connection) {
+        // ★ 连接失败 = 最模糊的错误；自动跑「解析 → 逐地址 TCP」自检，
+        //   把 errno 级真相附进异常消息（日志 / 界面直接可见）。
+        String report;
+        try {
+          report = await NetSelfTest.cachedOrRun(error.requestOptions.uri.host);
+        } on Object catch (selfTestError) {
+          report = '自检异常: $selfTestError';
+        }
+        throw NetException(
+          translated.kind,
+          '${translated.message}｜自检: $report',
+          statusCode: translated.statusCode,
+          cause: translated.cause,
+          retryAfter: translated.retryAfter,
+        );
+      }
+      throw translated;
     }
   }
 
@@ -179,7 +198,7 @@ class DioNetTransport implements NetTransport {
       case DioExceptionType.connectionError:
         return NetException(
           NetErrorKind.connection,
-          '连接失败',
+          '连接失败：${error.error ?? error.message ?? '无底层信息'}',
           statusCode: status,
           cause: error,
         );
@@ -205,7 +224,7 @@ class DioNetTransport implements NetTransport {
       case DioExceptionType.unknown:
         return NetException(
           NetErrorKind.unknown,
-          error.message ?? '未知网络错误',
+          '${error.message ?? '未知网络错误'}（${error.error ?? '无底层信息'}）',
           statusCode: status,
           cause: error,
         );
