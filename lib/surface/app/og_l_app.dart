@@ -44,6 +44,17 @@ class OgLApp extends StatelessWidget {
             return MaterialApp(
               title: 'OhGithubLost',
               debugShowCheckedModeBanner: false,
+              // 桌面：鼠标/触控板可拖拽滚动（Flutter 默认只认触摸）。
+              scrollBehavior: const OgLScrollBehavior(),
+              // 全局兜底：无论系统把字号调到多大，都不允许突破这两个边界。
+              // 令牌层已夹紧一次，这里再夹一次是"双保险"——
+              // 任何绕过令牌直接写 fontSize 的第三方组件也逃不掉。
+              builder: (BuildContext context, Widget? child) =>
+                  MediaQuery.withClampedTextScaling(
+                minScaleFactor: 0.85,
+                maxScaleFactor: 2,
+                child: child ?? const SizedBox.shrink(),
+              ),
               theme: surface.themeFor(
                 query: query,
                 systemBrightness: query.platformBrightness,
@@ -67,43 +78,61 @@ class OgLBootFailureApp extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFF85149),
-            brightness: Brightness.dark,
-          ),
+  Widget build(BuildContext context) {
+    // 令牌是**纯 Dart**，兜底界面也能用——不必等主题系统就绪。
+    final tokens = OgLTokens.resolve(textScale: MediaQuery.textScalerOf(context).scale(1));
+    final scale = const OgLTypeScale.standard();
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      scrollBehavior: const OgLScrollBehavior(),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFF85149),
+          brightness: Brightness.dark,
         ),
-        home: Scaffold(
-          body: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      '启动被拒绝',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+      ),
+      home: Scaffold(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: tokens.space(OgLSpacing.xxl * 16),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(tokens.space(OgLSpacing.xl)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    '启动被拒绝',
+                    style: TextStyle(
+                      fontSize: tokens.fontSize(scale.headline),
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 12),
-                    const Text('数据没有被改动，也没有任何东西被上传。'),
-                    const SizedBox(height: 16),
-                    SelectableText(
-                      message,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                  SizedBox(height: tokens.space(OgLSpacing.md)),
+                  Text(
+                    '数据没有被改动，也没有任何东西被上传。',
+                    style: TextStyle(fontSize: tokens.fontSize(scale.body)),
+                  ),
+                  SizedBox(height: tokens.space(OgLSpacing.lg)),
+                  SelectableText(
+                    message,
+                    style: TextStyle(
+                      fontFamily: kOgLMonoFamily,
+                      fontSize: tokens.fontSize(scale.data),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// 主壳：按布局结论自动切换导航形态。

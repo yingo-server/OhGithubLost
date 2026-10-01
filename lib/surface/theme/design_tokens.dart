@@ -218,6 +218,12 @@ class OgLTypeScale {
   final OgLTypeToken data;
 }
 
+/// 等宽字体族名（**唯一定义处**）。
+///
+/// 用系统通用名 `monospace`：**零外部资源**（不打包 ttf），
+/// Android / Windows / Linux / macOS 都能落到各自的默认等宽字体上。
+const String kOgLMonoFamily = 'monospace';
+
 /// 解析后的令牌集：**界面唯一允许读取尺寸的来源**。
 class OgLTokens {
   /// 创建令牌集。

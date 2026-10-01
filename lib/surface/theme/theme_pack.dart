@@ -14,6 +14,7 @@
 /// 两者正交，因此"换成极客风 + 大字体 + 平板三栏"是可以自由组合的。
 library;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../layout/adaptive.dart';
@@ -581,6 +582,11 @@ ThemeData buildOgLTheme({
       OgLDensity.standard => VisualDensity.standard,
       OgLDensity.comfortable => VisualDensity.comfortable,
     },
+    // ── 交互反馈（键盘与鼠标用户的可感知性）─────────────────────────
+    // 没有这两项的桌面应用，键盘用户按 Tab 走一圈会"看不见焦点在哪"，
+    // 鼠标用户划过列表也毫无反馈 —— 这是社区里最常见的低级体验缺陷。
+    focusColor: palette.selection,
+    hoverColor: palette.surfaceAlt,
     textTheme: _textTheme(palette, tokens, pack.monospaceFirst),
     extensions: <ThemeExtension<dynamic>>[
       OgLTheme(
@@ -595,6 +601,25 @@ ThemeData buildOgLTheme({
   );
 }
 
+/// 滚动行为：桌面端允许"鼠标 / 触控板拖拽滚动"。
+///
+/// Flutter 默认只让**触摸**拖拽滚动，桌面用户拿鼠标拖列表是拖不动的——
+/// 这是社区里最常见的"一眼看出是移动端套壳"的细节。
+/// 开源社区主流桌面 Flutter 应用都会覆盖这一个 getter。
+class OgLScrollBehavior extends MaterialScrollBehavior {
+  /// 创建滚动行为。
+  const OgLScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => <PointerDeviceKind>{
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+      };
+}
+
 TextTheme _textTheme(OgLPalette palette, OgLTokens tokens, bool monoFirst) {
   TextStyle style(OgLTypeToken token, {Color? color}) => TextStyle(
         fontSize: tokens.fontSize(token),
@@ -602,7 +627,7 @@ TextTheme _textTheme(OgLPalette palette, OgLTokens tokens, bool monoFirst) {
         fontWeight: FontWeight.values[(token.weight ~/ 100 - 1).clamp(0, 8)],
         letterSpacing: token.letterSpacing,
         color: color ?? palette.text,
-        fontFamily: monoFirst == token.mono ? 'monospace' : null,
+        fontFamily: monoFirst == token.mono ? kOgLMonoFamily : null,
       );
 
   final scale = const OgLTypeScale.standard();
