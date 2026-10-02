@@ -51,9 +51,20 @@ const Map<String, _Spec> _pages = <String, _Spec>{
 
 /// 应用层文件：这些是"页面之外的壳"，暂未重写，但**不许再用 Material 颜色/图标**。
 const Map<String, String> _appFiles = <String, String>{
-  'client_shell.dart': '主壳（W8-P3 待重写为规范导航）',
+  'client_shell.dart': '主壳（W8-P3 已重写为自绘导航：底栏 / 导航轨 / 抽屉）',
   'og_l_app.dart': '应用外壳 / 关于页 / 设置页',
   'shell.dart': '布局演示壳（截图测试用）',
+};
+
+/// 壳文件里额外禁止的 Material 控件（导航必须与页面同源）。
+const Map<String, List<String>> _appForbidden = <String, List<String>>{
+  'client_shell.dart': <String>[
+    'AppBar(',
+    'NavigationBar(',
+    'NavigationRail(',
+    'NavigationDestination(',
+    'ListTile(',
+  ],
 };
 
 /// 去掉整行注释与块注释，避免"文档里提到 Colors.xxx"被当成违规。
@@ -178,6 +189,11 @@ void main() {
       }
       expect(code.contains('Color(0x'), isFalse,
           reason: '${entry.key} 直接写了色值字面量：只有主题层可以定义颜色。');
+      for (final String bad in _appForbidden[entry.key] ?? const <String>[]) {
+        expect(code.contains(bad), isFalse,
+            reason: '${entry.key} 还在用 Material 导航控件 $bad：'
+                '导航必须与页面同源（用 OgLBottomNav / OgLNavRail / OgLNavDrawer）。');
+      }
     }
   });
 }

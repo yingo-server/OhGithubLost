@@ -58,6 +58,10 @@
   `OgLPageScaffold` 且不许自己写 `ListView(`、不许手写"`data == null` 即加载中"。
 - **死代码收口**（W8-P2）：删除旧主壳 `OgLShell` 一族与 `app/repos_page.dart`（入口已是 `OgLClientShell`）；
   兜底色值 `Color(0xFFF85149)` 收敛为主题常量 `kOgLDangerDark`。
+- **主壳规范化**（W8-P3）：新增 Kit 导航组件 `kit/kit_nav_shell.dart`（`OgLBottomNav` / `OgLNavRail` /
+  `OgLNavDrawer` / `OgLShellHeader` / `OgLBrandMark`）；主壳删掉 Material `AppBar`/`NavigationBar`/
+  `NavigationRail`/`ListTile`，五个页面的标题与图标收成单一数据源 `_nav`；手机形态不再叠 `AppBar`。
+- **护栏升级**：`page_discipline_test.dart` 对主壳额外禁止 Material 导航控件。
 
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 

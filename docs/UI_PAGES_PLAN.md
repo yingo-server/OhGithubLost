@@ -73,6 +73,7 @@ OgLActionRow(
 | 9 | 登录 / 新增账户向导 | `pages/login_page.dart` | ⏳ |
 | 10 | 表单页（新建仓库 / 议题 / 发布） | `pages/new_repo_page.dart` · `pages/new_issue_page.dart` · `pages/new_release_page.dart` | ⏳ |
 | — | 仓库页 | `pages/repo_page.dart` | ✅ 已按本规划落地（骨架 + 元信息盒 + 七标签） |
+| — | **主壳（导航外壳）** | `app/client_shell.dart` + `kit/kit_nav_shell.dart` | ✅ W8-P3 完成（底栏 / 导航轨 / 抽屉 / 壳页头全部自绘，与页面同源） |
 
 **每页一次推送**（代码 + 该页测试 + 文档），CI 绿进下一页；每页推送前后各备份一份到 `_backup/`。
 

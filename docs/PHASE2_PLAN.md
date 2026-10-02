@@ -155,6 +155,20 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [x] **色值字面量收敛**：兜底界面的 `Color(0xFFF85149)` → 主题常量 `kOgLDangerDark`（唯一来源）
 - [ ] W8-P3：主壳 `client_shell.dart` 规范化（现在的 `AppBar` + `Drawer` + `ListTile` 还是 Material 形态）
 
+### W8-P3 · 主壳规范化 ✅ 本批
+
+- [x] **新增 Kit 导航组件** `lib/surface/kit/kit_nav_shell.dart`：
+      `OgLNavDestination`（值 + 标题 + 图标）/ `OgLBrandMark` /
+      `OgLBottomNav`（手机底栏：图标 + 标签 + **顶部指示条**，触摸目标 ≥44）/
+      `OgLNavRail`（平板桌面导航轨，可展开标签，选中项带左侧强调条 + `surfaceAlt`）/
+      `OgLNavDrawer`（窄窗抽屉：`OgLActionRow` 行）/ `OgLShellHeader`（自绘壳页头，替代 `AppBar`）
+- [x] **主壳重写** `client_shell.dart`：删除 Material `AppBar` / `NavigationBar` /
+      `NavigationRail` / `NavigationDestination` / `ListTile`；改为 `OgLShellTab` + `_nav` 单一数据源
+      （五个页面的标题与图标只写一遍，壳页头/抽屉标题都从它取，避免"三处各写一套"）
+- [x] **护栏升级**：`page_discipline_test.dart` 对 `client_shell.dart` 额外禁止
+      `AppBar(` / `NavigationBar(` / `NavigationRail(` / `NavigationDestination(` / `ListTile(`
+- [x] 手机形态不再叠 Material `AppBar`：页面自带 `OgLPageScaffold` 页头，壳只提供底栏（少一层视觉噪音）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；
