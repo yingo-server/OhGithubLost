@@ -1,0 +1,435 @@
+# ============================================================================
+# OGL · Release 核验（手动触发）
+#
+# 用途：对**最新正式 Release**（或指定标签）做一轮"全平台 × 全架构"核验：
+#   1. 拉取该 Release 的全部产物，逐平台核验（结构 / 架构 / 签名 / 版本）；
+#   2. 对 `source_ref`（默认 main）跑 **UI + 内核全量测试**（flutter test）；
+#   3. 生成**全平台 UI 截屏矩阵**（5 平台 × 亮暗 × 手机/桌面 × 5 页面），
+#      作为构建产物（artifact）上传。
+#
+# 说明：
+#   - iOS 核验默认跳过（`include_ios=false`）；打开后按 macOS 同款流程核验。
+#   - Apple 产物在 CI 中为**未签名**（构建使用 --no-codesign）；
+#     `strict_apple_signed=true` 可把"未签名"升级为硬性失败（接入证书后启用）。
+#   - 截屏为"同一套 UI 代码的离屏渲染帧"（与真机同一 Flutter 渲染管线），
+#     不等于设备实拍；平台差异覆盖 ThemeData 级别。
+# ============================================================================
+
+name: Release核验（手动 · 全平台）
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '目标 Release 标签（留空 = 最新正式版）'
+        required: false
+        default: ''
+        type: string
+      source_ref:
+        description: 'UI/内核测试与截屏所用源码 ref'
+        required: false
+        default: 'main'
+        type: string
+      strict_apple_signed:
+        description: 'Apple 产物必须已签名（true = 未签名即失败）'
+        required: false
+        default: false
+        type: boolean
+      include_ios:
+        description: '包含 iOS 核验（默认关闭）'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-verify
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 解析目标 Release
+  # ---------------------------------------------------------------------------
+  resolve:
+    name: 解析目标 Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.rel.outputs.tag }}
+    steps:
+      - name: 解析标签
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" -q .tag_name)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "目标 Release: **$TAG**" >> "$GITHUB_STEP_SUMMARY"
+      - name: 列出产物清单
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${{ steps.rel.outputs.tag }}" --repo "$GITHUB_REPOSITORY" \
+            --json assets -q '.assets[].name' | sort | tee /tmp/assets.txt
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "产物共 $(wc -l < /tmp/assets.txt) 个。" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Android：APK 签名（v2 证书指纹）/ 版本号 / 权限 / AAB 结构 / zip 完整性
+  # ---------------------------------------------------------------------------
+  android:
+    name: Android 核验（5 产物）
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: 下载 Android 产物
+        shell: bash
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'OGL-*.apk' --pattern 'OGL-*.aab' --pattern 'Android.*.zip'
+          ls -la
+      - name: 核验
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, subprocess, sys, zipfile
+
+          EXPECT_CERT = '3fcadb03954d74a92b736ce66969c51fb1d9052f1ccbc6fb84fd00080e33ab0b'
+          tag = os.environ['TAG']
+          expect_version = re.sub(r'^v', '', tag)
+
+          home = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT') or '/usr/local/lib/android/sdk'
+          def natural(path):
+              return tuple(int(x) for x in re.findall(r'\d+', os.path.basename(path)))
+          bt = max(glob.glob(os.path.join(home, 'build-tools', '*')), key=natural)
+          apksigner = os.path.join(bt, 'apksigner')
+          aapt = os.path.join(bt, 'aapt')
+          print('build-tools:', bt)
+
+          # ① zip 完整性（raw 产物包）
+          for zf in sorted(glob.glob('dist/Android.*.zip')):
+              bad = zipfile.ZipFile(zf).testzip()
+              assert bad is None, 'zip 损坏: %s (%s)' % (zf, bad)
+              print('zip OK:', zf)
+
+          # ② APK：签名 + 证书指纹 + 版本 + INTERNET 权限
+          apks = sorted(glob.glob('dist/OGL-*.apk'))
+          assert len(apks) >= 4, 'APK 数量不足: %s' % apks
+          for apk in apks:
+              out = subprocess.run([apksigner, 'verify', '--print-certs', apk],
+                                   capture_output=True, text=True)
+              blob = (out.stdout + out.stderr).replace(':', '').replace(' ', '').lower()
+              assert EXPECT_CERT in blob, '证书指纹不匹配: %s' % apk
+              badging = subprocess.run([aapt, 'dump', 'badging', apk],
+                                       capture_output=True, text=True).stdout
+              assert "versionName='%s'" % expect_version in badging, '版本名不符: %s' % apk
+              assert 'android.permission.INTERNET' in badging, '缺 INTERNET 权限: %s' % apk
+              print('APK OK:', apk)
+          # 期望：arm64-v8a / armeabi-v7a / x86_64 / 通用包，共 4 个
+          assert len(apks) == 4, 'APK 应为 4 个（3 ABI + 通用）: %s' % apks
+
+          # ③ AAB 结构
+          aabs = sorted(glob.glob('dist/OGL-*.aab'))
+          assert aabs, '缺少 AAB'
+          for aab in aabs:
+              z = zipfile.ZipFile(aab)
+              assert z.testzip() is None, 'AAB zip 损坏: %s' % aab
+              names = z.namelist()
+              assert 'BundleConfig.pb' in names, 'AAB 缺 BundleConfig.pb: %s' % aab
+              assert any(n.endswith('manifest/AndroidManifest.xml') for n in names), \
+                  'AAB 缺 manifest: %s' % aab
+              print('AAB OK:', aab)
+
+          print('Android 核验全部通过（%d APK / %d AAB）' % (len(apks), len(aabs)))
+          PY
+          echo "### Android 核验：通过 ✅" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Linux：ELF 架构（x86_64 / aarch64）/ 可执行文件 / zip 完整性
+  # ---------------------------------------------------------------------------
+  linux:
+    name: Linux 核验（x64 + arm64）
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: 下载 Linux 产物
+        shell: bash
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Linux.*.zip'
+          ls -la
+      - name: 核验
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob, os, zipfile
+
+          def unzip(zf, out):
+              z = zipfile.ZipFile(zf)
+              assert z.testzip() is None, 'zip 损坏: %s' % zf
+              z.extractall(out)
+
+          def find_binary(root):
+              for dp, dn, fn in os.walk(root):
+                  for name in fn:
+                      p = os.path.join(dp, name)
+                      if name == 'ohgithublost':
+                          return p
+              return None
+
+          def elf_machine(path):
+              with open(path, 'rb') as f:
+                  head = f.read(20)
+              assert head[:4] == b'\x7fELF', '非 ELF: %s' % path
+              return head[18] | (head[19] << 8)
+
+          want = {'Linux.x64.zip': 62, 'Linux.arm64-best-effort.zip': 183}
+          checked = 0
+          for zf, machine in want.items():
+              files = glob.glob('dist/%s' % zf)
+              if not files:
+                  print('!! 缺少（best-effort 可缺）:', zf)
+                  continue
+              out = 'linux_%s' % zf.replace('.', '_')
+              unzip(files[0], out)
+              binary = find_binary(out)
+              assert binary, '未找到可执行文件: %s' % zf
+              assert os.access(binary, os.X_OK), '不可执行: %s' % binary
+              got = elf_machine(binary)
+              assert got == machine, 'ELF 架构不符: %s（got=%s want=%s）' % (binary, got, machine)
+              print('OK: %s → %s (machine=%s)' % (zf, binary, got))
+              checked += 1
+          assert checked >= 1, '至少应核验到 x64 产物'
+          print('Linux 核验通过（%d 个产物）' % checked)
+          PY
+          echo "### Linux 核验：通过 ✅" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Windows：PE 架构（x64: 0x8664 / arm64: 0xAA64）/ exe / zip 完整性
+  # ---------------------------------------------------------------------------
+  windows:
+    name: Windows 核验（x64 + arm64）
+    needs: resolve
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      - name: 下载 Windows 产物
+        shell: bash
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'Windows.*.zip'
+          ls -la
+      - name: 核验
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, os, struct, zipfile
+
+          def unzip(zf, out):
+              z = zipfile.ZipFile(zf)
+              assert z.testzip() is None, 'zip 损坏: %s' % zf
+              z.extractall(out)
+
+          def find_exe(root):
+              for dp, dn, fn in os.walk(root):
+                  for name in fn:
+                      if name.lower() == 'ohgithublost.exe':
+                          return os.path.join(dp, name)
+              return None
+
+          def pe_machine(path):
+              with open(path, 'rb') as f:
+                  data = f.read()
+              assert data[:2] == b'MZ', '非 PE: %s' % path
+              off = struct.unpack_from('<I', data, 0x3C)[0]
+              assert data[off:off+4] == b'PE\x00\x00', 'PE 头异常: %s' % path
+              return struct.unpack_from('<H', data, off + 4)[0]
+
+          want = {'Windows.x64.zip': 0x8664, 'Windows.arm64-best-effort.zip': 0xAA64}
+          checked = 0
+          for zf, machine in want.items():
+              files = glob.glob('dist/%s' % zf)
+              if not files:
+                  print('!! 缺少（best-effort 可缺）:', zf)
+                  continue
+              out = 'win_%s' % zf.replace('.', '_')
+              unzip(files[0], out)
+              exe = find_exe(out)
+              assert exe, '未找到 ohgithublost.exe: %s' % zf
+              got = pe_machine(exe)
+              assert got == machine, 'PE 架构不符: %s（got=0x%X want=0x%X）' % (exe, got, machine)
+              print('OK: %s → %s (machine=0x%X)' % (zf, exe, got))
+              checked += 1
+          assert checked >= 1, '至少应核验到 x64 产物'
+          print('Windows 核验通过（%d 个产物）' % checked)
+          PY
+          echo "### Windows 核验：通过 ✅" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # macOS：.app 结构 / Info.plist 版本 / Mach-O 架构 / 签名状态
+  # ---------------------------------------------------------------------------
+  macos:
+    name: macOS 核验（x64 + arm64）
+    needs: resolve
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      STRICT: ${{ inputs.strict_apple_signed }}
+    steps:
+      - name: 下载 macOS 产物
+        shell: bash
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'macOS.*.zip'
+          ls -la
+      - name: 核验
+        shell: bash
+        run: |
+          set -euo pipefail
+          expect_version="${TAG#v}"
+          check_one() {
+            local zf="$1" want_arch="$2"
+            local out="mac_$(echo "$zf" | tr ' .' '__')"
+            unzip -q "dist/$zf" -d "$out"
+            local app
+            app="$(find "$out" -maxdepth 3 -name '*.app' -type d | head -1)"
+            [ -n "$app" ] || { echo "::error::$zf 未见 .app"; exit 1; }
+            local exe ver
+            exe="$(plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")"
+            ver="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
+            case "$ver" in
+              "$expect_version"*) echo "版本 OK: $ver" ;;
+              *) echo "::error::$zf 版本不符: $ver != $expect_version"; exit 1 ;;
+            esac
+            local archs
+            archs="$(lipo -archs "$app/Contents/MacOS/$exe")"
+            echo "archs: $archs（want: $want_arch）"
+            echo "$archs" | grep -q "$want_arch" || { echo "::error::$zf 架构不符: $archs"; exit 1; }
+            local sig
+            sig="$(codesign -dv --verbose=2 "$app" 2>&1 || true)"
+            if echo "$sig" | grep -qiE 'Signature|Authority'; then
+              echo "签名: 已签名"
+              echo "$sig" | grep -i 'Authority' | head -2 || true
+            else
+              echo "::warning::$zf 为未签名产物（CI 无 Apple 证书，预期行为）"
+              if [ "$STRICT" = "true" ]; then
+                echo "::error::strict_apple_signed=true 且产物未签名"; exit 1
+              fi
+            fi
+            echo "OK: $zf"
+          }
+          check_one 'macOS.x64.zip'  'x86_64'
+          check_one 'macOS.arm64.zip' 'arm64'
+          echo "### macOS 核验：通过 ✅" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # iOS（可选）：.app 结构 / Info.plist / Mach-O 架构 / 签名状态
+  # ---------------------------------------------------------------------------
+  ios:
+    name: iOS 核验（可选 · 默认跳过）
+    needs: resolve
+    if: ${{ inputs.include_ios }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.resolve.outputs.tag }}
+      STRICT: ${{ inputs.strict_apple_signed }}
+    steps:
+      - name: 下载 iOS 产物
+        shell: bash
+        run: |
+          mkdir -p dist && cd dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'iOS.*.zip'
+          ls -la
+      - name: 核验（结构与签名状态；未签名属预期）
+        shell: bash
+        run: |
+          set -euo pipefail
+          expect_version="${TAG#v}"
+          for zf in iOS.*.zip; do
+            out="ios_$(echo "$zf" | tr ' .' '__')"
+            unzip -q "$zf" -d "$out"
+            app="$(find "$out" -maxdepth 3 -name '*.app' -type d | head -1)"
+            [ -n "$app" ] || { echo "::error::$zf 未见 .app"; exit 1; }
+            exe="$(plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")"
+            ver="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
+            echo "$zf: exe=$exe version=$ver"
+            lipo -archs "$app/Contents/MacOS/$exe" || true
+            sig="$(codesign -dv --verbose=2 "$app" 2>&1 || true)"
+            if echo "$sig" | grep -qiE 'Signature|Authority'; then
+              echo "签名: 已签名"
+            else
+              echo "::warning::$zf 为未签名产物（CI 无 Apple 证书，预期行为）"
+              if [ "$STRICT" = "true" ]; then
+                echo "::error::strict_apple_signed=true 且产物未签名"; exit 1
+              fi
+            fi
+          done
+          echo "### iOS 核验：完成 ✅" >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # UI / 内核测试 + 全平台截屏矩阵（构建产物）
+  # ---------------------------------------------------------------------------
+  ui-shots:
+    name: UI/内核测试 + 全平台截屏
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: 获取依赖
+        run: flutter pub get
+      - name: UI/内核全量测试（kernel + base + domain + surface）
+        run: flutter test --reporter expanded
+      - name: 生成全平台截屏矩阵
+        shell: bash
+        env:
+          OGL_SCREENSHOTS: '1'
+        run: |
+          set -euo pipefail
+          flutter test test/screenshots/screenshot_matrix_test.dart --reporter expanded
+          PNG_COUNT=$(find build/ui_shots -name '*.png' | wc -l)
+          echo "截屏数量: $PNG_COUNT"
+          find build/ui_shots -name '*.png' | sort > build/ui_shots/INDEX.txt
+          [ "$PNG_COUNT" -ge 80 ] || { echo "::error::截屏数量不足（$PNG_COUNT < 80）"; exit 1; }
+          echo "### 截屏矩阵：$PNG_COUNT 张 ✅" >> "$GITHUB_STEP_SUMMARY"
+      - name: 上传截屏（构建产物）
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-shots-${{ needs.resolve.outputs.tag }}
+          path: build/ui_shots/**
+          retention-days: 30
