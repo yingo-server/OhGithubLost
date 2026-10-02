@@ -197,6 +197,18 @@
 - **可访问性**：**整行可点**（点标签也能切换），禁用态降透明度
 - **实现**：`lib/surface/kit/kit_toggle.dart` · **测试**：`test/surface/kit_states_test.dart`
 
+### 3.18 OgLPageScaffold / OgLSection（页面骨架与小节，W8）
+
+- **Primer 对照**：`docs/refs/prime/content/components/page-layout.mdx` · `layout.mdx`
+- **骨架规格**（**严格按令牌，禁写字面量**）：外边距 `OgLSpacing.lg`（随密度缩放）；
+  内容最大宽度 **840** 并在宽屏**居中**（避免超长行）；页头 = 标题（`headline`）+ 说明（`textDim`）
+  + 操作（横向，间距 `OgLSpacing.xs`）；页头与内容之间 `OgLSpacing.lg`；可选下拉刷新。
+- **小节规格**：标题（`title` 字阶）+ 说明（`label` / `textDim`）+ 右侧操作；
+  与上一个小节间距 `OgLSpacing.lg`；标题与内容间距 `OgLSpacing.sm`。
+- **纪律**：**页面不再自己写 `ListView(padding: ...)`** —— 否则"有的页 12、有的页 16、
+  宽屏文字拉成一行"这类不一致必然出现。
+- **实现**：`lib/surface/kit/kit_page_scaffold.dart` · **测试**：`test/surface/kit_states_test.dart`（组件冒烟）+ 组件矩阵快照
+
 ## 4. 页面版图（`lib/surface/pages/`）
 
 - **登录门** `login_page.dart`：令牌向导（暂存 → 验证 → 转正 → 保险库回读四阶段日志；游客模式入口）。

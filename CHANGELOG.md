@@ -40,6 +40,14 @@
   `icon_vector_test`（语义全覆盖 / 可解析 / **结构性拦住 `Icons.xxx`**）、`ui_component_matrix_test`（快照矩阵）。
 - 本地等价自检：`_setup/w0_selfcheck.py`（模拟测试断言；**曾抓到真实的圆角令牌漂移**）。
 
+### 新增（W8 · 页面级商业重写）
+
+- **`OgLPageScaffold` / `OgLSection`**（`lib/surface/kit/kit_page_scaffold.dart`）：
+  统一页头（标题/说明/操作）、边距节律（`OgLSpacing.lg`）、宽屏限行（maxWidth 840 居中）、
+  可选下拉刷新；小节负责"页里的分组"。**页面不再自己写 `ListView(padding:)`**。
+- **仓库页改用它**：页头 +「仓库元信息盒」（公开/语言/默认分支/Pages 标签 +
+  ★/Fork/Issue/体积 统计行，图标全部自绘矢量）+ 下划线导航 + 标签内容。
+
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 
 - **真因**：`OgLAsync.settle()` 在结果为空时进入 `empty` 阶段而 `data` 仍为 null，

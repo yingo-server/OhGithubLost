@@ -564,101 +564,159 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
     final tokens = ogL.tokens;
-    final repo = widget.repo;
-    return ListView(
-      padding: EdgeInsets.symmetric(vertical: tokens.space(OgLSpacing.lg)),
-      children: <Widget>[
-        OgLPageHeader(
-          title: repo.fullName,
-          description: repo.description ?? '（无描述）',
-          actions: <Widget>[
-            OgLButton(
-              label: _starred == true ? '已星标' : '星标',
-              variant: _starred == true
-                  ? OgLButtonVariant.standard
-                  : OgLButtonVariant.primary,
-              leadingIcon: OgLIconName.star,
-              onPressed: _busy ? null : _toggleStar,
-            ),
-            OgLButton(
-              label: '复刻',
-              leadingIcon: OgLIconName.fork,
-              onPressed: _busy ? null : _fork,
-            ),
-          ],
+    final repo = _repo;
+    return OgLPageScaffold(
+      title: repo.fullName,
+      description: repo.description ?? '（无描述）',
+      onRefresh: () async {
+        await _refreshRepo();
+      },
+      actions: <Widget>[
+        OgLButton(
+          label: _starred == true ? '已星标' : '星标',
+          variant: _starred == true
+              ? OgLButtonVariant.standard
+              : OgLButtonVariant.primary,
+          leadingIcon: OgLIconName.star,
+          onPressed: _busy ? null : _toggleStar,
         ),
-        Wrap(
-          spacing: tokens.space(OgLSpacing.sm),
-          runSpacing: tokens.space(OgLSpacing.sm),
-          children: <Widget>[
-            OgLLabel(
-              text: repo.isPrivate ? '私有' : '公开',
-              variant: repo.isPrivate
-                  ? OgLLabelVariant.attention
-                  : OgLLabelVariant.success,
-            ),
-            if (repo.language != null)
-              OgLLabel(text: repo.language!, variant: OgLLabelVariant.accent),
-            OgLLabel(text: '★ ${repo.stars}', variant: OgLLabelVariant.neutral),
-            OgLLabel(
-              text: 'Fork ${repo.forks}',
-              variant: OgLLabelVariant.neutral,
-            ),
-            OgLLabel(
-              text: 'Issue ${repo.openIssues}',
-              variant: OgLLabelVariant.neutral,
-            ),
-            if (repo.defaultBranch.isNotEmpty)
-              OgLLabel(text: repo.defaultBranch, variant: OgLLabelVariant.done),
-          ],
+        OgLButton(
+          label: '复刻',
+          leadingIcon: OgLIconName.fork,
+          onPressed: _busy ? null : _fork,
         ),
-        if (_notice != null) ...<Widget>[
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          OgLBanner(variant: OgLBannerVariant.success, text: _notice!),
-        ],
-        if (_error != null) ...<Widget>[
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          OgLBanner(variant: OgLBannerVariant.danger, text: _error!),
-        ],
-        SizedBox(height: tokens.space(OgLSpacing.lg)),
-        Divider(color: ogL.palette.border, height: tokens.hairline),
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        OgLUnderlineNav<_RepoTab>(
-          items: <OgLUnderlineNavItem<_RepoTab>>[
-            for (final tab in _RepoTab.values)
-              OgLUnderlineNavItem<_RepoTab>(
-                value: tab,
-                label: _tabLabel(tab),
-              ),
-          ],
-          value: _tab,
-          onChanged: (tab) async {
-            await _switchTab(tab);
-          },
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.md)),
-        if (_tab == _RepoTab.code)
-          if (_fileLoading && _file == null)
-            const Center(child: OgLSpinner(label: '读取中…'))
-          else if (_file != null)
-            _buildFileView(ogL, tokens)
-          else
-            _buildBrowser(ogL, tokens)
-        else if (_tab == _RepoTab.issues)
-          _buildIssues(ogL, tokens)
-        else if (_tab == _RepoTab.pulls)
-          _buildPulls(ogL, tokens)
-        else if (_tab == _RepoTab.releases)
-          _buildReleases(ogL, tokens)
-        else if (_tab == _RepoTab.branches)
-          _buildBranches(ogL, tokens)
-        else if (_tab == _RepoTab.commits)
-          _buildCommits(ogL, tokens)
-        else if (_tab == _RepoTab.actions)
-          _buildActions(ogL, tokens)
-        else
-          _buildSettings(ogL, tokens),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _buildRepoMeta(ogL, tokens),
+          if (_notice != null) ...<Widget>[
+            SizedBox(height: tokens.space(OgLSpacing.md)),
+            OgLBanner(variant: OgLBannerVariant.success, text: _notice!),
+          ],
+          if (_error != null) ...<Widget>[
+            SizedBox(height: tokens.space(OgLSpacing.md)),
+            OgLBanner(variant: OgLBannerVariant.danger, text: _error!),
+          ],
+          SizedBox(height: tokens.space(OgLSpacing.lg)),
+          OgLUnderlineNav<_RepoTab>(
+            items: <OgLUnderlineNavItem<_RepoTab>>[
+              for (final tab in _RepoTab.values)
+                OgLUnderlineNavItem<_RepoTab>(
+                  value: tab,
+                  label: _tabLabel(tab),
+                ),
+            ],
+            value: _tab,
+            onChanged: (tab) async {
+              await _switchTab(tab);
+            },
+          ),
+          SizedBox(height: tokens.space(OgLSpacing.md)),
+          if (_tab == _RepoTab.code)
+            if (_fileLoading && _file == null)
+              const Center(child: OgLSpinner(label: '读取中…'))
+            else if (_file != null)
+              _buildFileView(ogL, tokens)
+            else
+              _buildBrowser(ogL, tokens)
+          else if (_tab == _RepoTab.issues)
+            _buildIssues(ogL, tokens)
+          else if (_tab == _RepoTab.pulls)
+            _buildPulls(ogL, tokens)
+          else if (_tab == _RepoTab.releases)
+            _buildReleases(ogL, tokens)
+          else if (_tab == _RepoTab.branches)
+            _buildBranches(ogL, tokens)
+          else if (_tab == _RepoTab.commits)
+            _buildCommits(ogL, tokens)
+          else if (_tab == _RepoTab.actions)
+            _buildActions(ogL, tokens)
+          else
+            _buildSettings(ogL, tokens),
+        ],
+      ),
+    );
+  }
+
+  /// 仓库元信息：标识标签 + 统计行（图标走自绘矢量，数字用等宽更整齐）。
+  Widget _buildRepoMeta(OgLTheme ogL, OgLTokens tokens) {
+    final repo = _repo;
+    return OgLBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Wrap(
+            spacing: tokens.space(OgLSpacing.sm),
+            runSpacing: tokens.space(OgLSpacing.sm),
+            children: <Widget>[
+              OgLLabel(
+                text: repo.isPrivate ? '私有' : '公开',
+                variant: repo.isPrivate
+                    ? OgLLabelVariant.attention
+                    : OgLLabelVariant.success,
+              ),
+              if (repo.language != null)
+                OgLLabel(text: repo.language!, variant: OgLLabelVariant.accent),
+              if (repo.defaultBranch.isNotEmpty)
+                OgLLabel(
+                  text: repo.defaultBranch,
+                  variant: OgLLabelVariant.done,
+                ),
+              if (repo.hasPages)
+                const OgLLabel(text: 'Pages', variant: OgLLabelVariant.accent),
+            ],
+          ),
+          SizedBox(height: tokens.space(OgLSpacing.md)),
+          Row(
+            children: <Widget>[
+              _metaItem(ogL, tokens, OgLIconName.star, '${repo.stars}'),
+              _metaItem(ogL, tokens, OgLIconName.fork, '${repo.forks}'),
+              _metaItem(ogL, tokens, OgLIconName.issue, '${repo.openIssues}'),
+              _metaItem(
+                ogL,
+                tokens,
+                OgLIconName.file,
+                repo.sizeKb >= 1024
+                    ? '${(repo.sizeKb / 1024).toStringAsFixed(1)} MB'
+                    : '${repo.sizeKb} KB',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 统计项：语义图标 + 数字。
+  Widget _metaItem(
+    OgLTheme ogL,
+    OgLTokens tokens,
+    OgLIconName icon,
+    String text,
+  ) {
+    final scale = const OgLTypeScale.standard();
+    return Padding(
+      padding: EdgeInsets.only(right: tokens.space(OgLSpacing.lg)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          OgLIcon(
+            name: icon,
+            size: tokens.iconSize(base: 14),
+            color: ogL.palette.textDim,
+          ),
+          SizedBox(width: tokens.space(OgLSpacing.xs)),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: kOgLMonoFamily,
+              fontSize: tokens.fontSize(scale.label),
+              color: ogL.palette.textDim,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

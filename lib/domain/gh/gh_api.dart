@@ -953,7 +953,7 @@ class GhApi implements CacheRemote {
   /// （不存在 / 仓库为空 / 功能未启用）。
   ///
   /// 写场景不走这条：写冲突必须是冲突，不许被当成"没有"。
-  static bool _isAbsentStatus(int statusCode) =>
+  static bool _isAbsentStatus(int? statusCode) =>
       statusCode == 404 || statusCode == 409 || statusCode == 422;
 
   Future<Map<String, dynamic>?> _contentsObject(
