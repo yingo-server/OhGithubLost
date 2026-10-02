@@ -64,7 +64,7 @@ OgLActionRow(
 | --- | --- | --- | --- |
 | 1 | 设置（含外观/网络/开发者/账户） | `surface/app/og_l_app.dart` | ✅ 本批完成（分区行式 + 底部选择表 + 自绘开关 + 退出登录二次确认） |
 | 2 | 首页（我的 / 星标 / 新建） | `pages/dashboard_page.dart` | ✅ 本批完成（骨架 + 分段切换 + 计数说明 + 四态走唯一映射点） |
-| 3 | 搜索（仓库 / 代码） | `pages/search_page.dart` | ⏳ |
+| 3 | 搜索（仓库 / 代码） | `pages/search_page.dart` | ✅ 本批完成（骨架 + 回车即搜 + 限定符引导 + 结果可点 + 计数说明） |
 | 4 | 我的（账户管理） | `pages/profile_page.dart` | ⏳ |
 | 5 | 议题详情 | `pages/issue_page.dart` | ⏳ |
 | 6 | PR 详情 | `pages/pull_page.dart` | ⏳ |

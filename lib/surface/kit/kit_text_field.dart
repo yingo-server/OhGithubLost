@@ -22,6 +22,9 @@ class OgLTextField extends StatelessWidget {
     this.maxLines = 1,
     this.leadingIcon,
     this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
+    this.autofocus = false,
     super.key,
   });
 
@@ -52,6 +55,16 @@ class OgLTextField extends StatelessWidget {
   /// 变更回调。
   final ValueChanged<String>? onChanged;
 
+  /// 提交回调（回车 / 键盘完成键）—— 搜索这类"敲完就走"的场景必须支持，
+  /// 否则用户只能去够按钮。
+  final ValueChanged<String>? onSubmitted;
+
+  /// 键盘动作（搜索场景用 `TextInputAction.search`）。
+  final TextInputAction? textInputAction;
+
+  /// 是否自动聚焦（进入页面即可输入）。
+  final bool autofocus;
+
   @override
   Widget build(BuildContext context) {
     final ogL = OgLTheme.of(context);
@@ -68,6 +81,9 @@ class OgLTextField extends StatelessWidget {
       obscureText: obscure,
       maxLines: obscure ? 1 : maxLines,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: textInputAction,
+      autofocus: autofocus,
       cursorColor: palette.accent,
       style: TextStyle(
         fontSize: tokens.fontSize(scale.body),

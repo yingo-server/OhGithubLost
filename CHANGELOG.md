@@ -66,6 +66,9 @@
   （HTML 清理 / 徽章行删除 / 图片占位 / 空行压缩 / 超长截断且告知）+ `flutter_markdown` 渲染
   （样式表全走令牌）；仓库页「代码」标签下新增 README 区块（四态走 `ogLAsyncView`，
   没有 README = 空态而非错误）；链接用 `url_launcher` 打开，失败摊开 URL。层内检查 8 条断言。
+- **搜索页重写 + 输入框补能力**（W8-P5）：`OgLPageScaffold` + 回车即搜 + 分段（仓库/代码）+
+  结果计数；未搜索给"常用限定符"可点引导；**代码结果可点进所属仓库**（旧实现点了没反应）；
+  `OgLTextField` 新增 `onSubmitted` / `textInputAction` / `autofocus`。
 
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 

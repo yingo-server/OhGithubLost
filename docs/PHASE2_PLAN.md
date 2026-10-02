@@ -182,6 +182,18 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [x] 层内检查 `test/surface/readme_test.dart`：8 条断言（离线安全 / 徽章行 / HTML / 代码块 / 压缩 / 截断 / 空态）
 - [x] 离线红线：README 里的图片**一律不联网取**（避免徽章与截图拖死首屏）
 
+### W8-P5 · 搜索页重写 ✅ 本批
+
+- [x] `search_page.dart` 重写：`OgLPageScaffold` + 搜索行（`OgLTextField` **回车即搜**）+ `OgLSegmented`
+      + 右侧**结果计数**说明 + `OgLBox` 包结果行
+- [x] **Kit 补能力**：`OgLTextField` 新增 `onSubmitted` / `textInputAction` / `autofocus`
+      （搜索这种"敲完就走"的场景，旧组件不支持回车 → 用户只能去够按钮）
+- [x] **未搜索 ≠ 空结果**：未搜 = `OgLBlankslate` + **常用限定符行（可点即拼进输入框）**；
+      空结果 = Blankslate 回显关键词并给放宽建议
+- [x] **代码结果可点**（旧实现点了没反应 —— 属于"功能失效"）：按 `repository.full_name` 造最小
+      `GhRepo` 跳进仓库页（仓库页会自行补齐缺字段）
+- [x] 护栏：搜索页登记为 `converted: true`（骨架 / 无自写滚动 / 无手写状态判定）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；

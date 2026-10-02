@@ -46,7 +46,7 @@ const Map<String, _Spec> _pages = <String, _Spec>{
   'profile_page.dart': _Spec('我的（账户管理）'),
   'pull_page.dart': _Spec('PR 详情'),
   'repo_page.dart': _Spec('仓库页（骨架 + 元信息盒 + 七标签）', converted: true),
-  'search_page.dart': _Spec('搜索（仓库 / 代码）'),
+  'search_page.dart': _Spec('搜索（仓库 / 代码）', converted: true),
 };
 
 /// 应用层文件：这些是"页面之外的壳"，暂未重写，但**不许再用 Material 颜色/图标**。
