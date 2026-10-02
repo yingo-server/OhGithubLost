@@ -17,6 +17,7 @@ import '../../domain/gh/gh_auth.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../theme.dart';
+import '../widgets/code_view.dart';
 import 'onboarding_page.dart';
 
 /// 设置页。
@@ -37,6 +38,78 @@ class _SettingsPageState extends State<SettingsPage> {
   /// 拖动中的草稿值（松手才落盘，避免拖动过程高频写盘）。
   double? _fontScaleDraft;
   double? _codeFontDraft;
+
+  /// 自定义代码配色的可选色板（ARGB）。
+  static const List<int> _kCodePalette = <int>[
+    0xFF000000,
+    0xFF101418,
+    0xFF1E1E1E,
+    0xFF2D333B,
+    0xFFF6F8FA,
+    0xFFFFFFFF,
+    0xFFE6EDF3,
+    0xFF24292F,
+    0xFF79C0FF,
+    0xFF0550AE,
+    0xFF569CD6,
+    0xFF4EC9B0,
+    0xFF6A9955,
+    0xFFCE9178,
+    0xFF953800,
+    0xFFFFA657,
+    0xFFB5CEA8,
+    0xFFCF222E,
+    0xFFFF7B72,
+    0xFF8250DF,
+    0xFFBC8CFF,
+    0xFF9BA7B4,
+  ];
+
+  Future<void> _pickCodeColor(String field, int current, String title) async {
+    final int? picked = await showDialog<int>(
+      context: context,
+      builder: (BuildContext dialogContext) => SimpleDialog(
+        title: Text(title),
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: 280,
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  for (final int argb in _kCodePalette)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => Navigator.of(dialogContext).pop(argb),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Color(argb),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: argb == current
+                                ? Theme.of(dialogContext).colorScheme.primary
+                                : const Color(0x33000000),
+                            width: argb == current ? 3 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    await _settings.setCodeColor(field, picked);
+  }
 
   Future<void> _pickDnsServer() async {
     final Map<String, String> choices = widget.surface.dnsServerChoices;
@@ -310,6 +383,79 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: value.codeHighlight,
                       onChanged: _settings.setCodeHighlight,
                     ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('高亮主题', style: theme.textTheme.labelLarge),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          for (final MapEntry<String, String> entry
+                              in kOgLCodePresetLabels.entries)
+                            ChoiceChip(
+                              label: Text(entry.value),
+                              selected: value.codeThemePreset == entry.key,
+                              onSelected: (bool on) {
+                                if (on) {
+                                  _settings.setCodeThemePreset(entry.key);
+                                }
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (value.codeThemePreset == kOgLCodePresetCustom)
+                      ...<Widget>[
+                        const Divider(height: 1),
+                        _codeColorTile(
+                          theme,
+                          '背景',
+                          'background',
+                          value.codeColorBackground,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '正文',
+                          'foreground',
+                          value.codeColorForeground,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '关键词',
+                          'keyword',
+                          value.codeColorKeyword,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '类型',
+                          'typeName',
+                          value.codeColorTypeName,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '字符串',
+                          'string',
+                          value.codeColorString,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '注释',
+                          'comment',
+                          value.codeColorComment,
+                        ),
+                        _codeColorTile(
+                          theme,
+                          '数字',
+                          'number',
+                          value.codeColorNumber,
+                        ),
+                      ],
                     SwitchListTile(
                       title: const Text('自动换行'),
                       subtitle: const Text('关闭则横向滚动查看长行'),
@@ -465,6 +611,35 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _sectionTitle(ThemeData theme, String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(text, style: theme.textTheme.titleMedium),
+      );
+
+  /// 自定义配色的一行：名称 + 当前颜色 + 选择入口。
+  Widget _codeColorTile(
+    ThemeData theme,
+    String label,
+    String field,
+    int argb,
+  ) =>
+      ListTile(
+        dense: true,
+        title: Text(label),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Color(argb),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+        onTap: () => _pickCodeColor(field, argb, '选择「$label」颜色'),
       );
 
   Widget _sliderTile(

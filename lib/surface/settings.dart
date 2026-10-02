@@ -64,6 +64,14 @@ class OgLSettings {
     this.codeHighlight = true,
     this.codeFontSize = 13,
     this.codeWrap = false,
+    this.codeThemePreset = 'theme',
+    this.codeColorBackground = 0xFF1E1E1E,
+    this.codeColorForeground = 0xFFE6EDF3,
+    this.codeColorKeyword = 0xFF569CD6,
+    this.codeColorTypeName = 0xFF4EC9B0,
+    this.codeColorString = 0xFFCE9178,
+    this.codeColorComment = 0xFF6A9955,
+    this.codeColorNumber = 0xFFB5CEA8,
     this.onboardingDone = false,
   });
 
@@ -109,12 +117,51 @@ class OgLSettings {
         max: maxCodeFontSize,
       ),
       codeWrap: _asBool(raw['codeWrap'], fallback: false),
+      codeThemePreset: _asPreset(raw['codeThemePreset']),
+      codeColorBackground:
+          _asColorInt(raw['codeColorBackground'], fallback: 0xFF1E1E1E),
+      codeColorForeground:
+          _asColorInt(raw['codeColorForeground'], fallback: 0xFFE6EDF3),
+      codeColorKeyword:
+          _asColorInt(raw['codeColorKeyword'], fallback: 0xFF569CD6),
+      codeColorTypeName:
+          _asColorInt(raw['codeColorTypeName'], fallback: 0xFF4EC9B0),
+      codeColorString:
+          _asColorInt(raw['codeColorString'], fallback: 0xFFCE9178),
+      codeColorComment:
+          _asColorInt(raw['codeColorComment'], fallback: 0xFF6A9955),
+      codeColorNumber:
+          _asColorInt(raw['codeColorNumber'], fallback: 0xFFB5CEA8),
       onboardingDone: _asBool(raw['onboardingDone'], fallback: false),
     );
   }
 
   static bool _asBool(Object? value, {required bool fallback}) =>
       value is bool ? value : fallback;
+
+  /// 代码主题预设白名单（与展示层 `code_view.dart` 保持一致）。
+  static const List<String> codeThemePresetIds = <String>[
+    'theme',
+    'high_contrast',
+    'soft',
+    'custom',
+  ];
+
+  static String _asPreset(Object? value) =>
+      value is String && codeThemePresetIds.contains(value) ? value : 'theme';
+
+  static int _asColorInt(Object? value, {required int fallback}) {
+    if (value is int && value >= 0 && value <= 0xFFFFFFFF) {
+      return value;
+    }
+    if (value is num) {
+      final int v = value.toInt();
+      if (v >= 0 && v <= 0xFFFFFFFF) {
+        return v;
+      }
+    }
+    return fallback;
+  }
 
   static double _clampDouble(
     Object? value, {
@@ -168,6 +215,30 @@ class OgLSettings {
   /// 代码是否自动换行。
   final bool codeWrap;
 
+  /// 代码高亮主题预设（见 [codeThemePresetIds]）。
+  final String codeThemePreset;
+
+  /// 自定义预设：背景色（ARGB）。
+  final int codeColorBackground;
+
+  /// 自定义预设：普通文本色。
+  final int codeColorForeground;
+
+  /// 自定义预设：关键词色。
+  final int codeColorKeyword;
+
+  /// 自定义预设：类型名色。
+  final int codeColorTypeName;
+
+  /// 自定义预设：字符串色。
+  final int codeColorString;
+
+  /// 自定义预设：注释色。
+  final int codeColorComment;
+
+  /// 自定义预设：数字色。
+  final int codeColorNumber;
+
   /// 是否已完成首次引导（含权限说明）。
   final bool onboardingDone;
 
@@ -185,6 +256,14 @@ class OgLSettings {
     bool? codeHighlight,
     double? codeFontSize,
     bool? codeWrap,
+    String? codeThemePreset,
+    int? codeColorBackground,
+    int? codeColorForeground,
+    int? codeColorKeyword,
+    int? codeColorTypeName,
+    int? codeColorString,
+    int? codeColorComment,
+    int? codeColorNumber,
     bool? onboardingDone,
   }) =>
       OgLSettings(
@@ -200,6 +279,14 @@ class OgLSettings {
         codeHighlight: codeHighlight ?? this.codeHighlight,
         codeFontSize: codeFontSize ?? this.codeFontSize,
         codeWrap: codeWrap ?? this.codeWrap,
+        codeThemePreset: codeThemePreset ?? this.codeThemePreset,
+        codeColorBackground: codeColorBackground ?? this.codeColorBackground,
+        codeColorForeground: codeColorForeground ?? this.codeColorForeground,
+        codeColorKeyword: codeColorKeyword ?? this.codeColorKeyword,
+        codeColorTypeName: codeColorTypeName ?? this.codeColorTypeName,
+        codeColorString: codeColorString ?? this.codeColorString,
+        codeColorComment: codeColorComment ?? this.codeColorComment,
+        codeColorNumber: codeColorNumber ?? this.codeColorNumber,
         onboardingDone: onboardingDone ?? this.onboardingDone,
       );
 
@@ -217,6 +304,14 @@ class OgLSettings {
         'codeHighlight': codeHighlight,
         'codeFontSize': codeFontSize,
         'codeWrap': codeWrap,
+        'codeThemePreset': codeThemePreset,
+        'codeColorBackground': codeColorBackground,
+        'codeColorForeground': codeColorForeground,
+        'codeColorKeyword': codeColorKeyword,
+        'codeColorTypeName': codeColorTypeName,
+        'codeColorString': codeColorString,
+        'codeColorComment': codeColorComment,
+        'codeColorNumber': codeColorNumber,
         'onboardingDone': onboardingDone,
       };
 
@@ -370,6 +465,47 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：设置代码自动换行。
   Future<void> setCodeWrap(bool enabled) =>
       apply(_settings.copyWith(codeWrap: enabled));
+
+  /// 便捷：设置代码高亮预设。
+  Future<void> setCodeThemePreset(String preset) => apply(
+        _settings.copyWith(
+          codeThemePreset: OgLSettings.codeThemePresetIds.contains(preset)
+              ? preset
+              : 'theme',
+        ),
+      );
+
+  /// 便捷：设置自定义预设的某一颜色。
+  ///
+  /// [field] 取 `background` / `foreground` / `keyword` / `typeName` /
+  /// `string` / `comment` / `number`；未知字段忽略（不抛）。
+  Future<void> setCodeColor(String field, int argb) async {
+    switch (field) {
+      case 'background':
+        await apply(_settings.copyWith(codeColorBackground: argb));
+        break;
+      case 'foreground':
+        await apply(_settings.copyWith(codeColorForeground: argb));
+        break;
+      case 'keyword':
+        await apply(_settings.copyWith(codeColorKeyword: argb));
+        break;
+      case 'typeName':
+        await apply(_settings.copyWith(codeColorTypeName: argb));
+        break;
+      case 'string':
+        await apply(_settings.copyWith(codeColorString: argb));
+        break;
+      case 'comment':
+        await apply(_settings.copyWith(codeColorComment: argb));
+        break;
+      case 'number':
+        await apply(_settings.copyWith(codeColorNumber: argb));
+        break;
+      default:
+        break;
+    }
+  }
 
   /// 便捷：标记首次引导已完成。
   Future<void> setOnboardingDone(bool done) =>

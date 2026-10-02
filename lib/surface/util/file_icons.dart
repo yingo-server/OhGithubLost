@@ -72,28 +72,29 @@ OgLFileVisual ogLFileVisualFor(String path, {bool isDirectory = false}) {
     case 'py':
       return const OgLFileVisual(Icons.functions, Color(0xFF3B78A8));
     case 'java':
-    case 'kt':
-    case 'kts':
     case 'scala':
     case 'groovy':
-      return const OgLFileVisual(Icons.coffee, Color(0xFFB07219));
+      return const OgLFileVisual(Icons.code, Color(0xFFB07219));
+    case 'kt':
+    case 'kts':
+      return const OgLFileVisual(Icons.code, Color(0xFFA97BFF));
     case 'go':
       return const OgLFileVisual(Icons.code, Color(0xFF00ADD8));
     case 'rs':
-      return const OgLFileVisual(Icons.settings, Color(0xFFDEA584));
+      return const OgLFileVisual(Icons.code, Color(0xFFDEA584));
     case 'c':
     case 'h':
-      return const OgLFileVisual(Icons.code, Color(0xFF5E97D0));
+      return const OgLFileVisual(Icons.code, Color(0xFF555555));
     case 'cpp':
     case 'cc':
     case 'cxx':
     case 'hpp':
     case 'hh':
-      return const OgLFileVisual(Icons.code, Color(0xFF9C4E9C));
+      return const OgLFileVisual(Icons.code, Color(0xFFF34B7D));
     case 'cs':
-      return const OgLFileVisual(Icons.code, Color(0xFF68217A));
+      return const OgLFileVisual(Icons.code, Color(0xFF178600));
     case 'rb':
-      return const OgLFileVisual(Icons.diamond, Color(0xFFCC342D));
+      return const OgLFileVisual(Icons.diamond, Color(0xFF701516));
     case 'php':
       return const OgLFileVisual(Icons.code, Color(0xFF787CB5));
     case 'swift':
@@ -123,8 +124,9 @@ OgLFileVisual ogLFileVisualFor(String path, {bool isDirectory = false}) {
     case 'svelte':
       return const OgLFileVisual(Icons.web, Color(0xFF41B883));
     case 'xml':
-    case 'svg':
       return const OgLFileVisual(Icons.code, Color(0xFFE37933));
+    case 'svg':
+      return const OgLFileVisual(Icons.image_outlined, Color(0xFFFF9900));
 
     // ── 数据 / 配置 ──
     case 'json':
@@ -146,11 +148,26 @@ OgLFileVisual ogLFileVisualFor(String path, {bool isDirectory = false}) {
     case 'graphql':
     case 'gql':
       return const OgLFileVisual(Icons.hub_outlined, Color(0xFFE10098));
+    case 'proto':
+      return const OgLFileVisual(Icons.hub_outlined, Color(0xFF5A5FD0));
+    case 'gradle':
+      return const OgLFileVisual(Icons.build_outlined, Color(0xFF02303A));
+    case 'ipynb':
+      return const OgLFileVisual(Icons.science_outlined, Color(0xFFDA5B0B));
+    case 'lock':
+      return const OgLFileVisual(Icons.lock_outline, Color(0xFF9AA0A6));
+    case 'wasm':
+      return const OgLFileVisual(Icons.memory, Color(0xFF654FF0));
+    case 'vtt':
+    case 'srt':
+      return const OgLFileVisual(Icons.subtitles_outlined, Color(0xFF9AA0A6));
+    case 'geojson':
+      return const OgLFileVisual(Icons.public, Color(0xFF3E8E41));
 
     // ── 文档 ──
     case 'md':
     case 'markdown':
-      return const OgLFileVisual(Icons.article_outlined, Color(0xFF519ABA));
+      return const OgLFileVisual(Icons.article_outlined, Color(0xFF083FA1));
     case 'txt':
     case 'log':
       return const OgLFileVisual(Icons.notes, Color(0xFF9AA0A6));

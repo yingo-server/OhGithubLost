@@ -17,12 +17,14 @@ import 'package:flutter/services.dart';
 import '../../domain/gh/gh_models.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
+import '../settings.dart';
 import '../surface_bridge.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
 import '../widgets/code_view.dart';
 import '../widgets/readme_view.dart';
+import 'action_run_page.dart';
 import 'commit_page.dart';
 import 'issue_page.dart';
 import 'new_issue_page.dart';
@@ -340,6 +342,7 @@ class _CodeTabState extends State<_CodeTab> {
       }
       if (content.isDirectory) {
         setState(() => _path = content.path);
+        _entriesC().reset();
         await _entriesC().load();
       } else {
         setState(() {
@@ -357,18 +360,21 @@ class _CodeTabState extends State<_CodeTab> {
     }
   }
 
-  void _openDir(GhContent entry) {
-    setState(() => _path = entry.path);
+  void _openDir(GhContent entry) => _goTo(entry.path);
+
+  /// 切换到指定目录（**先清空旧目录数据**，杜绝跨目录撕裂）。
+  void _goTo(String path) {
+    setState(() => _path = path);
+    _entriesC().reset();
     unawaited(_entriesC().load());
+    if (path.isEmpty) {
+      unawaited(_loadReadme());
+    }
   }
 
   void _up() {
     final int cut = _path.lastIndexOf('/');
-    setState(() => _path = cut <= 0 ? '' : _path.substring(0, cut));
-    unawaited(_entriesC().load());
-    if (_path.isEmpty) {
-      unawaited(_loadReadme());
-    }
+    _goTo(cut <= 0 ? '' : _path.substring(0, cut));
   }
 
   Future<void> _openFile(GhContent entry) async {
@@ -734,6 +740,36 @@ class _CodeTabState extends State<_CodeTab> {
     );
   }
 
+  /// 目录面包屑：明确展示当前"本地路径"，避免路径与列表不一致造成误读。
+  Widget _breadcrumb(BuildContext context) {
+    final List<String> parts = _path
+        .split('/')
+        .where((String p) => p.isNotEmpty)
+        .toList();
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: <Widget>[
+          TextButton(
+            onPressed: () => _goTo(''),
+            child: const Text('根目录'),
+          ),
+          for (int i = 0; i < parts.length; i++) ...<Widget>[
+            Icon(Icons.chevron_right, size: 16, color: scheme.outline),
+            TextButton(
+              onPressed: i == parts.length - 1
+                  ? null
+                  : () => _goTo(parts.sublist(0, i + 1).join('/')),
+              child: Text(parts[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _readmeTile() {
     final String? err = _readmeError;
     if (err != null) {
@@ -847,14 +883,26 @@ class _CodeTabState extends State<_CodeTab> {
         ),
       );
     }
+    final OgLSettings codeCfg = widget.surface.settings.settings;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: CodeView(
         code: text,
         language: ogLDetectLanguage(file.path),
-        fontSize: widget.surface.settings.settings.codeFontSize,
-        wrap: widget.surface.settings.settings.codeWrap,
-        highlight: widget.surface.settings.settings.codeHighlight,
+        fontSize: codeCfg.codeFontSize,
+        wrap: codeCfg.codeWrap,
+        highlight: codeCfg.codeHighlight,
+        codeTheme: ogLCodeThemeFor(
+          preset: codeCfg.codeThemePreset,
+          scheme: Theme.of(context).colorScheme,
+          customBackground: codeCfg.codeColorBackground,
+          customForeground: codeCfg.codeColorForeground,
+          customKeyword: codeCfg.codeColorKeyword,
+          customTypeName: codeCfg.codeColorTypeName,
+          customString: codeCfg.codeColorString,
+          customComment: codeCfg.codeColorComment,
+          customNumber: codeCfg.codeColorNumber,
+        ),
       ),
     );
   }
@@ -943,6 +991,7 @@ class _CodeTabState extends State<_CodeTab> {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: <Widget>[
+              if (_path.isNotEmpty) _breadcrumb(context),
               if (_path.isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.arrow_upward),
@@ -2040,6 +2089,7 @@ class _ActionsTab extends StatefulWidget {
 
 class _ActionsTabState extends State<_ActionsTab> {
   AsyncController<List<Map<String, dynamic>>>? _runs;
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -2067,6 +2117,54 @@ class _ActionsTabState extends State<_ActionsTab> {
     return controller;
   }
 
+  void _openRun(Map<String, dynamic> run) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => ActionRunPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          run: run,
+        ),
+      ),
+    );
+  }
+
+  bool _matches(Map<String, dynamic> run) {
+    if (_filter == 'all') {
+      return true;
+    }
+    final String status = ghStr(run, 'status');
+    final String conclusion = ghStr(run, 'conclusion');
+    switch (_filter) {
+      case 'running':
+        return status != 'completed';
+      case 'success':
+        return conclusion == 'success';
+      case 'failure':
+        return conclusion == 'failure' || conclusion == 'timed_out';
+      default:
+        return true;
+    }
+  }
+
+  IconData _iconFor(String status, String conclusion) {
+    if (status != 'completed') {
+      return Icons.sync;
+    }
+    switch (conclusion) {
+      case 'success':
+        return Icons.check_circle;
+      case 'failure':
+      case 'timed_out':
+        return Icons.error;
+      case 'cancelled':
+      case 'skipped':
+        return Icons.cancel;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AsyncView<List<Map<String, dynamic>>>(
@@ -2076,35 +2174,92 @@ class _ActionsTabState extends State<_ActionsTab> {
       builder: (
         BuildContext context,
         List<Map<String, dynamic>> runs,
-      ) =>
-          RefreshIndicator(
-        onRefresh: () => _runsC().load(),
-        child: ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: runs.length,
-          separatorBuilder: (BuildContext context, int index) =>
-              const Divider(height: 1),
-          itemBuilder: (BuildContext context, int index) {
-            final Map<String, dynamic> run = runs[index];
-            final String conclusion = ghStr(run, 'conclusion');
-            return ListTile(
-              leading: const Icon(Icons.play_circle_outline),
-              title: Text(
-                ghStr(run, 'name'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      ) {
+        final List<Map<String, dynamic>> shown =
+            runs.where(_matches).toList();
+        return Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Wrap(
+                spacing: 8,
+                children: <Widget>[
+                  for (final MapEntry<String, String> entry
+                      in const <String, String>{
+                    'all': '全部',
+                    'running': '进行中',
+                    'success': '成功',
+                    'failure': '失败',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _filter == entry.key,
+                      onSelected: (bool on) {
+                        if (on) {
+                          setState(() => _filter = entry.key);
+                        }
+                      },
+                    ),
+                ],
               ),
-              subtitle: Text(
-                '${ghStr(run, 'status')} · '
-                '${conclusion.isEmpty ? '—' : conclusion} · '
-                '${ghDate(run, 'created_at')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _runsC().load(),
+                child: shown.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const <Widget>[
+                          Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(child: Text('没有符合筛选条件的运行')),
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: shown.length,
+                        separatorBuilder: (BuildContext context, int index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (BuildContext context, int index) {
+                          final Map<String, dynamic> run = shown[index];
+                          final String status = ghStr(run, 'status');
+                          final String conclusion = ghStr(run, 'conclusion');
+                          return ListTile(
+                            leading: Icon(
+                              _iconFor(status, conclusion),
+                              color: conclusion == 'success'
+                                  ? const Color(0xFF1A7F37)
+                                  : conclusion == 'failure' ||
+                                          conclusion == 'timed_out'
+                                      ? Theme.of(context).colorScheme.error
+                                      : Theme.of(context).colorScheme.outline,
+                            ),
+                            title: Text(
+                              ghStr(run, 'display_title').isEmpty
+                                  ? ghStr(run, 'name')
+                                  : ghStr(run, 'display_title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
+                              '${ghStr(run, 'head_branch')} · '
+                              '${status.isEmpty ? '—' : status}'
+                              '${conclusion.isEmpty ? '' : ' / $conclusion'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _openRun(run),
+                          );
+                        },
+                      ),
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

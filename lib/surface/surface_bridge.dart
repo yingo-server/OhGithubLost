@@ -16,6 +16,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../base/base_bridge.dart';
+import '../base/disk/disk_cache.dart';
 import '../base/disk/disk_store.dart';
 import '../base/net/net_bridge.dart';
 import '../domain/domain_bridge.dart';
@@ -31,6 +32,7 @@ class SurfaceBridge {
     required this.settings,
     required this.domain,
     this.net,
+    this.cache,
   });
 
   /// 从内核桥表解析（展示层的标准取用方式）。
@@ -45,6 +47,16 @@ class SurfaceBridge {
 
   /// 网络门面（**仅供设置页应用 DNS 用**；页面不得直接使用）。
   final NetBridge? net;
+
+  /// 一致性缓存（**仅供账号切换时清空**，页面不得直接读写）。
+  final RepositoryCache? cache;
+
+  /// 清空本机仓库缓存。
+  ///
+  /// **多用户安全**：缓存按仓库维度存放，不含账号信息。若切换账号后不清理，
+  /// 就可能出现"用 B 账号看到 A 账号私有仓库缓存"的串台。因此切换账号时
+  /// 由设置/账户页显式调用本方法。
+  Future<int> clearRepositoryCache() async => await cache?.purge() ?? 0;
 
   /// DNS 可选服务器（id → 展示名）。
   Map<String, String> get dnsServerChoices =>
@@ -167,6 +179,7 @@ class SurfaceLayerModule extends OgLModule {
       settings: settings,
       domain: DomainBridge.of(context.bridges),
       net: base.net,
+      cache: base.disk.cache,
     );
     context.bridges.register(ModuleLayer.surface.key, bridge);
 

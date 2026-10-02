@@ -27,6 +27,127 @@ const int kOgLCodeHighlightMaxChars = 200000;
 /// 这是"能跑但会在极端输入下崩"的典型隐患，故设上限。
 const int kOgLCodeGutterMaxLines = 3000;
 
+/// 预设：跟随应用主题（默认）。
+const String kOgLCodePresetTheme = 'theme';
+
+/// 预设：高对比（深底亮字，色相分离明显）。
+const String kOgLCodePresetHighContrast = 'high_contrast';
+
+/// 预设：柔和（浅底低饱和）。
+const String kOgLCodePresetSoft = 'soft';
+
+/// 预设：自定义（用户自选每个 token 的颜色）。
+const String kOgLCodePresetCustom = 'custom';
+
+/// 全部预设（id → 展示名）。
+const Map<String, String> kOgLCodePresetLabels = <String, String>{
+  kOgLCodePresetTheme: '跟随主题',
+  kOgLCodePresetHighContrast: '高对比',
+  kOgLCodePresetSoft: '柔和',
+  kOgLCodePresetCustom: '自定义',
+};
+
+/// 代码配色方案。
+@immutable
+class OgLCodeTheme {
+  /// 创建配色。
+  const OgLCodeTheme({
+    required this.background,
+    required this.foreground,
+    required this.keyword,
+    required this.typeName,
+    required this.string,
+    required this.comment,
+    required this.number,
+  });
+
+  /// 从应用主题派生（默认预设）。
+  factory OgLCodeTheme.fromScheme(ColorScheme scheme) => OgLCodeTheme(
+        background: scheme.surfaceContainerHighest,
+        foreground: scheme.onSurface,
+        keyword: scheme.primary,
+        typeName: scheme.tertiary,
+        string: scheme.tertiary,
+        comment: scheme.outline,
+        number: scheme.secondary,
+      );
+
+  /// 背景。
+  final Color background;
+
+  /// 普通文本。
+  final Color foreground;
+
+  /// 关键词。
+  final Color keyword;
+
+  /// 类型 / 内置名。
+  final Color typeName;
+
+  /// 字符串。
+  final Color string;
+
+  /// 注释。
+  final Color comment;
+
+  /// 数字。
+  final Color number;
+}
+
+/// 高对比预设。
+const OgLCodeTheme kOgLCodeThemeHighContrast = OgLCodeTheme(
+  background: Color(0xFF101418),
+  foreground: Color(0xFFF0F6FC),
+  keyword: Color(0xFFFF7B72),
+  typeName: Color(0xFF79C0FF),
+  string: Color(0xFFA5D6FF),
+  comment: Color(0xFF9BA7B4),
+  number: Color(0xFFFFA657),
+);
+
+/// 柔和预设。
+const OgLCodeTheme kOgLCodeThemeSoft = OgLCodeTheme(
+  background: Color(0xFFF6F8FA),
+  foreground: Color(0xFF24292F),
+  keyword: Color(0xFFCF222E),
+  typeName: Color(0xFF0550AE),
+  string: Color(0xFF0A3069),
+  comment: Color(0xFF6E7781),
+  number: Color(0xFF953800),
+);
+
+/// 根据设置解析配色（**唯一入口**，页面与设置页共用）。
+OgLCodeTheme ogLCodeThemeFor({
+  required String preset,
+  required ColorScheme scheme,
+  required int customBackground,
+  required int customForeground,
+  required int customKeyword,
+  required int customTypeName,
+  required int customString,
+  required int customComment,
+  required int customNumber,
+}) {
+  switch (preset) {
+    case kOgLCodePresetHighContrast:
+      return kOgLCodeThemeHighContrast;
+    case kOgLCodePresetSoft:
+      return kOgLCodeThemeSoft;
+    case kOgLCodePresetCustom:
+      return OgLCodeTheme(
+        background: Color(customBackground),
+        foreground: Color(customForeground),
+        keyword: Color(customKeyword),
+        typeName: Color(customTypeName),
+        string: Color(customString),
+        comment: Color(customComment),
+        number: Color(customNumber),
+      );
+    default:
+      return OgLCodeTheme.fromScheme(scheme);
+  }
+}
+
 /// token 类别。
 enum OgLCodeTokenKind {
   /// 普通文本。
@@ -503,7 +624,7 @@ List<OgLCodeToken> ogLHighlightCode(String source, String language) {
 // 渲染组件
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// 代码视图：高亮 +（可选）行号 +（可选）自动换行 + 可调字号。
+/// 代码视图：高亮 +（可选）行号 +（可选）自动换行 + 可调字号 + 配色方案。
 class CodeView extends StatelessWidget {
   /// 创建代码视图。
   const CodeView({
@@ -513,6 +634,7 @@ class CodeView extends StatelessWidget {
     this.wrap = false,
     this.highlight = true,
     this.showLineNumbers = true,
+    this.codeTheme,
     super.key,
   });
 
@@ -534,22 +656,24 @@ class CodeView extends StatelessWidget {
   /// 是否显示行号（仅在 `wrap == false` 时对齐可靠）。
   final bool showLineNumbers;
 
-  TextStyle _styleFor(OgLCodeTokenKind kind, ThemeData theme) {
-    final ColorScheme scheme = theme.colorScheme;
+  /// 配色（`null` = 从应用主题派生）。
+  final OgLCodeTheme? codeTheme;
+
+  TextStyle _styleFor(OgLCodeTokenKind kind, OgLCodeTheme palette) {
     switch (kind) {
       case OgLCodeTokenKind.keyword:
-        return TextStyle(color: scheme.primary, fontWeight: FontWeight.w600);
+        return TextStyle(color: palette.keyword, fontWeight: FontWeight.w700);
       case OgLCodeTokenKind.type:
-        return TextStyle(color: scheme.tertiary);
+        return TextStyle(color: palette.typeName);
       case OgLCodeTokenKind.string:
-        return TextStyle(color: scheme.tertiary);
+        return TextStyle(color: palette.string);
       case OgLCodeTokenKind.comment:
         return TextStyle(
-          color: scheme.outline,
+          color: palette.comment,
           fontStyle: FontStyle.italic,
         );
       case OgLCodeTokenKind.number:
-        return TextStyle(color: scheme.secondary);
+        return TextStyle(color: palette.number);
       case OgLCodeTokenKind.plain:
         return const TextStyle();
     }
@@ -558,10 +682,13 @@ class CodeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final OgLCodeTheme palette =
+        codeTheme ?? OgLCodeTheme.fromScheme(theme.colorScheme);
     final TextStyle base = TextStyle(
       fontFamily: 'monospace',
       fontSize: fontSize,
       height: 1.5,
+      color: palette.foreground,
     );
     // 极端输入护栏：过大退回纯文本，避免生成海量 span / 组件。
     final bool tooLarge = code.length > kOgLCodeHighlightMaxChars;
@@ -573,12 +700,20 @@ class CodeView extends StatelessWidget {
       style: base,
       children: <TextSpan>[
         for (final OgLCodeToken token in tokens)
-          TextSpan(text: token.text, style: _styleFor(token.kind, theme)),
+          TextSpan(text: token.text, style: _styleFor(token.kind, palette)),
       ],
     );
 
     final Widget text = SelectableText.rich(span);
+    return Container(
+      color: palette.background,
+      padding: const EdgeInsets.all(12),
+      child: _framed(text, palette),
+    );
+  }
 
+  /// 组装行号 + 正文（或退回无行号渲染）。
+  Widget _framed(Widget text, OgLCodeTheme palette) {
     if (wrap) {
       return text;
     }
@@ -604,7 +739,12 @@ class CodeView extends StatelessWidget {
           for (int line = 1; line <= lines; line++)
             Text(
               '$line',
-              style: base.copyWith(color: theme.colorScheme.outline),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: fontSize,
+                height: 1.5,
+                color: palette.comment,
+              ),
             ),
         ],
       ),

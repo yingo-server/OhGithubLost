@@ -111,6 +111,20 @@ class AsyncController<T> extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 清空已加载数据与错误（**切换数据维度**时使用）。
+  ///
+  /// 典型场景：仓库浏览器切换目录。若不清空，网络还没返回时界面会继续展示
+  /// **上一个目录**的文件——挂在新路径下看就是"撕裂"。清空后进入明确的
+  /// 加载态，宁可转圈也不展示错误数据。
+  void reset() {
+    _data = null;
+    _error = null;
+    _empty = false;
+    _loading = false;
+    _everLoaded = false;
+    notifyListeners();
+  }
+
   /// 把加载结果压成一句人话（列表给条数、文本给长度、其它给类型）。
   String _summarize(Object? value) {
     if (value == null) {

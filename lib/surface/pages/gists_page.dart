@@ -12,6 +12,8 @@ import '../app/async.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+import 'gist_detail_page.dart';
+import 'new_gist_page.dart';
 
 /// Gist 列表页。
 class GistsPage extends StatefulWidget {
@@ -72,7 +74,44 @@ class _GistsPageState extends State<GistsPage> {
     return files is Map<Object?, Object?> ? files.length : 0;
   }
 
-  Future<void> _open(Map<String, dynamic> gist) async {
+  Future<void> _openDetail(Map<String, dynamic> gist) async {
+    final String id = ghStr(gist, 'id');
+    if (id.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这条 Gist 缺少 id，无法打开')),
+        );
+      }
+      return;
+    }
+    final bool? changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => GistDetailPage(
+          surface: widget.surface,
+          gistId: id,
+        ),
+      ),
+    );
+    if (changed == true && mounted) {
+      await _gistsC().load();
+    }
+  }
+
+  Future<void> _create() async {
+    final bool? created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => NewGistPage(surface: widget.surface),
+      ),
+    );
+    if (created == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已创建 Gist')),
+      );
+      await _gistsC().load();
+    }
+  }
+
+  Future<void> _openInBrowser(Map<String, dynamic> gist) async {
     final String url = ghStr(gist, 'html_url');
     if (url.isEmpty) {
       if (mounted) {
@@ -89,6 +128,11 @@ class _GistsPageState extends State<GistsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Gist 片段')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _create,
+        icon: const Icon(Icons.add),
+        label: const Text('新建'),
+      ),
       body: AsyncView<List<Map<String, dynamic>>>(
         controller: _gistsC(),
         emptyIcon: Icons.article_outlined,
@@ -121,8 +165,12 @@ class _GistsPageState extends State<GistsPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: const Icon(Icons.open_in_new),
-                onTap: () => unawaited(_open(gist)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.open_in_new),
+                  tooltip: '在浏览器打开',
+                  onPressed: () => unawaited(_openInBrowser(gist)),
+                ),
+                onTap: () => unawaited(_openDetail(gist)),
               );
             },
           ),

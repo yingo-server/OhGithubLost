@@ -199,6 +199,11 @@ class _IssuePageState extends State<IssuePage> {
     }
   }
 
+  String _initialOf(String name) {
+    final String trimmed = name.trim();
+    return trimmed.isEmpty ? '?' : trimmed.substring(0, 1).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -210,6 +215,7 @@ class _IssuePageState extends State<IssuePage> {
         title: Text('#$_number', maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Text(title, style: theme.textTheme.titleLarge),
@@ -258,25 +264,46 @@ class _IssuePageState extends State<IssuePage> {
               children: <Widget>[
                 for (final Map<String, dynamic> comment in comments)
                   Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            '${ghLogin(comment)} · '
-                            '${ghDate(comment, 'created_at')}',
-                            style: theme.textTheme.bodySmall,
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Container(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                          child: Row(
+                            children: <Widget>[
+                              CircleAvatar(
+                                radius: 13,
+                                child: Text(
+                                  _initialOf(ghLogin(comment)),
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${ghLogin(comment).isEmpty ? '未知用户' : ghLogin(comment)} · '
+                                  '${ghDate(comment, 'created_at')}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          ReadmeView(
+                        ),
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: ReadmeView(
                             markdown: ghStr(comment, 'body'),
                             onOpenLink: (Uri uri) {
                               unawaited(openExternalLink(uri, tag: '评论'));
                             },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
               ],

@@ -921,6 +921,72 @@ class GhApi implements CacheRemote {
         label: 'GET gists',
       );
 
+  /// 单个 Gist（含文件内容；大文件可能被服务端截断）。
+  Future<Map<String, dynamic>?> gist(String id) =>
+      client.getObject('/gists/$id', label: 'GET gists/$id');
+
+  /// 新建 Gist（`files`: 文件名 → 内容）。
+  Future<Map<String, dynamic>> createGist({
+    required Map<String, String> files,
+    String? description,
+    bool public = false,
+  }) async {
+    final response = await client.send(GhRequest(
+      path: '/gists',
+      method: NetMethod.post,
+      body: <String, Object?>{
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+        'public': public,
+        'files': <String, Object?>{
+          for (final MapEntry<String, String> e in files.entries)
+            e.key: <String, Object?>{'content': e.value},
+        },
+      },
+      label: 'POST gists',
+    ));
+    return response.jsonObject ?? const <String, dynamic>{};
+  }
+
+  /// 更新 Gist。
+  ///
+  /// `files` 中值为 `null` 表示**删除该文件**（GitHub 的语义）。
+  Future<Map<String, dynamic>> updateGist(
+    String id, {
+    String? description,
+    Map<String, String?>? files,
+  }) async {
+    final response = await client.send(GhRequest(
+      path: '/gists/$id',
+      method: NetMethod.patch,
+      body: <String, Object?>{
+        if (description != null) 'description': description,
+        if (files != null)
+          'files': <String, Object?>{
+            for (final MapEntry<String, String?> e in files.entries)
+              e.key: e.value == null ? null : <String, Object?>{'content': e.value},
+          },
+      },
+      label: 'PATCH gists/$id',
+    ));
+    return response.jsonObject ?? const <String, dynamic>{};
+  }
+
+  /// 删除 Gist。
+  Future<void> deleteGist(String id) => client.send(GhRequest(
+        path: '/gists/$id',
+        method: NetMethod.delete,
+        label: 'DELETE gists/$id',
+      ));
+
+  /// 读取任意纯文本 URL（Gist `raw_url`、原始文件等）。
+  Future<String> rawText(String url) async {
+    final response = await client.send(
+      GhRequest(path: url, label: 'GET raw'),
+    );
+    return response.body;
+  }
+
   /// Actions 运行列表。
   Future<List<Map<String, dynamic>>> workflowRuns(
     String fullName, {
@@ -940,6 +1006,49 @@ class GhApi implements CacheRemote {
         .map(Map<String, dynamic>.from)
         .toList();
   }
+
+  /// 单个 Actions 运行详情。
+  Future<Map<String, dynamic>?> workflowRun(String fullName, int runId) =>
+      client.getObject(
+        '/repos/$fullName/actions/runs/$runId',
+        label: 'GET actions/runs/$runId',
+      );
+
+  /// Actions 运行的作业列表（含步骤）。
+  Future<List<Map<String, dynamic>>> workflowRunJobs(
+    String fullName,
+    int runId,
+  ) async {
+    final object = await client.getObject(
+      '/repos/$fullName/actions/runs/$runId/jobs',
+      query: const <String, String>{'per_page': '50'},
+      label: 'GET actions/runs/$runId/jobs',
+    );
+    final jobs = object?['jobs'];
+    if (jobs is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+    return jobs
+        .whereType<Map<Object?, Object?>>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+  }
+
+  /// 重新运行一次工作流（**写操作**）。
+  Future<void> rerunWorkflowRun(String fullName, int runId) =>
+      client.send(GhRequest(
+        path: '/repos/$fullName/actions/runs/$runId/rerun',
+        method: NetMethod.post,
+        label: 'POST actions/runs/$runId/rerun',
+      ));
+
+  /// 取消一次运行中的工作流（**写操作**）。
+  Future<void> cancelWorkflowRun(String fullName, int runId) =>
+      client.send(GhRequest(
+        path: '/repos/$fullName/actions/runs/$runId/cancel',
+        method: NetMethod.post,
+        label: 'POST actions/runs/$runId/cancel',
+      ));
 
   /// 标签列表。
   Future<List<Map<String, dynamic>>> labels(String fullName) =>

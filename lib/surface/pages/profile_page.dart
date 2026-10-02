@@ -70,6 +70,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _refresh() async {
     await _accountsC().load();
+    // 会话里的账号信息必须跟着切换走，否则中枢层仍认为自己还是旧账号。
+    await widget.surface.domain.session.refreshAccount();
     await widget.onAccountsChanged();
   }
 
@@ -88,6 +90,16 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
       OgLAppLog.instance.result('账户', '已切换', '@${account.login}');
+      // 多用户安全：缓存不含账号维度，切换后必须清空，避免串台。
+      try {
+        await widget.surface.clearRepositoryCache();
+      } catch (error) {
+        OgLAppLog.instance.add(
+          '账户',
+          '清空仓库缓存失败（不影响当前登录）：$error',
+          severity: OgLNoticeSeverity.warning,
+        );
+      }
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(
@@ -130,6 +142,15 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await widget.surface.domain.auth.removeAccount(account.id);
       OgLAppLog.instance.result('账户', '已移除', '@${account.login}');
+      try {
+        await widget.surface.clearRepositoryCache();
+      } catch (error) {
+        OgLAppLog.instance.add(
+          '账户',
+          '清空仓库缓存失败（不影响操作）：$error',
+          severity: OgLNoticeSeverity.warning,
+        );
+      }
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(

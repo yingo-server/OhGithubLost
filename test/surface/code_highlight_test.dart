@@ -114,4 +114,68 @@ void main() {
       expect(find.text('3'), findsOneWidget);
     });
   });
+
+  group('ogLCodeThemeFor 预设', () {
+    const ColorScheme scheme = ColorScheme.light();
+
+    test('高对比 / 柔和使用固定预设', () {
+      final OgLCodeTheme high = ogLCodeThemeFor(
+        preset: kOgLCodePresetHighContrast,
+        scheme: scheme,
+        customBackground: 0,
+        customForeground: 0,
+        customKeyword: 0,
+        customTypeName: 0,
+        customString: 0,
+        customComment: 0,
+        customNumber: 0,
+      );
+      expect(high.background, kOgLCodeThemeHighContrast.background);
+
+      final OgLCodeTheme soft = ogLCodeThemeFor(
+        preset: kOgLCodePresetSoft,
+        scheme: scheme,
+        customBackground: 0,
+        customForeground: 0,
+        customKeyword: 0,
+        customTypeName: 0,
+        customString: 0,
+        customComment: 0,
+        customNumber: 0,
+      );
+      expect(soft.background, kOgLCodeThemeSoft.background);
+    });
+
+    test('自定义预设使用传入颜色', () {
+      final OgLCodeTheme custom = ogLCodeThemeFor(
+        preset: kOgLCodePresetCustom,
+        scheme: scheme,
+        customBackground: 0xFF101010,
+        customForeground: 0xFFEEEEEE,
+        customKeyword: 0xFF112233,
+        customTypeName: 0xFF223344,
+        customString: 0xFF334455,
+        customComment: 0xFF445566,
+        customNumber: 0xFF556677,
+      );
+      expect(custom.background, const Color(0xFF101010));
+      expect(custom.keyword, const Color(0xFF112233));
+      expect(custom.number, const Color(0xFF556677));
+    });
+
+    test('未知预设回落主题派生', () {
+      final OgLCodeTheme fallback = ogLCodeThemeFor(
+        preset: 'bogus',
+        scheme: scheme,
+        customBackground: 0,
+        customForeground: 0,
+        customKeyword: 0,
+        customTypeName: 0,
+        customString: 0,
+        customComment: 0,
+        customNumber: 0,
+      );
+      expect(fallback.background, scheme.surfaceContainerHighest);
+    });
+  });
 }

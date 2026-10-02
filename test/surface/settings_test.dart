@@ -85,6 +85,8 @@ void main() {
       expect(s.codeHighlight, isTrue);
       expect(s.codeFontSize, 13);
       expect(s.codeWrap, isFalse);
+      expect(s.codeThemePreset, 'theme');
+      expect(s.codeColorKeyword, 0xFF569CD6);
       expect(s.onboardingDone, isFalse);
     });
 
@@ -121,6 +123,8 @@ void main() {
         codeHighlight: false,
         codeFontSize: 18,
         codeWrap: true,
+        codeThemePreset: 'custom',
+        codeColorKeyword: 0xFF112233,
         onboardingDone: true,
       );
       final OgLSettings back = OgLSettings.fromJson(jsonDecode(s.encode()));
@@ -132,6 +136,8 @@ void main() {
       expect(back.codeHighlight, isFalse);
       expect(back.codeFontSize, 18);
       expect(back.codeWrap, isTrue);
+      expect(back.codeThemePreset, 'custom');
+      expect(back.codeColorKeyword, 0xFF112233);
       expect(back.onboardingDone, isTrue);
     });
   });

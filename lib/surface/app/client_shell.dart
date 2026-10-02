@@ -124,7 +124,10 @@ class _OgLClientShellState extends State<OgLClientShell> {
           surface: widget.surface,
         );
       case OgLShellTab.search:
-        return SearchPage(surface: widget.surface);
+        return SearchPage(
+          key: ValueKey<String>('search-${_accountId ?? 'guest'}'),
+          surface: widget.surface,
+        );
       case OgLShellTab.profile:
         return ProfilePage(surface: widget.surface, onAccountsChanged: _check);
       case OgLShellTab.settings:
