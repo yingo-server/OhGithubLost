@@ -51,6 +51,23 @@ class ChaosRemote implements CacheRemote {
   Future<RemoteDocument?> read(CacheKey key) async => store[key.encode()];
 
   @override
+  Future<void> delete(
+    CacheKey key, {
+    required String message,
+    required String expectedSha,
+  }) async {
+    final RemoteDocument? current = store[key.encode()];
+    if (current == null || current.sha != expectedSha) {
+      throw RemoteConflictException(
+        statusCode: 409,
+        currentSha: current?.sha,
+        message: '基线过期',
+      );
+    }
+    store.remove(key.encode());
+  }
+
+  @override
   Future<RemoteDocument> write(
     CacheKey key,
     String content, {

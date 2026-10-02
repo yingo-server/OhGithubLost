@@ -214,7 +214,11 @@ class _RepoPageState extends State<RepoPage> {
               fullName: _full,
               defaultBranch: _repo.defaultBranch,
             ),
-            _ActionsTab(surface: widget.surface, fullName: _full),
+            _ActionsTab(
+              surface: widget.surface,
+              fullName: _full,
+              defaultBranch: _repo.defaultBranch,
+            ),
             _RepoSettingsTab(
               surface: widget.surface,
               repo: _repo,
@@ -2034,10 +2038,15 @@ class _CommitsTabState extends State<_CommitsTab> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ActionsTab extends StatefulWidget {
-  const _ActionsTab({required this.surface, required this.fullName});
+  const _ActionsTab({
+    required this.surface,
+    required this.fullName,
+    required this.defaultBranch,
+  });
 
   final SurfaceBridge surface;
   final String fullName;
+  final String defaultBranch;
 
   @override
   State<_ActionsTab> createState() => _ActionsTabState();
