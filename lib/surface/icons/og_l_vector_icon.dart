@@ -151,10 +151,6 @@ Path ogLParseVectorPath(String d) {
           y = v;
           path.lineTo(x, y);
         }
-      case 'Z':
-        path.close();
-        x = startX;
-        y = startY;
       default:
         break;
     }
@@ -167,7 +163,13 @@ Path ogLParseVectorPath(String d) {
       flush();
       cmd = s.toUpperCase();
       if (cmd == 'Z') {
-        flush();
+        // ★ `Z`（闭合）**不带参数**：必须在这里**立即闭合**。
+        // 旧实现把它排进 `flush()` 的待处理队列，而 `flush()` 对空参数
+        // 直接 return —— 结果是全部 47 个图标的闭合边**从来没有被画出来**
+        // （线框风格下肉眼可见"缺一条边"；实心填充因自动闭合而侥幸掩盖）。
+        path.close();
+        x = startX;
+        y = startY;
       }
     } else {
       nums.add(double.parse(s));

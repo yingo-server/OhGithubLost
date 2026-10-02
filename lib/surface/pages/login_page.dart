@@ -66,6 +66,9 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
   }
 
   Future<void> _login() async {
+    if (_busy) {
+      return; // 回车连按 / 与按钮互斥：防双重提交
+    }
     final String raw = _input.text.trim();
     if (raw.isEmpty) {
       setState(() => _error = '请先粘贴个人访问令牌');
@@ -74,7 +77,7 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
     final GhToken token = GhToken(raw);
     if (!token.looksValid) {
       setState(
-        () => _error = '形态不像 GitHub 令牌（应以 ghp_ / gho_ / github_pat_ 开头）',
+        () => _error = '形态不像 GitHub 令牌（应以 ghp_ / gho_ / ghu_ / github_pat_ 等开头）',
       );
       return;
     }
@@ -144,6 +147,20 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
         '失败（原始异常）：$error\n$stackTrace',
         severity: OgLNoticeSeverity.critical,
       );
+      // ★ 清理"待验证"半成品：若失败时激活的仍是占位账户，
+      // 连同它的令牌一起删除——否则下次启动会把「（待验证）」当成
+      // "已登录"（跳过登录门、每个请求 401，用户看到的是"登录状态坏了"）。
+      try {
+        if (await auth.activeAccountId() == pendingId) {
+          await auth.removeAccount(pendingId);
+        }
+      } catch (cleanupError) {
+        OgLAppLog.instance.add(
+          '登录',
+          '清理待验证账户失败：$cleanupError',
+          severity: OgLNoticeSeverity.warning,
+        );
+      }
       if (mounted) {
         setState(() {
           _error = '验证失败：$error';

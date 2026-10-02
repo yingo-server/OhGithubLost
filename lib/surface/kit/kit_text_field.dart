@@ -73,6 +73,11 @@ class OgLTextField extends StatelessWidget {
     final scale = const OgLTypeScale.standard();
     final radius = ogL.tokens.radius(OgLRadius.medium);
     final Color stroke = error != null ? palette.danger : palette.border;
+    // 聚焦描边同样要"感知错误"：`InputDecoration` 的 hasError 由 `errorText`
+    // 决定，而本组件的错误文本是自定义渲染的（不传 errorText）——
+    // 因此 `errorBorder` / `focusedErrorBorder` 永远不会被框架采用。
+    // 与其留两条死配置，不如把颜色判断直接做进可生效的边框里。
+    final Color focusStroke = error != null ? palette.danger : palette.accent;
     final iconName = leadingIcon;
 
     final Widget field = TextField(
@@ -118,24 +123,13 @@ class OgLTextField extends StatelessWidget {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
           borderSide: BorderSide(
-            color: palette.accent,
+            color: focusStroke,
             width: tokens.stroke(OgLStroke.thin),
           ),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
           borderSide: BorderSide(color: palette.border, width: tokens.hairline),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: BorderSide(color: palette.danger, width: tokens.hairline),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: BorderSide(
-            color: palette.danger,
-            width: tokens.stroke(OgLStroke.thin),
-          ),
         ),
       ),
     );

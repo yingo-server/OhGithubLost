@@ -343,12 +343,47 @@ class RepositoryCache {
         removed++;
       }
     }
+    // 补一刀：清掉一切"没有索引引用"的孤儿内容文件——
+    // 它们来自 `_saveLocal` / `_evictEncoded` 中断在半路（blob 已写、索引未动）
+    // 或坏索引被清理的时刻。没有这一步，这些文件会永远占着磁盘。
+    removed += await purgeOrphans();
     _diagnostics.info(
       'CACHE',
       '缓存已清空',
       code: 'OGL-CONS-003',
       data: <String, Object?>{'removed': removed},
     );
+    return removed;
+  }
+
+  /// 清掉孤儿 blob（无索引引用的内容文件），返回删除数量。
+  ///
+  /// 与 [purge] 的区别：本方法**只删孤儿**，不触碰仍被索引引用的有效缓存。
+  /// 判定依据是"文件名是否出现在现存索引集合中"——反向（索引在、文件丢）
+  /// 由 [_loadLocal] 在读取时自愈。
+  Future<int> purgeOrphans() async {
+    final referenced = <String>{
+      for (final meta in await _scanMetas()) '${meta.encoded}.txt',
+    };
+    var removed = 0;
+    for (final name in await _blobs.list('cache')) {
+      if (!name.endsWith('.txt')) {
+        continue; // 只认 blob 的命名习惯，其它文件一律不动（保守）。
+      }
+      if (referenced.contains(name)) {
+        continue;
+      }
+      await _blobs.delete('$_blobPrefix$name');
+      removed++;
+    }
+    if (removed > 0) {
+      _diagnostics.info(
+        'CACHE',
+        '孤儿缓存文件已清理',
+        code: 'OGL-CONS-004',
+        data: <String, Object?>{'removed': removed},
+      );
+    }
     return removed;
   }
 

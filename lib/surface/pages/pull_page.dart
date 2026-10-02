@@ -26,6 +26,7 @@ import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 import '../util/gh_view_format.dart';
+import 'repo_page.dart';
 
 /// PR 详情页。
 class OgLPullPage extends StatefulWidget {
@@ -97,6 +98,25 @@ class _OgLPullPageState extends State<OgLPullPage> {
         SnackBar(content: Text('无法打开浏览器，链接：$url')),
       );
     }
+  }
+
+  /// 在仓库页打开某个变更文件（旧描述承诺"点行看差异"但行不可点——补上）。
+  Future<void> _openFile(String filename) async {
+    if (filename.isEmpty) {
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLRepoPage(
+          surface: widget.surface,
+          // 最小仓库对象：仓库页会自行补齐缺字段（不猜默认分支）。
+          repo: GhRepo.fromJson(
+            <String, dynamic>{'full_name': widget.fullName},
+          ),
+          initialPath: filename,
+        ),
+      ),
+    );
   }
 
   /// 来源分支名（`head` 在 GitHub 的响应里是对象，不是字符串）。
@@ -211,7 +231,7 @@ class _OgLPullPageState extends State<OgLPullPage> {
               ),
               OgLSection(
                 title: '变更文件',
-                description: '点行查看该文件的差异（在仓库页的文件视图里）',
+                description: '点行在仓库页打开该文件；差异细节请在 GitHub 网页端查看',
                 child: ogLAsyncView<List<Map<String, dynamic>>>(
                   state: state,
                   onRetry: () async {
@@ -252,7 +272,13 @@ class _OgLPullPageState extends State<OgLPullPage> {
                               ],
                             ),
                             dense: true,
+                            showChevron: true,
                             showDivider: i != files.length - 1,
+                            onTap: () async {
+                              await _openFile(
+                                GhJson.str(files[i], 'filename'),
+                              );
+                            },
                           ),
                       ],
                     ),

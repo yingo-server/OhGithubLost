@@ -28,6 +28,7 @@ import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 import 'client_shell.dart';
 import 'error_surface.dart';
+import 'keyboard_guard.dart';
 
 /// 设置页：DNS 服务器展示名（与 base 层内置表一一对应）。
 const Map<String, String> _dnsChoiceLabels = <String, String>{
@@ -49,6 +50,14 @@ class OgLApp extends StatelessWidget {
   /// 启动报告。
   final KernelReport report;
 
+  /// 应用根 Navigator 的 key。
+  ///
+  /// 错误弹窗宿主（[OgLNoticeHost]）挂在 `MaterialApp.builder`，
+  /// 该层 context 在 Navigator **之上**——`showDialog` 必须借这个 key 的
+  /// context 才能工作（否则 critical 弹窗会抛 "does not include a Navigator"）。
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: surface.settings,
@@ -58,6 +67,7 @@ class OgLApp extends StatelessWidget {
             return MaterialApp(
               title: 'OhGithubLost',
               debugShowCheckedModeBanner: false,
+              navigatorKey: navigatorKey,
               // 桌面：鼠标/触控板可拖拽滚动（Flutter 默认只认触摸）。
               scrollBehavior: const OgLScrollBehavior(),
               // 全局兜底：无论系统把字号调到多大，都不允许突破这两个边界。
@@ -67,9 +77,14 @@ class OgLApp extends StatelessWidget {
                   MediaQuery.withClampedTextScaling(
                 minScaleFactor: 0.85,
                 maxScaleFactor: 2,
-                // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
-                child: OgLNoticeHost(
-                  child: child ?? const SizedBox.shrink(),
+                // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
+                // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
+                child: OgLKeyboardGuard(
+                  // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
+                  child: OgLNoticeHost(
+                    navigatorKey: navigatorKey,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
               theme: surface.themeFor(

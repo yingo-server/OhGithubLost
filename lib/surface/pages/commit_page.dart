@@ -342,13 +342,17 @@ class _PatchView extends StatelessWidget {
                   TextSpan(
                     text: '$line\n',
                     style: base.copyWith(
-                      color: line.startsWith('+')
-                          ? ogL.palette.success
-                          : line.startsWith('-')
-                              ? ogL.palette.danger
-                              : line.startsWith('@@')
-                                  ? ogL.palette.textFaint
-                                  : ogL.palette.text,
+                      // 先处理 diff 文件头（`---` / `+++`）：
+                      // 它们以 - / + 开头但**不是**增删行，误染会让人误读。
+                      color: line.startsWith('+++') || line.startsWith('---')
+                          ? ogL.palette.textFaint
+                          : line.startsWith('+')
+                              ? ogL.palette.success
+                              : line.startsWith('-')
+                                  ? ogL.palette.danger
+                                  : line.startsWith('@@')
+                                      ? ogL.palette.textFaint
+                                      : ogL.palette.text,
                     ),
                   ),
               ],

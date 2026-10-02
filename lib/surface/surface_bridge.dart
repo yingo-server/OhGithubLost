@@ -94,8 +94,14 @@ class SurfaceBridge {
         textScale: viewport.textScale,
         pointer: viewport.pointer,
         hairline: viewport.hairline,
-        // 视口里已经带上了系统的"减少动态效果"，直接用，不要再查一遍。
+        // 视口里已经带上了系统的"减少动效"，直接用，不要再查一遍。
         reducedMotion: viewport.reducedMotion,
+        // 用户级动效策略（完整 / 克制 / 关闭）——**必须进令牌**：
+        // `tokens.motion()` 是组件动效时长的唯一出口，
+        // 只把策略塞进主题扩展（无人读取）等于"设置点了没反应"。
+        motionPolicy: settings.settings.motion.resolve(
+          systemReduced: viewport.reducedMotion,
+        ),
       );
 
   /// 当前设置下的主题包。

@@ -155,26 +155,37 @@ class OgLButton extends StatelessWidget {
       label: label,
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: enabled ? onPressed : null,
-          child: SizedBox(
-            height: tokens.targetSize,
-            child: Center(
-              child: Container(
-                height: height,
-                padding:
-                    EdgeInsets.symmetric(horizontal: ogL.tokens.space(hPad)),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(
-                    ogL.tokens.radius(OgLRadius.medium),
+        child: Material(
+          // transparency：只借 InkWell 的交互反馈（hover / press / focus），
+          // 视觉仍完全由下层 Container 决定（不引入 Material 观感）。
+          // 没有它，桌面用户划过按钮"毫无反应"（设计规范 fast 档形同虚设）。
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            hoverColor: ogL.palette.selection,
+            focusColor: ogL.palette.selection,
+            highlightColor: ogL.palette.selection,
+            borderRadius: BorderRadius.circular(
+              ogL.tokens.radius(OgLRadius.medium),
+            ),
+            child: SizedBox(
+              height: tokens.targetSize,
+              child: Center(
+                child: Container(
+                  height: height,
+                  padding:
+                      EdgeInsets.symmetric(horizontal: ogL.tokens.space(hPad)),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(
+                      ogL.tokens.radius(OgLRadius.medium),
+                    ),
+                    border:
+                        Border.all(color: border, width: ogL.tokens.hairline),
                   ),
-                  border:
-                      Border.all(color: border, width: ogL.tokens.hairline),
+                  child: row,
                 ),
-                child: row,
               ),
             ),
           ),

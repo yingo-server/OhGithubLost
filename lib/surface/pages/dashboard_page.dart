@@ -80,7 +80,18 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
   }
 
   Future<void> _prepare() async {
-    final GhAccount? account = await widget.surface.domain.auth.activeAccount();
+    GhAccount? account;
+    try {
+      account = await widget.surface.domain.auth.activeAccount();
+    } catch (error) {
+      // 存储读取失败不能把首页卡在"启动中"骨架：按未登录处理并留痕。
+      OgLAppLog.instance.add(
+        '首页',
+        '账户读取失败（按未登录处理）：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+      account = null;
+    }
     if (!mounted) {
       return;
     }

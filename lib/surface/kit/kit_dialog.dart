@@ -175,6 +175,9 @@ class _OgLPromptDialogState extends State<OgLPromptDialog> {
         label: widget.label,
         hint: widget.hint,
         error: _error,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (String _) => _confirm(),
         onChanged: (String _) {
           if (_error != null) {
             setState(() => _error = null);

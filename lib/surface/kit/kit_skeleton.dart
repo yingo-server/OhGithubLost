@@ -36,7 +36,7 @@ class _OgLSkeletonBoxState extends State<OgLSkeletonBox>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
+  );
 
   @override
   void dispose() {
@@ -51,7 +51,14 @@ class _OgLSkeletonBoxState extends State<OgLSkeletonBox>
     final highlight = ogL.palette.border;
     final radius = widget.radius ?? ogL.tokens.radius(OgLRadius.sm);
     if (ogL.tokens.reducedMotion) {
+      // "减少动效"不仅不显示动画，也**不应在后台空转**（省电 + 省帧）。
+      if (_controller.isAnimating) {
+        _controller.stop();
+      }
       return _buildBox(base, radius);
+    }
+    if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
     }
     return AnimatedBuilder(
       animation: _controller,

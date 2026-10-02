@@ -638,7 +638,12 @@ TextTheme _textTheme(OgLPalette palette, OgLTokens tokens, bool monoFirst) {
         fontWeight: FontWeight.values[(token.weight ~/ 100 - 1).clamp(0, 8)],
         letterSpacing: token.letterSpacing,
         color: color ?? palette.text,
-        fontFamily: monoFirst == token.mono ? kOgLMonoFamily : null,
+        // 等宽只给两类：① 主题声明"等宽优先"（monoFirst，极客风）；
+        // ② token 本身是代码 / 数据档（token.mono）。
+        // 注意：**不能写 `monoFirst == token.mono`** —— 那会把"非等宽"
+        // 渲染成等宽、把"等宽"渲染成默认字体（两套内置主题全部中招，
+        // 表现为"整个应用的正文都像代码"）。
+        fontFamily: (monoFirst || token.mono) ? kOgLMonoFamily : null,
       );
 
   final scale = const OgLTypeScale.standard();

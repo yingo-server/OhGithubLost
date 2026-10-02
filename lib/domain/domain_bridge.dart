@@ -9,12 +9,12 @@
 /// 3. **`kernel.probes`**：各层把自己的自检项挂上去，启动报告才看得见全貌。
 library;
 
-import '../../base/base_bridge.dart';
-import '../../base/net/net_bridge.dart';
-import '../../base/net/net_transport.dart';
-import '../../kernel/bridge_registry.dart';
-import '../../kernel/contract/module.dart';
-import '../../kernel/environment.dart';
+import '../base/base_bridge.dart';
+import '../base/net/net_bridge.dart';
+import '../base/net/net_transport.dart';
+import '../kernel/bridge_registry.dart';
+import '../kernel/contract/module.dart';
+import '../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';

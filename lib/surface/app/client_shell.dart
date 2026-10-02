@@ -24,6 +24,7 @@ import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'error_surface.dart';
 import 'og_l_app.dart';
 
 /// 壳内的五个页面（导航值）。
@@ -118,14 +119,27 @@ class _OgLClientShellState extends State<OgLClientShell> {
   }
 
   Future<void> _check() async {
-    final account = await widget.surface.domain.auth.activeAccount();
+    String? accountId;
+    try {
+      final account = await widget.surface.domain.auth.activeAccount();
+      accountId = account?.id;
+    } catch (error) {
+      // 读取失败不能把应用卡在"启动中…"（没有恢复路径）：
+      // 按未登录处理并留痕，用户至少能到达登录门 / 游客模式。
+      OgLAppLog.instance.add(
+        '账户',
+        '启动时账户读取失败（按未登录处理）：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+      accountId = null;
+    }
     if (!mounted) {
       return;
     }
     setState(() {
-      _accountId = account?.id;
+      _accountId = accountId;
       _checked = true;
-      if (account != null) {
+      if (accountId != null) {
         _guest = false;
       }
     });

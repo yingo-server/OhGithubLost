@@ -30,10 +30,17 @@ class GhToken {
       ? '****'
       : '${value.substring(0, 4)}****${value.substring(value.length - 4)}';
 
-  /// 形态是否像 GitHub 令牌（`ghp_` / `gho_` / `github_pat_`）。
+  /// 形态是否像 GitHub 令牌。
+  ///
+  /// 覆盖 GitHub 当前全部公开前缀：
+  /// `ghp_`（个人）/ `gho_`（OAuth）/ `ghu_`（用户到服务器）/
+  /// `ghs_`（服务器到服务器）/ `ghr_`（刷新）/ `github_pat_`（细粒度）。
   bool get looksValid =>
       value.startsWith('ghp_') ||
       value.startsWith('gho_') ||
+      value.startsWith('ghu_') ||
+      value.startsWith('ghs_') ||
+      value.startsWith('ghr_') ||
       value.startsWith('github_pat_');
 
   /// **只暴露脱敏形态**。

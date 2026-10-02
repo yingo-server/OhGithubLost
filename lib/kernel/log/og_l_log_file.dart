@@ -89,11 +89,17 @@ abstract final class OgLLogFile {
 
   /// 写一行原始文本（**已带时间戳的完整行**）。
   static void raw(String text) {
+    if (_sink == null) {
+      return;
+    }
+    // 先处理跨天切换：切换成功后 `_sink` 已指向新文件，
+    // 因此下面**必须重新取一次**句柄，不能沿用进入时的旧引用
+    // （否则跨天后的第一行会写向已关闭的旧句柄，静默丢失）。
+    ensureCurrentDay();
     final IOSink? sink = _sink;
     if (sink == null) {
       return;
     }
-    ensureCurrentDay();
     try {
       sink.writeln(text);
       // 排队 flush：不阻塞调用方，但保证"写过的行"尽快落盘。
@@ -159,6 +165,11 @@ abstract final class OgLLogFile {
   }
 
   /// 跨天时自动切到新文件（每次写入前检查，代价可忽略）。
+  ///
+  /// 顺序要点：**先把新句柄装好，再关闭旧句柄**——
+  /// 反过来的话，切换瞬间正要写的那一行会落到已关闭的旧句柄上（静默丢失）。
+  /// `_open` 失败时（如磁盘满）：旧句柄保持可用（未关），日志继续写旧文件，
+  /// 错误记入 [lastError]，下一条日志会再次尝试切换。
   static void ensureCurrentDay() {
     final IOSink? sink = _sink;
     final String? dir = _dirPath;
@@ -173,13 +184,20 @@ abstract final class OgLLogFile {
     final String next = '$dir/$prefix-$today.log';
     try {
       sink.flush();
-      sink.close();
     } catch (_) {
-      // 忽略：下面重新打开。
+      // 旧句柄 flush 失败不阻断切换。
     }
+    // `_open` 的函数体同步执行：返回时 `_sink` / `_dayStamp` 已切到新文件；
+    // 任何异步失败（探针写失败等）落在 future 上，由下面收尾。
     _open(next).then((_) {
       _filePath = next;
+      try {
+        sink.close();
+      } catch (_) {
+        // 旧句柄关闭失败不影响新句柄继续写。
+      }
     }).catchError((Object error) {
+      // 切换失败：保持旧句柄继续用（不能丢日志）；下一条写入会再次尝试。
       _lastError = '$error';
     });
   }

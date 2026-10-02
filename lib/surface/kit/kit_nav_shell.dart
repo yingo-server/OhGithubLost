@@ -493,17 +493,24 @@ class OgLIconButton extends StatelessWidget {
         label: label,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Container(
-              width: tokens.targetSize,
-              height: tokens.targetSize,
-              alignment: Alignment.center,
-              child: OgLIcon(
-                name: icon,
-                size: tokens.iconSize(base: 20),
-                color: danger ? ogL.palette.danger : ogL.palette.textDim,
+          child: Material(
+            // 与 OgLButton 同款：借 InkWell 拿 hover / press / focus 反馈。
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              hoverColor: ogL.palette.selection,
+              focusColor: ogL.palette.selection,
+              highlightColor: ogL.palette.selection,
+              child: Container(
+                width: tokens.targetSize,
+                height: tokens.targetSize,
+                alignment: Alignment.center,
+                child: OgLIcon(
+                  name: icon,
+                  size: tokens.iconSize(base: 20),
+                  color: danger ? ogL.palette.danger : ogL.palette.textDim,
+                ),
               ),
             ),
           ),

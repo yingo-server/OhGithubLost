@@ -73,7 +73,15 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
   }
 
   Future<void> _prepare() async {
-    _activeId = await widget.surface.domain.auth.activeAccountId();
+    try {
+      _activeId = await widget.surface.domain.auth.activeAccountId();
+    } catch (error) {
+      OgLAppLog.instance.add(
+        '账户',
+        '激活账户读取失败：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
     await _accountsC().loadIfNeeded();
   }
 

@@ -211,7 +211,8 @@ class DioNetTransport implements NetTransport {
 
   static NetException _translate(DioException error) {
     final status = error.response?.statusCode;
-    final retryAfter = _parseRetryAfter(error.response?.headers.value('retry-after'));
+    final retryAfter =
+        parseRetryAfterHeader(error.response?.headers.value('retry-after'));
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -270,24 +271,6 @@ class DioNetTransport implements NetTransport {
           statusCode: status,
           cause: error,
         );
-    }
-  }
-
-  /// 解析 `Retry-After`（秒数或 HTTP 日期；无法解析时返回 `null`）。
-  static Duration? _parseRetryAfter(String? raw) {
-    if (raw == null || raw.isEmpty) {
-      return null;
-    }
-    final seconds = int.tryParse(raw.trim());
-    if (seconds != null) {
-      return Duration(seconds: seconds);
-    }
-    try {
-      final target = DateTime.parse(raw);
-      final delta = target.difference(DateTime.now());
-      return delta.isNegative ? null : delta;
-    } catch (_) {
-      return null;
     }
   }
 }

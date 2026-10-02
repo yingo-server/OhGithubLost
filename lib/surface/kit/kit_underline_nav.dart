@@ -133,11 +133,11 @@ class _OgLUnderlineNavEntry<T> extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  // Primer：选中下划线用 borderColor-active（发丝字重 2px）。
+                  // Primer：选中下划线用 borderColor-active（2px 档）。
                   color: selected
                       ? palette.borderActive
                       : const Color(0x00000000),
-                  width: 2,
+                  width: tokens.stroke(OgLStroke.thick),
                 ),
               ),
             ),

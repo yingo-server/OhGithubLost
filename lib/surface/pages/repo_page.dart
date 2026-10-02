@@ -507,6 +507,16 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         text = await widget.surface.domain.api
             .blobText(_full, file.sha);
       }
+      // ★ 二进制防护：图片 / 压缩包等经 base64 → UTF-8 解码会得到
+      // 带替换字符（U+FFFD）的"乱码文本"。这种内容**不允许进入编辑**
+      // —— 否则"提交"会把乱码按 UTF-8 重新编码写回，直接损坏原文件。
+      if (text != null && text.contains('\uFFFD')) {
+        OgLAppLog.instance.add(
+          '文件',
+          '${entry.path} 看起来是二进制文件（含替换字符），已禁用编辑。',
+        );
+        text = null;
+      }
       if (!mounted) {
         return;
       }
@@ -1008,18 +1018,24 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           spacing: tokens.space(OgLSpacing.sm),
           runSpacing: tokens.space(OgLSpacing.sm),
           children: <Widget>[
+            // 无文本内容（二进制 / 体积受限）= 不允许进入编辑：
+            // 编辑并提交会把乱码重编码写回，损坏原文件（见 _openFile 防护）。
             OgLButton(
-              label: _editing ? '取消编辑' : '编辑',
+              label: _editing
+                  ? '取消编辑'
+                  : (_fileText == null ? '不可编辑' : '编辑'),
               variant: _editing
                   ? OgLButtonVariant.standard
                   : OgLButtonVariant.primary,
               leadingIcon: OgLIconName.edit,
-              onPressed: () {
-                setState(() {
-                  _editing = !_editing;
-                  _fileError = null;
-                });
-              },
+              onPressed: (_fileText == null && !_editing)
+                  ? null
+                  : () {
+                      setState(() {
+                        _editing = !_editing;
+                        _fileError = null;
+                      });
+                    },
             ),
             OgLButton(
               label: '删除',

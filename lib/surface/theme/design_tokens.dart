@@ -242,6 +242,7 @@ class OgLTokens {
     required this.pointer,
     required this.hairline,
     this.reducedMotion = false,
+    this.motionPolicy = OgLMotionPolicy.full,
   });
 
   /// 从"环境"解析出令牌。
@@ -249,12 +250,15 @@ class OgLTokens {
   /// [textScale] 会被夹紧到 `[0.85, 2.0]`：系统给 3.0 时布局必然崩，
   /// 与其悄悄错位，不如夹紧并让界面自己截断（[maxLinesHint]）。
   /// [reducedMotion] 为真时动效全部置零（系统级无障碍开关）。
+  /// [motionPolicy] 为用户级动效策略（设置页"动效：完整 / 克制 / 关闭"）——
+  /// 必须经这里进入令牌，否则设置只是"存了不用"（点了没反应）。
   factory OgLTokens.resolve({
     OgLDensity density = OgLDensity.standard,
     double textScale = 1,
     OgLPointerKind pointer = OgLPointerKind.touch,
     double hairline = OgLStroke.hairline,
     bool reducedMotion = false,
+    OgLMotionPolicy motionPolicy = OgLMotionPolicy.full,
   }) =>
       OgLTokens(
         density: density,
@@ -262,6 +266,7 @@ class OgLTokens {
         pointer: pointer,
         hairline: hairline,
         reducedMotion: reducedMotion,
+        motionPolicy: motionPolicy,
       );
 
   static const double _minTextScale = 0.85;
@@ -281,6 +286,9 @@ class OgLTokens {
 
   /// 是否减少动效。
   final bool reducedMotion;
+
+  /// 用户级动效策略（"完整 / 克制 / 关闭"）。
+  final OgLMotionPolicy motionPolicy;
 
   /// 间距缩放。
   double space(double base) => base * density.scale;
@@ -319,16 +327,22 @@ class OgLTokens {
   /// 而不是让排版溢出。
   int get maxLinesHint => textScale >= 1.6 ? 2 : 3;
 
-  /// 动效时长（受"减少动效"与密度共同影响）。
+  /// 动效时长（受"减少动效"、用户策略与密度共同影响）。
+  ///
+  /// 优先级：系统级"减少动效" > 用户策略（关闭 → 归零；克制 → 时长缩至 60%）
+  /// > 密度（紧凑档再快一档）。
   Duration motion(Duration base) {
-    if (reducedMotion) {
+    if (reducedMotion || motionPolicy == OgLMotionPolicy.none) {
       return OgLDuration.instant;
     }
+    final Duration scaled = motionPolicy == OgLMotionPolicy.subtle
+        ? motionPolicy.scale(base)
+        : base;
     // 紧凑密度暗示"高频操作"，动效再快一档。
-    if (density == OgLDensity.compact && base > OgLDuration.fast) {
-      return Duration(milliseconds: (base.inMilliseconds * 0.8).round());
+    if (density == OgLDensity.compact && scaled > OgLDuration.fast) {
+      return Duration(milliseconds: (scaled.inMilliseconds * 0.8).round());
     }
-    return base;
+    return scaled;
   }
 
   /// 复制并覆盖部分字段。
@@ -338,6 +352,7 @@ class OgLTokens {
     OgLPointerKind? pointer,
     double? hairline,
     bool? reducedMotion,
+    OgLMotionPolicy? motionPolicy,
   }) =>
       OgLTokens(
         density: density ?? this.density,
@@ -345,6 +360,7 @@ class OgLTokens {
         pointer: pointer ?? this.pointer,
         hairline: hairline ?? this.hairline,
         reducedMotion: reducedMotion ?? this.reducedMotion,
+        motionPolicy: motionPolicy ?? this.motionPolicy,
       );
 
   @override

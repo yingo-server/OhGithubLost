@@ -88,6 +88,9 @@ class KernelDi {
         throw KernelDiError('工厂返回类型不匹配: $key');
       }
       _instances[key] = created;
+      // 工厂使命完成：实例已缓存，移除惰性条目——
+      // 否则 describe() 会把同一个键同时列为"实例"和"(factory)"（重复且误导）。
+      _factories.remove(key);
       return created;
     }
     throw KernelDiError('未注册的服务: $key');

@@ -117,8 +117,9 @@ class NetSelfTest {
         lines.add('TLS(原生): 失败 ${swT.elapsedMilliseconds}ms → $error');
       }
       final swH = Stopwatch()..start();
+      HttpClient? hc;
       try {
-        final hc = HttpClient()..connectionTimeout = timeout;
+        hc = HttpClient()..connectionTimeout = timeout;
         final req =
             await hc.getUrl(Uri.parse('https://$host/zen')).timeout(timeout);
         final resp = await req.close().timeout(timeout);
@@ -138,10 +139,12 @@ class NetSelfTest {
         } on Object catch (error) {
           lines.add('HTTP(带凭据头 /user): 失败 → $error');
         }
-        hc.close(force: true);
       } on Object catch (error) {
         swH.stop();
         lines.add('HTTP(dart原生): 失败 ${swH.elapsedMilliseconds}ms → $error');
+      } finally {
+        // 成败都要释放连接池（旧实现只在成功路径关闭，失败一次泄漏一组连接）。
+        hc?.close(force: true);
       }
     }
     return lines.join(' | ');

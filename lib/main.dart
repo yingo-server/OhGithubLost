@@ -184,5 +184,20 @@ void main() async {
       severity: OgLNoticeSeverity.critical,
     );
     runApp(OgLBootFailureApp(message: error.toString()));
+  } catch (error, stackTrace) {
+    // 兜底：任何**未预期**的装配 / 启动异常也必须可见——绝不允许白屏。
+    OgLLogFile.line(
+      '崩溃',
+      '启动流程未捕获异常：$error\n$stackTrace',
+      level: 'ERR',
+    );
+    OgLAppLog.instance.add(
+      '启动',
+      '启动流程异常：$error',
+      severity: OgLNoticeSeverity.critical,
+    );
+    runApp(OgLBootFailureApp(
+      message: '启动流程出现未预期异常：$error\n\n$stackTrace',
+    ));
   }
 }

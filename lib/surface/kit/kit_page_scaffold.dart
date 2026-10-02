@@ -110,9 +110,11 @@ class OgLPageScaffold extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  for (final Widget action in actions) ...<Widget>[
-                    action,
-                    if (action != actions.last)
+                  // 用索引判断"是否最后一项"：`action != actions.last`
+                  // 对两个相同的 const 实例会误判（相等 → 丢间距）。
+                  for (int i = 0; i < actions.length; i++) ...<Widget>[
+                    actions[i],
+                    if (i != actions.length - 1)
                       SizedBox(width: tokens.space(OgLSpacing.xs)),
                   ],
                 ],
@@ -133,6 +135,9 @@ class OgLPageScaffold extends StatelessWidget {
     );
 
     final Widget scroll = ListView(
+      // AlwaysScrollable：内容不满一屏时也能下拉（否则 RefreshIndicator
+      // 在短页面上"拉不动"——那是用户眼里的"刷新坏了"）。
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.symmetric(
         horizontal: pad,
         vertical: tokens.space(OgLSpacing.lg),

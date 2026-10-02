@@ -211,6 +211,9 @@ class GhApi implements CacheRemote {
   }
 
   /// 创建分支（基于 [fromSha] 或 [fromBranch]）。
+  ///
+  /// 两者都没给时，以**仓库的实际默认分支**为起点（拿不到就明确报错——
+  /// 绝不猜 `main`：默认分支是 `master` 的仓库会因猜测而失败）。
   Future<void> createBranch(
     String fullName, {
     required String name,
@@ -218,18 +221,26 @@ class GhApi implements CacheRemote {
     String? fromBranch,
   }) async {
     var sha = fromSha;
+    var source = fromBranch ?? '';
     if (sha == null) {
-      final source = fromBranch ?? 'main';
-      final branchesList = await branches(fullName);
-      sha = branchesList
-          .firstWhere(
-            (GhBranch branch) => branch.name == source,
-            orElse: () => const GhBranch(name: '', sha: ''),
-          )
-          .sha;
+      if (source.isEmpty) {
+        source = await _defaultBranchOf(fullName);
+      }
+      if (source.isEmpty) {
+        throw GhAuthException(
+          '无法确定起点分支（仓库详情未返回 default_branch），请显式指定 fromBranch / fromSha',
+        );
+      }
+      final found = await _resolveBranchSha(fullName, source);
+      if (found.isEmpty) {
+        throw GhAuthException(
+          '找不到分支「$source」（或分支数超过安全查找上限），无法创建「$name」',
+        );
+      }
+      sha = found;
     }
     if (sha.isEmpty) {
-      throw GhAuthException('无法确定分支 $name 的起点');
+      throw GhAuthException('起点 sha 为空，无法创建「$name」');
     }
     await client.send(GhRequest(
       path: '/repos/$fullName/git/refs',
@@ -240,6 +251,26 @@ class GhApi implements CacheRemote {
       },
       label: 'POST /repos/$fullName/git/refs',
     ));
+  }
+
+  /// 在分支列表中查找某分支的顶端 sha（**跨页**，安全上限 3 页）。
+  ///
+  /// 旧实现只看第一页（100 条）：分支超过 100 个的仓库会"找不到"——
+  /// 分支明明存在却报错。返回空串表示未找到。
+  Future<String> _resolveBranchSha(String fullName, String branchName) async {
+    const int pageSize = 100;
+    for (var page = 1; page <= 3; page++) {
+      final list = await branches(fullName, perPage: pageSize, page: page);
+      for (final branch in list) {
+        if (branch.name == branchName) {
+          return branch.sha;
+        }
+      }
+      if (list.length < pageSize) {
+        break; // 已是最后一页
+      }
+    }
+    return '';
   }
 
   /// 重命名分支。
@@ -279,6 +310,11 @@ class GhApi implements CacheRemote {
     final ref = (branch == null || branch.isEmpty)
         ? await _defaultBranchOf(fullName)
         : branch;
+    if (ref.isEmpty) {
+      throw GhAuthException(
+        '无法确定 $fullName 的默认分支（仓库详情未返回 default_branch），请显式指定分支',
+      );
+    }
     final response = await client.send(GhRequest(
       path: '/repos/$fullName/git/trees/$ref',
       query: recursive ? <String, String>{'recursive': '1'} : const <String, String>{},
@@ -479,7 +515,9 @@ class GhApi implements CacheRemote {
       });
     }
     if (entries.isEmpty) {
-      throw GhAuthException('批量提交内容为空');
+      // 这是调用方的参数错误（既没有 upserts 也没有 deletions），
+      // 用 ArgumentError 而不是"认证异常"——类型要如实反映问题性质。
+      throw ArgumentError('批量提交内容为空（upserts 与 deletions 至少需要一个）');
     }
 
     final tree = await client.send(GhRequest(
@@ -655,20 +693,28 @@ class GhApi implements CacheRemote {
   }
 
   /// 搜代码（**服务端**，消耗 Search 配额）。
+  ///
+  /// **必须带 `text-match` 媒体类型**：GitHub 只在 Accept 头声明后才会
+  /// 返回 `text_matches`（命中上下文）——没有它，搜索结果只能显示路径，
+  /// "命中上下文"功能形同虚设。
   Future<List<Map<String, dynamic>>> searchCode(
     String query, {
     int perPage = 30,
     int page = 1,
   }) async {
-    final object = await client.getObject(
-      '/search/code',
+    final response = await client.send(GhRequest(
+      path: '/search/code',
       query: <String, String>{
         'q': query,
         'per_page': '$perPage',
         'page': '$page',
       },
+      headers: const <String, String>{
+        'accept': 'application/vnd.github.text-match+json',
+      },
       label: 'GET /search/code',
-    );
+    ));
+    final object = response.jsonObject;
     final items = object?['items'];
     if (items is! List) {
       return const <Map<String, dynamic>>[];
@@ -694,21 +740,32 @@ class GhApi implements CacheRemote {
   }
 
   /// 启用 Pages。
+  ///
+  /// [branch] 为空（或未给）时使用仓库的**实际默认分支**——绝不猜 `main`。
   Future<void> enablePages(
     String fullName, {
-    String branch = 'main',
+    String? branch,
     String path = '/',
-  }) =>
-      client
-          .send(GhRequest(
-            path: '/repos/$fullName/pages',
-            method: NetMethod.post,
-            body: <String, Object?>{
-              'source': <String, Object?>{'branch': branch, 'path': path},
-            },
-            label: 'POST pages',
-          ))
-          .then((_) {});
+  }) async {
+    final target = (branch == null || branch.isEmpty)
+        ? await _defaultBranchOf(fullName)
+        : branch;
+    if (target.isEmpty) {
+      throw GhAuthException(
+        '无法确定 Pages 的源分支（仓库详情未返回 default_branch），请稍后重试或先补齐仓库信息',
+      );
+    }
+    await client
+        .send(GhRequest(
+          path: '/repos/$fullName/pages',
+          method: NetMethod.post,
+          body: <String, Object?>{
+            'source': <String, Object?>{'branch': target, 'path': path},
+          },
+          label: 'POST pages',
+        ))
+        .then((_) {});
+  }
 
   /// 关闭 Pages。
   Future<void> disablePages(String fullName) => client
@@ -974,10 +1031,13 @@ class GhApi implements CacheRemote {
     }
   }
 
+  /// 读取仓库的默认分支。
+  ///
+  /// **不猜 `main`**：拿不到就返回空串，由调用方给出明确错误——
+  /// 猜错会让默认分支是 `master` 的仓库整条链路 404。
   Future<String> _defaultBranchOf(String fullName) async {
     final object = await client.getObject('/repos/$fullName');
-    return GhJson.str(object ?? const <String, dynamic>{}, 'default_branch',
-        fallback: 'main');
+    return GhJson.str(object ?? const <String, dynamic>{}, 'default_branch');
   }
 
   Future<String> _headShaOf(String fullName, String branch) async {

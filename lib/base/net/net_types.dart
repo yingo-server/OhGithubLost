@@ -198,6 +198,27 @@ class NetResponse {
       '${fromMirrorId == null ? '' : ', via=$fromMirrorId'})';
 }
 
+/// 解析 `Retry-After` 响应头（秒数或 HTTP 日期；无法解析返回 `null`）。
+///
+/// **唯一实现处**：传输层（异常路径）与韧性层（响应路径）共用同一份逻辑，
+/// 不允许各自复制一份再慢慢漂移。
+Duration? parseRetryAfterHeader(String? raw) {
+  if (raw == null || raw.isEmpty) {
+    return null;
+  }
+  final seconds = int.tryParse(raw.trim());
+  if (seconds != null) {
+    return Duration(seconds: seconds);
+  }
+  try {
+    final target = DateTime.parse(raw);
+    final delta = target.difference(DateTime.now());
+    return delta.isNegative ? null : delta;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// 网络观测快照（诊断报告 / 状态页数据源）。
 class NetStats {
   /// 创建快照。

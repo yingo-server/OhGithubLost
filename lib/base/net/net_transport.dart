@@ -153,8 +153,14 @@ class ResilientTransport implements NetTransport {
         continue;
       }
 
+      // **尊重服务端**：429 / 503 常带 `Retry-After`，优先于本地指数退避
+      // （与异常路径共用同一份解析——两处不一致就是缺陷温床）。
       final delay = mayRetry
-          ? _policy.delayFor(attempt, statusCode: response.statusCode)
+          ? _policy.delayFor(
+              attempt,
+              statusCode: response.statusCode,
+              retryAfter: parseRetryAfterHeader(response.headers['retry-after']),
+            )
           : null;
       if (delay == null) {
         // 铁律 2：重试已耗尽（或方法不幂等）——必须显式失败，

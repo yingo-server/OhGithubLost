@@ -147,6 +147,7 @@ class GhRequest {
     this.query = const <String, String>{},
     this.body,
     this.label,
+    this.headers = const <String, String>{},
     this.conflictsAsRemoteConflict = false,
   });
 
@@ -164,6 +165,13 @@ class GhRequest {
 
   /// 诊断标签。
   final String? label;
+
+  /// **额外请求头**（覆盖同名默认头）。
+  ///
+  /// 默认头已含 `accept` / `x-github-api-version` / `authorization`；
+  /// 需要特殊媒体类型时（例如代码搜索的
+  /// `application/vnd.github.text-match+json`）从这里显式覆盖。
+  final Map<String, String> headers;
 
   /// 409/422 是否翻译成 [RemoteConflictException]（内容读写场景需要）。
   final bool conflictsAsRemoteConflict;
@@ -253,6 +261,10 @@ class GhResponse {
 }
 
 /// 并发闸门（信号量）。
+///
+/// **许可转交语义**：`release` 时若有等待者，直接把"许可"转交给队首等待者，
+/// 期间 `_used` **保持不变** —— 这样从"释放"到"等待者恢复执行"的时间窗里，
+/// 新来的 `acquire` 不会把同一个许可二次放行（否则并发上限会被击穿）。
 class _Semaphore {
   _Semaphore(this.permits);
 
@@ -268,13 +280,17 @@ class _Semaphore {
     final completer = Completer<void>();
     _waiters.add(completer);
     await completer.future;
-    _used++;
+    // 许可由 release() 直接转交（它未被归还到计数池），这里不再自增。
   }
 
   void release() {
-    _used--;
     if (_waiters.isNotEmpty) {
+      // 转交：许可从释放者交给等待者，`_used` 不变。
       _waiters.removeAt(0).complete();
+      return;
+    }
+    if (_used > 0) {
+      _used--;
     }
   }
 
@@ -306,8 +322,32 @@ class GhClient {
 
   GhRateLimit? _lastRateLimit;
 
+  /// 按资源类别维护的最近额度（`core` / `search` / `graphql`…）。
+  ///
+  /// **为什么不是单槽**：GitHub 对不同资源独立计数。若只存"最近一条"，
+  /// search 额度耗尽会把 core 请求一并拦下（误伤）；core 耗尽后，
+  /// 一次 search 响应又会把判断覆盖成"有额度"——两个方向都会出错。
+  final Map<String, GhRateLimit> _rateLimits = <String, GhRateLimit>{};
+
   /// 最近一次已知额度（供仪表盘展示）。
   GhRateLimit? get lastRateLimit => _lastRateLimit;
+
+  /// 某资源类别是否已知耗尽（诊断用）。
+  bool isResourceExhausted(String resource) {
+    final known = _rateLimits[resource];
+    return known != null && known.isExhausted && known.untilReset > Duration.zero;
+  }
+
+  /// 由请求路径推导限流资源类别（与 GitHub 的分类一致）。
+  static String resourceOfPath(String path) {
+    if (path.startsWith('/search/')) {
+      return 'search';
+    }
+    if (path.startsWith('/graphql')) {
+      return 'graphql';
+    }
+    return 'core';
+  }
 
   /// 绑定诊断中枢（装配阶段调用）。
   void attachDiagnostics(KernelDiagnostics diagnostics) {
@@ -319,11 +359,13 @@ class GhClient {
   /// 抛：[GhAuthException] / [GhRateLimitException] / [GhNotFoundException] /
   /// [RemoteConflictException]（按需）。
   Future<GhResponse> send(GhRequest request) async {
-    // 限流避让：**已知耗尽就不发请求**，省下一次注定 403 的往返。
-    final known = _lastRateLimit;
+    // 限流避让：**按资源类别**判断已知耗尽，省下一次注定 403 的往返；
+    // search 的额度耗尽**不会**阻塞 core 请求（各自独立计数）。
+    final resource = resourceOfPath(request.path);
+    final known = _rateLimits[resource];
     if (known != null && known.isExhausted && known.untilReset > Duration.zero) {
       throw GhRateLimitException(
-        message: '额度已耗尽，将在 ${known.untilReset.inMinutes} 分钟后恢复',
+        message: '$resource 额度已耗尽，将在 ${known.untilReset.inMinutes} 分钟后恢复',
         resetAt: known.resetAt,
       );
     }
@@ -335,6 +377,9 @@ class GhClient {
         'accept': 'application/vnd.github+json',
         'x-github-api-version': '2022-11-28',
         if (token != null) 'authorization': 'Bearer ${token.value}',
+        // 显式请求头最后合并（同名覆盖默认值——例如代码搜索的
+        // `application/vnd.github.text-match+json`）。
+        ...request.headers,
       };
       OgLLogFile.line(
         '网络',
@@ -353,6 +398,7 @@ class GhClient {
       final rateLimit = GhRateLimit.fromHeaders(netResponse.headers);
       if (rateLimit != null) {
         _lastRateLimit = rateLimit;
+        _rateLimits[rateLimit.resource] = rateLimit;
       }
       final response = GhResponse(
         statusCode: netResponse.statusCode,
@@ -473,8 +519,10 @@ class GhClient {
             resetAt: response.rateLimit?.resetAt,
           );
         }
-        // 403 且额度充足 = 多半是 Secondary Rate Limit。
-        if (retryAfter != null) {
+        // 429 或带 Retry-After 的 403 = 限流（次要限流）。
+        // 注意：429 即使没有 Retry-After 头也**必须**归为限流——
+        // 此前会掉到下面的"权限不足"，把限流误报成权限问题（误导排查方向）。
+        if (status == 429 || retryAfter != null) {
           throw GhRateLimitException(
             message: '触发次要限流，建议退避后重试',
             retryAfter: retryAfter,

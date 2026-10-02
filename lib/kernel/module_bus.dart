@@ -82,7 +82,8 @@ class KernelModuleBus {
     if (_modules.containsKey(descriptor.id)) {
       throw KernelModuleBusError('模块 ID 重复: ${descriptor.id}');
     }
-    _modules[descriptor.id] = module;
+    // 先**整体校验**能力唯一性，再做任何写入——
+    // 避免"部分提供后抛异常"留下一半注册的脏状态。
     for (final capability in descriptor.provides) {
       final owner = _capabilities[capability];
       if (owner != null) {
@@ -90,6 +91,9 @@ class KernelModuleBus {
           '能力重复提供: $capability（$owner 与 ${descriptor.id}）',
         );
       }
+    }
+    _modules[descriptor.id] = module;
+    for (final capability in descriptor.provides) {
       _capabilities[capability] = descriptor.id;
     }
     diagnostics.info(

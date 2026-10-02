@@ -62,7 +62,8 @@ class OgLNoticeCenter extends ChangeNotifier {
   /// 单例。
   static final OgLNoticeCenter instance = OgLNoticeCenter._();
 
-  /// 队列上限（超过后丢弃最旧的 info/warning，critical 永不丢）。
+  /// 队列上限（超过时**优先**丢弃最旧的 info/warning；
+  /// 极端情况（队列里全是 critical）下丢弃最旧的一条——保证内存有界）。
   static const int maxPending = 50;
 
   final List<OgLNotice> _pending = <OgLNotice>[];
@@ -207,12 +208,24 @@ class OgLAppLogEntry {
 /// 宿主：把通知中心里的条目渲染成弹窗 / 横幅。
 ///
 /// 挂在 `MaterialApp.builder` —— 这样**整棵应用树**里的错误都能抛到这里。
+///
+/// **为什么需要 [navigatorKey]**：`builder` 层的 context 位于 Navigator
+/// **之上**（Navigator 是 builder 的 child），`showDialog` 从该 context
+/// 向上查找 Navigator 会直接报错。因此 critical 弹窗必须借应用根
+/// Navigator 的 context 来完成；未提供（或尚未就绪）时降级为横幅，绝不静默。
 class OgLNoticeHost extends StatefulWidget {
   /// 创建宿主。
-  const OgLNoticeHost({required this.child, super.key});
+  const OgLNoticeHost({
+    required this.child,
+    this.navigatorKey,
+    super.key,
+  });
 
   /// 被包裹的应用内容。
   final Widget child;
+
+  /// 应用根 Navigator 的 key（可为 `null`：此时 critical 降级为横幅）。
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   State<OgLNoticeHost> createState() => _OgLNoticeHostState();
@@ -251,9 +264,24 @@ class _OgLNoticeHostState extends State<OgLNoticeHost> {
   }
 
   /// 严重：弹窗（必须被阅读）。
+  ///
+  /// 弹窗必须借**应用根 Navigator** 的 context——宿主自身所在的 `builder`
+  /// 层在 Navigator 之上，直接就地 `showDialog` 会抛
+  /// "does not include a Navigator"。根 Navigator 尚未就绪时
+  /// 降级为横幅（仍然可见）并留盘，绝不静默。
   void _presentCritical(OgLNotice notice) {
+    final BuildContext? navContext = widget.navigatorKey?.currentContext;
+    if (navContext == null) {
+      OgLLogFile.line(
+        '通知',
+        '根 Navigator 未就绪，critical 降级为横幅：${notice.title}',
+        level: 'WARN',
+      );
+      _presentAmbient(notice);
+      return;
+    }
     showDialog<void>(
-      context: context,
+      context: navContext,
       builder: (BuildContext context) => AlertDialog(
         title: Text(notice.title),
         content: notice.detail == null || notice.detail!.isEmpty

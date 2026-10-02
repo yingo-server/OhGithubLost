@@ -23,6 +23,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import '../../kernel/diagnostics.dart';
 import '../../kernel/environment.dart';
@@ -278,9 +279,15 @@ class RawDnsUdpChannel implements DnsUdpChannel {
           return;
         }
         final datagram = socket.receive();
-        if (datagram != null) {
-          completer.complete(datagram.data);
+        if (datagram == null) {
+          return;
         }
+        // **来源校验**：只接受目标服务器发来的响应，其它来源的数据包直接忽略
+        // （配合事务 ID 校验，构成"来源 + 串包"双重防伪）。
+        if (datagram.address.address != serverIp) {
+          return;
+        }
+        completer.complete(datagram.data);
       });
       timer = Timer(timeout, () {
         if (!completer.isCompleted) {
@@ -336,12 +343,16 @@ class UdpDnsResolver implements DnsResolver {
   /// 超时。
   final Duration timeout;
 
-  int _queryId = 0;
+  /// 事务 ID 随机源（随机起点 + 逐查询递增：既避免与陈旧响应串包，
+  /// 也避免"从 1 开始"这种可被离线猜测的序列）。
+  static final Random _idRandom = Random();
+
+  int _queryId = _idRandom.nextInt(0x10000);
 
   @override
   String get id => server.id;
 
-  /// 下一个事务 ID（单调递增，避免与陈旧响应串包）。
+  /// 下一个事务 ID（从随机起点单调递增，回绕到 16 位）。
   int nextQueryId() => (++_queryId) & 0xFFFF;
 
   @override
