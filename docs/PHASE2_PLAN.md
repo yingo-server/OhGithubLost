@@ -130,6 +130,17 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [ ] **设置页重构**：分区（外观 / 网络 / 仓库 / 危险区）统一为"图标 + 标题 + 副标题 + 右侧控件"行式布局
 - [ ] 检查：每页落地后补组件矩阵快照 + 页面级 widget 测试
 
+### W8-P1 · 设置页重构 ✅ 本批
+
+- [x] 页面骨架 `OgLPageScaffold` + `OgLSection` 分区（外观 / 网络·DNS / 开发者 / 账户）+ `OgLBox(padded:false)` 包行
+- [x] **删除 Material 堆砌**：`ChoiceChip` 单选堆 → `_ChoiceRow`（整行可点 + **底部选择表**，当前项打勾）；
+      `SwitchListTile` → `_ToggleRow`（`OgLActionRow` + 自绘 `OgLToggleSwitch`，整行可点）
+- [x] 自定义 `_SectionTitle` / `_Banner` / `_KeyValue` 全部退役（改用 Kit 的 `OgLSection` / `OgLBanner` / `OgLActionRow`）
+- [x] **退出登录补二次确认**（原来点一下就直接删令牌 —— 违反"危险操作先询问"红线）
+- [x] 危险开关：总闸关时整行禁用 + 行内说明；已开启的危险开关有独立 `OgLBanner(danger)` 提示
+- [ ] 关于页（启动报告 / 日志 / 复制）并入同一次重构的下半场
+- [ ] 页面级 widget 测试（bridge 依赖 → 需先做测试用 SurfaceBridge 假体）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；

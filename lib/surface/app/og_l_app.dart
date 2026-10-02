@@ -485,7 +485,7 @@ class _AboutPage extends StatelessWidget {
       );
 }
 
-/// 设置页：外观 / 行为 / 开发者选项（含总闸护栏）。
+/// 设置页：外观 / 网络 / 开发者 / 账户（**分区 + 行式**，严格走令牌与 Kit）。
 class _SettingsPage extends StatelessWidget {
   const _SettingsPage({required this.surface});
 
@@ -497,226 +497,242 @@ class _SettingsPage extends StatelessWidget {
     final settings = surface.settings;
     final value = settings.settings;
 
-    return ListView(
-      children: <Widget>[
-        _SectionTitle(text: '账户', ogL: ogL),
-        FutureBuilder<GhAccount?>(
-          future: surface.domain.auth.activeAccount(),
-          builder: (BuildContext context, AsyncSnapshot<GhAccount?> snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(),
-              );
-            }
-            final account = snap.data;
-            if (account == null) {
-              return Text(
-                '未登录（到「仓库」页接入令牌）',
-                style: TextStyle(color: ogL.palette.textDim),
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _KeyValue(
-                  ogL: ogL,
-                  rows: <String, String>{
-                    '登录名': '@${account.login}',
-                    '账号 ID': account.id,
-                  },
-                ),
-                TextButton(
-                  onPressed: () async {
-                    await surface.domain.auth.removeAccount(account.id);
-                    OgLAppLog.instance
-                        .add('账户', '已退出登录（@${account.login}）');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已退出登录')),
-                      );
-                    }
-                  },
-                  child: Text(
-                    '退出登录',
-                    style: TextStyle(color: ogL.palette.danger),
+    return OgLPageScaffold(
+      title: '设置',
+      description: '外观 / 网络 / 开发者 / 账户',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // ── 外观 ──────────────────────────────────────────────
+          OgLSection(
+            title: '外观',
+            topSpacing: 0,
+            child: OgLBox(
+              padded: false,
+              child: Column(
+                children: <Widget>[
+                  _ChoiceRow<OgLThemeMode>(
+                    icon: OgLIconName.theme,
+                    title: '明暗',
+                    selected: value.mode,
+                    options: const <OgLThemeMode, String>{
+                      OgLThemeMode.system: '跟随系统',
+                      OgLThemeMode.light: '亮色',
+                      OgLThemeMode.dark: '暗色',
+                    },
+                    onPick: settings.setMode,
                   ),
-                ),
-              ],
-            );
-          },
-        ),
-        _SectionTitle(text: '网络 / DNS', ogL: ogL),
-        _ChoiceRow<String>(
-          ogL: ogL,
-          title: '解析模式',
-          selected: value.dnsMode,
-          options: const <String, String>{
-            'system': '系统（默认）',
-            'custom': '自定义',
-          },
-          onPick: settings.setDnsMode,
-        ),
-        if (value.dnsMode == 'custom') ...<Widget>[
-          _ChoiceRow<String>(
-            ogL: ogL,
-            title: 'DNS 服务器',
-            selected: value.dnsServerId,
-            options: _dnsChoiceLabels,
-            onPick: settings.setDnsServer,
-          ),
-          SwitchListTile(
-            dense: true,
-            value: value.dnsPreferDoh,
-            onChanged: settings.setDnsPreferDoh,
-            title: const Text('DoH 优先（加密解析）'),
-          ),
-          Text(
-            '提示：自定义解析为进阶选项；如遇连接异常请切回系统。',
-            style: TextStyle(color: ogL.palette.textDim),
-          ),
-        ],
-        Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: ogL.tokens.space(OgLSpacing.sm),
-          ),
-          child: Text(
-            value.dnsMode == 'custom'
-                ? '当前：自定义 · '
-                    '${_dnsChoiceLabels[value.dnsServerId] ?? value.dnsServerId}'
-                    '${value.dnsPreferDoh ? ' · DoH 优先' : ' · 明文'}'
-                    '（切换在重启应用后完全生效）'
-                : '当前：系统解析（默认）',
-            style: TextStyle(color: ogL.palette.textDim),
-          ),
-        ),
-        _SectionTitle(text: '外观', ogL: ogL),
-        _ChoiceRow<OgLThemeMode>(
-          ogL: ogL,
-          title: '明暗',
-          selected: value.mode,
-          options: const <OgLThemeMode, String>{
-            OgLThemeMode.system: '跟随系统',
-            OgLThemeMode.light: '亮色',
-            OgLThemeMode.dark: '暗色',
-          },
-          onPick: settings.setMode,
-        ),
-        _SectionTitle(text: '主题包', ogL: ogL),
-        // 刻意不用 RadioListTile：新版 Flutter 已废弃其 groupValue / onChanged，
-        // 而我们的 CI 是"警告即失败"。
-        _ChoiceRow<String>(
-          ogL: ogL,
-          title: '主题',
-          selected: value.themeId.isEmpty
-              ? OgLThemePacks.fallback.id
-              : value.themeId,
-          options: <String, String>{
-            for (final pack in OgLThemePacks.all) pack.id: pack.name,
-          },
-          onPick: settings.setTheme,
-        ),
-        for (final pack in OgLThemePacks.all)
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: ogL.tokens.space(OgLSpacing.sm),
-            ),
-            child: Text(
-              '${pack.name}：${pack.description}',
-              style: TextStyle(color: ogL.palette.textDim),
-            ),
-          ),
-        _SectionTitle(text: '图标包', ogL: ogL),
-        _ChoiceRow<String>(
-          ogL: ogL,
-          title: '图标',
-          selected: value.iconSetId.isEmpty
-              ? surface.effectiveIconSetId()
-              : value.iconSetId,
-          options: <String, String>{
-            for (final set in OgLIconSets.all) set.id: set.displayName,
-          },
-          onPick: settings.setIconSet,
-        ),
-        _SectionTitle(text: '密度', ogL: ogL),
-        _ChoiceRow<OgLDensityChoice>(
-          ogL: ogL,
-          title: '密度',
-          selected: value.density,
-          options: const <OgLDensityChoice, String>{
-            OgLDensityChoice.auto: '自动',
-            OgLDensityChoice.compact: '紧凑',
-            OgLDensityChoice.standard: '标准',
-            OgLDensityChoice.comfortable: '宽松',
-          },
-          onPick: settings.applyDensity,
-        ),
-        _SectionTitle(text: '动效', ogL: ogL),
-        _ChoiceRow<OgLMotionSetting>(
-          ogL: ogL,
-          title: '动效',
-          selected: value.motion,
-          options: const <OgLMotionSetting, String>{
-            OgLMotionSetting.auto: '跟随系统',
-            OgLMotionSetting.full: '完整',
-            OgLMotionSetting.subtle: '克制',
-            OgLMotionSetting.none: '关闭',
-          },
-          onPick: settings.applyMotion,
-        ),
-        _SectionTitle(text: '开发者 / 测试选项', ogL: ogL),
-        SwitchListTile(
-          dense: true,
-          value: value.developerMode,
-          onChanged: settings.setDeveloperMode,
-          title: const Text('开发者模式'),
-          subtitle: Text(
-            '打开后才能启用下列开关；关闭时**立即全部复位**',
-            style: TextStyle(color: ogL.palette.textDim),
-          ),
-        ),
-        for (final flag in OgLDevFlag.values)
-          SwitchListTile(
-            dense: true,
-            value: value.dev.isOn(flag),
-            onChanged: value.developerMode
-                ? (bool on) => settings.setDevFlag(flag, on)
-                : null,
-            title: Row(
-              children: <Widget>[
-                Text(flag.description),
-                if (flag.risk == OgLRisk.dangerous) ...<Widget>[
-                  SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
-                  OgLIcon(
-                    name: OgLIconName.warning,
-                    size: ogL.tokens.iconSize(base: 16),
-                    color: ogL.palette.danger,
+                  _ChoiceRow<String>(
+                    icon: OgLIconName.layout,
+                    title: '主题',
+                    selected: value.themeId.isEmpty
+                        ? OgLThemePacks.fallback.id
+                        : value.themeId,
+                    options: <String, String>{
+                      for (final pack in OgLThemePacks.all) pack.id: pack.name,
+                    },
+                    onPick: settings.setTheme,
+                  ),
+                  _ChoiceRow<String>(
+                    icon: OgLIconName.book,
+                    title: '图标包',
+                    selected: value.iconSetId.isEmpty
+                        ? surface.effectiveIconSetId()
+                        : value.iconSetId,
+                    options: <String, String>{
+                      for (final set in OgLIconSets.all)
+                        set.id: set.displayName,
+                    },
+                    onPick: settings.setIconSet,
+                  ),
+                  _ChoiceRow<OgLDensityChoice>(
+                    icon: OgLIconName.list,
+                    title: '密度',
+                    selected: value.density,
+                    options: const <OgLDensityChoice, String>{
+                      OgLDensityChoice.auto: '自动',
+                      OgLDensityChoice.compact: '紧凑',
+                      OgLDensityChoice.standard: '标准',
+                      OgLDensityChoice.comfortable: '宽松',
+                    },
+                    onPick: settings.applyDensity,
+                  ),
+                  _ChoiceRow<OgLMotionSetting>(
+                    icon: OgLIconName.sync,
+                    title: '动效',
+                    selected: value.motion,
+                    options: const <OgLMotionSetting, String>{
+                      OgLMotionSetting.auto: '跟随系统',
+                      OgLMotionSetting.full: '完整',
+                      OgLMotionSetting.subtle: '克制',
+                      OgLMotionSetting.none: '关闭',
+                    },
+                    onPick: settings.applyMotion,
+                    showDivider: false,
                   ),
                 ],
-              ],
+              ),
             ),
-            subtitle: flag.risk == OgLRisk.dangerous
-                ? Text(
-                    '危险：可能导致覆盖他人提交',
-                    style: TextStyle(color: ogL.palette.danger),
-                  )
-                : null,
           ),
-        if (value.dev.activeDangerous.isNotEmpty)
-          _Banner(
-            ogL: ogL,
-            color: ogL.palette.danger,
-            icon: OgLIconName.shield,
-            text: '当前有 ${value.dev.activeDangerous.length} 个危险开关处于开启状态',
+          // ── 网络 / DNS ────────────────────────────────────────
+          OgLSection(
+            title: '网络 / DNS',
+            description: '自定义解析为进阶选项；异常时请切回系统（重启后完全生效）',
+            child: OgLBox(
+              padded: false,
+              child: Column(
+                children: <Widget>[
+                  _ChoiceRow<String>(
+                    icon: OgLIconName.dns,
+                    title: '解析模式',
+                    selected: value.dnsMode,
+                    options: const <String, String>{
+                      'system': '系统（默认）',
+                      'custom': '自定义',
+                    },
+                    onPick: settings.setDnsMode,
+                    showDivider: value.dnsMode == 'custom',
+                  ),
+                  if (value.dnsMode == 'custom') ...<Widget>[
+                    _ChoiceRow<String>(
+                      icon: OgLIconName.mirror,
+                      title: 'DNS 服务器',
+                      selected: value.dnsServerId,
+                      options: _dnsChoiceLabels,
+                      onPick: settings.setDnsServer,
+                    ),
+                    _ToggleRow(
+                      icon: OgLIconName.shield,
+                      title: 'DoH 优先（加密解析）',
+                      description: '关闭则走明文 UDP，容易被中间设备干扰',
+                      value: value.dnsPreferDoh,
+                      onChanged: settings.setDnsPreferDoh,
+                      showDivider: false,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        if (settings.lastError != null)
-          _Banner(
-            ogL: ogL,
-            color: ogL.palette.warning,
-            icon: OgLIconName.warning,
-            text: settings.lastError!,
+          // ── 开发者（危险，总闸控制） ───────────────────────────
+          OgLSection(
+            title: '开发者 / 测试选项',
+            description: '总闸关闭时下列开关立即全部复位',
+            child: OgLBox(
+              padded: false,
+              child: Column(
+                children: <Widget>[
+                  _ToggleRow(
+                    icon: OgLIconName.bug,
+                    title: '开发者模式',
+                    description: value.developerMode
+                        ? '已开启：下列开关可用'
+                        : '关闭状态：下列开关一律失效',
+                    value: value.developerMode,
+                    onChanged: settings.setDeveloperMode,
+                    danger: true,
+                  ),
+                  for (final OgLDevFlag flag in OgLDevFlag.values)
+                    _ToggleRow(
+                      icon: flag.risk == OgLRisk.dangerous
+                          ? OgLIconName.warning
+                          : OgLIconName.terminal,
+                      title: flag.description,
+                      description: flag.risk == OgLRisk.dangerous
+                          ? '危险：可能导致覆盖他人提交'
+                          : null,
+                      value: value.dev.isOn(flag),
+                      onChanged: value.developerMode
+                          ? (bool on) => settings.setDevFlag(flag, on)
+                          : null,
+                      danger: flag.risk == OgLRisk.dangerous,
+                      showDivider: flag != OgLDevFlag.values.last,
+                    ),
+                ],
+              ),
+            ),
           ),
-      ],
+          if (value.dev.activeDangerous.isNotEmpty) ...<Widget>[
+            SizedBox(height: ogL.tokens.space(OgLSpacing.md)),
+            OgLBanner(
+              variant: OgLBannerVariant.danger,
+              title: '危险开关已开启',
+              text: '当前有 ${value.dev.activeDangerous.length} 个危险开关处于开启状态，'
+                  '请确认这是你想要的。',
+            ),
+          ],
+          if (settings.lastError != null) ...<Widget>[
+            SizedBox(height: ogL.tokens.space(OgLSpacing.md)),
+            OgLBanner(
+              variant: OgLBannerVariant.warning,
+              title: '设置保存异常',
+              text: '${settings.lastError!}（本次改动已生效，但重启可能丢失）',
+            ),
+          ],
+          // ── 账户 ─────────────────────────────────────────────
+          OgLSection(
+            title: '账户',
+            child: OgLBox(
+              padded: false,
+              child: FutureBuilder<GhAccount?>(
+                future: surface.domain.auth.activeAccount(),
+                builder:
+                    (BuildContext context, AsyncSnapshot<GhAccount?> snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const OgLActionRow(
+                      leading: OgLIcon(
+                        name: OgLIconName.key,
+                        size: 18,
+                      ),
+                      title: '读取账户…',
+                    );
+                  }
+                  final GhAccount? account = snap.data;
+                  if (account == null) {
+                    return const OgLActionRow(
+                      leading: OgLIcon(
+                        name: OgLIconName.key,
+                        size: 18,
+                      ),
+                      title: '未登录',
+                      subtitle: '到「仓库」页接入令牌后即可浏览私有仓库',
+                    );
+                  }
+                  return OgLActionRow(
+                    leading: OgLIcon(
+                      name: OgLIconName.key,
+                      size: 18,
+                      color: ogL.palette.textDim,
+                    ),
+                    title: '@${account.login}',
+                    subtitle: '账号 ID：${account.id}',
+                    trailing: OgLButton(
+                      label: '退出登录',
+                      variant: OgLButtonVariant.danger,
+                      onPressed: () async {
+                        final bool ok = await ogLConfirmDialog(
+                          context,
+                          title: '退出登录',
+                          message: '将删除「@${account.login}」在本机保存的令牌。'
+                              '该账号的远端数据不受影响；重新登录需要再次输入令牌。',
+                          confirmLabel: '退出登录',
+                          danger: true,
+                        );
+                        if (!ok || !context.mounted) {
+                          return;
+                        }
+                        await surface.domain.auth.removeAccount(account.id);
+                        OgLAppLog.instance
+                            .add('账户', '已退出登录（@${account.login}）');
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -724,140 +740,142 @@ class _SettingsPage extends StatelessWidget {
 // （诊断页已并入 _AboutPage 的折叠栏，见文件上方。）
 
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.text, required this.ogL});
-  final String text;
-  final OgLTheme ogL;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.only(
-          top: ogL.tokens.space(OgLSpacing.xl),
-          bottom: ogL.tokens.space(OgLSpacing.sm),
-        ),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-      );
-}
-
-class _KeyValue extends StatelessWidget {
-  const _KeyValue({required this.rows, required this.ogL});
-
-  final Map<String, String> rows;
-  final OgLTheme ogL;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          for (final entry in rows.entries)
-            Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: ogL.tokens.space(OgLSpacing.xxs),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  SizedBox(
-                    width: 96,
-                    child: Text(
-                      entry.key,
-                      style: TextStyle(color: ogL.palette.textDim),
-                    ),
-                  ),
-                  Expanded(
-                    child: SelectableText(
-                      entry.value,
-                      style: const TextStyle(fontFamily: 'monospace'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      );
-}
-
-class _Banner extends StatelessWidget {
-  const _Banner({
-    required this.ogL,
-    required this.color,
-    required this.icon,
-    required this.text,
-  });
-
-  final OgLTheme ogL;
-  final Color color;
-  final OgLIconName icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: EdgeInsets.only(top: ogL.tokens.space(OgLSpacing.md)),
-        padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
-        decoration: BoxDecoration(
-          color: ogL.palette.surfaceAlt,
-          borderRadius: BorderRadius.circular(
-            ogL.tokens.radius(OgLRadius.medium),
-          ),
-          border: Border.all(color: color, width: ogL.tokens.hairline),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            OgLIcon(name: icon, size: ogL.tokens.iconSize(base: 18), color: color),
-            SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
-            Expanded(child: Text(text)),
-          ],
-        ),
-      );
-}
-
-/// 一行式单选（选项多时比 RadioListTile 更省空间）。
+/// 一行式单选：**整行可点 → 底部选择表**（Primer ActionList 形态）。
+///
+/// 旧实现是一串 `ChoiceChip`（Material 视觉 + 行内堆叠），与"发丝描边 + 直角偏锐"
+/// 的语言冲突，而且选项一多就挤成一团。
 class _ChoiceRow<T> extends StatelessWidget {
   const _ChoiceRow({
-    required this.ogL,
+    required this.icon,
     required this.title,
     required this.selected,
     required this.options,
     required this.onPick,
+    this.showDivider = true,
+    super.key,
   });
 
-  final OgLTheme ogL;
+  final OgLIconName icon;
   final String title;
   final T selected;
   final Map<T, String> options;
-  final void Function(T value) onPick;
+  final ValueChanged<T> onPick;
+  final bool showDivider;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.symmetric(vertical: ogL.tokens.space(OgLSpacing.xs)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(title, style: TextStyle(color: ogL.palette.textDim)),
-            SizedBox(height: ogL.tokens.space(OgLSpacing.xs)),
-            Wrap(
-              spacing: ogL.tokens.space(OgLSpacing.sm),
-              runSpacing: ogL.tokens.space(OgLSpacing.xs),
-              children: <Widget>[
-                for (final entry in options.entries)
-                  ChoiceChip(
-                    label: Text(entry.value),
-                    selected: entry.key == selected,
-                    onSelected: (bool on) {
-                      if (on) {
-                        onPick(entry.key);
-                      }
-                    },
-                  ),
-              ],
+  Widget build(BuildContext context) {
+    final ogL = OgLTheme.of(context);
+    final String current = options[selected] ?? '$selected';
+    return OgLActionRow(
+      leading: OgLIcon(name: icon, size: 18, color: ogL.palette.textDim),
+      title: title,
+      subtitle: '当前：$current',
+      showDivider: showDivider,
+      onTap: () async {
+        final T? picked = await _pickOption<T>(
+          context,
+          title: title,
+          options: options,
+          selected: selected,
+        );
+        if (picked != null) {
+          onPick(picked);
+        }
+      },
+    );
+  }
+}
+
+/// 底部选择表：统一"选一个"的交互（整行可点、当前项打勾、点空白即取消）。
+Future<T?> _pickOption<T>(
+  BuildContext context, {
+  required String title,
+  required Map<T, String> options,
+  required T selected,
+}) {
+  final OgLTheme ogL = OgLTheme.of(context);
+  final OgLTokens tokens = ogL.tokens;
+  final OgLTypeScale scale = const OgLTypeScale.standard();
+  return showModalBottomSheet<T>(
+    context: context,
+    backgroundColor: ogL.palette.surface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(tokens.radius(OgLRadius.large)),
+    ),
+    builder: (BuildContext sheet) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: EdgeInsets.all(tokens.space(OgLSpacing.md)),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: tokens.fontSize(scale.title),
+                fontWeight: FontWeight.w600,
+                color: ogL.palette.text,
+              ),
             ),
-          ],
-        ),
-      );
+          ),
+          for (final MapEntry<T, String> entry in options.entries)
+            OgLActionRow(
+              title: entry.value,
+              showDivider: true,
+              trailing: entry.key == selected
+                  ? OgLIcon(
+                      name: OgLIconName.success,
+                      size: tokens.iconSize(base: 16),
+                      color: ogL.palette.success,
+                    )
+                  : null,
+              onTap: () => Navigator.of(sheet).pop(entry.key),
+            ),
+          SizedBox(height: tokens.space(OgLSpacing.sm)),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 一行式开关（OgLActionRow + 自绘 OgLToggleSwitch，整行可点）。
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.description,
+    this.danger = false,
+    this.showDivider = true,
+    super.key,
+  });
+
+  final OgLIconName icon;
+  final String title;
+  final String? description;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final bool danger;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final ogL = OgLTheme.of(context);
+    final bool enabled = onChanged != null;
+    return OgLActionRow(
+      leading: OgLIcon(
+        name: icon,
+        size: 18,
+        color: danger ? ogL.palette.danger : ogL.palette.textDim,
+      ),
+      title: title,
+      subtitle: description,
+      showDivider: showDivider,
+      trailing: OgLToggleSwitch(value: value, onChanged: onChanged),
+      onTap: enabled ? () => onChanged!(!value) : null,
+    );
+  }
 }
 
 /// 设置页（公开视图，供新主壳复用）。
