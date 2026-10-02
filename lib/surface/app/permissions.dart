@@ -149,7 +149,7 @@ class _AndroidPermissionGateway implements OgLPermissionGateway {
   @override
   Future<List<OgLPermissionInfo>> describe() async => const <OgLPermissionInfo>[
         OgLPermissionInfo(
-          permission: OgLPermission.permissionStorage,
+          permission: OgLPermission.storage,
           title: '存储 / 文件访问',
           rationale: '用于把日志与下载文件写到你能在文件管理器里找到的位置。'
               'Android 10+ 采用分区存储，根目录默认不可写，'
@@ -189,7 +189,7 @@ class _IosPermissionGateway implements OgLPermissionGateway {
   Future<List<OgLPermissionInfo>> describe() async =>
       const <OgLPermissionInfo>[
         OgLPermissionInfo(
-          permission: OgLPermission.permissionStorage,
+          permission: OgLPermission.storage,
           title: '存储 / 文件访问',
           rationale: 'iOS 应用运行在沙箱内，无需额外存储权限。',
           status: OgLPermissionStatus.notRequired,
@@ -204,7 +204,7 @@ class _IosPermissionGateway implements OgLPermissionGateway {
 
   @override
   Future<OgLPermissionStatus> request(OgLPermission permission) async {
-    if (permission == OgLPermission.permissionStorage) {
+    if (permission == OgLPermission.storage) {
       return OgLPermissionStatus.notRequired;
     }
     final bool opened = await _openAppSettings();
@@ -229,7 +229,7 @@ class _MacPermissionGateway implements OgLPermissionGateway {
   Future<List<OgLPermissionInfo>> describe() async =>
       const <OgLPermissionInfo>[
         OgLPermissionInfo(
-          permission: OgLPermission.permissionStorage,
+          permission: OgLPermission.storage,
           title: '存储 / 文件访问',
           rationale: 'macOS 应用沙箱内无需额外存储权限。',
           status: OgLPermissionStatus.notRequired,
@@ -244,7 +244,7 @@ class _MacPermissionGateway implements OgLPermissionGateway {
 
   @override
   Future<OgLPermissionStatus> request(OgLPermission permission) async {
-    if (permission == OgLPermission.permissionStorage) {
+    if (permission == OgLPermission.storage) {
       return OgLPermissionStatus.notRequired;
     }
     final bool opened = await _openAppSettings();
@@ -278,7 +278,7 @@ class _DesktopPermissionGateway implements OgLPermissionGateway {
   Future<List<OgLPermissionInfo>> describe() async =>
       const <OgLPermissionInfo>[
         OgLPermissionInfo(
-          permission: OgLPermission.permissionStorage,
+          permission: OgLPermission.storage,
           title: '存储 / 文件访问',
           rationale: '桌面平台直接使用应用数据目录，无需授权。',
           status: OgLPermissionStatus.notRequired,
@@ -311,7 +311,7 @@ class _WebPermissionGateway implements OgLPermissionGateway {
   Future<List<OgLPermissionInfo>> describe() async =>
       const <OgLPermissionInfo>[
         OgLPermissionInfo(
-          permission: OgLPermission.permissionStorage,
+          permission: OgLPermission.storage,
           title: '存储 / 文件访问',
           rationale: '浏览器环境由浏览器自身管理存储配额，应用无法也无需申请。',
           status: OgLPermissionStatus.unsupported,
