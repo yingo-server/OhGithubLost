@@ -1,14 +1,18 @@
 # ============================================================================
 # OhGithubLost（OGL）· 项目依赖清单
 #
+# 依赖削减原则（保守重写后）：
+#   - 展示层（surface）不再引入任何"视觉框架"依赖，
+#     页面一律直接使用 Flutter 自带 Material 3 组件；
+#   - 只保留"真的被 import 到"的包（由 CI 静态检查兜底）。
+#
 # 架构分层映射：
 #   kernel/boot   → cryptography（Ed25519 引导清单签名校验）
 #   base/net      → dio（传输引擎：池化/取消/流式/进度/重试）
-#   base/disk     → path_provider · shared_preferences · flutter_secure_storage
-#                   · archive · crypto · file_ops 相关
-#   base/disk/platform_io → permission_handler · file_picker · url_launcher
-#   domain/interaction    → provider（控制器状态广播）
-#   surface/ui            → cached_network_image · flutter_markdown · window_manager
+#   base/disk     → path_provider · flutter_secure_storage
+#   base/disk     → crypto（SHA256 摘要）
+#   surface/readme → flutter_markdown（README / 正文渲染）
+#   surface/util   → url_launcher（外链打开）
 # ============================================================================
 
 name: ohgithublost
@@ -28,50 +32,35 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ── 状态管理（交互逻辑 · 控制器基座）─────────────────────────────────
-  provider: ^6.1.5
-
   # ── 底座 · 网络连接 ─────────────────────────────────────────────────
   dio: ^5.11.1                     # HTTP 传输引擎（池化 / 取消 / 流式 / 进度）
 
   # ── 底座 · 硬盘逻辑 ─────────────────────────────────────────────────
   path_provider: ^2.1.6            # 跨平台目录规划
-  shared_preferences: ^2.5.5       # KV 存储（设置 / 状态持久化）
   flutter_secure_storage: ^11.2.0  # 安全保险库（令牌，Keystore/DPAPI/libsecret）
-  archive: ^4.3.0                  # ZIP 打包 / 解包
   crypto: ^3.0.7                   # SHA256 等摘要
 
   # ── 启动层 · 信任校验 ───────────────────────────────────────────────
   cryptography: ^2.9.0             # Ed25519 引导清单签名验证
 
-  # ── 系统 / 平台能力 ─────────────────────────────────────────────────
-  # 注意：permission_handler **暂不引入**。
-  # 原因（CI 实证）：`permission_handler_android` 要求宿主 compileSdk ≥ 37，
-  # 而 Flutter 3.47 默认 compileSdk 是 36 → Android 构建全部失败
-  # （`Execution failed for task ':app:checkReleaseAarMetadata'`）。
-  # 而**它当前根本没被任何代码 import**（权限网关只有接口，平台实现待做），
-  # 所以正确做法是：实现网关时再引入，并同时把 compileSdk 提到所需版本。
-  # 注意：device_info_plus / package_info_plus **暂不引入**（同 permission_handler）。
-  # 原因（CI 实证）：device_info_plus 13.2.0 在 iOS 构建链上报
-  #   "No visible @interface for 'NSProcessInfo' declares the selector 'isiOSAppOnVision'"，
-  # 直接炸掉 iOS 两个目标；且当前两者**只出现在注释里**、无任何代码 import。
-  # 实现真机探针时再引入，并选定与 CI 构建链兼容的版本。
+  # ── 展示层（仅剩两个"干实事"的包）──────────────────────────────────
+  flutter_markdown: ^0.7.7+1       # README / 议题 / 评论渲染
   url_launcher: ^6.3.2             # 外链 / 打开文件
-  file_picker: ^13.1.0             # 文件选择（上传 / 导入）
-  window_manager: ^0.5.2           # 桌面窗口管理（Windows / Linux）
 
-  # ── 展示层 ─────────────────────────────────────────────────────────
-  cached_network_image: ^4.0.4     # 图片缓存展示
-  flutter_markdown: ^0.7.7+1       # README 渲染
-  # 注：font_awesome_flutter 已移除 —— 它 `extends IconData`，
-  # 而 Flutter 3.47 起 IconData 是 final class，无法编译。
-  # 内置图标包改为纯 Material 字形，见 lib/surface/theme/icon_pack.dart。
+  # 已移除（未被任何代码 import，重写时一并裁掉）：
+  #   provider · shared_preferences · archive · file_picker
+  #   window_manager · cached_network_image · mocktail
+  #
+  # 注意：permission_handler / device_info_plus **暂不引入**。
+  # 原因（CI 实证）：permission_handler_android 要求宿主 compileSdk ≥ 37，
+  # 而 Flutter 3.47 默认 compileSdk 是 36 → Android 构建全部失败；
+  # device_info_plus 在 iOS 构建链上报 NSProcessInfo 选择器缺失。
+  # 实现权限网关 / 真机探针时再引入，并选定与 CI 构建链兼容的版本。
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  mocktail: ^1.0.5                 # 单测 Mock（一致性协议 / 启动层测试用）
 
 flutter:
   uses-material-design: true
@@ -79,10 +68,6 @@ flutter:
   # ── 零外部资源 ────────────────────────────────────────────────────────
   # 本仓库**不声明任何 assets / fonts**，原因有二：
   # 1. 产品要求：不引入外部资源文件（GitHub 交互除外）。
-  #    图标用 Flutter 自带字形、主题包与 Mod 示例都在代码里、
+  #    图标用框架自带字形、主题用 Material 3 种子色、
   #    引导清单在启动时**由代码生成**（见 lib/main.dart）；
-  # 2. 工程要求：声明一个不存在的资源目录会让 `flutter build` **直接失败**
-  #    （这里曾经声明过 assets/boot 等三个占位目录）。
-  #
-  # 若将来确需引入字体（例如 Font Awesome），正确做法见
-  # docs/SURFACE.md：自带 ttf + 手写 IconData 表（只实例化、不继承）。
+  # 2. 工程要求：声明一个不存在的资源目录会让 `flutter build` **直接失败**。

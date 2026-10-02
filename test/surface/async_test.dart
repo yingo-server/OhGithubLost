@@ -1,0 +1,121 @@
+/// 展示层异步控制器的一致性协议检查。
+///
+/// 关键纪律：
+/// 1. 空结果与"加载中"**严格区分**（空列出空态，不出转圈）；
+/// 2. 失败**必带原因**（界面不允许只说"出错了"）；
+/// 3. 刷新失败**不丢旧数据**（softError 提示，内容仍在）；
+/// 4. 并发抑制：上一次没回来之前不重复发请求。
+library;
+
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ohgithublost/surface/app/async.dart';
+
+void main() {
+  test('成功：数据落定、非空、无错误', () async {
+    final AsyncController<List<int>> c = AsyncController<List<int>>(
+      label: '测试',
+      loader: () async => <int>[1, 2, 3],
+      isEmpty: (List<int> value) => value.isEmpty,
+    );
+    await c.load();
+    expect(c.data, <int>[1, 2, 3]);
+    expect(c.isEmptyResult, isFalse);
+    expect(c.softError, isNull);
+    expect(c.failureMessage, isNull);
+  });
+
+  test('空结果：isEmptyResult 为真（不是加载中）', () async {
+    final AsyncController<List<int>> c = AsyncController<List<int>>(
+      label: '测试',
+      loader: () async => const <int>[],
+      isEmpty: (List<int> value) => value.isEmpty,
+    );
+    await c.load();
+    expect(c.isEmptyResult, isTrue);
+    expect(c.isFirstLoading, isFalse);
+    expect(c.data, isNotNull);
+  });
+
+  test('失败：带原因、可重试成功', () async {
+    int calls = 0;
+    final AsyncController<int> c = AsyncController<int>(
+      label: '测试',
+      loader: () async {
+        calls += 1;
+        if (calls == 1) {
+          throw Exception('网络断了');
+        }
+        return 7;
+      },
+      isEmpty: (int value) => false,
+    );
+    await c.load();
+    expect(c.data, isNull);
+    expect(c.failureMessage, isNotNull);
+    expect(c.failureMessage, contains('网络断了'));
+
+    await c.load();
+    expect(c.data, 7);
+    expect(c.failureMessage, isNull);
+  });
+
+  test('刷新失败：保留旧数据（softError），可清除', () async {
+    int calls = 0;
+    final AsyncController<int> c = AsyncController<int>(
+      label: '测试',
+      loader: () async {
+        calls += 1;
+        if (calls == 2) {
+          throw Exception('刷新炸了');
+        }
+        return 1;
+      },
+      isEmpty: (int value) => false,
+    );
+    await c.load();
+    expect(c.data, 1);
+
+    await c.load();
+    expect(c.data, 1, reason: '旧数据必须还在');
+    expect(c.softError, isNotNull);
+
+    c.dismissError();
+    expect(c.softError, isNull);
+  });
+
+  test('并发抑制：重入不产生第二个请求', () async {
+    int calls = 0;
+    final Completer<int> gate = Completer<int>();
+    final AsyncController<int> c = AsyncController<int>(
+      label: '测试',
+      loader: () {
+        calls += 1;
+        return gate.future;
+      },
+      isEmpty: (int value) => false,
+    );
+    final Future<void> first = c.load();
+    final Future<void> second = c.load();
+    gate.complete(5);
+    await Future.wait(<Future<void>>[first, second]);
+    expect(calls, 1);
+    expect(c.data, 5);
+  });
+
+  test('loadIfNeeded：已加载过不重复', () async {
+    int calls = 0;
+    final AsyncController<int> c = AsyncController<int>(
+      label: '测试',
+      loader: () async {
+        calls += 1;
+        return 1;
+      },
+      isEmpty: (int value) => false,
+    );
+    await c.loadIfNeeded();
+    await c.loadIfNeeded();
+    expect(calls, 1);
+  });
+}

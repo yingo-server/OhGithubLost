@@ -1,44 +1,38 @@
-/// OGL 应用 · 客户端主壳（全功能 GitHub 客户端）—— 登录门 + 五页导航。
+/// L3 展示级 · 客户端主壳（登录门 + 五页导航）。
 ///
-/// ## 形态自动切换（由布局引擎给出结论，页面自己不知道）
-/// - 手机：`OgLBottomNav`（自绘底栏：图标 + 标签 + 顶部指示条）
-/// - 平板 / 桌面：`OgLNavRail`（自绘导航轨，可展开标签）
-/// - 桌面窄窗：`OgLNavDrawer`（自绘抽屉行）+ `OgLShellHeader`（自绘页头）
+/// ## 形态（Material 3 原生）
+/// - 手机（< 600）：`NavigationBar` 底栏；
+/// - 平板 / 桌面（≥ 600）：`NavigationRail` 导航轨（≥ 1200 展开标签）。
 ///
-/// ## 为什么不用 Material 的 AppBar / NavigationBar / Drawer+ListTile
-/// 导航是"每屏都看见"的东西：外壳若是 Material 阴影 + 涟漪 + 系统字体权重，
-/// 就会和页面内部（发丝描边 + 令牌间距 + 自绘图标）明显不是一套。
-/// 现在外壳与页面**同源**：同样的令牌、同样的图标、同样的选中语义。
+/// ## 两个产品级细节
+/// 1. **懒挂载**：只构建访问过的标签页，避免冷启动时五个页面同时发请求；
+/// 2. **登录门**：未登录时展示登录页；游客模式可跳过（只读浏览公开内容）。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../kernel/kernel.dart';
-import '../kit/kit.dart';
-import '../layout/adaptive.dart';
+import '../pages/about_page.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/login_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/search_page.dart';
+import '../pages/settings_page.dart';
 import '../surface_bridge.dart';
-import '../theme/design_tokens.dart';
-import '../theme/icon_pack.dart';
-import '../theme/theme_pack.dart';
 import 'error_surface.dart';
-import 'og_l_app.dart';
 
 /// 壳内的五个页面（导航值）。
 enum OgLShellTab {
-  /// 首页（仓库 / 星标）。
+  /// 首页（我的仓库 / 星标）。
   home,
 
   /// 搜索（仓库 / 代码）。
   search,
 
-  /// 我的（账户）。
+  /// 我的（账户 / Gist / 危险区）。
   profile,
 
-  /// 设置。
+  /// 设置（外观 / 网络 / 账户）。
   settings,
 
   /// 关于（启动报告 / 日志）。
@@ -65,52 +59,13 @@ class OgLClientShell extends StatefulWidget {
 }
 
 class _OgLClientShellState extends State<OgLClientShell> {
-  final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
-
   OgLShellTab _tab = OgLShellTab.home;
   bool _checked = false;
   bool _guest = false;
   String? _accountId;
 
   /// 已经访问过的页面（**懒挂载**）。
-  ///
-  /// 旧实现把五个页面全部塞进 `IndexedStack`：启动瞬间就会同时构建
-  /// 首页 / 搜索 / 我的 / 设置 / 关于（各自可能立刻发请求、建控制器），
-  /// 冷启动因此明显变慢。现在只挂载"用过的"页面，其它放占位。
   final Set<OgLShellTab> _visited = <OgLShellTab>{OgLShellTab.home};
-
-  static const List<OgLNavDestination<OgLShellTab>> _nav =
-      <OgLNavDestination<OgLShellTab>>[
-    OgLNavDestination<OgLShellTab>(
-      value: OgLShellTab.home,
-      label: '首页',
-      icon: OgLIconName.repository,
-    ),
-    OgLNavDestination<OgLShellTab>(
-      value: OgLShellTab.search,
-      label: '搜索',
-      icon: OgLIconName.search,
-    ),
-    OgLNavDestination<OgLShellTab>(
-      value: OgLShellTab.profile,
-      label: '我的',
-      icon: OgLIconName.key,
-    ),
-    OgLNavDestination<OgLShellTab>(
-      value: OgLShellTab.settings,
-      label: '设置',
-      icon: OgLIconName.settings,
-    ),
-    OgLNavDestination<OgLShellTab>(
-      value: OgLShellTab.about,
-      label: '关于',
-      icon: OgLIconName.info,
-    ),
-  ];
-
-  static String _labelOf(OgLShellTab tab) => _nav
-      .firstWhere((OgLNavDestination<OgLShellTab> item) => item.value == tab)
-      .label;
 
   @override
   void initState() {
@@ -124,7 +79,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
       final account = await widget.surface.domain.auth.activeAccount();
       accountId = account?.id;
     } catch (error) {
-      // 读取失败不能把应用卡在"启动中…"（没有恢复路径）：
+      // 读取失败不能把应用卡在"启动中"（没有恢复路径）：
       // 按未登录处理并留痕，用户至少能到达登录门 / 游客模式。
       OgLAppLog.instance.add(
         '账户',
@@ -159,60 +114,35 @@ class _OgLClientShellState extends State<OgLClientShell> {
   Widget _pageFor(OgLShellTab tab) {
     switch (tab) {
       case OgLShellTab.home:
-        return OgLDashboardPage(
-          key: ValueKey<String>('dash-${_accountId ?? "guest"}'),
+        return DashboardPage(
+          key: ValueKey<String>('dash-${_accountId ?? 'guest'}'),
           surface: widget.surface,
         );
       case OgLShellTab.search:
-        return OgLSearchPage(surface: widget.surface);
+        return SearchPage(surface: widget.surface);
       case OgLShellTab.profile:
-        return OgLProfilePage(surface: widget.surface, onAccountsChanged: _check);
+        return ProfilePage(surface: widget.surface, onAccountsChanged: _check);
       case OgLShellTab.settings:
-        return OgLSettingsView(surface: widget.surface);
+        return SettingsPage(surface: widget.surface);
       case OgLShellTab.about:
-        return OgLAboutView(report: widget.report);
+        return AboutPage(report: widget.report);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    final layout = ogL.layout;
     if (!_checked) {
-      // 首屏"启动中"也是产品的一部分：给品牌与说明，而不是一块灰板 + 细圈。
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const OgLBrandMark(),
-              SizedBox(height: ogL.tokens.space(OgLSpacing.lg)),
-              const OgLSpinner(label: '启动中…'),
-            ],
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
     if (_accountId == null && !_guest) {
-      return Scaffold(
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: layout.contentMaxWidth),
-              child: Padding(
-                padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.lg)),
-                child: OgLLoginPage(
-                  surface: widget.surface,
-                  onLoggedIn: _check,
-                  onSkip: () async {
-                    setState(() => _guest = true);
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
+      return LoginPage(
+        surface: widget.surface,
+        onLoggedIn: _check,
+        onSkip: () async {
+          setState(() => _guest = true);
+        },
       );
     }
 
@@ -223,76 +153,88 @@ class _OgLClientShellState extends State<OgLClientShell> {
     final int index = OgLShellTab.values.indexOf(_tab);
     final Widget body = IndexedStack(index: index, children: pages);
 
+    final double width = MediaQuery.sizeOf(context).width;
+
+    // ── 手机：底栏 ──
+    if (width < 600) {
+      return Scaffold(
+        body: body,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: (int value) =>
+              _select(OgLShellTab.values[value]),
+          destinations: const <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.folder_outlined),
+              selectedIcon: Icon(Icons.folder),
+              label: '首页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.search),
+              label: '搜索',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: '我的',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: '设置',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.info_outline),
+              selectedIcon: Icon(Icons.info),
+              label: '关于',
+            ),
+          ],
+        ),
+      );
+    }
+
     // ── 平板 / 桌面：导航轨 ──
-    if (layout.navigation.isRail) {
-      return Scaffold(
-        body: Row(
-          children: <Widget>[
-            OgLNavRail<OgLShellTab>(
-              destinations: _nav,
-              value: _tab,
-              extended: layout.showNavLabels,
-              onChanged: _select,
-            ),
-            // 无 AppBar 的形态：页面必须自己避让状态栏（否则页头顶到屏幕边缘）。
-            Expanded(
-              child: SafeArea(
-                top: true,
-                bottom: false,
-                child: body,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // ── 手机：底栏（页面自带页头，故壳不再叠一条 AppBar）──
-    if (layout.navigation == OgLNavKind.bottomBar) {
-      return Scaffold(
-        // 无 AppBar：body 自己避让状态栏（顶部安全区），底部交给底栏的 SafeArea。
-        body: SafeArea(
-          top: true,
-          bottom: false,
-          child: body,
-        ),
-        bottomNavigationBar: OgLBottomNav<OgLShellTab>(
-          destinations: _nav,
-          value: _tab,
-          onChanged: _select,
-        ),
-      );
-    }
-
-    // ── 桌面窄窗：自绘页头 + 自绘抽屉 ──
+    final bool extended = width >= 1200;
     return Scaffold(
-      key: _scaffold,
-      drawer: Drawer(
-        width: ogL.tokens.space(OgLSpacing.xxl * 9),
-        backgroundColor: ogL.palette.surface,
-        shape: const RoundedRectangleBorder(),
-        child: OgLNavDrawer<OgLShellTab>(
-          destinations: _nav,
-          value: _tab,
-          onChanged: (OgLShellTab tab) {
-            _select(tab);
-            _scaffold.currentState?.closeDrawer();
-          },
-        ),
-      ),
-      body: SafeArea(
-        top: true,
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            OgLShellHeader(
-              title: _labelOf(_tab),
-              onMenu: () => _scaffold.currentState?.openDrawer(),
-            ),
-            Expanded(child: body),
-          ],
-        ),
+      body: Row(
+        children: <Widget>[
+          NavigationRail(
+            selectedIndex: index,
+            onDestinationSelected: (int value) =>
+                _select(OgLShellTab.values[value]),
+            extended: extended,
+            labelType:
+                extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+            destinations: const <NavigationRailDestination>[
+              NavigationRailDestination(
+                icon: Icon(Icons.folder_outlined),
+                selectedIcon: Icon(Icons.folder),
+                label: Text('首页'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.search),
+                label: Text('搜索'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: Text('我的'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings),
+                label: Text('设置'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.info_outline),
+                selectedIcon: Icon(Icons.info),
+                label: Text('关于'),
+              ),
+            ],
+          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: body),
+        ],
       ),
     );
   }

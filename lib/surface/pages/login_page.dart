@@ -1,18 +1,9 @@
-/// OGL 页面 · 登录（令牌向导）—— 全客户端的入口门。
-///
-/// ## 布局（`docs/UI_PAGES_PLAN.md` §2.9）
-/// ```
-/// OgLPageScaffold('接入 GitHub' + 说明 + 游客模式入口)
-/// ├ OgLBanner(info) 令牌安全：只进本机保险库
-/// ├ OgLSection('粘贴令牌') → OgLBox → 密文输入框（回车即验证）+ 显示/隐藏 + 主操作
-/// ├ OgLSection('向导进度') → OgLBox(padded:false) → 四步（暂存 / 验证 / 转正 / 回读）
-/// └ OgLSection('怎么拿令牌') → OgLBox(padded:false) → 三步文字指引（可照抄）
-/// ```
+/// L3 展示级 · 登录页（令牌向导）—— 全客户端的入口门。
 ///
 /// ## 四步为什么必须可见
 /// 登录会依次做：① 暂存待验证账户 → ② `GET /user` 验证令牌 →
 /// ③ 转正并切换 → ④ **保险库回读自检**（防"存进去读不出来"的往返损坏）。
-/// 其中任何一步失败都会让"看起来登上了、实际没有令牌"，
+/// 任何一步失败都会让"看起来登上了、实际没有令牌"，
 /// 因此每一步都摊开显示状态，失败时错误原样给用户看（并写日志）。
 library;
 
@@ -20,16 +11,12 @@ import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_auth.dart';
 import '../app/error_surface.dart';
-import '../kit/kit.dart';
 import '../surface_bridge.dart';
-import '../theme/design_tokens.dart';
-import '../theme/icon_pack.dart';
-import '../theme/theme_pack.dart';
 
 /// 登录页。
-class OgLLoginPage extends StatefulWidget {
+class LoginPage extends StatefulWidget {
   /// 创建登录页。
-  const OgLLoginPage({
+  const LoginPage({
     required this.surface,
     required this.onLoggedIn,
     this.onSkip,
@@ -46,10 +33,10 @@ class OgLLoginPage extends StatefulWidget {
   final Future<void> Function()? onSkip;
 
   @override
-  State<OgLLoginPage> createState() => _OgLLoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _OgLLoginPageState extends State<OgLLoginPage> {
+class _LoginPageState extends State<LoginPage> {
   final TextEditingController _input = TextEditingController();
   bool _busy = false;
   bool _obscure = true;
@@ -177,223 +164,192 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
   }
 
   /// 四步中的一行：已完成 / 进行中 / 待做。
-  Widget _stepRow({
-    required OgLTheme ogL,
-    required OgLTokens tokens,
+  Widget _stepTile({
     required int index,
     required String title,
     required String detail,
-    required bool last,
   }) {
     final bool done = _step > index;
     final bool current = _step == index;
-    return OgLActionRow(
-      leading: OgLIcon(
-        name: done
-            ? OgLIconName.success
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(
+        done
+            ? Icons.check_circle
             : current
-                ? OgLIconName.clock
-                : OgLIconName.info,
-        size: tokens.iconSize(base: 18),
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
         color: done
-            ? ogL.palette.success
+            ? scheme.primary
             : current
-                ? ogL.palette.accent
-                : ogL.palette.textFaint,
+                ? scheme.primary
+                : scheme.outline,
       ),
-      title: '$index/4 $title',
-      subtitle: detail,
-      trailing: OgLLabel(
-        text: done ? '完成' : (current ? '进行中' : '待做'),
-        variant: done
-            ? OgLLabelVariant.success
-            : (current ? OgLLabelVariant.accent : OgLLabelVariant.neutral),
-      ),
-      dense: true,
-      showDivider: !last,
+      title: Text('$index/4 $title'),
+      subtitle: Text(detail),
+      trailing: Text(done ? '完成' : (current ? '进行中' : '待做')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final OgLTheme ogL = OgLTheme.of(context);
-    final OgLTokens tokens = ogL.tokens;
-    final OgLTypeScale scale = const OgLTypeScale.standard();
     final Future<void> Function()? skip = widget.onSkip;
-
-    return OgLPageScaffold(
-      title: '接入 GitHub',
-      description: 'GitHub 第三方客户端 · 用个人访问令牌登录',
-      actions: <Widget>[
-        if (skip != null)
-          OgLButton(
-            label: '先逛逛（游客模式）',
-            variant: OgLButtonVariant.invisible,
-            leadingIcon: OgLIconName.search,
-            onPressed: _busy
-                ? null
-                : () async {
-                    await skip();
-                  },
-          ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('接入 GitHub'),
+        automaticallyImplyLeading: false,
+        actions: <Widget>[
+          if (skip != null)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () async {
+                      await skip();
+                    },
+              child: const Text('先逛逛（游客模式）'),
+            ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: <Widget>[
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            title: '令牌安全',
-            text: '令牌只保存在本机安全保险库（Android Keystore / iOS Keychain / '
-                '桌面秘密服务），请求只会发往 api.github.com，不经过任何第三方服务器。',
-          ),
-          OgLSection(
-            title: '粘贴令牌',
-            description: '回车即验证；界面永远只显示脱敏形态',
-            child: OgLBox(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  OgLTextField(
-                    controller: _input,
-                    label: '个人访问令牌（Personal Access Token）',
-                    hint: 'ghp_… / github_pat_…',
-                    obscure: _obscure,
-                    leadingIcon: OgLIconName.key,
-                    enabled: !_busy,
-                    onSubmitted: (String _) async {
-                      await _login();
-                    },
-                    onChanged: (String _) {
-                      if (_error != null) {
-                        setState(() => _error = null);
-                      }
-                    },
+                  Icon(Icons.security, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      '令牌只保存在本机安全保险库（Android Keystore / iOS Keychain / '
+                      '桌面秘密服务），请求只会发往 api.github.com，不经过任何第三方服务器。',
+                    ),
                   ),
-                  SizedBox(height: tokens.space(OgLSpacing.sm)),
-                  Row(
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('粘贴令牌', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _input,
+            obscureText: _obscure,
+            enabled: !_busy,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: '个人访问令牌（Personal Access Token）',
+              hintText: 'ghp_… / github_pat_…',
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.key),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                tooltip: _obscure ? '显示令牌' : '隐藏令牌',
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+            onSubmitted: (String _) async {
+              await _login();
+            },
+            onChanged: (String _) {
+              if (_error != null) {
+                setState(() => _error = null);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _busy ? null : _login,
+            child: _busy
+                ? const Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      OgLButton(
-                        label: _obscure ? '显示令牌' : '隐藏令牌',
-                        variant: OgLButtonVariant.invisible,
-                        size: OgLButtonSize.small,
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      const Spacer(),
-                      OgLButton(
-                        label: _busy ? '验证中…' : '验证并登录',
-                        variant: OgLButtonVariant.primary,
-                        leadingIcon: OgLIconName.shield,
-                        loading: _busy,
-                        onPressed: _busy ? null : _login,
-                      ),
+                      SizedBox(width: 8),
+                      Text('验证中…'),
                     ],
+                  )
+                : const Text('验证并登录'),
+          ),
+          if (_phase.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(_phase, style: Theme.of(context).textTheme.bodySmall),
+          ],
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  '$_error\n（详细原因已写入应用日志，可在「关于」页复制）',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
                   ),
-                  if (_error != null) ...<Widget>[
-                    SizedBox(height: tokens.space(OgLSpacing.sm)),
-                    OgLBanner(
-                      variant: OgLBannerVariant.danger,
-                      title: '登录失败',
-                      text: '$_error\n（详细原因已写入应用日志，可在「设置 → 关于」复制）',
-                    ),
-                  ],
-                  if (_phase.isNotEmpty) ...<Widget>[
-                    SizedBox(height: tokens.space(OgLSpacing.sm)),
-                    Text(
-                      _phase,
-                      style: TextStyle(
-                        fontSize: tokens.fontSize(scale.label),
-                        color: ogL.palette.textDim,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
-          OgLSection(
-            title: '向导进度',
-            description: '每一步都可见 —— 不会出现"看起来登上了、实际没令牌"',
-            child: OgLBox(
-              padded: false,
-              child: Column(
-                children: <Widget>[
-                  _stepRow(
-                    ogL: ogL,
-                    tokens: tokens,
-                    index: 1,
-                    title: '暂存待验证账户',
-                    detail: '先写入一个占位账户，验证通过再转正',
-                    last: false,
-                  ),
-                  _stepRow(
-                    ogL: ogL,
-                    tokens: tokens,
-                    index: 2,
-                    title: '验证令牌（GET /user）',
-                    detail: '确认令牌有效，并读出你的登录名',
-                    last: false,
-                  ),
-                  _stepRow(
-                    ogL: ogL,
-                    tokens: tokens,
-                    index: 3,
-                    title: '转正并切换账户',
-                    detail: '用真实账号 ID 覆盖占位账户，并切到它',
-                    last: false,
-                  ),
-                  _stepRow(
-                    ogL: ogL,
-                    tokens: tokens,
-                    index: 4,
-                    title: '保险库回读自检',
-                    detail: '把令牌读回来核对（防"存进去读不出来"）',
-                    last: true,
-                  ),
-                ],
-              ),
+          ],
+          const SizedBox(height: 24),
+          Text('向导进度', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: <Widget>[
+                _stepTile(
+                  index: 1,
+                  title: '暂存待验证账户',
+                  detail: '先写入一个占位账户，验证通过再转正',
+                ),
+                _stepTile(
+                  index: 2,
+                  title: '验证令牌（GET /user）',
+                  detail: '确认令牌有效，并读出你的登录名',
+                ),
+                _stepTile(
+                  index: 3,
+                  title: '转正并切换账户',
+                  detail: '用真实账号 ID 覆盖占位账户，并切到它',
+                ),
+                _stepTile(
+                  index: 4,
+                  title: '保险库回读自检',
+                  detail: '把令牌读回来核对（防"存进去读不出来"）',
+                ),
+              ],
             ),
           ),
-          OgLSection(
-            title: '怎么拿令牌',
-            child: OgLBox(
-              padded: false,
-              child: Column(
-                children: <Widget>[
-                  OgLActionRow(
-                    leading: OgLIcon(
-                      name: OgLIconName.info,
-                      size: 18,
-                      color: ogL.palette.textDim,
-                    ),
-                    title: '网页端 → Settings',
-                    subtitle: '右上角头像 → Settings',
-                    dense: true,
-                  ),
-                  OgLActionRow(
-                    leading: OgLIcon(
-                      name: OgLIconName.info,
-                      size: 18,
-                      color: ogL.palette.textDim,
-                    ),
-                    title: 'Developer settings',
-                    subtitle: 'Settings 最下方 → Developer settings',
-                    dense: true,
-                  ),
-                  OgLActionRow(
-                    leading: OgLIcon(
-                      name: OgLIconName.info,
-                      size: 18,
-                      color: ogL.palette.textDim,
-                    ),
-                    title: 'Personal access tokens',
-                    subtitle: '新建令牌；权限建议先只勾 repo（只读起步）',
-                    dense: true,
-                    showDivider: false,
-                  ),
-                ],
-              ),
+          const SizedBox(height: 24),
+          Text('怎么拿令牌', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Card(
+            child: Column(
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('网页端 → Settings'),
+                  subtitle: Text('右上角头像 → Settings'),
+                ),
+                ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Developer settings'),
+                  subtitle: Text('Settings 最下方 → Developer settings'),
+                ),
+                ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Personal access tokens'),
+                  subtitle: Text('新建令牌；权限建议先只勾 repo（只读起步）'),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );

@@ -1,59 +1,35 @@
-/// OGL 页面 · 仓库详情（v1：代码浏览 → 文件查看 → 编辑提交 → 删除）。
+/// L3 展示级 · 仓库详情页（八标签）。
 ///
-/// 写入路径遵守底座纪律：**带基线 sha 的乐观锁**（`baseSha`），
-/// 冲突（409/422）走"远端已变化，请重开文件"的人话提示，绝不静默覆盖。
+/// 标签：代码 / 议题 / PR / 发布 / 分支 / 提交 / Actions / 设置。
+///
+/// ## 保守实现
+/// - 全部使用 Material 3：`DefaultTabController` + `TabBar` + `TabBarView`；
+/// - 每个标签自己懒加载（进入才发请求）；
+/// - 危险操作（删文件 / 删分支 / 删发布 / 删仓库）一律二次确认；
+/// - 写操作带基线 sha（乐观锁）：基线过期时服务端会拒绝，绝不静默覆盖。
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_models.dart';
-import '../app/async_state.dart';
-import '../app/async_view.dart';
+import '../app/async.dart';
 import '../app/error_surface.dart';
-import '../kit/kit.dart';
-import '../readme/link_opener.dart';
-import '../readme/readme_view.dart';
 import '../surface_bridge.dart';
-import '../theme/design_tokens.dart';
-import '../theme/icon_pack.dart';
-import '../theme/theme_pack.dart';
+import '../util/gh_format.dart';
+import '../util/link_opener.dart';
+import '../widgets/readme_view.dart';
 import 'commit_page.dart';
 import 'issue_page.dart';
 import 'new_issue_page.dart';
 import 'new_release_page.dart';
 import 'pull_page.dart';
 
-/// 仓库页内的标签。
-enum _RepoTab {
-  /// 代码（文件浏览）。
-  code,
-
-  /// 议题。
-  issues,
-
-  /// 拉取请求。
-  pulls,
-
-  /// 发布。
-  releases,
-
-  /// 分支。
-  branches,
-
-  /// 提交历史。
-  commits,
-
-  /// 工作流运行。
-  actions,
-
-  /// 设置与危险区。
-  settings,
-}
-
 /// 仓库详情页。
-class OgLRepoPage extends StatefulWidget {
+class RepoPage extends StatefulWidget {
   /// 创建页面。
-  const OgLRepoPage({
+  const RepoPage({
     required this.surface,
     required this.repo,
     this.initialPath,
@@ -63,2245 +39,2185 @@ class OgLRepoPage extends StatefulWidget {
   /// 表面桥。
   final SurfaceBridge surface;
 
-  /// 仓库（来自列表的既有数据）。
+  /// 仓库（可由刷新结果覆盖）。
   final GhRepo repo;
 
-  /// 可选：进入后直接打开的文件路径（代码搜索结果"直达文件"用）。
+  /// 初始路径（从代码搜索直达某文件 / 目录；可空）。
   final String? initialPath;
 
   @override
-  State<OgLRepoPage> createState() => _OgLRepoPageState();
+  State<RepoPage> createState() => _RepoPageState();
 }
 
-class _OgLRepoPageState extends State<OgLRepoPage> {
-  // 头部状态
-  bool? _starred;
-  bool _busy = false;
-  String? _error;
-  String? _notice;
+class _RepoPageState extends State<RepoPage> {
+  late GhRepo _repo = widget.repo;
+  bool _starred = false;
+  bool _starBusy = false;
+  bool _forkBusy = false;
 
-  // 浏览状态
-  String _path = '';
-  OgLAsyncController<List<GhContent>>? _entries;
-  OgLAsyncController<String?>? _readme;
+  String get _full => _repo.fullName;
 
-  // 标签页
-  _RepoTab _tab = _RepoTab.code;
-  bool _releaseBusy = false;
-
-  // 设置标签状态
-  late final TextEditingController _nameCtl;
-  late final TextEditingController _descCtl;
-  final TextEditingController _cnameCtl = TextEditingController();
-  bool _privateVal = false;
-  bool _settingsBusy = false;
-  OgLAsyncController<Map<String, dynamic>>? _pages;
-  String? _cnameSha;
-  OgLAsyncController<List<Map<String, dynamic>>>? _issues;
-  OgLAsyncController<List<Map<String, dynamic>>>? _pulls;
-  // ── 议题 / PR：状态筛选 + 分页（"加载更多"） ──────────────────────
-  // GitHub 这两个列表接口一次最多 100 条，之前固定只拉第一页 30 条；
-  // 现在可以切"打开中 / 已关闭 / 全部"，并能在尾部继续拉。
-  static const int _listPageSize = 30;
-  String _issuesState = 'open';
-  String _pullsState = 'open';
-  int _issuesPage = 1;
-  int _pullsPage = 1;
-  final List<Map<String, dynamic>> _issuesMore = <Map<String, dynamic>>[];
-  final List<Map<String, dynamic>> _pullsMore = <Map<String, dynamic>>[];
-  bool _issuesMoreBusy = false;
-  bool _pullsMoreBusy = false;
-  bool _issuesMoreDone = false;
-  bool _pullsMoreDone = false;
-  OgLAsyncController<List<GhRelease>>? _releases;
-  OgLAsyncController<List<GhBranch>>? _branches;
-  OgLAsyncController<List<GhCommit>>? _commits;
-  OgLAsyncController<List<Map<String, dynamic>>>? _acts;
-
-  // 文件状态
-  GhContent? _file;
-  String? _fileText;
-  bool _fileLoading = false;
-  String? _fileError;
-  bool _editing = false;
-  final TextEditingController _editController = TextEditingController();
-  final TextEditingController _messageController = TextEditingController();
-
-  /// 当前仓库全名（仓库改名后继续沿用，避免"改名即失联"）。
-  String? _fullName;
-
-  /// 仓库信息（列表数据可能不全：缺 `default_branch` 等）。
-  late GhRepo _repo;
-
-  /// 最近一次尝试打开的文件（失败后一键重试用）。
-  GhContent? _pendingFile;
-
-  /// 当前仓库全名（改名后仍指向同一个仓库）。
-  String get _full => _fullName ?? _repo.fullName;
-
-  @override
-  void initState() {
-    super.initState();
-    _repo = widget.repo;
-    final raw = _repo.raw['viewer_has_starred'];
-    _starred = raw is bool ? raw : null;
-    _messageController.text = 'chore: update $_full';
-    _nameCtl = TextEditingController(text: _repo.name);
-    _descCtl = TextEditingController(text: _repo.description ?? '');
-    _privateVal = _repo.isPrivate;
-    _entriesC().loadIfNeeded();
-    _readmeC().loadIfNeeded();
-    // 代码搜索等入口可以"带着文件路径进来"：首帧后直接打开那个文件。
-    final String? initial = widget.initialPath;
-    if (initial != null && initial.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _openFile(GhContent(path: initial, sha: ''));
-        }
-      });
-    }
-    // 列表里的仓库对象可能缺 `default_branch`（猜 main 会让 master 仓库全 404），
-    // 因此用一次详情请求把事实补齐；失败不影响浏览（只写日志）。
-    _refreshRepo();
-  }
-
-  @override
-  void dispose() {
-    _entries?.removeListener(_onChanged);
-    _entries?.dispose();
-    _readme?.removeListener(_onChanged);
-    _readme?.dispose();
-    _issues?.removeListener(_onChanged);
-    _issues?.dispose();
-    _pulls?.removeListener(_onChanged);
-    _pulls?.dispose();
-    _releases?.removeListener(_onChanged);
-    _releases?.dispose();
-    _branches?.removeListener(_onChanged);
-    _branches?.dispose();
-    _commits?.removeListener(_onChanged);
-    _commits?.dispose();
-    _acts?.removeListener(_onChanged);
-    _acts?.dispose();
-    _pages?.removeListener(_onChanged);
-    _pages?.dispose();
-    _nameCtl.dispose();
-    _descCtl.dispose();
-    _cnameCtl.dispose();
-    _editController.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  void _onChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  OgLAsyncController<List<GhContent>> _entriesC() {
-    final existing = _entries;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<GhContent>>(
-      label: '目录',
-      isEmpty: (List<GhContent> value) => value.isEmpty,
-      loader: () async {
-        final list = await widget.surface.domain.api.listDirectory(
-          _full,
-          _path,
-          branch: _repo.defaultBranch,
-        );
-        final dirs = list.where((GhContent c) => c.isDirectory).toList()
-          ..sort((GhContent a, GhContent b) => a.path.compareTo(b.path));
-        final files = list.where((GhContent c) => !c.isDirectory).toList()
-          ..sort((GhContent a, GhContent b) => a.path.compareTo(b.path));
-        return <GhContent>[...dirs, ...files];
-      },
-    );
-    controller.addListener(_onChanged);
-    _entries = controller;
-    return controller;
-  }
-
-  /// README 控制器（`null` = 仓库没有 README，属于**空态**不是错误）。
-  OgLAsyncController<String?> _readmeC() {
-    final existing = _readme;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<String?>(
-      label: 'README',
-      isEmpty: (String? value) => value == null || value.trim().isEmpty,
-      loader: () async {
-        OgLAppLog.instance.add('仓库', '拉取 README（$_full）…');
-        final text = await widget.surface.domain.api.readme(_full);
-        OgLAppLog.instance
-            .add('仓库', 'README：${text == null ? '无' : '${text.length} 字符'}');
-        return text;
-      },
-    );
-    controller.addListener(_onChanged);
-    _readme = controller;
-    return controller;
-  }
-
-  OgLAsyncController<List<Map<String, dynamic>>> _issuesC() {
-    final existing = _issues;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
-      label: '议题',
-      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () async {
-        // 换筛选条件 = 重新开始"第一页"（旧的分页结果必须丢掉）。
-        _issuesPage = 1;
-        _issuesMore.clear();
-        _issuesMoreDone = false;
-        return widget.surface.domain.api.issues(
-          _full,
-          state: _issuesState,
-          perPage: _listPageSize,
-          page: 1,
-        );
-      },
-    );
-    controller.addListener(_onChanged);
-    _issues = controller;
-    return controller;
-  }
-
-  OgLAsyncController<List<Map<String, dynamic>>> _pullsC() {
-    final existing = _pulls;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
-      label: 'PR',
-      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () async {
-        _pullsPage = 1;
-        _pullsMore.clear();
-        _pullsMoreDone = false;
-        return widget.surface.domain.api.pulls(
-          _full,
-          state: _pullsState,
-          perPage: _listPageSize,
-          page: 1,
-        );
-      },
-    );
-    controller.addListener(_onChanged);
-    _pulls = controller;
-    return controller;
-  }
-
-  OgLAsyncController<List<GhRelease>> _releasesC() {
-    final existing = _releases;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<GhRelease>>(
-      label: '发布',
-      isEmpty: (List<GhRelease> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.releases(_full),
-    );
-    controller.addListener(_onChanged);
-    _releases = controller;
-    return controller;
-  }
-
-  OgLAsyncController<List<GhBranch>> _branchesC() {
-    final existing = _branches;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<GhBranch>>(
-      label: '分支',
-      isEmpty: (List<GhBranch> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.branches(_full),
-    );
-    controller.addListener(_onChanged);
-    _branches = controller;
-    return controller;
-  }
-
-  OgLAsyncController<List<GhCommit>> _commitsC() {
-    final existing = _commits;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<GhCommit>>(
-      label: '提交',
-      isEmpty: (List<GhCommit> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.commits(
-            _full,
-            branch: _repo.defaultBranch,
-          ),
-    );
-    controller.addListener(_onChanged);
-    _commits = controller;
-    return controller;
-  }
-
-  /// 用 `GET /repos/{full}` 兜底刷新仓库信息（**失败不阻塞页面**）。
-  Future<void> _refreshRepo() async {
-    try {
-      final fresh = await widget.surface.domain.api.repo(_full);
-      if (!mounted) {
-        return;
-      }
-      setState(() => _repo = fresh);
-      await _entriesC().load();
-    } catch (error) {
-      OgLAppLog.instance.add('仓库', '详情刷新失败（不影响浏览）：$error');
-    }
-  }
-
-  Future<void> _switchTab(_RepoTab tab) async {
-    if (tab == _tab) {
+  void _toast(String message) {
+    if (!mounted) {
       return;
     }
-    setState(() => _tab = tab);
-    if (tab == _RepoTab.code) {
-      await _entriesC().loadIfNeeded();
-    } else if (tab == _RepoTab.issues) {
-      await _issuesC().loadIfNeeded();
-    } else if (tab == _RepoTab.pulls) {
-      await _pullsC().loadIfNeeded();
-    } else if (tab == _RepoTab.releases) {
-      await _releasesC().loadIfNeeded();
-    } else if (tab == _RepoTab.branches) {
-      await _branchesC().loadIfNeeded();
-    } else if (tab == _RepoTab.commits) {
-      await _commitsC().loadIfNeeded();
-    } else if (tab == _RepoTab.actions) {
-      await _actsC().loadIfNeeded();
-    } else {
-      await _pagesC().loadIfNeeded();
-      await _loadCname();
-    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _toggleStar() async {
-    final target = !(_starred ?? false);
-    setState(() {
-      _busy = true;
-      _error = null;
-      _notice = null;
-    });
+    if (_starBusy) {
+      return;
+    }
+    setState(() => _starBusy = true);
+    final bool target = !_starred;
     try {
       await widget.surface.domain.api.setStarred(_full, target);
-      OgLAppLog.instance.add('仓库', target ? '已加星标' : '已取消星标');
+      OgLAppLog.instance.result('仓库', target ? '已加星标' : '已取消星标', _full);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _starred = target;
-        _notice = target ? '已加入星标' : '已取消星标';
-      });
-    } catch (error, stackTrace) {
+      setState(() => _starred = target);
+      _toast(target ? '已加星标' : '已取消星标');
+    } catch (error) {
       OgLAppLog.instance.add(
         '仓库',
-        '星标失败（原始异常）：$error\n$stackTrace',
+        '星标操作失败：$error',
         severity: OgLNoticeSeverity.critical,
       );
-      if (mounted) {
-        setState(() => _error = '星标失败：$error');
-      }
+      _toast('操作失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
-      } else {
-        _busy = false;
+        setState(() => _starBusy = false);
       }
     }
   }
 
   Future<void> _fork() async {
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '复刻仓库',
-      message: '将在你的账户下创建「$_full」的副本。',
-      confirmLabel: '复刻',
-    );
-    if (!confirmed || !mounted) {
+    if (_forkBusy) {
       return;
     }
-    setState(() {
-      _busy = true;
-      _error = null;
-      _notice = null;
-    });
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('复刻仓库'),
+        content: Text('将把 $_full 复刻到你的账号下，继续？'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('复刻'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _forkBusy = true);
     try {
-      final forked = await widget.surface.domain.api.fork(_full);
-      OgLAppLog.instance.add('仓库', '已复刻为 ${forked.fullName}');
-      if (mounted) {
-        setState(() => _notice = '已复刻为 ${forked.fullName}');
-      }
-    } catch (error, stackTrace) {
+      final GhRepo forked = await widget.surface.domain.api.fork(_full);
+      OgLAppLog.instance.result('仓库', '已复刻', forked.fullName);
+      _toast('已复刻为 ${forked.fullName}');
+    } catch (error) {
       OgLAppLog.instance.add(
         '仓库',
-        '复刻失败（原始异常）：$error\n$stackTrace',
+        '复刻失败：$error',
         severity: OgLNoticeSeverity.critical,
       );
-      if (mounted) {
-        setState(() => _error = '复刻失败：$error');
-      }
+      _toast('复刻失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
-      } else {
-        _busy = false;
+        setState(() => _forkBusy = false);
       }
     }
   }
 
-  void _goTo(String path) {
-    setState(() {
-      _path = path;
-      _file = null;
-      _fileText = null;
-      _fileError = null;
-      _pendingFile = null;
-      _editing = false;
-    });
-    _entriesC().load();
+  void _openInBrowser() {
+    final String url =
+        _repo.htmlUrl ?? 'https://github.com/${_repo.fullName}';
+    unawaited(openLinkOrCopy(context, url, tag: '仓库'));
   }
 
-  /// 重试最近一次失败的文件打开。
-  ///
-  /// 历史缺陷：打开文件失败时只改了 `_fileError`，而错误只在"文件视图"
-  /// 里渲染 —— 文件没打开就还在目录视图，于是用户看到的是"点了没反应"
-  /// （错误无声消失，违反红线）。这里给出可见的失败 + 一键重试。
-  Future<void> _retryPendingOpen() async {
-    final pending = _pendingFile;
-    if (pending == null) {
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 8,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_repo.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          actions: <Widget>[
+            IconButton(
+              icon: Icon(_starred ? Icons.star : Icons.star_border),
+              tooltip: _starred ? '取消星标' : '加星',
+              onPressed: _starBusy ? null : _toggleStar,
+            ),
+            IconButton(
+              icon: const Icon(Icons.call_split),
+              tooltip: '复刻',
+              onPressed: _forkBusy ? null : _fork,
+            ),
+            IconButton(
+              icon: const Icon(Icons.open_in_new),
+              tooltip: '用浏览器打开',
+              onPressed: _openInBrowser,
+            ),
+          ],
+          bottom: const TabBar(
+            isScrollable: true,
+            tabs: <Tab>[
+              Tab(text: '代码'),
+              Tab(text: '议题'),
+              Tab(text: 'PR'),
+              Tab(text: '发布'),
+              Tab(text: '分支'),
+              Tab(text: '提交'),
+              Tab(text: 'Actions'),
+              Tab(text: '设置'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: <Widget>[
+            _CodeTab(
+              surface: widget.surface,
+              fullName: _full,
+              defaultBranch: _repo.defaultBranch,
+              initialPath: widget.initialPath,
+            ),
+            _IssuesTab(surface: widget.surface, fullName: _full),
+            _PullsTab(surface: widget.surface, fullName: _full),
+            _ReleasesTab(
+              surface: widget.surface,
+              fullName: _full,
+              defaultBranch: _repo.defaultBranch,
+            ),
+            _BranchesTab(
+              surface: widget.surface,
+              fullName: _full,
+              defaultBranch: _repo.defaultBranch,
+            ),
+            _CommitsTab(
+              surface: widget.surface,
+              fullName: _full,
+              defaultBranch: _repo.defaultBranch,
+            ),
+            _ActionsTab(surface: widget.surface, fullName: _full),
+            _RepoSettingsTab(
+              surface: widget.surface,
+              repo: _repo,
+              onRepoChanged: (GhRepo fresh) => setState(() => _repo = fresh),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 代码标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CodeTab extends StatefulWidget {
+  const _CodeTab({
+    required this.surface,
+    required this.fullName,
+    required this.defaultBranch,
+    this.initialPath,
+  });
+
+  final SurfaceBridge surface;
+  final String fullName;
+  final String defaultBranch;
+  final String? initialPath;
+
+  @override
+  State<_CodeTab> createState() => _CodeTabState();
+}
+
+class _CodeTabState extends State<_CodeTab> {
+  String _path = '';
+  AsyncController<List<GhContent>>? _entries;
+  GhContent? _file;
+  bool _fileBusy = false;
+  bool _editing = false;
+  bool _saving = false;
+  final TextEditingController _editor = TextEditingController();
+
+  String? _readme;
+  String? _readmeError;
+  bool _readmeTried = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _entriesC().loadIfNeeded();
+    final String? initial = widget.initialPath;
+    if (initial != null && initial.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_openPath(initial));
+      });
+    } else {
+      unawaited(_loadReadme());
+    }
+  }
+
+  @override
+  void dispose() {
+    _entries?.dispose();
+    _editor.dispose();
+    super.dispose();
+  }
+
+  AsyncController<List<GhContent>> _entriesC() {
+    final existing = _entries;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = AsyncController<List<GhContent>>(
+      label: '目录',
+      isEmpty: (List<GhContent> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.listDirectory(
+        widget.fullName,
+        _path,
+        branch: widget.defaultBranch,
+      ),
+    );
+    _entries = controller;
+    return controller;
+  }
+
+  void _toast(String message) {
+    if (!mounted) {
       return;
     }
-    await _openFile(pending);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _openFile(GhContent entry) async {
-    setState(() {
-      _pendingFile = entry;
-      _fileLoading = true;
-      _fileError = null;
-      _file = null;
-      _fileText = null;
-      _editing = false;
-    });
+  Future<void> _loadReadme() async {
+    if (_readmeTried) {
+      return;
+    }
+    _readmeTried = true;
     try {
-      final file = await widget.surface.domain.api.content(
-        _full,
-        entry.path,
-        branch: _repo.defaultBranch,
-      );
-      if (file == null) {
-        throw Exception('读不到内容（可能是二进制文件或权限不足）');
-      }
-      var text = file.text;
-      if (text == null && file.isTooLarge) {
-        text = await widget.surface.domain.api
-            .blobText(_full, file.sha);
-      }
-      // ★ 二进制防护：图片 / 压缩包等经 base64 → UTF-8 解码会得到
-      // 带替换字符（U+FFFD）的"乱码文本"。这种内容**不允许进入编辑**
-      // —— 否则"提交"会把乱码按 UTF-8 重新编码写回，直接损坏原文件。
-      if (text != null && text.contains('\uFFFD')) {
-        OgLAppLog.instance.add(
-          '文件',
-          '${entry.path} 看起来是二进制文件（含替换字符），已禁用编辑。',
-        );
-        text = null;
-      }
+      final String? text = await widget.surface.domain.api.readme(widget.fullName);
       if (!mounted) {
         return;
       }
-      _editController.text = text ?? '';
       setState(() {
-        _file = file;
-        _fileText = text;
+        _readme = text;
+        _readmeError = null;
       });
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '文件',
-        '打开失败：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _fileError = '打开失败：$error');
+    } catch (error) {
+      if (!mounted) {
+        return;
       }
+      setState(() => _readmeError = 'README 读取失败：$error');
+    }
+  }
+
+  /// 从搜索直达（文件或目录）。
+  Future<void> _openPath(String path) async {
+    setState(() => _fileBusy = true);
+    try {
+      final GhContent? content = await widget.surface.domain.api.content(
+        widget.fullName,
+        path,
+        branch: widget.defaultBranch,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (content == null) {
+        _toast('路径不存在：$path');
+        return;
+      }
+      if (content.isDirectory) {
+        setState(() => _path = content.path);
+        await _entriesC().load();
+      } else {
+        setState(() {
+          _file = content;
+          _editing = false;
+          _editor.text = content.text ?? '';
+        });
+      }
+    } catch (error) {
+      _toast('读取失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _fileLoading = false);
-      } else {
-        _fileLoading = false;
+        setState(() => _fileBusy = false);
       }
     }
   }
 
-  Future<void> _saveFile() async {
-    final file = _file;
-    if (file == null) {
+  void _openDir(GhContent entry) {
+    setState(() => _path = entry.path);
+    unawaited(_entriesC().load());
+  }
+
+  void _up() {
+    final int cut = _path.lastIndexOf('/');
+    setState(() => _path = cut <= 0 ? '' : _path.substring(0, cut));
+    unawaited(_entriesC().load());
+    if (_path.isEmpty) {
+      unawaited(_loadReadme());
+    }
+  }
+
+  Future<void> _openFile(GhContent entry) async {
+    if (_fileBusy) {
       return;
     }
-    final message = _messageController.text.trim();
-    if (message.isEmpty) {
-      setState(() => _fileError = '提交信息不能为空');
+    setState(() => _fileBusy = true);
+    try {
+      final GhContent? content = await widget.surface.domain.api.content(
+        widget.fullName,
+        entry.path,
+        branch: widget.defaultBranch,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (content == null) {
+        _toast('读取失败：文件可能已不存在');
+        return;
+      }
+      setState(() {
+        _file = content;
+        _editing = false;
+        _editor.text = content.text ?? '';
+      });
+    } catch (error) {
+      _toast('读取失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() => _fileBusy = false);
+      }
+    }
+  }
+
+  Future<void> _refreshFile(String path) async {
+    try {
+      final GhContent? fresh = await widget.surface.domain.api.content(
+        widget.fullName,
+        path,
+        branch: widget.defaultBranch,
+      );
+      if (!mounted || fresh == null) {
+        return;
+      }
+      setState(() {
+        _file = fresh;
+        _editor.text = fresh.text ?? '';
+      });
+    } catch (_) {
+      // 刷新失败不阻塞（旧内容还在屏幕上，下一次操作会再试）。
+    }
+  }
+
+  Future<void> _save() async {
+    final GhContent? file = _file;
+    if (file == null || _saving) {
       return;
     }
-    setState(() {
-      _fileLoading = true;
-      _fileError = null;
-      _notice = null;
-    });
+    setState(() => _saving = true);
     try {
       await widget.surface.domain.api.putContent(
-        _full,
+        widget.fullName,
         file.path,
-        content: _editController.text,
-        message: message,
+        content: _editor.text,
+        message: 'docs: update ${file.path}',
         baseSha: file.sha,
-        branch: _repo.defaultBranch,
+        branch: widget.defaultBranch,
       );
-      OgLAppLog.instance.add('文件', '已提交：${file.path}');
-      if (mounted) {
-        setState(() {
-          _editing = false;
-          _notice = '已提交：${file.path}';
-        });
+      OgLAppLog.instance.result('编辑', '已提交', file.path);
+      if (!mounted) {
+        return;
       }
-      await _openFile(file);
-    } catch (error, stackTrace) {
+      setState(() => _editing = false);
+      _toast('已提交修改：${file.path}');
+      await _refreshFile(file.path);
+      await _entriesC().load();
+    } catch (error) {
       OgLAppLog.instance.add(
-        '文件',
-        '提交失败（原始异常）：$error\n$stackTrace',
+        '编辑',
+        '提交失败：$error',
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        setState(() {
-          _fileError = '提交失败：$error（若为冲突：远端已更新，请重开文件再编辑）';
-        });
+        setState(() {});
+        _toast('提交失败：$error');
       }
     } finally {
       if (mounted) {
-        setState(() => _fileLoading = false);
-      } else {
-        _fileLoading = false;
+        setState(() => _saving = false);
       }
     }
   }
 
-  Future<void> _deleteFile() async {
-    final file = _file;
+  Future<void> _delete() async {
+    final GhContent? file = _file;
     if (file == null) {
       return;
     }
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '删除文件',
-      message: '将删除「${file.path}」并立即提交。该操作会进入仓库历史，但不可直接撤销。',
-      confirmLabel: '删除',
-      danger: true,
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除文件'),
+        content: Text('将删除 ${file.path} 并提交到仓库。该操作不易撤销。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
     );
-    if (!confirmed || !mounted) {
+    if (confirmed != true || !mounted) {
       return;
     }
-    setState(() {
-      _fileLoading = true;
-      _fileError = null;
-    });
     try {
       await widget.surface.domain.api.deleteContent(
-        _full,
+        widget.fullName,
         file.path,
         message: 'chore: delete ${file.path}',
         baseSha: file.sha,
-        branch: _repo.defaultBranch,
+        branch: widget.defaultBranch,
       );
-      OgLAppLog.instance.add('文件', '已删除：${file.path}');
-      if (mounted) {
-        setState(() {
-          _file = null;
-          _fileText = null;
-          _editing = false;
-          _notice = '已删除：${file.path}';
-        });
+      OgLAppLog.instance.result('编辑', '已删除', file.path);
+      if (!mounted) {
+        return;
       }
-      _entriesC().load();
-    } catch (error, stackTrace) {
+      setState(() {
+        _file = null;
+        _editing = false;
+      });
+      _toast('已删除：${file.path}');
+      await _entriesC().load();
+    } catch (error) {
       OgLAppLog.instance.add(
-        '文件',
-        '删除失败（原始异常）：$error\n$stackTrace',
+        '编辑',
+        '删除失败：$error',
         severity: OgLNoticeSeverity.critical,
       );
-      if (mounted) {
-        setState(() => _fileError = '删除失败：$error');
+      _toast('删除失败：$error');
+    }
+  }
+
+  void _openFileInBrowser(GhContent file) {
+    final String? url = file.htmlUrl;
+    if (url == null || url.isEmpty) {
+      _toast('该文件没有可打开的链接');
+      return;
+    }
+    unawaited(openLinkOrCopy(context, url, tag: '文件'));
+  }
+
+  Widget _readmeTile() {
+    final String? err = _readmeError;
+    if (err != null) {
+      return ListTile(
+        leading: const Icon(Icons.warning_amber_rounded),
+        title: const Text('README 读取失败'),
+        subtitle: Text(err),
+      );
+    }
+    final String? md = _readme;
+    if (md == null || md.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return ExpansionTile(
+      title: const Text('README'),
+      subtitle: const Text('点击展开 / 收起'),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: <Widget>[
+        ReadmeView(
+          markdown: md,
+          onOpenLink: (Uri uri) {
+            unawaited(openExternalLink(uri, tag: 'README'));
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileHeader(GhContent file) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      child: Row(
+        children: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '返回目录',
+            onPressed: () {
+              setState(() {
+                _file = null;
+                _editing = false;
+              });
+            },
+          ),
+          Expanded(
+            child: Text(
+              file.path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            ),
+          ),
+          if (!_editing && !file.isTooLarge)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: '编辑',
+              onPressed: () {
+                setState(() {
+                  _editing = true;
+                  _editor.text = file.text ?? '';
+                });
+              },
+            ),
+          if (!_editing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '删除',
+              onPressed: _delete,
+            ),
+          if (!_editing)
+            IconButton(
+              icon: const Icon(Icons.open_in_new),
+              tooltip: '用浏览器打开',
+              onPressed: () => _openFileInBrowser(file),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewer(GhContent file) {
+    if (file.isTooLarge) {
+      return _MessagePane(
+        icon: Icons.warning_amber_rounded,
+        message: '文件过大（超过 1 MB），接口未返回内容。\n可用浏览器打开查看。',
+        action: FilledButton.tonal(
+          onPressed: () => _openFileInBrowser(file),
+          child: const Text('用浏览器打开'),
+        ),
+      );
+    }
+    final String? text = file.text;
+    if (text == null) {
+      return _MessagePane(
+        icon: Icons.help_outline,
+        message: '没有可显示的文本内容（可能是二进制文件）。',
+        action: FilledButton.tonal(
+          onPressed: () => _openFileInBrowser(file),
+          child: const Text('用浏览器打开'),
+        ),
+      );
+    }
+    if (file.path.toLowerCase().endsWith('.md')) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: ReadmeView(
+          markdown: text,
+          onOpenLink: (Uri uri) {
+            unawaited(openExternalLink(uri, tag: '文件'));
+          },
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: SelectableText(
+        text,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _buildEditor() {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _editor,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '文件内容',
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Row(
+            children: <Widget>[
+              TextButton(
+                onPressed: _saving
+                    ? null
+                    : () => setState(() => _editing = false),
+                child: const Text('取消'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? '提交中…' : '提交修改'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_fileBusy) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final GhContent? file = _file;
+    if (file != null) {
+      return Column(
+        children: <Widget>[
+          _buildFileHeader(file),
+          Expanded(
+            child: _editing ? _buildEditor() : _buildViewer(file),
+          ),
+        ],
+      );
+    }
+    return AsyncView<List<GhContent>>(
+      controller: _entriesC(),
+      emptyIcon: Icons.folder_open,
+      emptyText: '这个目录是空的',
+      builder: (BuildContext context, List<GhContent> entries) =>
+          RefreshIndicator(
+        onRefresh: () => _entriesC().load(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: <Widget>[
+            if (_path.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.arrow_upward),
+                title: const Text('上一级'),
+                onTap: _up,
+              ),
+            if (_path.isEmpty) _readmeTile(),
+            for (final GhContent entry in entries)
+              ListTile(
+                leading: Icon(
+                  entry.isDirectory ? Icons.folder : Icons.description_outlined,
+                ),
+                title: Text(
+                  ghPathName(entry.path),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: entry.isDirectory ? null : Text(ghSizeText(entry.size)),
+                trailing: entry.isDirectory
+                    ? const Icon(Icons.chevron_right)
+                    : null,
+                onTap: () {
+                  if (entry.isDirectory) {
+                    _openDir(entry);
+                  } else {
+                    unawaited(_openFile(entry));
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 简单消息面板（图标 + 文案 + 可选动作）。
+class _MessagePane extends StatelessWidget {
+  const _MessagePane({required this.icon, required this.message, this.action});
+
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            if (action != null) ...<Widget>[
+              const SizedBox(height: 16),
+              action!,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 议题 / PR 标签（筛选 + 分页）
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _IssuesTab extends StatefulWidget {
+  const _IssuesTab({required this.surface, required this.fullName});
+
+  final SurfaceBridge surface;
+  final String fullName;
+
+  @override
+  State<_IssuesTab> createState() => _IssuesTabState();
+}
+
+class _IssuesTabState extends State<_IssuesTab> {
+  final List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
+  String _state = 'open';
+  int _page = 1;
+  bool _loading = false;
+  bool _moreDone = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_reload());
+    });
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _items.clear();
+      _page = 1;
+      _moreDone = false;
+      _error = null;
+    });
+    await _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading) {
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final List<Map<String, dynamic>> list =
+          await widget.surface.domain.api.issues(
+        widget.fullName,
+        state: _state,
+        perPage: 30,
+        page: _page,
+      );
+      if (!mounted) {
+        return;
       }
+      setState(() {
+        _items.addAll(list);
+        _moreDone = list.length < 30;
+        _page += 1;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = '议题读取失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _fileLoading = false);
-      } else {
-        _fileLoading = false;
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _create() async {
+    final bool? created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => NewIssuePage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+        ),
+      ),
+    );
+    if (created == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已创建议题')),
+      );
+      await _reload();
+    }
+  }
+
+  Future<void> _close(int number) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text('关闭议题 #$number'),
+        content: const Text('关闭后仍可在「已关闭」筛选里看到它。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .updateIssue(widget.fullName, number, state: 'closed');
+      OgLAppLog.instance.result('议题', '已关闭', '#$number');
+      await _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('关闭失败：$error')),
+        );
+      }
+    }
+  }
+
+  void _openIssue(Map<String, dynamic> item) {
+    final int number = ghInt(item, 'number');
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => IssuePage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          issue: item,
+        ),
+      ),
+    );
+    OgLAppLog.instance.add('议题', '打开 #$number');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              SegmentedButton<String>(
+                segments: const <ButtonSegment<String>>[
+                  ButtonSegment<String>(value: 'open', label: Text('打开中')),
+                  ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
+                  ButtonSegment<String>(value: 'all', label: Text('全部')),
+                ],
+                selected: <String>{_state},
+                showSelectedIcon: false,
+                onSelectionChanged: (Set<String> selection) {
+                  if (selection.isNotEmpty && selection.first != _state) {
+                    setState(() => _state = selection.first);
+                    unawaited(_reload());
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonal(
+                  onPressed: _create,
+                  child: const Text('新建议题'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_error != null)
+          ListTile(
+            leading: Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(_error!),
+            trailing: TextButton(
+              onPressed: () => unawaited(_loadMore()),
+              child: const Text('重试'),
+            ),
+          ),
+        Expanded(child: _buildBody()),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_items.isEmpty && _loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_items.isEmpty) {
+      if (_error != null) {
+        return Center(
+          child: TextButton(
+            onPressed: () => unawaited(_reload()),
+            child: const Text('重试'),
+          ),
+        );
+      }
+      return _MessagePane(
+        icon: Icons.task_alt,
+        message: _state == 'all' ? '还没有议题' : '没有该状态的议题',
+        action: FilledButton.tonal(
+          onPressed: _create,
+          child: const Text('新建议题'),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _items.length + (_moreDone ? 0 : 1),
+        separatorBuilder: (BuildContext context, int index) =>
+            const Divider(height: 1),
+        itemBuilder: (BuildContext context, int index) {
+          if (index == _items.length) {
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Center(
+                child: _loading
+                    ? const CircularProgressIndicator()
+                    : OutlinedButton(
+                        onPressed: () => unawaited(_loadMore()),
+                        child: const Text('加载更多'),
+                      ),
+              ),
+            );
+          }
+          final Map<String, dynamic> item = _items[index];
+          final int number = ghInt(item, 'number');
+          return ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: Text(
+              '#$number ${ghStr(item, 'title')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
+              '${ghDate(item, 'created_at')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: ghStr(item, 'state') == 'open'
+                ? IconButton(
+                    icon: const Icon(Icons.task_alt),
+                    tooltip: '关闭',
+                    onPressed: () => _close(number),
+                  )
+                : const Icon(Icons.chevron_right),
+            onTap: () => _openIssue(item),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PullsTab extends StatefulWidget {
+  const _PullsTab({required this.surface, required this.fullName});
+
+  final SurfaceBridge surface;
+  final String fullName;
+
+  @override
+  State<_PullsTab> createState() => _PullsTabState();
+}
+
+class _PullsTabState extends State<_PullsTab> {
+  final List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
+  String _state = 'open';
+  int _page = 1;
+  bool _loading = false;
+  bool _moreDone = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_reload());
+    });
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _items.clear();
+      _page = 1;
+      _moreDone = false;
+      _error = null;
+    });
+    await _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading) {
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final List<Map<String, dynamic>> list =
+          await widget.surface.domain.api.pulls(
+        widget.fullName,
+        state: _state,
+        perPage: 30,
+        page: _page,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _items.addAll(list);
+        _moreDone = list.length < 30;
+        _page += 1;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = 'PR 读取失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  void _openPull(Map<String, dynamic> item) {
+    final int number = ghInt(item, 'number');
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => PullPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          pull: item,
+          number: number,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: SegmentedButton<String>(
+            segments: const <ButtonSegment<String>>[
+              ButtonSegment<String>(value: 'open', label: Text('打开中')),
+              ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
+              ButtonSegment<String>(value: 'all', label: Text('全部')),
+            ],
+            selected: <String>{_state},
+            showSelectedIcon: false,
+            onSelectionChanged: (Set<String> selection) {
+              if (selection.isNotEmpty && selection.first != _state) {
+                setState(() => _state = selection.first);
+                unawaited(_reload());
+              }
+            },
+          ),
+        ),
+        if (_error != null)
+          ListTile(
+            leading: Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(_error!),
+            trailing: TextButton(
+              onPressed: () => unawaited(_loadMore()),
+              child: const Text('重试'),
+            ),
+          ),
+        Expanded(child: _buildBody()),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_items.isEmpty && _loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_items.isEmpty) {
+      return _MessagePane(
+        icon: Icons.call_merge,
+        message: _state == 'all' ? '还没有 PR' : '没有该状态的 PR',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _items.length + (_moreDone ? 0 : 1),
+        separatorBuilder: (BuildContext context, int index) =>
+            const Divider(height: 1),
+        itemBuilder: (BuildContext context, int index) {
+          if (index == _items.length) {
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Center(
+                child: _loading
+                    ? const CircularProgressIndicator()
+                    : OutlinedButton(
+                        onPressed: () => unawaited(_loadMore()),
+                        child: const Text('加载更多'),
+                      ),
+              ),
+            );
+          }
+          final Map<String, dynamic> item = _items[index];
+          return ListTile(
+            leading: const Icon(Icons.call_merge),
+            title: Text(
+              '#${ghInt(item, 'number')} ${ghStr(item, 'title')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              'by ${ghLogin(item)} · ${ghDate(item, 'created_at')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _openPull(item),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 发布标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReleasesTab extends StatefulWidget {
+  const _ReleasesTab({
+    required this.surface,
+    required this.fullName,
+    required this.defaultBranch,
+  });
+
+  final SurfaceBridge surface;
+  final String fullName;
+  final String defaultBranch;
+
+  @override
+  State<_ReleasesTab> createState() => _ReleasesTabState();
+}
+
+class _ReleasesTabState extends State<_ReleasesTab> {
+  AsyncController<List<GhRelease>>? _releases;
+
+  @override
+  void initState() {
+    super.initState();
+    _releasesC().loadIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _releases?.dispose();
+    super.dispose();
+  }
+
+  AsyncController<List<GhRelease>> _releasesC() {
+    final existing = _releases;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = AsyncController<List<GhRelease>>(
+      label: '发布',
+      isEmpty: (List<GhRelease> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.releases(widget.fullName),
+    );
+    _releases = controller;
+    return controller;
+  }
+
+  Future<void> _create() async {
+    final GhRelease? created = await Navigator.of(context).push<GhRelease>(
+      MaterialPageRoute<GhRelease>(
+        builder: (BuildContext context) => NewReleasePage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          defaultBranch: widget.defaultBranch,
+        ),
+      ),
+    );
+    if (created != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已创建发布 ${created.tagName}')),
+      );
+      await _releasesC().load();
+    }
+  }
+
+  Future<void> _delete(GhRelease release) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除发布'),
+        content: Text('将删除发布 ${release.tagName}。该操作不易撤销。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .deleteRelease(widget.fullName, release.id);
+      OgLAppLog.instance.result('发布', '已删除', release.tagName);
+      await _releasesC().load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$error')),
+        );
+      }
+    }
+  }
+
+  void _showNotes(GhRelease release) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(
+          release.tagName +
+              (release.name == null || release.name!.isEmpty
+                  ? ''
+                  : ' · ${release.name}'),
+        ),
+        content: SingleChildScrollView(
+          child: ReadmeView(
+            markdown: release.body ?? '（无说明）',
+            onOpenLink: (Uri uri) {
+              unawaited(openExternalLink(uri, tag: '发布'));
+            },
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonal(
+              onPressed: _create,
+              child: const Text('新建发布'),
+            ),
+          ),
+        ),
+        Expanded(
+          child: AsyncView<List<GhRelease>>(
+            controller: _releasesC(),
+            emptyIcon: Icons.new_releases_outlined,
+            emptyText: '还没有发布',
+            builder: (BuildContext context, List<GhRelease> releases) =>
+                RefreshIndicator(
+              onRefresh: () => _releasesC().load(),
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: releases.length,
+                separatorBuilder: (BuildContext context, int index) =>
+                    const Divider(height: 1),
+                itemBuilder: (BuildContext context, int index) {
+                  final GhRelease release = releases[index];
+                  final List<String> marks = <String>[
+                    if (release.isDraft) '草稿',
+                    if (release.isPrerelease) '预发布',
+                  ];
+                  return ListTile(
+                    leading: const Icon(Icons.new_releases_outlined),
+                    title: Text(
+                      release.tagName +
+                          (release.name == null || release.name!.isEmpty
+                              ? ''
+                              : ' · ${release.name}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      <String>[
+                        if (release.publishedAt != null)
+                          '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
+                        if (marks.isNotEmpty) marks.join(' / '),
+                        '${release.assets.length} 个附件',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: '删除',
+                      onPressed: () => _delete(release),
+                    ),
+                    onTap: () => _showNotes(release),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 分支标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BranchesTab extends StatefulWidget {
+  const _BranchesTab({
+    required this.surface,
+    required this.fullName,
+    required this.defaultBranch,
+  });
+
+  final SurfaceBridge surface;
+  final String fullName;
+  final String defaultBranch;
+
+  @override
+  State<_BranchesTab> createState() => _BranchesTabState();
+}
+
+class _BranchesTabState extends State<_BranchesTab> {
+  AsyncController<List<GhBranch>>? _branches;
+  final TextEditingController _createName = TextEditingController();
+  final TextEditingController _renameName = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _branchesC().loadIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _branches?.dispose();
+    _createName.dispose();
+    _renameName.dispose();
+    super.dispose();
+  }
+
+  AsyncController<List<GhBranch>> _branchesC() {
+    final existing = _branches;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = AsyncController<List<GhBranch>>(
+      label: '分支',
+      isEmpty: (List<GhBranch> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.branches(widget.fullName),
+    );
+    _branches = controller;
+    return controller;
+  }
+
+  Future<void> _create() async {
+    _createName.clear();
+    final String? input = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('新建分支'),
+        content: TextField(
+          controller: _createName,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '分支名',
+            hintText: 'feature/xxx',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(_createName.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    final String trimmed = input?.trim() ?? '';
+    if (trimmed.isEmpty || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api.createBranch(
+        widget.fullName,
+        name: trimmed,
+        fromBranch: widget.defaultBranch,
+      );
+      OgLAppLog.instance.result('分支', '已创建', trimmed);
+      await _branchesC().load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('创建失败：$error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rename(GhBranch branch) async {
+    _renameName.text = branch.name;
+    final String? input = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('重命名分支'),
+        content: TextField(
+          controller: _renameName,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '新名称'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(_renameName.text),
+            child: const Text('重命名'),
+          ),
+        ],
+      ),
+    );
+    final String trimmed = input?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == branch.name || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .renameBranch(widget.fullName, branch.name, trimmed);
+      OgLAppLog.instance.result('分支', '已重命名', '${branch.name} → $trimmed');
+      await _branchesC().load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('重命名失败：$error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _delete(GhBranch branch) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除分支'),
+        content: Text('将删除分支「${branch.name}」。该操作不可直接撤销。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api
+          .deleteBranch(widget.fullName, branch.name);
+      OgLAppLog.instance.result('分支', '已删除', branch.name);
+      await _branchesC().load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$error')),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    final tokens = ogL.tokens;
-    final repo = _repo;
-    return OgLPageScaffold(
-      title: repo.fullName,
-      description: repo.description ?? '（无描述）',
-      onRefresh: () async {
-        await _refreshRepo();
-      },
-      actions: <Widget>[
-        OgLButton(
-          label: _starred == true ? '已星标' : '星标',
-          variant: _starred == true
-              ? OgLButtonVariant.standard
-              : OgLButtonVariant.primary,
-          leadingIcon: OgLIconName.star,
-          onPressed: _busy ? null : _toggleStar,
-        ),
-        OgLButton(
-          label: '复刻',
-          leadingIcon: OgLIconName.fork,
-          onPressed: _busy ? null : _fork,
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          _buildRepoMeta(ogL, tokens),
-          if (_notice != null) ...<Widget>[
-            SizedBox(height: tokens.space(OgLSpacing.md)),
-            OgLBanner(variant: OgLBannerVariant.success, text: _notice!),
-          ],
-          if (_error != null) ...<Widget>[
-            SizedBox(height: tokens.space(OgLSpacing.md)),
-            OgLBanner(variant: OgLBannerVariant.danger, text: _error!),
-          ],
-          SizedBox(height: tokens.space(OgLSpacing.lg)),
-          OgLUnderlineNav<_RepoTab>(
-            items: <OgLUnderlineNavItem<_RepoTab>>[
-              for (final tab in _RepoTab.values)
-                OgLUnderlineNavItem<_RepoTab>(
-                  value: tab,
-                  label: _tabLabel(tab),
-                ),
-            ],
-            value: _tab,
-            onChanged: (tab) async {
-              await _switchTab(tab);
-            },
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          if (_tab == _RepoTab.code) ...<Widget>[
-            if (_fileLoading && _file == null)
-              const Center(child: OgLSpinner(label: '读取中…'))
-            else if (_file != null)
-              _buildFileView(ogL, tokens)
-            else
-              _buildBrowser(ogL, tokens),
-            // README：GitHub 的仓库页把它放在文件列表下面，这里保持一致。
-            _buildReadme(ogL, tokens),
-          ] else if (_tab == _RepoTab.issues)
-            _buildIssues(ogL, tokens)
-          else if (_tab == _RepoTab.pulls)
-            _buildPulls(ogL, tokens)
-          else if (_tab == _RepoTab.releases)
-            _buildReleases(ogL, tokens)
-          else if (_tab == _RepoTab.branches)
-            _buildBranches(ogL, tokens)
-          else if (_tab == _RepoTab.commits)
-            _buildCommits(ogL, tokens)
-          else if (_tab == _RepoTab.actions)
-            _buildActions(ogL, tokens)
-          else
-            _buildSettings(ogL, tokens),
-        ],
-      ),
-    );
-  }
-
-  /// README 区块：**离线安全**渲染（净化 Markdown → 令牌化排版）。
-  ///
-  /// 四态纪律：`null` / 空文本 = **空态**（没有 README 是正常现象），
-  /// 只有真异常才显示错误 + 重试 —— 不许把"没有"渲染成"坏了"。
-  Widget _buildReadme(OgLTheme ogL, OgLTokens tokens) {
-    final controller = _readmeC();
-    return OgLSection(
-      title: 'README',
-      description: '显示在仓库首页的说明文档（图片不联网加载，链接可点开）',
-      child: ListenableBuilder(
-        listenable: controller,
-        builder: (BuildContext context, Widget? child) {
-          final OgLAsync<String?> state = controller.state;
-          final String text = state.data ?? '';
-          return ogLAsyncView<String?>(
-            state: state,
-            errorTitle: 'README 读取失败',
-            onRetry: () async {
-              await controller.load();
-            },
-            emptyIcon: OgLIconName.book,
-            emptyTitle: '这个仓库还没有 README',
-            emptyBody: '在默认分支放一个 `README.md`，它的内容会显示在这里。',
-            skeletonLines: 6,
-            child: OgLBox(
-              child: OgLReadmeView(
-                markdown: text,
-                onOpenLink: _openLink,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// 打开 README 里的链接（统一走 `ogLOpenExternal`）；失败**不许静默**。
-  Future<void> _openLink(Uri url) async {
-    final bool ok = await ogLOpenExternal(url, tag: '仓库');
-    if (!ok) {
-      _showLink(url);
-    }
-  }
-
-  void _showLink(Uri url) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('无法打开浏览器，链接：$url')),
-    );
-  }
-
-  /// 仓库元信息：标识标签 + 统计行（图标走自绘矢量，数字用等宽更整齐）。
-  Widget _buildRepoMeta(OgLTheme ogL, OgLTokens tokens) {
-    final repo = _repo;
-    return OgLBox(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Wrap(
-            spacing: tokens.space(OgLSpacing.sm),
-            runSpacing: tokens.space(OgLSpacing.sm),
-            children: <Widget>[
-              OgLLabel(
-                text: repo.isPrivate ? '私有' : '公开',
-                variant: repo.isPrivate
-                    ? OgLLabelVariant.attention
-                    : OgLLabelVariant.success,
-              ),
-              if (repo.language != null)
-                OgLLabel(text: repo.language!, variant: OgLLabelVariant.accent),
-              if (repo.defaultBranch.isNotEmpty)
-                OgLLabel(
-                  text: repo.defaultBranch,
-                  variant: OgLLabelVariant.done,
-                ),
-              if (repo.hasPages)
-                const OgLLabel(text: 'Pages', variant: OgLLabelVariant.accent),
-            ],
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          Row(
-            children: <Widget>[
-              _metaItem(ogL, tokens, OgLIconName.star, '${repo.stars}'),
-              _metaItem(ogL, tokens, OgLIconName.fork, '${repo.forks}'),
-              _metaItem(ogL, tokens, OgLIconName.issue, '${repo.openIssues}'),
-              _metaItem(
-                ogL,
-                tokens,
-                OgLIconName.file,
-                repo.sizeKb >= 1024
-                    ? '${(repo.sizeKb / 1024).toStringAsFixed(1)} MB'
-                    : '${repo.sizeKb} KB',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 统计项：语义图标 + 数字。
-  Widget _metaItem(
-    OgLTheme ogL,
-    OgLTokens tokens,
-    OgLIconName icon,
-    String text,
-  ) {
-    final scale = const OgLTypeScale.standard();
-    return Padding(
-      padding: EdgeInsets.only(right: tokens.space(OgLSpacing.lg)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          OgLIcon(
-            name: icon,
-            size: tokens.iconSize(base: 14),
-            color: ogL.palette.textDim,
-          ),
-          SizedBox(width: tokens.space(OgLSpacing.xs)),
-          Text(
-            text,
-            style: TextStyle(
-              fontFamily: kOgLMonoFamily,
-              fontSize: tokens.fontSize(scale.label),
-              color: ogL.palette.textDim,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBrowser(OgLTheme ogL, OgLTokens tokens) {
-    final state = _entriesC().state;
-    final list = state.data ?? const <GhContent>[];
-    final String? fileError = _fileError;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                '/${_path.isEmpty ? _repo.name : _path}',
-                style: TextStyle(
-                  fontFamily: kOgLMonoFamily,
-                  fontSize:
-                      tokens.fontSize(const OgLTypeScale.standard().data),
-                  color: ogL.palette.textDim,
-                ),
-              ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.tonal(
+              onPressed: _create,
+              child: const Text('新建分支'),
             ),
-            if (_path.isNotEmpty)
-              OgLButton(
-                label: '返回上级',
-                variant: OgLButtonVariant.invisible,
-                size: OgLButtonSize.small,
-                onPressed: () {
-                  final parts = _path.split('/')..removeLast();
-                  _goTo(parts.join('/'));
+          ),
+        ),
+        Expanded(
+          child: AsyncView<List<GhBranch>>(
+            controller: _branchesC(),
+            emptyIcon: Icons.account_tree_outlined,
+            emptyText: '还没有分支',
+            builder: (BuildContext context, List<GhBranch> branches) =>
+                RefreshIndicator(
+              onRefresh: () => _branchesC().load(),
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: branches.length,
+                separatorBuilder: (BuildContext context, int index) =>
+                    const Divider(height: 1),
+                itemBuilder: (BuildContext context, int index) {
+                  final GhBranch branch = branches[index];
+                  final bool isDefault = branch.name == widget.defaultBranch;
+                  return ListTile(
+                    leading: Icon(
+                      branch.isProtected
+                          ? Icons.lock_outline
+                          : Icons.account_tree_outlined,
+                    ),
+                    title: Text(
+                      branch.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${ghShortSha(branch.sha)}'
+                      '${isDefault ? ' · 默认分支' : ''}'
+                      '${branch.isProtected ? ' · 受保护' : ''}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          tooltip: '重命名',
+                          onPressed: isDefault ? null : () => _rename(branch),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: '删除',
+                          onPressed: isDefault ? null : () => _delete(branch),
+                        ),
+                      ],
+                    ),
+                  );
                 },
               ),
-            OgLButton(
-              label: '刷新',
-              variant: OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              leadingIcon: OgLIconName.sync,
-              onPressed: () {
-                _entriesC().load();
-              },
             ),
-          ],
-        ),
-        if (fileError != null) ...<Widget>[
-          SizedBox(height: tokens.space(OgLSpacing.sm)),
-          OgLBanner(
-            variant: OgLBannerVariant.danger,
-            title: '文件打开失败',
-            text: fileError,
-            actions: <Widget>[
-              OgLButton(
-                label: '重试',
-                size: OgLButtonSize.small,
-                onPressed: () async {
-                  await _retryPendingOpen();
-                },
-              ),
-            ],
-          ),
-        ],
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        ogLAsyncView(
-          state: state,
-          errorTitle: '目录读取失败',
-          onRetry: () => _entriesC().load(),
-          emptyIcon: OgLIconName.folder,
-          emptyTitle: '这个目录是空的',
-          emptyBody: '换个目录看看；GitHub 不支持提交空目录。',
-          skeletonLines: 6,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              for (final entry in list)
-                OgLActionRow(
-                  showDivider: true,
-                  title: entry.path.split('/').last,
-                  subtitle: entry.isDirectory ? '目录' : _sizeText(entry.size),
-                  leading: OgLIcon(
-                  name: entry.isDirectory
-                      ? OgLIconName.folder
-                      : OgLIconName.file,
-                    size: tokens.iconSize(base: 20),
-                    color: entry.isDirectory
-                        ? ogL.palette.accent
-                        : ogL.palette.textDim,
-                  ),
-                  showChevron: entry.isDirectory,
-                  onTap: () {
-                    if (entry.isDirectory) {
-                      _goTo(entry.path);
-                    } else {
-                      _openFile(entry);
-                    }
-                  },
-                ),
-            ],
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildFileView(OgLTheme ogL, OgLTokens tokens) {
-    final file = _file;
-    if (file == null) {
-      return const SizedBox.shrink();
-    }
-    final scale = const OgLTypeScale.standard();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                file.path,
-                style: TextStyle(
-                  fontFamily: kOgLMonoFamily,
-                  fontSize: tokens.fontSize(scale.data),
-                  color: ogL.palette.text,
-                ),
-              ),
-            ),
-            OgLButton(
-              label: '返回',
-              variant: OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              onPressed: () {
-                setState(() {
-                  _file = null;
-                  _fileText = null;
-                  _editing = false;
-                  _fileError = null;
-                });
-              },
-            ),
-          ],
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.xs)),
-        Text(
-          '大小 ${_sizeText(file.size)} · sha ${file.sha.length >= 7 ? file.sha.substring(0, 7) : file.sha}',
-          style: TextStyle(
-            fontSize: tokens.fontSize(scale.label),
-            color: ogL.palette.textFaint,
-          ),
-        ),
-        if (_fileError != null) ...<Widget>[
-          SizedBox(height: tokens.space(OgLSpacing.sm)),
-          OgLBanner(variant: OgLBannerVariant.danger, text: _fileError!),
-        ],
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        Wrap(
-          spacing: tokens.space(OgLSpacing.sm),
-          runSpacing: tokens.space(OgLSpacing.sm),
-          children: <Widget>[
-            // 无文本内容（二进制 / 体积受限）= 不允许进入编辑：
-            // 编辑并提交会把乱码重编码写回，损坏原文件（见 _openFile 防护）。
-            OgLButton(
-              label: _editing
-                  ? '取消编辑'
-                  : (_fileText == null ? '不可编辑' : '编辑'),
-              variant: _editing
-                  ? OgLButtonVariant.standard
-                  : OgLButtonVariant.primary,
-              leadingIcon: OgLIconName.edit,
-              onPressed: (_fileText == null && !_editing)
-                  ? null
-                  : () {
-                      setState(() {
-                        _editing = !_editing;
-                        _fileError = null;
-                      });
-                    },
-            ),
-            OgLButton(
-              label: '删除',
-              variant: OgLButtonVariant.danger,
-              leadingIcon: OgLIconName.delete,
-              onPressed: _fileLoading ? null : _deleteFile,
-            ),
-          ],
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.md)),
-        if (_editing) ...<Widget>[
-          OgLTextField(
-            controller: _editController,
-            label: '内容（${file.path}）',
-            maxLines: 16,
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          OgLTextField(
-            controller: _messageController,
-            label: '提交信息',
-            leadingIcon: OgLIconName.commit,
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.md)),
-          OgLButton(
-            label: _fileLoading ? '提交中…' : '提交（带基线 sha）',
-            variant: OgLButtonVariant.primary,
-            leadingIcon: OgLIconName.upload,
-            loading: _fileLoading,
-            onPressed: _saveFile,
-          ),
-        ] else
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(tokens.space(OgLSpacing.md)),
-            decoration: BoxDecoration(
-              color: ogL.palette.codeBackground,
-              borderRadius:
-                  BorderRadius.circular(tokens.radius(OgLRadius.medium)),
-              border: Border.all(
-                color: ogL.palette.border,
-                width: tokens.hairline,
-              ),
-            ),
-            child: SelectableText(
-              _fileText ?? '（该文件无法以文本显示：二进制或体积受限）',
-              style: TextStyle(
-                fontFamily: kOgLMonoFamily,
-                fontSize: tokens.fontSize(scale.data),
-                color: ogL.palette.text,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-  String _tabLabel(_RepoTab tab) {
-    if (tab == _RepoTab.code) {
-      return '代码';
-    }
-    if (tab == _RepoTab.issues) {
-      return '议题';
-    }
-    if (tab == _RepoTab.pulls) {
-      return 'PR';
-    }
-    if (tab == _RepoTab.releases) {
-      return '发布';
-    }
-    if (tab == _RepoTab.branches) {
-      return '分支';
-    }
-    if (tab == _RepoTab.actions) {
-      return '操作';
-    }
-    if (tab == _RepoTab.settings) {
-      return '设置';
-    }
-    return '提交';
+// ─────────────────────────────────────────────────────────────────────────────
+// 提交标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CommitsTab extends StatefulWidget {
+  const _CommitsTab({
+    required this.surface,
+    required this.fullName,
+    required this.defaultBranch,
+  });
+
+  final SurfaceBridge surface;
+  final String fullName;
+  final String defaultBranch;
+
+  @override
+  State<_CommitsTab> createState() => _CommitsTabState();
+}
+
+class _CommitsTabState extends State<_CommitsTab> {
+  AsyncController<List<GhCommit>>? _commits;
+
+  @override
+  void initState() {
+    super.initState();
+    _commitsC().loadIfNeeded();
   }
 
-  String _loginOf(Map<String, dynamic> item) {
-    final user = item['user'];
-    if (user is Map<Object?, Object?>) {
-      return GhJson.str(Map<String, dynamic>.from(user), 'login');
-    }
-    return '';
+  @override
+  void dispose() {
+    _commits?.dispose();
+    super.dispose();
   }
 
-  String _dateText(DateTime? date) {
-    if (date == null) {
-      return '—';
-    }
-    final text = date.toIso8601String();
-    final index = text.indexOf('T');
-    return index > 0 ? text.substring(0, index) : text;
-  }
-
-  String _shortSha(String sha) => sha.length >= 7 ? sha.substring(0, 7) : sha;
-
-  Future<void> _createRelease() async {
-    final created = await Navigator.of(context).push<GhRelease>(
-      MaterialPageRoute<GhRelease>(
-        builder: (BuildContext context) => OgLNewReleasePage(
-          surface: widget.surface,
-          fullName: _full,
-          defaultBranch: _repo.defaultBranch,
-        ),
-      ),
-    );
-    if (created != null && mounted) {
-      setState(() => _notice = '已发布 ${created.tagName}');
-      await _releasesC().load();
-    }
-  }
-
-  Future<void> _deleteRelease(GhRelease release) async {
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '删除发布',
-      message: '将删除「${release.tagName}」的 Release（tag 本身保留）。',
-      confirmLabel: '删除',
-      danger: true,
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    setState(() => _releaseBusy = true);
-    try {
-      await widget.surface.domain.api
-          .deleteRelease(_full, release.id);
-      OgLAppLog.instance.add('发布', '已删除 ${release.tagName}');
-      if (mounted) {
-        setState(() => _notice = '已删除发布 ${release.tagName}');
-      }
-      await _releasesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '发布',
-        '删除失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '删除失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _releaseBusy = false);
-      } else {
-        _releaseBusy = false;
-      }
-    }
-  }
-
-  Future<void> _closeIssue(Map<String, dynamic> item) async {
-    final number = GhJson.integer(item, 'number');
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '关闭议题',
-      message: '将把 #$number 标记为已关闭（可在 GitHub 网页端重新打开）。',
-      confirmLabel: '关闭',
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.api
-          .updateIssue(_full, number, state: 'closed');
-      OgLAppLog.instance.add('议题', '已关闭 #$number');
-      if (mounted) {
-        setState(() => _notice = '已关闭 #$number');
-      }
-      await _issuesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '议题',
-        '关闭失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '关闭失败：$error');
-      }
-    }
-  }
-
-  OgLAsyncController<Map<String, dynamic>> _pagesC() {
-    final existing = _pages;
+  AsyncController<List<GhCommit>> _commitsC() {
+    final existing = _commits;
     if (existing != null) {
       return existing;
     }
-    final controller = OgLAsyncController<Map<String, dynamic>>(
-      label: 'Pages',
-      isEmpty: (Map<String, dynamic> value) => false,
-      loader: () async {
-        final info =
-            await widget.surface.domain.api.pagesInfo(_full);
-        return info ?? const <String, dynamic>{};
-      },
+    final controller = AsyncController<List<GhCommit>>(
+      label: '提交',
+      isEmpty: (List<GhCommit> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.commits(
+        widget.fullName,
+        branch: widget.defaultBranch,
+      ),
     );
-    controller.addListener(_onChanged);
-    _pages = controller;
+    _commits = controller;
     return controller;
   }
 
-  Future<void> _loadCname() async {
-    try {
-      final file = await widget.surface.domain.api
-          .content(_full, 'CNAME');
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _cnameSha = file?.sha;
-        _cnameCtl.text = file?.text?.trim() ?? '';
-      });
-    } catch (error) {
-      OgLAppLog.instance.add('设置', '读取 CNAME 失败：$error');
-    }
-  }
-
-  Future<void> _saveBasic() async {
-    setState(() {
-      _settingsBusy = true;
-      _error = null;
-      _notice = null;
-    });
-    try {
-      final updated = await widget.surface.domain.api.updateRepo(
-        _full,
-        name: _nameCtl.text.trim().isEmpty ? null : _nameCtl.text.trim(),
-        description: _descCtl.text.trim(),
-        private: _privateVal,
-      );
-      OgLAppLog.instance.add('设置', '已保存基本信息：${updated.fullName}');
-      if (mounted) {
-        setState(() {
-          // 改名后继续用新全名操作 —— 否则后续请求会打到"已不存在的旧名"。
-          if (updated.fullName.isNotEmpty && updated.fullName != _full) {
-            _fullName = updated.fullName;
-            _notice = '已保存基本信息（仓库已改名：${updated.fullName}）';
-          } else {
-            _notice = '已保存基本信息';
-          }
-        });
-      }
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '设置',
-        '保存失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '保存失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _settingsBusy = false);
-      } else {
-        _settingsBusy = false;
-      }
-    }
-  }
-
-  Future<void> _saveCname() async {
-    setState(() {
-      _settingsBusy = true;
-      _error = null;
-      _notice = null;
-    });
-    try {
-      await widget.surface.domain.api.putContent(
-        _full,
-        'CNAME',
-        content: '${_cnameCtl.text.trim()}\n',
-        message: 'chore: configure custom domain',
-        baseSha: _cnameSha,
-        branch: _repo.defaultBranch,
-      );
-      OgLAppLog.instance.add('设置', '已保存 CNAME');
-      if (mounted) {
-        setState(() => _notice = '已保存 CNAME');
-      }
-      await _loadCname();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '设置',
-        'CNAME 保存失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = 'CNAME 保存失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _settingsBusy = false);
-      } else {
-        _settingsBusy = false;
-      }
-    }
-  }
-
-  Future<void> _enablePages() async {
-    setState(() {
-      _settingsBusy = true;
-      _error = null;
-      _notice = null;
-    });
-    try {
-      await widget.surface.domain.api.enablePages(
-        _full,
-        branch: _repo.defaultBranch,
-      );
-      OgLAppLog.instance.add('设置', 'Pages 已启用');
-      if (mounted) {
-        setState(() => _notice = 'Pages 已启用');
-      }
-      await _pagesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '设置',
-        'Pages 启用失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = 'Pages 启用失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _settingsBusy = false);
-      } else {
-        _settingsBusy = false;
-      }
-    }
-  }
-
-  Future<void> _disablePages() async {
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '停用 Pages',
-      message: '将停止「$_full」的 Pages 站点。',
-      confirmLabel: '停用',
-      danger: true,
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    setState(() => _settingsBusy = true);
-    try {
-      await widget.surface.domain.api.disablePages(_full);
-      OgLAppLog.instance.add('设置', 'Pages 已停用');
-      if (mounted) {
-        setState(() => _notice = 'Pages 已停用');
-      }
-      await _pagesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '设置',
-        'Pages 停用失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = 'Pages 停用失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _settingsBusy = false);
-      } else {
-        _settingsBusy = false;
-      }
-    }
-  }
-
-  Future<void> _deleteRepo() async {
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '删除仓库',
-      message: '将永久删除「$_full」及其全部内容。'
-          '该操作不可撤销，也不会进入回收站。',
-      confirmLabel: '永久删除',
-      danger: true,
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    setState(() {
-      _settingsBusy = true;
-      _error = null;
-    });
-    try {
-      await widget.surface.domain.api.deleteRepo(_full);
-      OgLAppLog.instance.add('设置', '已删除仓库 $_full');
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '设置',
-        '删除失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '删除失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _settingsBusy = false);
-      } else {
-        _settingsBusy = false;
-      }
-    }
-  }
-
-  Widget _buildSettings(OgLTheme ogL, OgLTokens tokens) {
-    final scale = const OgLTypeScale.standard();
-    final pagesState = _pagesC().state;
-    final pages = pagesState.data ?? const <String, dynamic>{};
-    final bool pagesEnabled = pages.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        OgLBox(
-          title: '基本设置',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              OgLTextField(
-                controller: _nameCtl,
-                label: '仓库名',
-                enabled: !_settingsBusy,
-              ),
-              SizedBox(height: tokens.space(OgLSpacing.sm)),
-              OgLTextField(
-                controller: _descCtl,
-                label: '描述',
-                enabled: !_settingsBusy,
-              ),
-              SizedBox(height: tokens.space(OgLSpacing.sm)),
-              OgLToggleSwitch(
-                label: '私有仓库',
-                description: '私有仓库只有你与协作者可见。',
-                value: _privateVal,
-                onChanged: _settingsBusy
-                    ? null
-                    : (bool v) => setState(() => _privateVal = v),
-              ),
-              SizedBox(height: tokens.space(OgLSpacing.md)),
-              OgLButton(
-                label: _settingsBusy ? '保存中…' : '保存基本信息',
-                leadingIcon: OgLIconName.upload,
-                loading: _settingsBusy,
-                onPressed: _saveBasic,
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.md)),
-        OgLBox(
-          title: 'Pages / 自定义域名',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              if (pagesState.failureMessage != null)
-                // 历史缺陷：Pages 读取失败时旧实现永远停在骨架上
-                // （"大面积灰色块"来源之三，而且永远不告诉用户失败了）。
-                OgLBanner(
-                  variant: OgLBannerVariant.danger,
-                  title: 'Pages 状态读取失败',
-                  text: pagesState.failureMessage!,
-                  actions: <Widget>[
-                    OgLButton(
-                      label: '重试',
-                      size: OgLButtonSize.small,
-                      onPressed: () async {
-                        await _pagesC().load();
-                      },
-                    ),
-                  ],
-                )
-              else if (pagesState.isFirstLoading)
-                const OgLSkeletonText(lines: 2)
-              else if (!pagesEnabled) ...<Widget>[
-                Text(
-                  'Pages 未启用。',
-                  style: TextStyle(
-                    fontSize: tokens.fontSize(scale.body),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-                SizedBox(height: tokens.space(OgLSpacing.sm)),
-                OgLButton(
-                  label: '启用 Pages（分支：${_repo.defaultBranch}）',
-                  leadingIcon: OgLIconName.workflow,
-                  onPressed: _settingsBusy ? null : _enablePages,
-                ),
-              ] else ...<Widget>[
-                Text(
-                  '已启用：${pages['html_url'] is String ? pages['html_url'] : '（URL 未知）'}',
-                  style: TextStyle(
-                    fontFamily: kOgLMonoFamily,
-                    fontSize: tokens.fontSize(scale.data),
-                    color: ogL.palette.text,
-                  ),
-                ),
-                SizedBox(height: tokens.space(OgLSpacing.sm)),
-                OgLButton(
-                  label: '停用 Pages',
-                  variant: OgLButtonVariant.danger,
-                  onPressed: _settingsBusy ? null : _disablePages,
-                ),
-              ],
-              SizedBox(height: tokens.space(OgLSpacing.md)),
-              OgLTextField(
-                controller: _cnameCtl,
-                label: 'CNAME（自定义域名）',
-                hint: 'example.com',
-                enabled: !_settingsBusy,
-              ),
-              SizedBox(height: tokens.space(OgLSpacing.sm)),
-              OgLButton(
-                label: '保存 CNAME',
-                leadingIcon: OgLIconName.dns,
-                onPressed: _settingsBusy ? null : _saveCname,
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.md)),
-        OgLBox(
-          title: '危险区',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                '删除仓库不可撤销，也不会进入回收站。',
-                style: TextStyle(
-                  fontSize: tokens.fontSize(scale.body),
-                  color: ogL.palette.textDim,
-                ),
-              ),
-              SizedBox(height: tokens.space(OgLSpacing.sm)),
-              OgLButton(
-                label: '删除仓库',
-                variant: OgLButtonVariant.danger,
-                leadingIcon: OgLIconName.delete,
-                onPressed: _settingsBusy ? null : _deleteRepo,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _openIssue(Map<String, dynamic> item) async {
-    await Navigator.of(context).push<void>(
+  void _openCommit(GhCommit commit) {
+    Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => OgLIssuePage(
+        builder: (BuildContext context) => CommitPage(
           surface: widget.surface,
-          fullName: _full,
-          issue: item,
-        ),
-      ),
-    );
-    if (mounted) {
-      await _issuesC().load();
-    }
-  }
-
-  Future<void> _openCommit(GhCommit commit) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => OgLCommitPage(
-          surface: widget.surface,
-          fullName: _full,
+          fullName: widget.fullName,
           commit: commit,
         ),
       ),
     );
   }
 
-  OgLAsyncController<List<Map<String, dynamic>>> _actsC() {
-    final existing = _acts;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
-      label: '动作',
-      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () =>
-          widget.surface.domain.api.workflowRuns(_full),
-    );
-    controller.addListener(_onChanged);
-    _acts = controller;
-    return controller;
-  }
-
-  Future<void> _openPull(Map<String, dynamic> item) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => OgLPullPage(
-          surface: widget.surface,
-          fullName: _full,
-          pull: item,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _createBranch() async {
-    final name = await ogLPromptDialog(
-      context,
-      title: '新建分支',
-      label: '分支名',
-      hint: 'feature/xxx',
-      confirmLabel: '创建',
-    );
-    final trimmed = name?.trim() ?? '';
-    if (trimmed.isEmpty || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.api.createBranch(
-        _full,
-        name: trimmed,
-        fromBranch: _repo.defaultBranch,
-      );
-      OgLAppLog.instance.add('分支', '已创建 $trimmed');
-      if (mounted) {
-        setState(() => _notice = '已创建分支 $trimmed');
-      }
-      await _branchesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '分支',
-        '创建失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '创建分支失败：$error');
-      }
-    }
-  }
-
-  Future<void> _renameBranch(GhBranch branch) async {
-    final name = await ogLPromptDialog(
-      context,
-      title: '重命名分支',
-      label: '新名称',
-      initial: branch.name,
-      confirmLabel: '重命名',
-    );
-    final trimmed = name?.trim() ?? '';
-    if (trimmed.isEmpty || trimmed == branch.name || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.api
-          .renameBranch(_full, branch.name, trimmed);
-      OgLAppLog.instance.add('分支', '已重命名 ${branch.name} → $trimmed');
-      if (mounted) {
-        setState(() => _notice = '已重命名：$trimmed');
-      }
-      await _branchesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '分支',
-        '重命名失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '重命名失败：$error');
-      }
-    }
-  }
-
-  Future<void> _deleteBranch(GhBranch branch) async {
-    final confirmed = await ogLConfirmDialog(
-      context,
-      title: '删除分支',
-      message: '将删除分支「${branch.name}」。该操作不可直接撤销。',
-      confirmLabel: '删除',
-      danger: true,
-    );
-    if (!confirmed || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.api
-          .deleteBranch(_full, branch.name);
-      OgLAppLog.instance.add('分支', '已删除 ${branch.name}');
-      if (mounted) {
-        setState(() => _notice = '已删除分支 ${branch.name}');
-      }
-      await _branchesC().load();
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '分支',
-        '删除失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '删除分支失败：$error');
-      }
-    }
-  }
-
-  Widget _buildActions(OgLTheme ogL, OgLTokens tokens) {
-    final state = _actsC().state;
-    final list = state.data ?? const <Map<String, dynamic>>[];
-    return ogLAsyncView(
-      state: state,
-      errorTitle: '操作记录读取失败',
-      onRetry: () => _actsC().load(),
-      emptyIcon: OgLIconName.workflow,
-      emptyTitle: '没有工作流运行记录',
-      emptyBody: '该仓库还没有跑过 Actions，或当前令牌缺少 actions 读取权限。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          for (final item in list)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.workflow,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
+  @override
+  Widget build(BuildContext context) {
+    return AsyncView<List<GhCommit>>(
+      controller: _commitsC(),
+      emptyIcon: Icons.history,
+      emptyText: '还没有提交',
+      builder: (BuildContext context, List<GhCommit> commits) =>
+          RefreshIndicator(
+        onRefresh: () => _commitsC().load(),
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: commits.length,
+          separatorBuilder: (BuildContext context, int index) =>
+              const Divider(height: 1),
+          itemBuilder: (BuildContext context, int index) {
+            final GhCommit commit = commits[index];
+            return ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(
+                commit.subject,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              title: GhJson.str(item, 'name'),
-              subtitle: '${GhJson.str(item, 'status')} · '
-                  '${GhJson.str(item, 'conclusion').isEmpty ? '—' : GhJson.str(item, 'conclusion')} · '
-                  '${_dateText(GhJson.date(item, 'created_at'))}',
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _createIssue() async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (BuildContext context) => OgLNewIssuePage(
-          surface: widget.surface,
-          fullName: _full,
-        ),
-      ),
-    );
-    if (created == true && mounted) {
-      setState(() => _notice = '已创建议题');
-      await _issuesC().load();
-    }
-  }
-
-  /// 切换议题 / PR 的状态筛选（打开中 / 已关闭 / 全部）。
-  Future<void> _setListState({required bool issues, required String state}) async {
-    final bool same = issues ? state == _issuesState : state == _pullsState;
-    if (same) {
-      return;
-    }
-    setState(() {
-      if (issues) {
-        _issuesState = state;
-      } else {
-        _pullsState = state;
-      }
-    });
-    if (issues) {
-      await _issuesC().load();
-    } else {
-      await _pullsC().load();
-    }
-  }
-
-  /// "加载更多"：拉下一页并**追加**（不是替换）。
-  ///
-  /// GitHub 这两个列表不给总数，这里用"返回条数 < 每页条数 ⇒ 到底了"
-  /// 这个诚实的启发式，并在到底后显示"没有更多了"，不会无限转圈。
-  Future<void> _loadMore({required bool issues}) async {
-    if (issues ? _issuesMoreBusy : _pullsMoreBusy) {
-      return;
-    }
-    final int next = (issues ? _issuesPage : _pullsPage) + 1;
-    setState(() {
-      if (issues) {
-        _issuesMoreBusy = true;
-      } else {
-        _pullsMoreBusy = true;
-      }
-    });
-    try {
-      final List<Map<String, dynamic>> list = issues
-          ? await widget.surface.domain.api.issues(
-              _full,
-              state: _issuesState,
-              perPage: _listPageSize,
-              page: next,
-            )
-          : await widget.surface.domain.api.pulls(
-              _full,
-              state: _pullsState,
-              perPage: _listPageSize,
-              page: next,
+              subtitle: Text(
+                '${ghCommitAuthor(commit)} · '
+                '${commit.date?.toIso8601String().split('T').first ?? ''} · '
+                '${ghShortSha(commit.sha)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _openCommit(commit),
             );
-      OgLAppLog.instance.add(
-        '仓库',
-        '${issues ? '议题' : 'PR'} 第 $next 页：${list.length} 条',
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        if (issues) {
-          _issuesPage = next;
-          _issuesMore.addAll(list);
-          _issuesMoreDone = list.length < _listPageSize;
-        } else {
-          _pullsPage = next;
-          _pullsMore.addAll(list);
-          _pullsMoreDone = list.length < _listPageSize;
-        }
-      });
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '仓库',
-        '加载更多失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '加载更多失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          if (issues) {
-            _issuesMoreBusy = false;
-          } else {
-            _pullsMoreBusy = false;
-          }
-        });
-      }
-    }
-  }
-
-  /// 列表底部的"加载更多 / 没有更多了"行。
-  Widget _buildMoreRow({
-    required OgLTheme ogL,
-    required OgLTokens tokens,
-    required bool issues,
-    required int shown,
-  }) {
-    final bool busy = issues ? _issuesMoreBusy : _pullsMoreBusy;
-    final bool done = issues ? _issuesMoreDone : _pullsMoreDone;
-    if (shown == 0) {
-      return const SizedBox.shrink();
-    }
-    return Padding(
-      padding: EdgeInsets.only(top: tokens.space(OgLSpacing.sm)),
-      child: done
-          ? Row(
-              children: <Widget>[
-                OgLIcon(
-                  name: OgLIconName.success,
-                  size: tokens.iconSize(base: 16),
-                  color: ogL.palette.textFaint,
-                ),
-                SizedBox(width: tokens.space(OgLSpacing.xs)),
-                Text(
-                  '没有更多了（已加载 $shown 条）',
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().label),
-                    color: ogL.palette.textFaint,
-                  ),
-                ),
-              ],
-            )
-          : OgLButton(
-              label: busy ? '加载中…' : '加载更多（当前 $shown 条）',
-              variant: OgLButtonVariant.invisible,
-              size: OgLButtonSize.small,
-              leadingIcon: OgLIconName.download,
-              loading: busy,
-              onPressed: busy
-                  ? null
-                  : () async {
-                      await _loadMore(issues: issues);
-                    },
-            ),
-    );
-  }
-
-  /// 三档状态筛选器（议题 / PR 共用）。
-  Widget _stateFilter({
-    required bool issues,
-    required OgLTokens tokens,
-  }) =>
-      Padding(
-        // 与右侧计数之间留出令牌化的间距（也确保 tokens 真的被用到）。
-        padding: EdgeInsets.only(right: tokens.space(OgLSpacing.sm)),
-        child: OgLSegmented<String>(
-          items: const <OgLSegmentedItem<String>>[
-            OgLSegmentedItem<String>(value: 'open', label: '打开中'),
-            OgLSegmentedItem<String>(value: 'closed', label: '已关闭'),
-            OgLSegmentedItem<String>(value: 'all', label: '全部'),
-          ],
-          value: issues ? _issuesState : _pullsState,
-          onChanged: (String state) async {
-            await _setListState(issues: issues, state: state);
           },
         ),
-      );
-
-  Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
-    final state = _issuesC().state;
-    final List<Map<String, dynamic>> list =
-        state.data ?? const <Map<String, dynamic>>[];
-    final List<Map<String, dynamic>> issuesAll = <Map<String, dynamic>>[
-      ...list,
-      ..._issuesMore,
-    ];
-    final String stateLabel = switch (_issuesState) {
-      'closed' => '已关闭',
-      'all' => '',
-      _ => '打开中',
-    };
-    return ogLAsyncView(
-      state: state,
-      errorTitle: '议题读取失败',
-      onRetry: () => _issuesC().load(),
-      emptyIcon: OgLIconName.issue,
-      emptyTitle: stateLabel.isEmpty ? '还没有议题' : '没有$stateLabel的议题',
-      emptyBody: stateLabel.isEmpty
-          ? '议题用来跟踪缺陷与任务；可以从这里直接新建一个。'
-          : '换个筛选（打开中 / 已关闭 / 全部）看看，或新建一个议题。',
-      emptyAction: OgLButton(
-        label: '新建议题',
-        variant: OgLButtonVariant.primary,
-        leadingIcon: OgLIconName.add,
-        onPressed: _createIssue,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              _stateFilter(issues: true, tokens: tokens),
-              Expanded(
-                child: Text(
-                  '共 ${issuesAll.length} 个议题',
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().label),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-              ),
-              SizedBox(width: tokens.space(OgLSpacing.xs)),
-              OgLButton(
-                label: '新建议题',
-                variant: OgLButtonVariant.primary,
-                size: OgLButtonSize.small,
-                leadingIcon: OgLIconName.add,
-                onPressed: _createIssue,
-              ),
-            ],
-          ),
-          for (final item in issuesAll)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.issue,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
-              ),
-              title:
-                  '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
-              subtitle: 'by ${_loginOf(item)} · '
-                  '${GhJson.integer(item, 'comments')} 条评论 · '
-                  '${GhJson.str(item, 'state') == 'open' ? '打开中' : '已关闭'}',
-              trailing: GhJson.str(item, 'state') == 'open'
-                  ? OgLButton(
-                      label: '关闭',
-                      variant: OgLButtonVariant.invisible,
-                      size: OgLButtonSize.small,
-                      onPressed: () async {
-                        await _closeIssue(item);
-                      },
-                    )
-                  : null,
-              onTap: () async {
-                await _openIssue(item);
-              },
-            ),
-          _buildMoreRow(
-            ogL: ogL,
-            tokens: tokens,
-            issues: true,
-            shown: issuesAll.length,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPulls(OgLTheme ogL, OgLTokens tokens) {
-    final state = _pullsC().state;
-    final List<Map<String, dynamic>> list =
-        state.data ?? const <Map<String, dynamic>>[];
-    final List<Map<String, dynamic>> pullsAll = <Map<String, dynamic>>[
-      ...list,
-      ..._pullsMore,
-    ];
-    final String stateLabel = switch (_pullsState) {
-      'closed' => '已关闭',
-      'all' => '',
-      _ => '打开中',
-    };
-    return ogLAsyncView(
-      state: state,
-      errorTitle: 'PR 读取失败',
-      onRetry: () => _pullsC().load(),
-      emptyIcon: OgLIconName.pullRequest,
-      emptyTitle: stateLabel.isEmpty ? '还没有拉取请求' : '没有$stateLabel的拉取请求',
-      emptyBody: stateLabel.isEmpty
-          ? '当有人提出变更请求时，会出现在这里。'
-          : '换个筛选（打开中 / 已关闭 / 全部）看看。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              _stateFilter(issues: false, tokens: tokens),
-              Expanded(
-                child: Text(
-                  '共 ${pullsAll.length} 个 PR',
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().label),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          for (final item in pullsAll)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.pullRequest,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
-              ),
-              title:
-                  '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
-              subtitle:
-                  'by ${_loginOf(item)} · ${GhJson.str(item, 'state') == 'open' ? '打开中' : '已关闭'}',
-              showChevron: true,
-              onTap: () async {
-                await _openPull(item);
-              },
-            ),
-          _buildMoreRow(
-            ogL: ogL,
-            tokens: tokens,
-            issues: false,
-            shown: pullsAll.length,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReleases(OgLTheme ogL, OgLTokens tokens) {
-    final state = _releasesC().state;
-    final list = state.data ?? const <GhRelease>[];
-    return ogLAsyncView(
-      state: state,
-      errorTitle: '发布读取失败',
-      onRetry: () => _releasesC().load(),
-      emptyIcon: OgLIconName.release,
-      emptyTitle: '还没有发布',
-      emptyBody: '发布用于给用户一个可下载的稳定版本。',
-      emptyAction: OgLButton(
-        label: '新建发布',
-        variant: OgLButtonVariant.primary,
-        leadingIcon: OgLIconName.add,
-        onPressed: _releaseBusy ? null : _createRelease,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '共 ${list.length} 个发布',
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().label),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-              ),
-              OgLButton(
-                label: '新建发布',
-                variant: OgLButtonVariant.primary,
-                size: OgLButtonSize.small,
-                leadingIcon: OgLIconName.add,
-                onPressed: _releaseBusy ? null : _createRelease,
-              ),
-            ],
-          ),
-          for (final release in list)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.release,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
-              ),
-              title: release.name ?? release.tagName,
-              subtitle: '${release.tagName} · '
-                  '${_dateText(release.publishedAt ?? release.createdAt)}'
-                  '${release.isPrerelease ? ' · Pre' : ''}',
-              trailing: OgLButton(
-                label: '删除',
-                variant: OgLButtonVariant.invisible,
-                size: OgLButtonSize.small,
-                onPressed: _releaseBusy
-                    ? null
-                    : () async {
-                        await _deleteRelease(release);
-                      },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBranches(OgLTheme ogL, OgLTokens tokens) {
-    final state = _branchesC().state;
-    final list = state.data ?? const <GhBranch>[];
-    return ogLAsyncView(
-      state: state,
-      errorTitle: '分支读取失败',
-      onRetry: () => _branchesC().load(),
-      emptyIcon: OgLIconName.branch,
-      emptyTitle: '没有分支',
-      emptyBody: '分支用来隔离开发中的改动；可以从默认分支创建一个。',
-      emptyAction: OgLButton(
-        label: '新建分支',
-        variant: OgLButtonVariant.primary,
-        leadingIcon: OgLIconName.add,
-        onPressed: _createBranch,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '共 ${list.length} 个分支',
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().label),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-              ),
-              OgLButton(
-                label: '新建分支',
-                variant: OgLButtonVariant.primary,
-                size: OgLButtonSize.small,
-                leadingIcon: OgLIconName.add,
-                onPressed: _createBranch,
-              ),
-            ],
-          ),
-          for (final branch in list)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.branch,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
-              ),
-              title: branch.name,
-              subtitle:
-                  'sha ${_shortSha(branch.sha)}${branch.isProtected ? ' · 受保护' : ''}',
-              trailing: Wrap(
-                spacing: tokens.space(OgLSpacing.xs),
-                children: <Widget>[
-                  OgLButton(
-                    label: '重命名',
-                    variant: OgLButtonVariant.invisible,
-                    size: OgLButtonSize.small,
-                    onPressed: () async {
-                      await _renameBranch(branch);
-                    },
-                  ),
-                  OgLButton(
-                    label: '删除',
-                    variant: OgLButtonVariant.invisible,
-                    size: OgLButtonSize.small,
-                    onPressed: () async {
-                      await _deleteBranch(branch);
-                    },
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommits(OgLTheme ogL, OgLTokens tokens) {
-    final state = _commitsC().state;
-    final list = state.data ?? const <GhCommit>[];
-    return ogLAsyncView(
-      state: state,
-      errorTitle: '提交读取失败',
-      onRetry: () => _commitsC().load(),
-      emptyIcon: OgLIconName.commit,
-      emptyTitle: '没有提交记录',
-      emptyBody: '这个分支上还没有任何提交。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          for (final commit in list)
-            OgLActionRow(
-              showDivider: true,
-              leading: OgLIcon(
-                name: OgLIconName.commit,
-                size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
-              ),
-              title: commit.message.isEmpty
-                  ? '（无提交信息）'
-                  : commit.message.split('\n').first,
-              subtitle: '${_shortSha(commit.sha)} · '
-                  '${commit.authorLogin ?? commit.authorName ?? '未知'} · '
-                  '${_dateText(commit.date)}',
-              showChevron: true,
-              onTap: () async {
-                await _openCommit(commit);
-              },
-            ),
-        ],
       ),
     );
   }
 }
 
-String _sizeText(int bytes) {
-  if (bytes < 1024) {
-    return '$bytes B';
+// ─────────────────────────────────────────────────────────────────────────────
+// Actions 标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ActionsTab extends StatefulWidget {
+  const _ActionsTab({required this.surface, required this.fullName});
+
+  final SurfaceBridge surface;
+  final String fullName;
+
+  @override
+  State<_ActionsTab> createState() => _ActionsTabState();
+}
+
+class _ActionsTabState extends State<_ActionsTab> {
+  AsyncController<List<Map<String, dynamic>>>? _runs;
+
+  @override
+  void initState() {
+    super.initState();
+    _runsC().loadIfNeeded();
   }
-  if (bytes < 1024 * 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+
+  @override
+  void dispose() {
+    _runs?.dispose();
+    super.dispose();
   }
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+
+  AsyncController<List<Map<String, dynamic>>> _runsC() {
+    final existing = _runs;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = AsyncController<List<Map<String, dynamic>>>(
+      label: 'Actions',
+      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
+      loader: () => widget.surface.domain.api.workflowRuns(widget.fullName),
+    );
+    _runs = controller;
+    return controller;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AsyncView<List<Map<String, dynamic>>>(
+      controller: _runsC(),
+      emptyIcon: Icons.play_circle_outline,
+      emptyText: '没有工作流运行记录（该仓库还没跑过 Actions，或令牌缺少权限）',
+      builder: (
+        BuildContext context,
+        List<Map<String, dynamic>> runs,
+      ) =>
+          RefreshIndicator(
+        onRefresh: () => _runsC().load(),
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: runs.length,
+          separatorBuilder: (BuildContext context, int index) =>
+              const Divider(height: 1),
+          itemBuilder: (BuildContext context, int index) {
+            final Map<String, dynamic> run = runs[index];
+            final String conclusion = ghStr(run, 'conclusion');
+            return ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: Text(
+                ghStr(run, 'name'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                '${ghStr(run, 'status')} · '
+                '${conclusion.isEmpty ? '—' : conclusion} · '
+                '${ghDate(run, 'created_at')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 设置标签
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RepoSettingsTab extends StatefulWidget {
+  const _RepoSettingsTab({
+    required this.surface,
+    required this.repo,
+    required this.onRepoChanged,
+  });
+
+  final SurfaceBridge surface;
+  final GhRepo repo;
+  final ValueChanged<GhRepo> onRepoChanged;
+
+  @override
+  State<_RepoSettingsTab> createState() => _RepoSettingsTabState();
+}
+
+class _RepoSettingsTabState extends State<_RepoSettingsTab> {
+  late final TextEditingController _name =
+      TextEditingController(text: widget.repo.name);
+  late final TextEditingController _description =
+      TextEditingController(text: widget.repo.description ?? '');
+  final TextEditingController _cname = TextEditingController();
+  bool _busy = false;
+  Future<Map<String, dynamic>?>? _pagesFuture;
+
+  String get _full => widget.repo.fullName;
+
+  @override
+  void initState() {
+    super.initState();
+    _pagesFuture = _loadPages();
+    unawaited(_loadCname());
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _description.dispose();
+    _cname.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, dynamic>?> _loadPages() async {
+    try {
+      return await widget.surface.domain.api.pagesInfo(_full);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadCname() async {
+    try {
+      final String? cname = await widget.surface.domain.api.readCname(_full);
+      if (!mounted || cname == null) {
+        return;
+      }
+      setState(() => _cname.text = cname);
+    } catch (_) {
+      // CNAME 读不到不是错误（大多数仓库没有自定义域名）。
+    }
+  }
+
+  Future<void> _saveBasic() async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final GhRepo updated = await widget.surface.domain.api.updateRepo(
+        _full,
+        name: _name.text.trim().isEmpty ? null : _name.text.trim(),
+        description: _description.text.trim(),
+      );
+      OgLAppLog.instance.result('仓库', '基本信息已更新', _full);
+      if (!mounted) {
+        return;
+      }
+      widget.onRepoChanged(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已保存')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _saveCname() async {
+    if (_busy) {
+      return;
+    }
+    final String domain = _cname.text.trim();
+    if (domain.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写域名')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final GhContent? existing = await widget.surface.domain.api.content(
+        _full,
+        'CNAME',
+        branch: widget.repo.defaultBranch,
+      );
+      await widget.surface.domain.api.putContent(
+        _full,
+        'CNAME',
+        content: '$domain\n',
+        message: 'chore: configure custom domain',
+        baseSha: existing?.sha,
+        branch: widget.repo.defaultBranch,
+      );
+      OgLAppLog.instance.result('仓库', 'CNAME 已写入', domain);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已保存 CNAME')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CNAME 保存失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _enablePages() async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.surface.domain.api.enablePages(
+        _full,
+        branch: widget.repo.defaultBranch,
+      );
+      OgLAppLog.instance.result('仓库', 'Pages 已启用', _full);
+      if (mounted) {
+        setState(() => _pagesFuture = _loadPages());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pages 已启用（首次发布可能需要几十秒）')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('启用失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _disablePages() async {
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.surface.domain.api.disablePages(_full);
+      OgLAppLog.instance.result('仓库', 'Pages 已停用', _full);
+      if (mounted) {
+        setState(() => _pagesFuture = _loadPages());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pages 已停用')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('停用失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _deleteRepo() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除仓库'),
+        content: Text('将彻底删除 $_full（含全部代码与记录）。该操作不可撤销！'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('永久删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api.deleteRepo(_full);
+      OgLAppLog.instance.add('仓库', '已删除仓库 $_full', severity: OgLNoticeSeverity.warning);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        Text('基本信息', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _name,
+          decoration: const InputDecoration(
+            labelText: '仓库名',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _description,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: '描述',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: _busy ? null : _saveBasic,
+            child: const Text('保存基本信息'),
+          ),
+        ),
+        const Divider(height: 32),
+        Text('Pages', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        FutureBuilder<Map<String, dynamic>?>(
+          future: _pagesFuture,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<Map<String, dynamic>?> snapshot,
+          ) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Text('读取中…');
+            }
+            final Map<String, dynamic>? info = snapshot.data;
+            if (info == null) {
+              return const Text('当前未启用');
+            }
+            final String url = ghStr(info, 'html_url');
+            final String status = ghStr(info, 'status');
+            return Text(
+              '状态：${status.isEmpty ? '已启用' : status}'
+              '${url.isEmpty ? '' : '\n地址：$url'}',
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: <Widget>[
+            FilledButton.tonal(
+              onPressed: _busy ? null : _enablePages,
+              child: const Text('启用（默认分支）'),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: _busy ? null : _disablePages,
+              child: const Text('停用'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _cname,
+          decoration: const InputDecoration(
+            labelText: '自定义域名（CNAME）',
+            hintText: 'example.com',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.tonal(
+            onPressed: _busy ? null : _saveCname,
+            child: const Text('保存 CNAME'),
+          ),
+        ),
+        const Divider(height: 32),
+        Text(
+          '危险区',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text('删除仓库会连同全部代码与记录一起消失，且不可撤销。'),
+                const SizedBox(height: 12),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                  onPressed: _deleteRepo,
+                  child: const Text('删除仓库'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
 }

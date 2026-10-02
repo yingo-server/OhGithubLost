@@ -1,41 +1,24 @@
-/// OGL 页面 · 议题详情（正文 + 评论 + 关闭 / 重新打开）。
+/// L3 展示级 · 议题详情（正文 + 评论 + 关闭 / 重开）。
 ///
-/// ## 布局（`docs/UI_PAGES_PLAN.md` §2.5）
-/// ```
-/// OgLPageScaffold(返回键 + '#N 标题' + 'by @login · 打开中/已关闭' + 关闭/重开)
-/// ├ 状态行：OgLStateLabel(Open/Closed) + 计数
-/// ├ OgLSection('描述')  → OgLBox → Markdown 渲染（复用 README 渲染器）
-/// └ OgLSection('评论 N') → OgLBox(padded:false) → 每条评论一块
-///    - 空评论 = 空态（不是"加载中"，也不是错误）
-///    - 读取失败 = Banner + 重试
-/// ```
-///
-/// ## 纪律
-/// - 议题正文与评论都是 **Markdown**：复用 `OgLReadmeView`（离线安全 + 令牌化），
-///   不再用等宽裸文本（那是"能看但不像产品"的典型）；
-/// - 破坏性操作（关闭）**先确认**；结果给可见反馈（notice / error 都摊开）；
-/// - 四态只走 `ogLAsyncView`。
+/// - 正文与评论都按 Markdown 渲染（README 同一条渲染管线）；
+/// - 关闭 / 重开是**状态切换**：二次确认，失败可见（横幅 + 日志）。
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../domain/gh/gh_models.dart';
-import '../app/async_state.dart';
-import '../app/async_view.dart';
+import '../app/async.dart';
 import '../app/error_surface.dart';
-import '../kit/kit.dart';
-import '../readme/link_opener.dart';
-import '../readme/readme_view.dart';
 import '../surface_bridge.dart';
-import '../theme/design_tokens.dart';
-import '../theme/icon_pack.dart';
-import '../theme/theme_pack.dart';
-import '../util/gh_view_format.dart';
+import '../util/gh_format.dart';
+import '../util/link_opener.dart';
+import '../widgets/readme_view.dart';
 
 /// 议题详情页。
-class OgLIssuePage extends StatefulWidget {
+class IssuePage extends StatefulWidget {
   /// 创建页面。
-  const OgLIssuePage({
+  const IssuePage({
     required this.surface,
     required this.fullName,
     required this.issue,
@@ -45,22 +28,22 @@ class OgLIssuePage extends StatefulWidget {
   /// 表面桥。
   final SurfaceBridge surface;
 
-  /// 仓库全名。
+  /// 仓库全名（`owner/repo`）。
   final String fullName;
 
-  /// 议题原始数据（来自列表，含正文）。
+  /// 议题原始对象（列表接口返回的 Map）。
   final Map<String, dynamic> issue;
 
   @override
-  State<OgLIssuePage> createState() => _OgLIssuePageState();
+  State<IssuePage> createState() => _IssuePageState();
 }
 
-class _OgLIssuePageState extends State<OgLIssuePage> {
-  OgLAsyncController<List<Map<String, dynamic>>>? _comments;
+class _IssuePageState extends State<IssuePage> {
+  AsyncController<List<Map<String, dynamic>>>? _comments;
+  late String _state = ghStr(widget.issue, 'state');
   bool _busy = false;
-  String? _error;
-  String? _notice;
-  String? _stateOverride;
+
+  int get _number => ghInt(widget.issue, 'number');
 
   @override
   void initState() {
@@ -70,299 +53,170 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
 
   @override
   void dispose() {
-    _comments?.removeListener(_onChanged);
     _comments?.dispose();
     super.dispose();
   }
 
-  void _onChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  int get _number => GhJson.integer(widget.issue, 'number');
-
-  OgLAsyncController<List<Map<String, dynamic>>> _commentsC() {
+  AsyncController<List<Map<String, dynamic>>> _commentsC() {
     final existing = _comments;
     if (existing != null) {
       return existing;
     }
-    final controller = OgLAsyncController<List<Map<String, dynamic>>>(
+    final controller = AsyncController<List<Map<String, dynamic>>>(
       label: '评论',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api
-          .issueComments(widget.fullName, _number),
+      loader: () =>
+          widget.surface.domain.api.issueComments(widget.fullName, _number),
     );
-    controller.addListener(_onChanged);
     _comments = controller;
     return controller;
   }
 
-  /// 关闭 / 重新打开（同一个动作，两种目标状态）。
-  Future<void> _setState(String target) async {
-    final bool closing = target == 'closed';
-    final bool confirmed = await ogLConfirmDialog(
-      context,
-      title: closing ? '关闭议题' : '重新打开议题',
-      message: closing
-          ? '将把 #$_number 标记为已关闭（可在 GitHub 网页端或这里重新打开）。'
-          : '将把 #$_number 重新标记为打开。',
-      confirmLabel: closing ? '关闭' : '重新打开',
-      danger: closing,
-    );
-    if (!confirmed || !mounted) {
+  Future<void> _toggleState() async {
+    if (_busy) {
       return;
     }
-    setState(() => _busy = true);
-    try {
-      await widget.surface.domain.api
-          .updateIssue(widget.fullName, _number, state: target);
-      OgLAppLog.instance.add('议题', '已${closing ? '关闭' : '重新打开'} #$_number');
-      if (mounted) {
-        setState(() {
-          _stateOverride = target;
-          _notice = '已${closing ? '关闭' : '重新打开'} #$_number';
-          _error = null;
-        });
-      }
-    } catch (error, stackTrace) {
-      OgLAppLog.instance.add(
-        '议题',
-        '${closing ? '关闭' : '重开'}失败（原始异常）：$error\n$stackTrace',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() => _error = '${closing ? '关闭' : '重新打开'}失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      } else {
-        _busy = false;
-      }
-    }
-  }
-
-  /// 打开正文/评论里的链接：失败**不许静默**（把 URL 摊开）。
-  Future<void> _openLink(Uri url) async {
-    final bool ok = await ogLOpenExternal(url, tag: '议题');
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('无法打开浏览器，链接：$url')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final OgLTheme ogL = OgLTheme.of(context);
-    final OgLTokens tokens = ogL.tokens;
-    final Map<String, dynamic> issue = widget.issue;
-    final String state = _stateOverride ?? GhJson.str(issue, 'state');
-    final bool open = state == 'open';
-    final String? body = GhJson.strOrNull(issue, 'body');
-    final OgLAsyncController<List<Map<String, dynamic>>> controller =
-        _commentsC();
-
-    return OgLPageScaffold(
-      title: '#$_number ${GhJson.str(issue, 'title')}',
-      description: <String>[
-        'by @${ogLNodeLogin(issue)}',
-        if (ogLDateOnly(issue, 'created_at').isNotEmpty)
-          ogLDateOnly(issue, 'created_at'),
-      ].join(' · '),
-      leading: OgLIconButton(
-        icon: OgLIconName.arrowLeft,
-        label: '返回',
-        onTap: () => Navigator.of(context).maybePop(),
-      ),
-      actions: <Widget>[
-        if (_busy)
-          const OgLSpinner(label: '处理中…')
-        else
-          OgLButton(
-            label: open ? '关闭议题' : '重新打开',
-            variant: open ? OgLButtonVariant.danger : OgLButtonVariant.invisible,
-            leadingIcon: open ? OgLIconName.issue : OgLIconName.sync,
-            onPressed: () async {
-              await _setState(open ? 'closed' : 'open');
-            },
+    final bool closing = _state == 'open';
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(closing ? '关闭议题 #$_number' : '重新打开议题 #$_number'),
+        content: Text(closing ? '关闭后仍可在「已关闭」筛选里看到它。' : '重新打开后议题会回到打开列表。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
           ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (_notice != null) ...<Widget>[
-            OgLBanner(
-              variant: OgLBannerVariant.success,
-              title: _notice!,
-              text: open
-                  ? '状态已同步到 GitHub。'
-                  : '议题已关闭；仍可查看讨论（重开按钮在页头）。',
-            ),
-            SizedBox(height: tokens.space(OgLSpacing.md)),
-          ],
-          if (_error != null) ...<Widget>[
-            OgLBanner(
-              variant: OgLBannerVariant.danger,
-              title: '操作失败',
-              text: _error!,
-            ),
-            SizedBox(height: tokens.space(OgLSpacing.md)),
-          ],
-          Row(
-            children: <Widget>[
-              OgLStateLabel(
-                kind: open ? OgLStateKind.open : OgLStateKind.closed,
-                text: open ? 'Open' : 'Closed',
-              ),
-              SizedBox(width: tokens.space(OgLSpacing.sm)),
-              Expanded(
-                child: Text(
-                  '仓库：${widget.fullName}',
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: tokens.fontSize(
-                      const OgLTypeScale.standard().label,
-                    ),
-                    color: ogL.palette.textDim,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          OgLSection(
-            title: '描述',
-            description: body == null || body.trim().isEmpty
-                ? '这条议题没有写描述'
-                : null,
-            child: OgLBox(
-              child: body == null || body.trim().isEmpty
-                  ? const OgLBlankslate(
-                      icon: OgLIconName.issue,
-                      title: '没有描述',
-                      body: '作者只写了标题。讨论都在下面的评论里。',
-                      compact: true,
-                    )
-                  : OgLReadmeView(markdown: body, onOpenLink: _openLink),
-            ),
-          ),
-          OgLSection(
-            title: '评论',
-            description: '按时间顺序显示；Markdown 已渲染',
-            child: ListenableBuilder(
-              listenable: controller,
-              builder: (BuildContext context, Widget? child) {
-                final OgLAsync<List<Map<String, dynamic>>> state =
-                    controller.state;
-                final List<Map<String, dynamic>> list =
-                    state.data ?? const <Map<String, dynamic>>[];
-                return ogLAsyncView<List<Map<String, dynamic>>>(
-                  state: state,
-                  onRetry: () async {
-                    await controller.load();
-                  },
-                  errorTitle: '评论读取失败',
-                  emptyIcon: OgLIconName.chat,
-                  emptyTitle: '还没有评论',
-                  emptyBody: '这条议题暂时没有人参与讨论。',
-                  skeletonLines: 4,
-                  child: OgLBox(
-                    padded: false,
-                    child: Column(
-                      children: <Widget>[
-                        for (int i = 0; i < list.length; i++)
-                          _CommentBlock(
-                            comment: list[i],
-                            login: ogLNodeLogin(list[i]),
-                            date: ogLDateOnly(list[i], 'created_at'),
-                            showDivider: i != list.length - 1,
-                            onOpenLink: _openLink,
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          SizedBox(height: tokens.space(OgLSpacing.lg)),
-          Text(
-            '提示：在网页端才能新增评论；本页负责查看与状态变更。',
-            style: TextStyle(
-              fontSize: tokens.fontSize(const OgLTypeScale.standard().label),
-              color: ogL.palette.textFaint,
-            ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(closing ? '关闭' : '重新打开'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.surface.domain.api.updateIssue(
+        widget.fullName,
+        _number,
+        state: closing ? 'closed' : 'open',
+      );
+      OgLAppLog.instance.result(
+        '议题',
+        closing ? '已关闭' : '已重新打开',
+        '#$_number',
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _state = closing ? 'closed' : 'open');
+    } catch (error) {
+      OgLAppLog.instance.add(
+        '议题',
+        '状态切换失败：$error',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
-}
-
-/// 一条评论：头部行（作者 + 日期）+ Markdown 正文。
-class _CommentBlock extends StatelessWidget {
-  const _CommentBlock({
-    required this.comment,
-    required this.login,
-    required this.date,
-    required this.showDivider,
-    required this.onOpenLink,
-  });
-
-  final Map<String, dynamic> comment;
-  final String login;
-  final String date;
-  final bool showDivider;
-  final void Function(Uri url) onOpenLink;
 
   @override
   Widget build(BuildContext context) {
-    final OgLTheme ogL = OgLTheme.of(context);
-    final OgLTokens tokens = ogL.tokens;
-    final String body = GhJson.str(comment, 'body');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        OgLActionRow(
-          leading: OgLIcon(
-            name: OgLIconName.chat,
-            size: tokens.iconSize(base: 18),
-            color: ogL.palette.textDim,
+    final ThemeData theme = Theme.of(context);
+    final String title = ghStr(widget.issue, 'title');
+    final String body = ghStrOrNull(widget.issue, 'body') ?? '';
+    final bool open = _state == 'open';
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('#$_number', maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          Text(title, style: theme.textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(
+            'by ${ghLogin(widget.issue)} · '
+            '${ghDate(widget.issue, 'created_at')} · '
+            '${open ? '打开中' : '已关闭'}',
+            style: theme.textTheme.bodySmall,
           ),
-          title: login.isEmpty ? '（未知用户）' : '@$login',
-          subtitle: date.isEmpty ? null : date,
-          dense: true,
-          showDivider: false,
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            tokens.space(OgLSpacing.md),
-            0,
-            tokens.space(OgLSpacing.md),
-            tokens.space(OgLSpacing.md),
+          const SizedBox(height: 12),
+          if (body.trim().isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: ReadmeView(
+                  markdown: body,
+                  onOpenLink: (Uri uri) {
+                    unawaited(openExternalLink(uri, tag: '议题'));
+                  },
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _toggleState,
+              icon: Icon(open ? Icons.task_alt : Icons.undo),
+              label: Text(open ? '关闭议题' : '重新打开'),
+            ),
           ),
-          child: body.trim().isEmpty
-              ? Text(
-                  '（空评论）',
-                  style: TextStyle(
-                    fontSize:
-                        tokens.fontSize(const OgLTypeScale.standard().body),
-                    color: ogL.palette.textDim,
+          const Divider(height: 32),
+          Text('评论', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          AsyncView<List<Map<String, dynamic>>>(
+            controller: _commentsC(),
+            fill: false,
+            emptyIcon: Icons.chat_bubble_outline,
+            emptyText: '还没有评论',
+            builder: (
+              BuildContext context,
+              List<Map<String, dynamic>> comments,
+            ) =>
+                Column(
+              children: <Widget>[
+                for (final Map<String, dynamic> comment in comments)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            '${ghLogin(comment)} · '
+                            '${ghDate(comment, 'created_at')}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                          ReadmeView(
+                            markdown: ghStr(comment, 'body'),
+                            onOpenLink: (Uri uri) {
+                              unawaited(openExternalLink(uri, tag: '评论'));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                )
-              : OgLReadmeView(markdown: body, onOpenLink: onOpenLink),
-        ),
-        if (showDivider)
-          Divider(
-            height: tokens.hairline,
-            thickness: tokens.hairline,
-            color: ogL.palette.border,
+              ],
+            ),
           ),
-      ],
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 }
