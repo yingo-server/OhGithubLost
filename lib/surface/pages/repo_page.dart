@@ -716,7 +716,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       }
     } catch (error) {
       OgLAppLog.instance
-          .add('仓库', '打开链接失败：$error', severity: OgLNoticeSeverity.warn);
+          .add('仓库', '打开链接失败：$error', severity: OgLNoticeSeverity.warning);
       _showLink(url);
     }
   }

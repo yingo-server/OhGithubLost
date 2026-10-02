@@ -73,7 +73,7 @@ String ogLSimplifyReadme(String source, {int maxChars = 24000}) {
       continue;
     }
 
-    final String swapped = noComment.replaceAll(_image, (Match m) {
+    final String swapped = noComment.replaceAllMapped(_image, (Match m) {
       final String alt = m.group(1)?.trim() ?? '';
       return alt.isEmpty ? '（图，已省略）' : '（图：$alt）';
     });
