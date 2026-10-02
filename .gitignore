@@ -29,3 +29,12 @@ android/key.properties
 # 构建时生成的引导清单注入件（CI 产物，勿入库）
 dart_define.json
 boot_manifest.json
+
+# 密钥与私密文件（禁止入库；CI 用 Actions Secrets 还原）
+.github/signing/ogl-boot-ed25519.key
+.github/signing/ogl-debug.keystore.b64
+
+# 会话临时 / 备份
+.backup/
+__pycache__/
+*.pyc

@@ -105,6 +105,13 @@ def main() -> int:
     parser.add_argument('--repo-root', default='.')
     args = parser.parse_args()
 
+    if not os.path.exists(args.key):
+        raise SystemExit(
+            '私钥未找到：%s\n'
+            '（私钥不随仓库保管：请用 --key 指向带外备份，'
+            '或从 Actions Secret `OGL_BOOT_KEY` 还原，见 .github/signing/README.md）'
+            % args.key)
+
     version = args.version.strip() or read_pubspec_version(args.repo_root)
     payload = build_payload(args.repo_root, version, args.build_id)
     signature = sign_payload(payload, args.key)

@@ -1,11 +1,11 @@
-/// 发布信任链测试：私钥 ↔ 公钥 ↔ 规范化 ↔ 启动校验，一条链端到端。
+/// 发布信任链测试：固定签名样本 ↔ 内嵌公钥 ↔ 启动校验，一条链端到端。
 ///
-/// 这是"发布包关闭开发旁路"的保险丝：
-/// - 仓库私钥签出的清单，必须能被内嵌公钥（`release_trust_root.dart`）验证；
-/// - 签名清单 + 旁路关闭 = 干净启动（零告警）；
-/// - 篡改清单 = 拒绝启动。
-///
-/// 任何一环被改动（换密钥、改规范化、改校验逻辑）都会在这里变红。
+/// 私钥**不再随仓库保管**（移至 GitHub Actions Secret `OGL_BOOT_KEY`），
+/// 因此这里用"固定签名样本"做足三项检查：
+/// 1. **信任根锁定**：内嵌公钥必须能验证样本（样本由发布私钥签出）——
+///    任何一边被改动（换密钥、改规范化）都会在这里变红；
+/// 2. **签名机制**：另用临时密钥对走一遍 签→验 全链（不依赖仓库内私钥）；
+/// 3. **启动链**：样本清单 + 旁路关闭 = 干净启动；篡改 = 拒绝启动。
 library;
 
 import 'dart:convert';
@@ -21,23 +21,16 @@ import 'package:ohgithublost/kernel/boot/release_trust_root.dart';
 import 'package:ohgithublost/kernel/boot/trust_warnings.dart';
 import 'package:ohgithublost/kernel/diagnostics.dart';
 
-const String _keyPath = '.github/signing/ogl-boot-ed25519.key';
+const String _fixturePath =
+    'test/kernel/fixtures/release_key_signed_manifest.json';
 const String _manifestPath = 'boot/manifest.json';
 
-Future<SimpleKeyPair> _loadKeyPair() async {
-  final file = File(_keyPath);
-  expect(file.existsSync(), isTrue, reason: '信任根私钥缺失: $_keyPath');
-  final seed = base64.decode(file.readAsStringSync().trim());
-  return Ed25519().newKeyPairFromSeed(seed);
-}
-
-Future<String> _signPayload(
-  Map<String, Object?> payload,
-  SimpleKeyPair keyPair,
-) async {
-  final message = utf8.encode(canonicalJsonEncode(payload));
-  final signature = await Ed25519().sign(message, keyPair: keyPair);
-  return base64.encode(signature.bytes);
+Map<String, Object?> _loadFixture() {
+  final File file = File(_fixturePath);
+  expect(file.existsSync(), isTrue, reason: '固定签名样本缺失: $_fixturePath');
+  final Object? decoded = jsonDecode(file.readAsStringSync());
+  expect(decoded, isA<Map<String, dynamic>>());
+  return (decoded! as Map<String, dynamic>).cast<String, Object?>();
 }
 
 Map<String, Object?> _payload() => <String, Object?>{
@@ -50,38 +43,48 @@ Map<String, Object?> _payload() => <String, Object?>{
     };
 
 void main() {
-  test('信任根：私钥签出的清单必须能被内嵌公钥验证', () async {
-    final keyPair = await _loadKeyPair();
-    final publicKey = await keyPair.extractPublicKey();
-    expect(publicKey.bytes, equals(kOgLReleasePublicKey),
-        reason: '仓库私钥与内嵌公钥不匹配（信任根脱节）');
-
-    final payload = _payload();
-    final signature = await _signPayload(payload, keyPair);
-    final manifest = BootManifest.fromJson(<String, Object?>{
-      ...payload,
-      'signature': signature,
-    });
+  test('信任根锁定：固定签名样本必须能被内嵌公钥验证', () async {
+    final Map<String, Object?> fixture = _loadFixture();
+    final BootManifest manifest = BootManifest.fromJson(fixture);
+    expect(manifest.isSigned, isTrue, reason: '样本必须带签名');
 
     final verifier = BootIntegrityVerifier(
       fileSystem: InMemoryBootFileSystem(),
       releasePublicKey: kOgLReleasePublicKey,
     );
+    expect(
+      await verifier.verifySignature(manifest),
+      isTrue,
+      reason: '样本与内嵌公钥不匹配（信任根脱节，或轮换后未同步样本）',
+    );
+  });
+
+  test('签名机制：临时密钥对可完成 签→验 全链', () async {
+    final SimpleKeyPair keyPair = await Ed25519().newKeyPair();
+    final SimplePublicKey publicKey = await keyPair.extractPublicKey();
+
+    final Map<String, Object?> payload = _payload();
+    final List<int> message = utf8.encode(canonicalJsonEncode(payload));
+    final Signature signature = await Ed25519().sign(message, keyPair: keyPair);
+
+    final BootManifest manifest = BootManifest.fromJson(<String, Object?>{
+      ...payload,
+      'signature': base64.encode(signature.bytes),
+    });
+    final verifier = BootIntegrityVerifier(
+      fileSystem: InMemoryBootFileSystem(),
+      releasePublicKey: publicKey.bytes,
+    );
     expect(await verifier.verifySignature(manifest), isTrue);
   });
 
-  test('启动链：签名清单 + 旁路关闭 = 干净启动（零告警）', () async {
-    final keyPair = await _loadKeyPair();
-    final payload = _payload();
-    final signature = await _signPayload(payload, keyPair);
+  test('启动链：样本清单 + 旁路关闭 = 干净启动（零告警）', () async {
+    final Map<String, Object?> fixture = _loadFixture();
 
-    final fs = InMemoryBootFileSystem();
-    fs.writeText(_manifestPath, jsonEncode(<String, Object?>{
-      ...payload,
-      'signature': signature,
-    }));
+    final InMemoryBootFileSystem fs = InMemoryBootFileSystem();
+    fs.writeText(_manifestPath, jsonEncode(fixture));
 
-    final warnings = TrustWarningCollector();
+    final TrustWarningCollector warnings = TrustWarningCollector();
     final loader = BootLoader(
       fileSystem: fs,
       verifier: BootIntegrityVerifier(
@@ -101,17 +104,14 @@ void main() {
   });
 
   test('启动链：清单被篡改 = 拒绝启动', () async {
-    final keyPair = await _loadKeyPair();
-    final payload = _payload();
-    final signature = await _signPayload(payload, keyPair);
+    final Map<String, Object?> fixture = _loadFixture();
 
     // 篡改：换了 appVersion，签名保持原样 → 必须拒绝。
-    final tampered = <String, Object?>{
-      ...payload,
+    final Map<String, Object?> tampered = <String, Object?>{
+      ...fixture,
       'appVersion': '9.9.9-evil',
-      'signature': signature,
     };
-    final fs = InMemoryBootFileSystem();
+    final InMemoryBootFileSystem fs = InMemoryBootFileSystem();
     fs.writeText(_manifestPath, jsonEncode(tampered));
 
     final loader = BootLoader(

@@ -70,6 +70,15 @@ jobs:
       - name: 安装签名依赖
         run: python3 -m pip install --quiet --disable-pip-version-check cryptography
 
+      # ★ 私钥不随仓库保管：从 Secret `OGL_BOOT_KEY` 还原到 runner 临时目录。
+      # 首次配置 / 轮换方式见 `.github/signing/README.md`。
+      - name: 还原签名私钥（Actions Secret）
+        env:
+          OGL_BOOT_KEY: ${{ secrets.OGL_BOOT_KEY }}
+        run: |
+          [ -n "$OGL_BOOT_KEY" ] || { echo '缺少 OGL_BOOT_KEY Secret（见 .github/signing/README.md）'; exit 1; }
+          printf '%s' "$OGL_BOOT_KEY" > "$RUNNER_TEMP/ogl-boot-ed25519.key"
+
       - name: 生成并注入 .dart_define.json
         env:
           VERSION_INPUT: ${{ github.event.inputs.version_name }}
@@ -77,7 +86,7 @@ jobs:
           python3 tool/boot_manifest.py \
             --version "$VERSION_INPUT" \
             --build-id "$GITHUB_SHA" \
-            --key .github/signing/ogl-boot-ed25519.key \
+            --key "$RUNNER_TEMP/ogl-boot-ed25519.key" \
             --out dart_define.json
 
       - name: 上传注入件
@@ -275,17 +284,19 @@ jobs:
       - name: 重新获取依赖（补齐插件注册）
         run: flutter pub get
 
-      # ★ 固定 Android 签名证书（可覆盖安装）。
-      # Flutter 模板默认用构建机随机生成的 debug keystore 签 release 包 ——
-      # 每台 runner 的证书都不同，导致新版 APK 无法覆盖安装旧版
-      # （系统报"应用签名不一致"）。这里把仓库内置的固定 keystore 铺到
+      # ★ 还原 Android 固定签名证书（可覆盖安装）。
+      # 证书不随仓库保管：从 Secret `OGL_ANDROID_KEYSTORE`（base64 文本）还原到
       # 标准位置（$HOME/.android/debug.keystore），所有构建同一证书。
-      - name: 固定 Android 签名证书（可覆盖安装）
+      # 【轮换注意】证书更换后，旧签名安装包需先卸载一次才能安装新证书版本。
+      - name: 还原 Android 签名证书（Actions Secret · 可覆盖安装）
         if: matrix.build == 'apk' || matrix.build == 'appbundle'
         shell: bash
+        env:
+          OGL_ANDROID_KEYSTORE: ${{ secrets.OGL_ANDROID_KEYSTORE }}
         run: |
+          [ -n "$OGL_ANDROID_KEYSTORE" ] || { echo '缺少 OGL_ANDROID_KEYSTORE Secret（见 .github/signing/README.md）'; exit 1; }
           mkdir -p "$HOME/.android"
-          base64 -d .github/signing/ogl-debug.keystore.b64 > "$HOME/.android/debug.keystore"
+          printf '%s' "$OGL_ANDROID_KEYSTORE" | base64 -d > "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android | tail -3
 
       # ★ 预装 CMake（防御性）。个别插件含原生代码，Gradle 会在构建中途用 SDK

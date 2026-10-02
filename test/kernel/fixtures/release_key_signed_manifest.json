@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "appVersion": "1.1.0-chain-fixture",
+  "buildId": "release-key-v2-fixture",
+  "generatedAt": "2026-10-02T00:00:00Z",
+  "modules": [],
+  "coreDigest": "fixture-digest",
+  "signature": "Xta10L4gwcnxkMO/a5PeF+tYL0FESzM3mnDFsY/rNuSvzLYU8XD+bVfHS7tTHJ72PYI1VV6TrC9t7qE/4a1VCg=="
+}
