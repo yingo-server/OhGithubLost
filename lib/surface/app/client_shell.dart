@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../kernel/kernel.dart';
+import '../i18n/og_l_i18n.dart';
 import '../pages/about_page.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/login_page.dart';
@@ -178,30 +179,30 @@ class _OgLClientShellState extends State<OgLClientShell> {
           selectedIndex: index,
           onDestinationSelected: (int value) =>
               _select(OgLShellTab.values[value]),
-          destinations: const <NavigationDestination>[
+          destinations: <NavigationDestination>[
             NavigationDestination(
-              icon: Icon(Icons.folder_outlined),
-              selectedIcon: Icon(Icons.folder),
-              label: '首页',
+              icon: const Icon(Icons.folder_outlined),
+              selectedIcon: const Icon(Icons.folder),
+              label: OgLI18n.instance.t('shell', 'home'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.search),
-              label: '搜索',
+              icon: const Icon(Icons.search),
+              label: OgLI18n.instance.t('shell', 'search'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: '我的',
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: OgLI18n.instance.t('shell', 'profile'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: '设置',
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: OgLI18n.instance.t('shell', 'settings'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.info_outline),
-              selectedIcon: Icon(Icons.info),
-              label: '关于',
+              icon: const Icon(Icons.info_outline),
+              selectedIcon: const Icon(Icons.info),
+              label: OgLI18n.instance.t('shell', 'about'),
             ),
           ],
         ),
@@ -220,30 +221,30 @@ class _OgLClientShellState extends State<OgLClientShell> {
             extended: extended,
             labelType:
                 extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-            destinations: const <NavigationRailDestination>[
+            destinations: <NavigationRailDestination>[
               NavigationRailDestination(
-                icon: Icon(Icons.folder_outlined),
-                selectedIcon: Icon(Icons.folder),
-                label: Text('首页'),
+                icon: const Icon(Icons.folder_outlined),
+                selectedIcon: const Icon(Icons.folder),
+                label: Text(OgLI18n.instance.t('shell', 'home')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.search),
-                label: Text('搜索'),
+                icon: const Icon(Icons.search),
+                label: Text(OgLI18n.instance.t('shell', 'search')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: Text('我的'),
+                icon: const Icon(Icons.person_outline),
+                selectedIcon: const Icon(Icons.person),
+                label: Text(OgLI18n.instance.t('shell', 'profile')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: Text('设置'),
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings),
+                label: Text(OgLI18n.instance.t('shell', 'settings')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.info_outline),
-                selectedIcon: Icon(Icons.info),
-                label: Text('关于'),
+                icon: const Icon(Icons.info_outline),
+                selectedIcon: const Icon(Icons.info),
+                label: Text(OgLI18n.instance.t('shell', 'about')),
               ),
             ],
           ),

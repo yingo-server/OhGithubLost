@@ -14,6 +14,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_auth.dart';
+import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../theme.dart';
@@ -222,6 +223,41 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// 设置页文案取用（统一 `settings` 分片）。
+  String _t(String key) => OgLI18n.instance.t('settings', key);
+
+  Future<void> _pickLanguage() async {
+    final String current = _settings.settings.languageCode;
+    final String? picked = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => SimpleDialog(
+        title: Text(_t('language')),
+        children: <Widget>[
+          for (final OgLLocale item in OgLI18n.locales)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(item.code),
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: Text(item.label)),
+                  if (item.code == current)
+                    const Icon(Icons.check, size: 18),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted || picked == current) {
+      return;
+    }
+    await widget.surface.setLanguage(picked);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_t('language')}: ${OgLI18n.instance.localeLabel}')),
+      );
+    }
+  }
+
   void _openOnboarding() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -249,8 +285,8 @@ class _SettingsPageState extends State<SettingsPage> {
             children: <Widget>[
               _section(
                 theme,
-                title: '外观',
-                subtitle: '明暗 / 主题色 / 密度 / 文字 / 动效',
+                title: _t('appearance'),
+                subtitle: '',
                 expanded: true,
                 children: <Widget>[
                   Padding(
@@ -375,8 +411,22 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               _section(
                 theme,
-                title: '代码与文件',
-                subtitle: '语法高亮 / 配色 / 字号 / 换行 / 目录优先',
+                title: _t('language'),
+                subtitle: '',
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.translate),
+                    title: Text(_t('language')),
+                    subtitle: Text(OgLI18n.instance.localeLabel),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _pickLanguage,
+                  ),
+                ],
+              ),
+              _section(
+                theme,
+                title: _t('codeAndFiles'),
+                subtitle: '',
                 children: <Widget>[
                   SwitchListTile(
                     title: const Text('语法高亮'),
@@ -487,8 +537,8 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               _section(
                 theme,
-                title: '网络 / DNS',
-                subtitle: '当前：${widget.surface.dnsSummary}',
+                title: _t('network'),
+                subtitle: '',
                 children: <Widget>[
                   SwitchListTile(
                     title: const Text('自定义 DNS 解析'),
@@ -535,8 +585,8 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
               _section(
                 theme,
-                title: '账户',
-                subtitle: '当前账号 / 退出登录',
+                title: _t('account'),
+                subtitle: '',
                 children: <Widget>[
                   FutureBuilder<GhAccount?>(
                     future: widget.surface.domain.auth.activeAccount(),
@@ -573,8 +623,8 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               _section(
                 theme,
-                title: '维护',
-                subtitle: '权限引导 / 重置设置',
+                title: _t('maintenance'),
+                subtitle: '',
                 children: <Widget>[
                   ListTile(
                     leading: const Icon(Icons.privacy_tip_outlined),

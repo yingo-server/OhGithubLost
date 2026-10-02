@@ -1,0 +1,8 @@
+{
+  "signIn": "登录",
+  "skip": "以游客身份浏览",
+  "title": "登录",
+  "tokenHint": "粘贴带 repo 作用域的令牌",
+  "tokenLabel": "个人访问令牌",
+  "whyToken": "令牌只保存在本机。"
+}

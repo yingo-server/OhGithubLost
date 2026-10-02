@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "브랜치",
+  "code": "코드",
+  "commits": "커밋",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "설정"
+}

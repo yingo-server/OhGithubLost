@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "สาขา",
+  "code": "Code",
+  "commits": "คอมมิต",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "Settings"
+}

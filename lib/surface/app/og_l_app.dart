@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../kernel/kernel.dart';
+import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import 'client_shell.dart';
@@ -43,16 +44,19 @@ class OgLApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: surface.settings,
+        listenable: Listenable.merge(<Listenable>[
+          surface.settings,
+          OgLI18n.instance,
+        ]),
         builder: (BuildContext context, Widget? _) {
           final OgLSettings current = surface.settings.settings;
           return MaterialApp(
             title: 'OhGithubLost',
             debugShowCheckedModeBanner: false,
             navigatorKey: navigatorKey,
-            // 中文化系统组件文案（长按菜单：复制 / 粘贴 / 全选…）。
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const <Locale>[Locale('zh', 'CN'), Locale('en')],
+            // 界面语言：由 i18n 内核决定（JSON 分片）；系统组件文案交给 delegates。
+            locale: ogLMaterialLocaleOf(OgLI18n.instance.locale),
+            supportedLocales: ogLMaterialSupportedLocales(),
             localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
@@ -155,6 +159,21 @@ class OgLBootFailureApp extends StatelessWidget {
         ),
       );
 }
+
+/// 把 i18n 语言代码映射为 Material `Locale`（`zh_TW` → `Locale('zh','TW')`）。
+Locale ogLMaterialLocaleOf(String code) {
+  final int sep = code.indexOf('_');
+  if (sep > 0 && sep < code.length - 1) {
+    return Locale(code.substring(0, sep), code.substring(sep + 1));
+  }
+  return Locale(code);
+}
+
+/// 应用支持的 locale 列表（与 `OgLI18n.locales` 严格一致）。
+List<Locale> ogLMaterialSupportedLocales() => <Locale>[
+      for (final OgLLocale item in OgLI18n.locales)
+        ogLMaterialLocaleOf(item.code),
+    ];
 
 /// 滚动行为：桌面端允许"鼠标 / 触控板拖拽滚动"。
 ///

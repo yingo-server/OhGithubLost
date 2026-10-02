@@ -73,6 +73,7 @@ class OgLSettings {
     this.codeColorComment = 0xFF6A9955,
     this.codeColorNumber = 0xFFB5CEA8,
     this.onboardingDone = false,
+    this.languageCode = 'zh',
   });
 
   /// 默认值。
@@ -133,6 +134,7 @@ class OgLSettings {
       codeColorNumber:
           _asColorInt(raw['codeColorNumber'], fallback: 0xFFB5CEA8),
       onboardingDone: _asBool(raw['onboardingDone'], fallback: false),
+      languageCode: _asLocale(raw['languageCode']),
     );
   }
 
@@ -149,6 +151,18 @@ class OgLSettings {
 
   static String _asPreset(Object? value) =>
       value is String && codeThemePresetIds.contains(value) ? value : 'theme';
+
+  /// 支持的语言代码白名单（与展示层 `og_l_i18n.dart` 保持一致）。
+  ///
+  /// 保持"数据层不认识 UI 资源"的前提下，这里只存**代码**；
+  /// 具体加载由展示层完成，非法代码一律回落 `zh`。
+  static const List<String> languageCodes = <String>[
+    'zh', 'zh_TW', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'pt', 'ru',
+    'ar', 'hi', 'th', 'vi', 'id',
+  ];
+
+  static String _asLocale(Object? value) =>
+      value is String && languageCodes.contains(value) ? value : 'zh';
 
   static int _asColorInt(Object? value, {required int fallback}) {
     if (value is int && value >= 0 && value <= 0xFFFFFFFF) {
@@ -242,6 +256,9 @@ class OgLSettings {
   /// 是否已完成首次引导（含权限说明）。
   final bool onboardingDone;
 
+  /// 界面语言代码（见 [languageCodes]）。
+  final String languageCode;
+
   /// 复制并覆盖部分字段。
   OgLSettings copyWith({
     OgLThemeMode? mode,
@@ -265,6 +282,7 @@ class OgLSettings {
     int? codeColorComment,
     int? codeColorNumber,
     bool? onboardingDone,
+    String? languageCode,
   }) =>
       OgLSettings(
         mode: mode ?? this.mode,
@@ -288,6 +306,7 @@ class OgLSettings {
         codeColorComment: codeColorComment ?? this.codeColorComment,
         codeColorNumber: codeColorNumber ?? this.codeColorNumber,
         onboardingDone: onboardingDone ?? this.onboardingDone,
+        languageCode: languageCode ?? this.languageCode,
       );
 
   /// 序列化。
@@ -313,6 +332,7 @@ class OgLSettings {
         'codeColorComment': codeColorComment,
         'codeColorNumber': codeColorNumber,
         'onboardingDone': onboardingDone,
+        'languageCode': languageCode,
       };
 
   /// 编码为 JSON 文本。
@@ -510,6 +530,14 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：标记首次引导已完成。
   Future<void> setOnboardingDone(bool done) =>
       apply(_settings.copyWith(onboardingDone: done));
+
+  /// 便捷：设置界面语言（非法代码回落 `zh`）。
+  Future<void> setLanguage(String code) => apply(
+        _settings.copyWith(
+          languageCode:
+              OgLSettings.languageCodes.contains(code) ? code : 'zh',
+        ),
+      );
 
   /// 重置为默认（并清空持久化）。
   Future<void> reset() async {

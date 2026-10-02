@@ -1,0 +1,8 @@
+{
+  "signIn": "登入",
+  "skip": "以訪客身分瀏覽",
+  "title": "登入",
+  "tokenHint": "貼上具 repo 權限的權杖",
+  "tokenLabel": "個人存取權杖",
+  "whyToken": "權杖只保存在本機。"
+}

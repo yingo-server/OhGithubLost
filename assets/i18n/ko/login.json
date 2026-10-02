@@ -1,0 +1,8 @@
+{
+  "signIn": "로그인",
+  "skip": "게스트로 계속",
+  "title": "로그인",
+  "tokenHint": "repo 범위 토큰을 붙여넣기",
+  "tokenLabel": "개인 액세스 토큰",
+  "whyToken": "토큰은 이 기기에만 저장됩니다."
+}

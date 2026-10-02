@@ -1,0 +1,8 @@
+{
+  "signIn": "Sign in",
+  "skip": "Continue as guest",
+  "title": "Sign in",
+  "tokenHint": "Paste a token with repo scope",
+  "tokenLabel": "Personal access token",
+  "whyToken": "The token is stored only on this device."
+}

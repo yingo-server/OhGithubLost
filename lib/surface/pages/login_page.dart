@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_auth.dart';
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 
 /// 登录页。
@@ -196,7 +197,7 @@ class _LoginPageState extends State<LoginPage> {
     final Future<void> Function()? skip = widget.onSkip;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('接入 GitHub'),
+        title: Text(OgLI18n.instance.t('login', 'title')),
         automaticallyImplyLeading: false,
         actions: <Widget>[
           if (skip != null)
@@ -206,7 +207,7 @@ class _LoginPageState extends State<LoginPage> {
                   : () async {
                       await skip();
                     },
-              child: const Text('先逛逛（游客模式）'),
+              child: Text(OgLI18n.instance.t('login', 'skip')),
             ),
         ],
       ),
@@ -275,7 +276,7 @@ class _LoginPageState extends State<LoginPage> {
                       Text('验证中…'),
                     ],
                   )
-                : const Text('验证并登录'),
+                : Text(OgLI18n.instance.t('login', 'signIn')),
           ),
           if (_phase.isNotEmpty) ...<Widget>[
             const SizedBox(height: 8),

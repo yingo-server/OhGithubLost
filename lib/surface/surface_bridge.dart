@@ -22,6 +22,7 @@ import '../base/net/net_bridge.dart';
 import '../domain/domain_bridge.dart';
 import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
+import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
 import 'theme.dart';
 
@@ -91,6 +92,14 @@ class SurfaceBridge {
   Future<void> setDnsPreferDoh(bool enabled) async {
     await settings.setDnsPreferDoh(enabled);
     applyDns();
+  }
+
+  /// 切换界面语言：先落盘设置，再加载对应语言分片。
+  ///
+  /// 非法代码由 `settings.setLanguage` 回落 `zh`；加载失败由 i18n 内部兜底英文。
+  Future<void> setLanguage(String code) async {
+    await settings.setLanguage(code);
+    await OgLI18n.instance.load(settings.settings.languageCode);
   }
 
   /// 解析明暗：用户偏好优先，`system` 时跟随系统。
@@ -174,6 +183,9 @@ class SurfaceLayerModule extends OgLModule {
       serverId: persisted.dnsServerId,
       preferDoh: persisted.dnsPreferDoh,
     );
+    // i18n：按持久化语言加载 JSON 分片（英文基线 + 当前语言）。
+    // **失败不阻断启动**：i18n 内部兜底英文/键名。
+    await OgLI18n.instance.load(persisted.languageCode);
 
     bridge = SurfaceBridge(
       settings: settings,

@@ -18,6 +18,7 @@ import '../../domain/gh/gh_client.dart';
 import '../../domain/gh/gh_models.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../util/file_icons.dart';
@@ -174,17 +175,17 @@ class _RepoPageState extends State<RepoPage> {
               onPressed: _openInBrowser,
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabs: <Tab>[
-              Tab(text: '代码'),
-              Tab(text: '议题'),
-              Tab(text: 'PR'),
-              Tab(text: '发布'),
-              Tab(text: '分支'),
-              Tab(text: '提交'),
-              Tab(text: 'Actions'),
-              Tab(text: '设置'),
+              Tab(text: OgLI18n.instance.t('repo', 'code')),
+              Tab(text: OgLI18n.instance.t('repo', 'issues')),
+              Tab(text: OgLI18n.instance.t('repo', 'pulls')),
+              Tab(text: OgLI18n.instance.t('repo', 'releases')),
+              Tab(text: OgLI18n.instance.t('repo', 'branches')),
+              Tab(text: OgLI18n.instance.t('repo', 'commits')),
+              Tab(text: OgLI18n.instance.t('repo', 'actions')),
+              Tab(text: OgLI18n.instance.t('repo', 'repoSettings')),
             ],
           ),
         ),

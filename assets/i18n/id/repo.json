@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "Cabang",
+  "code": "Code",
+  "commits": "Commit",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "Settings"
+}

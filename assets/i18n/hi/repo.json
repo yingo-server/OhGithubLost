@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "ब्रांच",
+  "code": "Code",
+  "commits": "कमिट",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "Settings"
+}

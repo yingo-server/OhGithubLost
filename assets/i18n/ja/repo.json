@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "ブランチ",
+  "code": "コード",
+  "commits": "コミット",
+  "issues": "Issue",
+  "pulls": "Pull Request",
+  "readme": "README",
+  "releases": "Release",
+  "repoSettings": "設定"
+}

@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "Ветки",
+  "code": "Code",
+  "commits": "Коммиты",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "Settings"
+}

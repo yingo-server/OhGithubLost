@@ -1,0 +1,11 @@
+{
+  "actions": "Actions",
+  "branches": "分支",
+  "code": "程式碼",
+  "commits": "提交",
+  "issues": "Issues",
+  "pulls": "Pull Requests",
+  "readme": "README",
+  "releases": "Releases",
+  "repoSettings": "設定"
+}
