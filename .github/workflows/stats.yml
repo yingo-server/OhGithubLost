@@ -1,0 +1,83 @@
+# ============================================================================
+# OGL · 星标与提交历史（每 10 分钟更新）
+#
+# 产出写入 `stats` 分支（不是 main）：
+#   stats/history.json        数据点数组
+#   stats/star-history.svg    折线图（README 通过 raw 地址引用）
+#
+# 为什么写独立分支：main 的 push 会触发 ci.yml 与 build.yml。
+# 若每 10 分钟向 main 提交一次，会持续触发构建；写 stats 分支可避免。
+# ============================================================================
+name: stats
+
+on:
+  schedule:
+    # 每 10 分钟一次（GitHub 对定时任务有排队延迟，实际间隔会略长）
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tool/stats_chart.py'
+      - '.github/workflows/stats.yml'
+
+concurrency:
+  group: stats
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: 更新星标与提交折线图
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 在独立目录准备 stats 分支
+        env:
+          STATS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/stats-repo
+          mkdir -p /tmp/stats-repo
+          cd /tmp/stats-repo
+          git init -q
+          git config user.name 'ogl-stats-bot'
+          git config user.email 'ogl-stats-bot@users.noreply.github.com'
+          git remote add origin "https://x-access-token:${STATS_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads origin stats >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin stats
+            git checkout -q -B stats FETCH_HEAD
+          else
+            git checkout -q --orphan stats
+          fi
+          mkdir -p stats
+
+      - name: 生成数据与折线图
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/tool/stats_chart.py" \
+            --repo "$GITHUB_REPOSITORY" \
+            --history /tmp/stats-repo/stats/history.json \
+            --svg /tmp/stats-repo/stats/star-history.svg
+
+      - name: 提交到 stats 分支
+        env:
+          STATS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd /tmp/stats-repo
+          git add stats/history.json stats/star-history.svg
+          if git diff --cached --quiet; then
+            echo '数据无变化，跳过提交'
+            exit 0
+          fi
+          git commit -q -m "chore(stats): 更新星标与提交数据"
+          git push -q origin stats
+          echo '已更新 stats 分支'
