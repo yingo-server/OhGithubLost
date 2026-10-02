@@ -67,7 +67,7 @@ OgLActionRow(
 | 3 | 搜索（仓库 / 代码） | `pages/search_page.dart` | ✅ 本批完成（骨架 + 回车即搜 + 限定符引导 + 结果可点 + 计数说明） |
 | 4 | 我的（账户管理） | `pages/profile_page.dart` | ✅ 本批完成（分区：账户/会话/内容/危险区 + 空态引导 + 破坏性操作二次确认） |
 | 5 | 议题详情 | `pages/issue_page.dart` | ✅ 本批完成（骨架 + 返回键 + Markdown 正文/评论 + 关闭/重开二次确认） |
-| 6 | PR 详情 | `pages/pull_page.dart` | ⏳ |
+| 6 | PR 详情 | `pages/pull_page.dart` | ✅ 本批完成（骨架 + 返回键 + Markdown 描述 + 语义状态标签 + 增删统计） |
 | 7 | 提交详情（diff） | `pages/commit_page.dart` | ⏳ |
 | 8 | Gists | `pages/gists_page.dart` | ⏳ |
 | 9 | 登录 / 新增账户向导 | `pages/login_page.dart` | ⏳ |

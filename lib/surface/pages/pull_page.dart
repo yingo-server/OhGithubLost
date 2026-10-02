@@ -1,11 +1,27 @@
-/// OGL 页面 · PR 详情（信息 + 文件变更清单）。
+/// OGL 页面 · PR 详情（描述 + 变更文件清单 + 增删统计）。
+///
+/// ## 布局（`docs/UI_PAGES_PLAN.md` §2.6）
+/// ```
+/// OgLPageScaffold(返回键 + '#N 标题' + 'by @login · 打开/已合并/已关闭' + 刷新)
+/// ├ 状态行：OgLStateLabel(Merged/Open/Closed) + 变更统计（+N / -N）
+/// ├ OgLSection('描述')  → OgLBox → Markdown 渲染（复用 README 渲染器）
+/// └ OgLSection('变更文件 N') → OgLBox(padded:false) → 每文件一行（状态 + 增删）
+/// ```
+///
+/// ## 纪律
+/// 四态只走 `ogLAsyncView`（**没有文件变更也是空态**，不是加载中）；
+/// 描述是 Markdown，不再用裸 SelectableText；PR 状态用语义标签而不是字符串。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
+import '../app/async_view.dart';
+import '../app/error_surface.dart';
 import '../kit/kit.dart';
+import '../readme/link_opener.dart';
+import '../readme/readme_view.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -74,94 +90,211 @@ class _OgLPullPageState extends State<OgLPullPage> {
     return controller;
   }
 
+  Future<void> _openLink(Uri url) async {
+    final bool ok = await ogLOpenExternal(url, tag: 'PR');
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('无法打开浏览器，链接：$url')),
+      );
+    }
+  }
+
+  String _loginOf(Map<String, dynamic> node) {
+    final Object? user = node['user'];
+    if (user is Map<Object?, Object?>) {
+      return GhJson.str(Map<String, dynamic>.from(user), 'login');
+    }
+    return '';
+  }
+
+  /// 来源分支名（`head` 在 GitHub 的响应里是对象，不是字符串）。
+  String _headRef(Map<String, dynamic> pull) {
+    final Object? head = pull['head'];
+    if (head is Map<Object?, Object?>) {
+      return GhJson.str(Map<String, dynamic>.from(head), 'ref');
+    }
+    return GhJson.str(pull, 'head');
+  }
+
+  /// PR 状态 → 语义标签（打开 / 已合并 / 草稿 / 已关闭）。
+  OgLLabel _stateLabel(Map<String, dynamic> pull) {
+    final String state = GhJson.str(pull, 'state');
+    final bool merged = GhJson.boolean(pull, 'merged');
+    final bool draft = GhJson.boolean(pull, 'draft');
+    if (merged) {
+      return const OgLLabel(text: '已合并', variant: OgLLabelVariant.success);
+    }
+    if (draft) {
+      return const OgLLabel(text: '草稿', variant: OgLLabelVariant.neutral);
+    }
+    if (state == 'closed') {
+      return const OgLLabel(text: '已关闭', variant: OgLLabelVariant.danger);
+    }
+    return const OgLLabel(text: '打开中', variant: OgLLabelVariant.accent);
+  }
+
+  /// 文件状态 → 中文（GitHub 给的是 added / modified / removed…）。
+  String _statusText(String status) {
+    switch (status) {
+      case 'added':
+        return '新增';
+      case 'removed':
+        return '删除';
+      case 'modified':
+        return '修改';
+      case 'renamed':
+        return '重命名';
+      case 'copied':
+        return '复制';
+      default:
+        return status.isEmpty ? '变更' : status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    final tokens = ogL.tokens;
-    final scale = const OgLTypeScale.standard();
-    final pull = widget.pull;
-    final body = GhJson.strOrNull(pull, 'body');
-    final user = pull['user'];
-    final login = user is Map<Object?, Object?>
-        ? GhJson.str(Map<String, dynamic>.from(user), 'login')
-        : '';
-    final state = _filesC().state;
-    final files = state.data ?? const <Map<String, dynamic>>[];
+    final OgLTheme ogL = OgLTheme.of(context);
+    final OgLTokens tokens = ogL.tokens;
+    final OgLTypeScale scale = const OgLTypeScale.standard();
+    final Map<String, dynamic> pull = widget.pull;
+    final String? body = GhJson.strOrNull(pull, 'body');
+    final OgLAsyncController<List<Map<String, dynamic>>> controller = _filesC();
 
-    return ListView(
-      padding: EdgeInsets.symmetric(vertical: tokens.space(OgLSpacing.lg)),
-      children: <Widget>[
-        OgLPageHeader(
-          title: '#$_number ${GhJson.str(pull, 'title')}',
-          description: 'by $login · ${GhJson.str(pull, 'state')}',
-          actions: <Widget>[
-            OgLButton(
-              label: '刷新',
-              variant: OgLButtonVariant.invisible,
-              leadingIcon: OgLIconName.sync,
-              onPressed: () async {
-                await _filesC().load();
-              },
-            ),
-          ],
+    return OgLPageScaffold(
+      title: '#$_number ${GhJson.str(pull, 'title')}',
+      description: 'by @${_loginOf(pull)}'
+          '${_headRef(pull).isEmpty ? '' : ' · 分支 ${_headRef(pull)}'}',
+      leading: OgLIconButton(
+        icon: OgLIconName.arrowLeft,
+        label: '返回',
+        onTap: () => Navigator.of(context).maybePop(),
+      ),
+      onRefresh: () async {
+        await controller.load();
+      },
+      actions: <Widget>[
+        OgLButton(
+          label: '刷新',
+          variant: OgLButtonVariant.invisible,
+          leadingIcon: OgLIconName.sync,
+          onPressed: () async {
+            await controller.load();
+          },
         ),
-        if (body != null && body.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.only(bottom: tokens.space(OgLSpacing.md)),
-            child: SelectableText(
-              body,
-              style: TextStyle(
-                fontSize: tokens.fontSize(scale.body),
-                color: ogL.palette.textDim,
+      ],
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (BuildContext context, Widget? child) {
+          final OgLAsync<List<Map<String, dynamic>>> state = controller.state;
+          final List<Map<String, dynamic>> files =
+              state.data ?? const <Map<String, dynamic>>[];
+          int additions = 0;
+          int deletions = 0;
+          for (final Map<String, dynamic> file in files) {
+            additions += GhJson.integer(file, 'additions');
+            deletions += GhJson.integer(file, 'deletions');
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  _stateLabel(pull),
+                  SizedBox(width: tokens.space(OgLSpacing.xs)),
+                  OgLLabel(
+                    text: '变更 ${files.isEmpty ? '—' : files.length} 个文件',
+                    variant: OgLLabelVariant.neutral,
+                  ),
+                  SizedBox(width: tokens.space(OgLSpacing.xs)),
+                  OgLLabel(
+                    text: '+$additions',
+                    variant: OgLLabelVariant.success,
+                  ),
+                  SizedBox(width: tokens.space(OgLSpacing.xs)),
+                  OgLLabel(
+                    text: '-$deletions',
+                    variant: OgLLabelVariant.danger,
+                  ),
+                ],
               ),
-            ),
-          ),
-        Text(
-          '变更文件（${files.length}）',
-          style: TextStyle(
-            fontSize: tokens.fontSize(scale.title),
-            fontWeight: FontWeight.w600,
-            color: ogL.palette.text,
-          ),
-        ),
-        SizedBox(height: tokens.space(OgLSpacing.sm)),
-        if (state.failureMessage != null)
-          OgLBanner(
-            variant: OgLBannerVariant.danger,
-            title: '文件读取失败',
-            text: state.failureMessage!,
-            actions: <Widget>[
-              OgLButton(
-                label: '重试',
-                size: OgLButtonSize.small,
-                onPressed: () async {
-                  await _filesC().load();
-                },
+              OgLSection(
+                title: '描述',
+                description: body == null || body.trim().isEmpty
+                    ? '这个 PR 没有写描述'
+                    : null,
+                child: OgLBox(
+                  child: body == null || body.trim().isEmpty
+                      ? const OgLBlankslate(
+                          icon: OgLIconName.pullRequest,
+                          title: '没有描述',
+                          body: '作者只写了标题；文件改动见下方清单。',
+                          compact: true,
+                        )
+                      : OgLReadmeView(markdown: body, onOpenLink: _openLink),
+                ),
+              ),
+              OgLSection(
+                title: '变更文件',
+                description: '点行查看该文件的差异（在仓库页的文件视图里）',
+                child: ogLAsyncView<List<Map<String, dynamic>>>(
+                  state: state,
+                  onRetry: () async {
+                    await controller.load();
+                  },
+                  errorTitle: '变更文件读取失败',
+                  emptyIcon: OgLIconName.compare,
+                  emptyTitle: '没有文件变更',
+                  emptyBody: '这个 PR 目前不含任何文件改动（可能只是讨论）。',
+                  skeletonLines: 4,
+                  child: OgLBox(
+                    padded: false,
+                    child: Column(
+                      children: <Widget>[
+                        for (int i = 0; i < files.length; i++)
+                          OgLActionRow(
+                            leading: OgLIcon(
+                              name: OgLIconName.file,
+                              size: tokens.iconSize(base: 18),
+                              color: ogL.palette.textDim,
+                            ),
+                            title: GhJson.str(files[i], 'filename'),
+                            subtitle: _statusText(
+                              GhJson.str(files[i], 'status'),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                OgLLabel(
+                                  text: '+${GhJson.integer(files[i], 'additions')}',
+                                  variant: OgLLabelVariant.success,
+                                ),
+                                SizedBox(width: tokens.space(OgLSpacing.xxs)),
+                                OgLLabel(
+                                  text: '-${GhJson.integer(files[i], 'deletions')}',
+                                  variant: OgLLabelVariant.danger,
+                                ),
+                              ],
+                            ),
+                            dense: true,
+                            showDivider: i != files.length - 1,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: tokens.space(OgLSpacing.md)),
+              Text(
+                '提示：合并 / 关闭 PR 请在 GitHub 网页端完成；本页负责查看。',
+                style: TextStyle(
+                  fontSize: tokens.fontSize(scale.label),
+                  color: ogL.palette.textFaint,
+                ),
               ),
             ],
-          )
-        else if (state.isFirstLoading)
-          const OgLSkeletonText(lines: 4)
-        else if (files.isEmpty)
-          const OgLBanner(
-            variant: OgLBannerVariant.info,
-            text: '没有文件变更。',
-          )
-        else
-          for (final file in files)
-            OgLActionRow(
-              dense: true,
-              leading: OgLIcon(
-                name: OgLIconName.file,
-                size: tokens.iconSize(base: 18),
-                color: ogL.palette.textDim,
-              ),
-              title: GhJson.str(file, 'filename'),
-              subtitle: '${GhJson.str(file, 'status')} · '
-                  '+${GhJson.integer(file, 'additions')} · '
-                  '-${GhJson.integer(file, 'deletions')}',
-            ),
-      ],
+          );
+        },
+      ),
     );
   }
 }
