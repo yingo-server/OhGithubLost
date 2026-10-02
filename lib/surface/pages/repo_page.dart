@@ -12,13 +12,16 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/gh/gh_models.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+import '../widgets/code_view.dart';
 import '../widgets/readme_view.dart';
 import 'commit_page.dart';
 import 'issue_page.dart';
@@ -524,6 +527,213 @@ class _CodeTabState extends State<_CodeTab> {
     unawaited(openLinkOrCopy(context, url, tag: '文件'));
   }
 
+  /// 原始下载直链（优先用接口给的 `download_url`，缺失时按 raw 规则拼）。
+  ///
+  /// **必须对路径分段做 URL 编码**：仓库路径可能含空格、`#`、中文等字符，
+  /// 未编码时会截断查询串（`#` 之后直接丢失），导致下载到错误的文件。
+  String? _downloadUrlOf(GhContent entry) {
+    final String? direct = entry.downloadUrl;
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    if (entry.isDirectory) {
+      return null;
+    }
+    final String encodedPath = entry.path
+        .split('/')
+        .map(Uri.encodeComponent)
+        .join('/');
+    return 'https://raw.githubusercontent.com/${widget.fullName}/'
+        '${Uri.encodeComponent(widget.defaultBranch)}/$encodedPath';
+  }
+
+  /// 下载：交给系统下载器 / 浏览器打开原始直链（二进制文件也安全）。
+  Future<void> _downloadEntry(GhContent entry) async {
+    final String? url = _downloadUrlOf(entry);
+    if (url == null || url.isEmpty) {
+      _toast('该条目没有可用的下载链接');
+      return;
+    }
+    _toast('已交给系统下载：${ghPathName(entry.path)}');
+    await openLinkOrCopy(context, url, tag: '下载');
+  }
+
+  /// 详情：把接口能给的元信息摊开，并可复制关键字段。
+  void _showEntryDetails(GhContent entry) {
+    final ThemeData theme = Theme.of(context);
+    final String url = _downloadUrlOf(entry) ?? '';
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(ghPathName(entry.path)),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _detailRow(theme, '路径', entry.path),
+              _detailRow(theme, '类型', entry.isDirectory ? '目录' : '文件'),
+              if (!entry.isDirectory)
+                _detailRow(theme, '大小', ghSizeText(entry.size)),
+              _detailRow(theme, 'SHA', entry.sha.isEmpty ? '—' : entry.sha),
+              if (url.isNotEmpty) _detailRow(theme, '下载直链', url),
+              if ((entry.htmlUrl ?? '').isNotEmpty)
+                _detailRow(theme, '网页地址', entry.htmlUrl!),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(
+                ClipboardData(text: entry.path),
+              );
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+                _toast('已复制路径');
+              }
+            },
+            child: const Text('复制路径'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(ThemeData theme, String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(label, style: theme.textTheme.labelSmall),
+            SelectableText(
+              value,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ],
+        ),
+      );
+
+  /// 删除单个文件（**危险操作**，二次确认 + 基线 sha 乐观锁）。
+  Future<void> _deleteEntry(GhContent entry) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除文件'),
+        content: Text('将删除 ${entry.path} 并提交到仓库。该操作不易撤销。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api.deleteContent(
+        widget.fullName,
+        entry.path,
+        message: 'chore: delete ${entry.path}',
+        baseSha: entry.sha,
+        branch: widget.defaultBranch,
+      );
+      OgLAppLog.instance.result('编辑', '已删除', entry.path);
+      if (!mounted) {
+        return;
+      }
+      if (_file?.path == entry.path) {
+        setState(() {
+          _file = null;
+          _editing = false;
+        });
+      }
+      _toast('已删除：${entry.path}');
+      await _entriesC().load();
+    } catch (error) {
+      OgLAppLog.instance.add(
+        '编辑',
+        '删除失败：$error',
+        severity: OgLNoticeSeverity.critical,
+      );
+      _toast('删除失败：$error');
+    }
+  }
+
+  /// 长按 / 右键 弹出条目菜单。
+  Future<void> _showEntryMenu(GhContent entry) async {
+    final ThemeData theme = Theme.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: Icon(
+                ogLFileVisualFor(entry.path, isDirectory: entry.isDirectory)
+                    .icon,
+                color: ogLFileVisualFor(entry.path,
+                        isDirectory: entry.isDirectory)
+                    .color,
+              ),
+              title: Text(ghPathName(entry.path)),
+              subtitle: Text(entry.isDirectory ? '目录' : '文件'),
+            ),
+            const Divider(height: 1),
+            if (!entry.isDirectory)
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('下载'),
+                subtitle: const Text('用系统下载器打开原始直链'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_downloadEntry(entry));
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('详情信息'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _showEntryDetails(entry);
+              },
+            ),
+            if (!entry.isDirectory)
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: theme.colorScheme.error,
+                ),
+                title: Text(
+                  '删除',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_deleteEntry(entry));
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _readmeTile() {
     final String? err = _readmeError;
     if (err != null) {
@@ -639,9 +849,12 @@ class _CodeTabState extends State<_CodeTab> {
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: SelectableText(
-        text,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+      child: CodeView(
+        code: text,
+        language: ogLDetectLanguage(file.path),
+        fontSize: widget.surface.settings.settings.codeFontSize,
+        wrap: widget.surface.settings.settings.codeWrap,
+        highlight: widget.surface.settings.settings.codeHighlight,
       ),
     );
   }
@@ -657,7 +870,10 @@ class _CodeTabState extends State<_CodeTab> {
               maxLines: null,
               expands: true,
               textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: widget.surface.settings.settings.codeFontSize,
+              ),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: '文件内容',
@@ -707,45 +923,74 @@ class _CodeTabState extends State<_CodeTab> {
       controller: _entriesC(),
       emptyIcon: Icons.folder_open,
       emptyText: '这个目录是空的',
-      builder: (BuildContext context, List<GhContent> entries) =>
-          RefreshIndicator(
-        onRefresh: () => _entriesC().load(),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: <Widget>[
-            if (_path.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.arrow_upward),
-                title: const Text('上一级'),
-                onTap: _up,
-              ),
-            if (_path.isEmpty) _readmeTile(),
-            for (final GhContent entry in entries)
-              ListTile(
-                leading: Icon(
-                  entry.isDirectory ? Icons.folder : Icons.description_outlined,
+      builder: (BuildContext context, List<GhContent> entries) {
+        // 目录优先（设置可关）+ 名称排序；只在渲染期做，不改动缓存数据。
+        // `foldersFirst` 只读取一次：排序比较器会被调用 O(n log n) 次，
+        // 每次进去读设置既浪费又会放大变更期间的抖动。
+        final bool foldersFirst =
+            widget.surface.settings.settings.foldersFirst;
+        final List<GhContent> sorted = List<GhContent>.of(entries)
+          ..sort((GhContent a, GhContent b) {
+            if (foldersFirst && a.isDirectory != b.isDirectory) {
+              return a.isDirectory ? -1 : 1;
+            }
+            return ghPathName(a.path)
+                .toLowerCase()
+                .compareTo(ghPathName(b.path).toLowerCase());
+          });
+        return RefreshIndicator(
+          onRefresh: () => _entriesC().load(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: <Widget>[
+              if (_path.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.arrow_upward),
+                  title: const Text('上一级'),
+                  onTap: _up,
                 ),
-                title: Text(
-                  ghPathName(entry.path),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              if (_path.isEmpty) _readmeTile(),
+              for (final GhContent entry in sorted)
+                GestureDetector(
+                  // 桌面右键（手机为长按）都弹出同一个菜单。
+                  onSecondaryTapDown: (_) => unawaited(_showEntryMenu(entry)),
+                  child: ListTile(
+                    leading: Icon(
+                      ogLFileVisualFor(
+                        entry.path,
+                        isDirectory: entry.isDirectory,
+                      ).icon,
+                      color: ogLFileVisualFor(
+                        entry.path,
+                        isDirectory: entry.isDirectory,
+                      ).color,
+                    ),
+                    title: Text(
+                      ghPathName(entry.path),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: entry.isDirectory
+                        ? null
+                        : Text(ghSizeText(entry.size)),
+                    trailing: entry.isDirectory
+                        ? const Icon(Icons.chevron_right)
+                        : null,
+                    onTap: () {
+                      if (entry.isDirectory) {
+                        _openDir(entry);
+                      } else {
+                        unawaited(_openFile(entry));
+                      }
+                    },
+                    onLongPress: () => unawaited(_showEntryMenu(entry)),
+                  ),
                 ),
-                subtitle: entry.isDirectory ? null : Text(ghSizeText(entry.size)),
-                trailing: entry.isDirectory
-                    ? const Icon(Icons.chevron_right)
-                    : null,
-                onTap: () {
-                  if (entry.isDirectory) {
-                    _openDir(entry);
-                  } else {
-                    unawaited(_openFile(entry));
-                  }
-                },
-              ),
-          ],
-        ),
-      ),
-    );
+              ],
+            ),
+          );
+        },
+      );
   }
 }
 

@@ -869,6 +869,23 @@ class GhApi implements CacheRemote {
         label: 'GET issue comments',
       );
 
+  /// 发表评论（Issue 与 PR **共用**同一端点）。
+  ///
+  /// GitHub 的 PR 也走 `issues/{number}/comments`，因此本方法对二者通用。
+  Future<Map<String, dynamic>> createIssueComment(
+    String fullName,
+    int number, {
+    required String body,
+  }) async {
+    final response = await client.send(GhRequest(
+      path: '/repos/$fullName/issues/$number/comments',
+      method: NetMethod.post,
+      body: <String, Object?>{'body': body},
+      label: 'POST issue comment',
+    ));
+    return response.jsonObject ?? const <String, dynamic>{};
+  }
+
   /// PR 列表。
   Future<List<Map<String, dynamic>>> pulls(
     String fullName, {

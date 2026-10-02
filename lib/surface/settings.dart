@@ -1,17 +1,19 @@
-/// L3 展示级 · 设置（保守版：只保留真正影响行为的选项）。
+/// L3 展示级 · 设置（外观 / 代码与文件 / 网络 → 真实行为）。
 ///
-/// ## 旧版为什么被砍掉
-/// 旧设置模型有 700+ 行：主题包 / 图标包 / 密度 / 动效 / 强调色 / 开发者开关……
-/// 其中大多数选项只是"被存起来"，并没有接到任何真实行为上
-/// （假选项比没有选项更糟：用户以为改了，实际什么都没发生）。
-///
-/// 重写后只保留两类**真选项**：
-/// 1. 外观：明暗（跟随系统 / 亮 / 暗）——直接决定 `ThemeData`；
-/// 2. 网络：DNS 解析模式 / 服务器 / DoH——直接作用到底座网络（即时生效）。
+/// ## 只留"真选项"
+/// 每个字段都必须接到真实行为上，否则就是"假选项"（比没有选项更糟）：
+/// - 外观：`mode` / `seedColorId` / `fontScale` / `density` / `reduceMotion`
+///   → 直接决定 `ThemeData`、文字缩放与动效；
+/// - 代码与文件：`codeHighlight` / `codeFontSize` / `codeWrap` / `foldersFirst`
+///   → 直接作用于仓库代码查看器与目录排序；
+/// - 网络：`dnsMode` / `dnsServerId` / `dnsPreferDoh` → 即时作用到底座网络；
+/// - 引导：`onboardingDone` → 是否展示首次权限引导。
 ///
 /// ## 两条纪律
-/// - 反序列化**永不抛异常**：坏字段回落默认值（用户手改配置文件不会炸应用）；
-/// - 存储键沿用 `ogl.settings`：老配置文件可平滑读取（多余字段被忽略）。
+/// - 反序列化**永不抛异常**：坏字段回落默认值，数值越界一律夹紧
+///   （用户手改配置文件不会炸应用）；
+/// - 存储键沿用 `ogl.settings`：老配置文件可平滑读取（多余字段被忽略，
+///   缺失的新字段回落**等于旧行为**的保守默认值）。
 library;
 
 import 'dart:convert';
@@ -43,18 +45,38 @@ enum OgLThemeMode {
 }
 
 /// 用户设置（不可变；容错反序列化）。
+///
+/// 新增字段一律给**保守默认值**（等于旧行为），保证老配置文件升级后
+/// 不会因为"新字段缺失"而改变用户已有的体验。
 @immutable
 class OgLSettings {
   /// 创建设置。
   const OgLSettings({
     this.mode = OgLThemeMode.system,
+    this.seedColorId = 'github',
+    this.fontScale = 1.0,
+    this.density = 'comfortable',
+    this.reduceMotion = false,
     this.dnsMode = 'system',
     this.dnsServerId = 'alidns',
     this.dnsPreferDoh = true,
+    this.foldersFirst = true,
+    this.codeHighlight = true,
+    this.codeFontSize = 13,
+    this.codeWrap = false,
+    this.onboardingDone = false,
   });
 
   /// 默认值。
   static const OgLSettings defaults = OgLSettings();
+
+  /// 字号缩放上下限（与 `og_l_app` 的文字缩放夹紧一致）。
+  static const double minFontScale = 0.8;
+  static const double maxFontScale = 1.6;
+
+  /// 代码字号上下限。
+  static const double minCodeFontSize = 10;
+  static const double maxCodeFontSize = 22;
 
   /// 由 JSON 构造（**永不抛**：坏数据回落默认）。
   factory OgLSettings.fromJson(Object? raw) {
@@ -62,17 +84,68 @@ class OgLSettings {
       return defaults;
     }
     final Object? serverId = raw['dnsServerId'];
+    final Object? seed = raw['seedColorId'];
     return OgLSettings(
       mode: OgLThemeMode.parse(raw['mode']),
+      seedColorId: seed is String && seed.isNotEmpty ? seed : 'github',
+      fontScale: _clampDouble(
+        raw['fontScale'],
+        fallback: 1.0,
+        min: minFontScale,
+        max: maxFontScale,
+      ),
+      density: raw['density'] == 'compact' ? 'compact' : 'comfortable',
+      reduceMotion: _asBool(raw['reduceMotion'], fallback: false),
       dnsMode: raw['dnsMode'] == 'custom' ? 'custom' : 'system',
       dnsServerId:
           serverId is String && serverId.isNotEmpty ? serverId : 'alidns',
-      dnsPreferDoh: raw['dnsPreferDoh'] is bool ? raw['dnsPreferDoh'] as bool : true,
+      dnsPreferDoh: _asBool(raw['dnsPreferDoh'], fallback: true),
+      foldersFirst: _asBool(raw['foldersFirst'], fallback: true),
+      codeHighlight: _asBool(raw['codeHighlight'], fallback: true),
+      codeFontSize: _clampDouble(
+        raw['codeFontSize'],
+        fallback: 13,
+        min: minCodeFontSize,
+        max: maxCodeFontSize,
+      ),
+      codeWrap: _asBool(raw['codeWrap'], fallback: false),
+      onboardingDone: _asBool(raw['onboardingDone'], fallback: false),
     );
+  }
+
+  static bool _asBool(Object? value, {required bool fallback}) =>
+      value is bool ? value : fallback;
+
+  static double _clampDouble(
+    Object? value, {
+    required double fallback,
+    required double min,
+    required double max,
+  }) {
+    if (value is! num) {
+      return fallback;
+    }
+    final double v = value.toDouble();
+    if (v.isNaN) {
+      return fallback;
+    }
+    return v.clamp(min, max).toDouble();
   }
 
   /// 明暗模式。
   final OgLThemeMode mode;
+
+  /// 主题种子色 id（映射见展示层 `theme.dart`）。
+  final String seedColorId;
+
+  /// 全局文字缩放（相对系统字号的额外倍数）。
+  final double fontScale;
+
+  /// 界面密度（`comfortable` / `compact`）。
+  final String density;
+
+  /// 是否减少动效（无障碍）。
+  final bool reduceMotion;
 
   /// DNS 解析模式（`system` / `custom`）。
   final String dnsMode;
@@ -83,26 +156,68 @@ class OgLSettings {
   /// 是否优先 DoH（加密解析）。
   final bool dnsPreferDoh;
 
+  /// 仓库浏览器是否**目录优先**。
+  final bool foldersFirst;
+
+  /// 代码查看是否启用语法高亮。
+  final bool codeHighlight;
+
+  /// 代码字号。
+  final double codeFontSize;
+
+  /// 代码是否自动换行。
+  final bool codeWrap;
+
+  /// 是否已完成首次引导（含权限说明）。
+  final bool onboardingDone;
+
   /// 复制并覆盖部分字段。
   OgLSettings copyWith({
     OgLThemeMode? mode,
+    String? seedColorId,
+    double? fontScale,
+    String? density,
+    bool? reduceMotion,
     String? dnsMode,
     String? dnsServerId,
     bool? dnsPreferDoh,
+    bool? foldersFirst,
+    bool? codeHighlight,
+    double? codeFontSize,
+    bool? codeWrap,
+    bool? onboardingDone,
   }) =>
       OgLSettings(
         mode: mode ?? this.mode,
+        seedColorId: seedColorId ?? this.seedColorId,
+        fontScale: fontScale ?? this.fontScale,
+        density: density ?? this.density,
+        reduceMotion: reduceMotion ?? this.reduceMotion,
         dnsMode: dnsMode ?? this.dnsMode,
         dnsServerId: dnsServerId ?? this.dnsServerId,
         dnsPreferDoh: dnsPreferDoh ?? this.dnsPreferDoh,
+        foldersFirst: foldersFirst ?? this.foldersFirst,
+        codeHighlight: codeHighlight ?? this.codeHighlight,
+        codeFontSize: codeFontSize ?? this.codeFontSize,
+        codeWrap: codeWrap ?? this.codeWrap,
+        onboardingDone: onboardingDone ?? this.onboardingDone,
       );
 
   /// 序列化。
   Map<String, Object?> toJson() => <String, Object?>{
         'mode': mode.name,
+        'seedColorId': seedColorId,
+        'fontScale': fontScale,
+        'density': density,
+        'reduceMotion': reduceMotion,
         'dnsMode': dnsMode,
         'dnsServerId': dnsServerId,
         'dnsPreferDoh': dnsPreferDoh,
+        'foldersFirst': foldersFirst,
+        'codeHighlight': codeHighlight,
+        'codeFontSize': codeFontSize,
+        'codeWrap': codeWrap,
+        'onboardingDone': onboardingDone,
       };
 
   /// 编码为 JSON 文本。
@@ -208,6 +323,57 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：设置 DoH 优先。
   Future<void> setDnsPreferDoh(bool enabled) =>
       apply(_settings.copyWith(dnsPreferDoh: enabled));
+
+  /// 便捷：设置主题色。
+  Future<void> setSeedColor(String id) =>
+      apply(_settings.copyWith(seedColorId: id));
+
+  /// 便捷：设置全局文字缩放。
+  Future<void> setFontScale(double scale) => apply(_settings.copyWith(
+        fontScale: scale
+            .clamp(
+              OgLSettings.minFontScale,
+              OgLSettings.maxFontScale,
+            )
+            .toDouble(),
+      ));
+
+  /// 便捷：设置界面密度（`comfortable` / `compact`）。
+  Future<void> setDensity(String density) => apply(
+        _settings.copyWith(
+          density: density == 'compact' ? 'compact' : 'comfortable',
+        ),
+      );
+
+  /// 便捷：设置减少动效。
+  Future<void> setReduceMotion(bool enabled) =>
+      apply(_settings.copyWith(reduceMotion: enabled));
+
+  /// 便捷：设置目录优先。
+  Future<void> setFoldersFirst(bool enabled) =>
+      apply(_settings.copyWith(foldersFirst: enabled));
+
+  /// 便捷：设置代码高亮。
+  Future<void> setCodeHighlight(bool enabled) =>
+      apply(_settings.copyWith(codeHighlight: enabled));
+
+  /// 便捷：设置代码字号。
+  Future<void> setCodeFontSize(double size) => apply(_settings.copyWith(
+        codeFontSize: size
+            .clamp(
+              OgLSettings.minCodeFontSize,
+              OgLSettings.maxCodeFontSize,
+            )
+            .toDouble(),
+      ));
+
+  /// 便捷：设置代码自动换行。
+  Future<void> setCodeWrap(bool enabled) =>
+      apply(_settings.copyWith(codeWrap: enabled));
+
+  /// 便捷：标记首次引导已完成。
+  Future<void> setOnboardingDone(bool done) =>
+      apply(_settings.copyWith(onboardingDone: done));
 
   /// 重置为默认（并清空持久化）。
   Future<void> reset() async {

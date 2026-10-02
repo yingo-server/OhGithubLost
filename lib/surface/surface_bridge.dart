@@ -90,8 +90,14 @@ class SurfaceBridge {
       };
 
   /// 按当前设置编译主题（全应用唯一的一次编译）。
-  ThemeData themeFor(Brightness systemBrightness) =>
-      buildOgLTheme(brightnessFor(systemBrightness));
+  ThemeData themeFor(Brightness systemBrightness) {
+    final OgLSettings current = settings.settings;
+    return buildOgLTheme(
+      brightnessFor(systemBrightness),
+      seedColor: ogLSeedColorOf(current.seedColorId),
+      density: ogLDensityOf(current.density),
+    );
+  }
 
   @override
   String toString() =>

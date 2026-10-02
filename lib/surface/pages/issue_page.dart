@@ -15,6 +15,12 @@ import '../util/gh_format.dart';
 import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
 
+/// 评论文本上限（字符数）。
+///
+/// GitHub 对正文有长度限制，这里取一个留有余量的本地阈值：
+/// 超限时本地即可给出清晰提示，而不是把请求打出去再被服务端拒绝。
+const int _kMaxCommentChars = 60000;
+
 /// 议题详情页。
 class IssuePage extends StatefulWidget {
   /// 创建页面。
@@ -43,6 +49,10 @@ class _IssuePageState extends State<IssuePage> {
   late String _state = ghStr(widget.issue, 'state');
   bool _busy = false;
 
+  /// 评论输入。
+  final TextEditingController _comment = TextEditingController();
+  bool _posting = false;
+
   int get _number => ghInt(widget.issue, 'number');
 
   @override
@@ -54,6 +64,7 @@ class _IssuePageState extends State<IssuePage> {
   @override
   void dispose() {
     _comments?.dispose();
+    _comment.dispose();
     super.dispose();
   }
 
@@ -127,6 +138,63 @@ class _IssuePageState extends State<IssuePage> {
     } finally {
       if (mounted) {
         setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _postComment() async {
+    final String body = _comment.text.trim();
+    if (body.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('评论不能为空')),
+      );
+      return;
+    }
+    // 护栏：GitHub 对评论正文有长度上限；本地先拦，避免把超大负载发出去
+    // 后被服务端拒绝（浪费一次往返，且错误信息不如本地清晰）。
+    if (body.length > _kMaxCommentChars) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('评论过长（${body.length}/$_kMaxCommentChars 字符），请精简后重试'),
+        ),
+      );
+      return;
+    }
+    if (_posting) {
+      return;
+    }
+    setState(() => _posting = true);
+    try {
+      await widget.surface.domain.api.createIssueComment(
+        widget.fullName,
+        _number,
+        body: body,
+      );
+      OgLAppLog.instance.result('议题', '评论已发布', '#$_number');
+      if (!mounted) {
+        return;
+      }
+      _comment.clear();
+      await _commentsC().load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('评论已发布')),
+        );
+      }
+    } catch (error) {
+      OgLAppLog.instance.add(
+        '议题',
+        '评论发布失败：$error',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('评论失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _posting = false);
       }
     }
   }
@@ -212,6 +280,28 @@ class _IssuePageState extends State<IssuePage> {
                     ),
                   ),
               ],
+            ),
+          ),
+          const Divider(height: 32),
+          Text('发表评论', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _comment,
+            minLines: 3,
+            maxLines: 8,
+            enabled: !_posting,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: '支持 Markdown；请保持友善与具体',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _posting ? null : _postComment,
+              icon: const Icon(Icons.send),
+              label: Text(_posting ? '发布中…' : '发表评论'),
             ),
           ),
           const SizedBox(height: 24),

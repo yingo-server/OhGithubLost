@@ -72,6 +72,68 @@ void main() {
           OgLSettings.fromJson(jsonDecode(s.encode()));
       expect(encoded.dnsServerId, 'cloudflare');
     });
+
+    test('新增字段：缺失时回落保守默认', () {
+      final OgLSettings s = OgLSettings.fromJson(<String, Object?>{
+        'mode': 'dark',
+      });
+      expect(s.seedColorId, 'github');
+      expect(s.fontScale, 1.0);
+      expect(s.density, 'comfortable');
+      expect(s.reduceMotion, isFalse);
+      expect(s.foldersFirst, isTrue);
+      expect(s.codeHighlight, isTrue);
+      expect(s.codeFontSize, 13);
+      expect(s.codeWrap, isFalse);
+      expect(s.onboardingDone, isFalse);
+    });
+
+    test('新增字段：坏值与越界被修正（不抛）', () {
+      final OgLSettings s = OgLSettings.fromJson(<String, Object?>{
+        'seedColorId': '',
+        'fontScale': 99,
+        'density': 'weird',
+        'reduceMotion': 'x',
+        'foldersFirst': 1,
+        'codeHighlight': 'no',
+        'codeFontSize': -5,
+        'codeWrap': 'x',
+        'onboardingDone': 0,
+      });
+      expect(s.seedColorId, 'github');
+      expect(s.fontScale, OgLSettings.maxFontScale);
+      expect(s.density, 'comfortable');
+      expect(s.reduceMotion, isFalse);
+      expect(s.foldersFirst, isTrue);
+      expect(s.codeHighlight, isTrue);
+      expect(s.codeFontSize, OgLSettings.minCodeFontSize);
+      expect(s.codeWrap, isFalse);
+      expect(s.onboardingDone, isFalse);
+    });
+
+    test('新增字段往返一致', () {
+      const OgLSettings s = OgLSettings(
+        seedColorId: 'grape',
+        fontScale: 1.2,
+        density: 'compact',
+        reduceMotion: true,
+        foldersFirst: false,
+        codeHighlight: false,
+        codeFontSize: 18,
+        codeWrap: true,
+        onboardingDone: true,
+      );
+      final OgLSettings back = OgLSettings.fromJson(jsonDecode(s.encode()));
+      expect(back.seedColorId, 'grape');
+      expect(back.fontScale, 1.2);
+      expect(back.density, 'compact');
+      expect(back.reduceMotion, isTrue);
+      expect(back.foldersFirst, isFalse);
+      expect(back.codeHighlight, isFalse);
+      expect(back.codeFontSize, 18);
+      expect(back.codeWrap, isTrue);
+      expect(back.onboardingDone, isTrue);
+    });
   });
 
   group('OgLSettingsController', () {

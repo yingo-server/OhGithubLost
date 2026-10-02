@@ -15,6 +15,7 @@ import '../../kernel/kernel.dart';
 import '../pages/about_page.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/login_page.dart';
+import '../pages/onboarding_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/search_page.dart';
 import '../pages/settings_page.dart';
@@ -64,12 +65,16 @@ class _OgLClientShellState extends State<OgLClientShell> {
   bool _guest = false;
   String? _accountId;
 
+  /// 是否已完成首次引导（设置在 `runApp` 之前已加载，直接读取即可）。
+  bool _onboardingDone = false;
+
   /// 已经访问过的页面（**懒挂载**）。
   final Set<OgLShellTab> _visited = <OgLShellTab>{OgLShellTab.home};
 
   @override
   void initState() {
     super.initState();
+    _onboardingDone = widget.surface.settings.settings.onboardingDone;
     _check();
   }
 
@@ -131,6 +136,13 @@ class _OgLClientShellState extends State<OgLClientShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 首次引导优先于登录门：先让用户知道"这个应用会碰什么、不碰什么"。
+    if (!_onboardingDone) {
+      return OnboardingPage(
+        surface: widget.surface,
+        onFinished: () => setState(() => _onboardingDone = true),
+      );
+    }
     if (!_checked) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),

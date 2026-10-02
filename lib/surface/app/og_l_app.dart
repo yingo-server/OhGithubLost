@@ -15,6 +15,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../kernel/kernel.dart';
+import '../settings.dart';
 import '../surface_bridge.dart';
 import 'client_shell.dart';
 import 'error_surface.dart';
@@ -42,20 +43,31 @@ class OgLApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: surface.settings,
-        builder: (BuildContext context, Widget? _) => Builder(
-          builder: (BuildContext context) {
-            final MediaQueryData query = MediaQuery.of(context);
-            return MaterialApp(
-              title: 'OhGithubLost',
-              debugShowCheckedModeBanner: false,
-              navigatorKey: navigatorKey,
-              // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
-              scrollBehavior: const OgLScrollBehavior(),
-              theme: surface.themeFor(query.platformBrightness),
-              builder: (BuildContext context, Widget? child) =>
-                  MediaQuery.withClampedTextScaling(
-                minScaleFactor: 0.85,
-                maxScaleFactor: 2,
+        builder: (BuildContext context, Widget? _) {
+          final OgLSettings current = surface.settings.settings;
+          return MaterialApp(
+            title: 'OhGithubLost',
+            debugShowCheckedModeBanner: false,
+            navigatorKey: navigatorKey,
+            // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
+            scrollBehavior: const OgLScrollBehavior(),
+            theme: surface.themeFor(MediaQuery.platformBrightnessOf(context)),
+            // ⚠️ 文字缩放必须在 `builder` 里覆盖：
+            // 该层位于 `WidgetsApp` 自建的 MediaQuery **之内**，
+            // 若在外层包 MediaQuery，会被 WidgetsApp 的 MediaQuery 覆盖掉。
+            builder: (BuildContext context, Widget? child) {
+              final MediaQueryData query = MediaQuery.of(context);
+              // 系统字号 × 用户系数，再夹紧到 [0.85, 2.0]：
+              // 既尊重系统无障碍设置，又允许用户再微调。
+              final double systemScale = query.textScaler.scale(1.0);
+              final double scale =
+                  (systemScale * current.fontScale).clamp(0.85, 2.0).toDouble();
+              return MediaQuery(
+                data: query.copyWith(
+                  textScaler: TextScaler.linear(scale),
+                  disableAnimations:
+                      query.disableAnimations || current.reduceMotion,
+                ),
                 // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
                 // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
                 child: OgLKeyboardGuard(
@@ -65,11 +77,11 @@ class OgLApp extends StatelessWidget {
                     child: child ?? const SizedBox.shrink(),
                   ),
                 ),
-              ),
-              home: OgLClientShell(surface: surface, report: report),
-            );
-          },
-        ),
+              );
+            },
+            home: OgLClientShell(surface: surface, report: report),
+          );
+        },
       );
 }
 
