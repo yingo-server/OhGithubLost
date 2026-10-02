@@ -740,6 +740,84 @@ class _SettingsPage extends StatelessWidget {
 // （诊断页已并入 _AboutPage 的折叠栏，见文件上方。）
 
 
+/// 键值两列（左列窄、右列等宽可选中）—— 启动报告 / 诊断信息用。
+class _KeyValue extends StatelessWidget {
+  const _KeyValue({required this.rows, required this.ogL});
+
+  final Map<String, String> rows;
+  final OgLTheme ogL;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          for (final MapEntry<String, String> entry in rows.entries)
+            Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: ogL.tokens.space(OgLSpacing.xxs),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  SizedBox(
+                    width: ogL.tokens.space(OgLSpacing.xxl * 3),
+                    child: Text(
+                      entry.key,
+                      style: TextStyle(color: ogL.palette.textDim),
+                    ),
+                  ),
+                  Expanded(
+                    child: SelectableText(
+                      entry.value,
+                      style: const TextStyle(fontFamily: kOgLMonoFamily),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+}
+
+/// 轻提示条：语义图标 + `OgLBanner`（危险 / 警告两档）。
+class _Banner extends StatelessWidget {
+  const _Banner({
+    required this.ogL,
+    required this.color,
+    required this.icon,
+    required this.text,
+  });
+
+  final OgLTheme ogL;
+  final Color color;
+  final OgLIconName icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(top: ogL.tokens.space(OgLSpacing.md)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            OgLIcon(
+              name: icon,
+              size: ogL.tokens.iconSize(base: 18),
+              color: color,
+            ),
+            SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
+            Expanded(
+              child: OgLBanner(
+                variant: color == ogL.palette.danger
+                    ? OgLBannerVariant.danger
+                    : OgLBannerVariant.warning,
+                text: text,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
 /// 一行式单选：**整行可点 → 底部选择表**（Primer ActionList 形态）。
 ///
 /// 旧实现是一串 `ChoiceChip`（Material 视觉 + 行内堆叠），与"发丝描边 + 直角偏锐"
@@ -752,7 +830,6 @@ class _ChoiceRow<T> extends StatelessWidget {
     required this.options,
     required this.onPick,
     this.showDivider = true,
-    super.key,
   });
 
   final OgLIconName icon;
@@ -848,7 +925,6 @@ class _ToggleRow extends StatelessWidget {
     this.description,
     this.danger = false,
     this.showDivider = true,
-    super.key,
   });
 
   final OgLIconName icon;
