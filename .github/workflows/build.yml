@@ -25,21 +25,19 @@ on:
       channel:
         description: '发布通道（stable=正式版；beta / alpha=预发布）'
         required: true
-        default: 'beta'
+        default: 'stable'
         type: choice
         options:
           - stable
           - beta
           - alpha
       version_number:
-        description: '版本号（正整数，写入 Android versionCode）'
+        description: '版本号 versionCode（必填·正整数，如 20000）'
         required: true
-        default: '1'
         type: string
       version_name:
-        description: '版本名（如 0.1.0，写入 Android versionName）'
+        description: '版本名 versionName（必填·如 2.0.0；将写入所有平台产物）'
         required: true
-        default: '0.1.0'
         type: string
       release_notes:
         description: 'Release 说明（可留空，留空用自动模板）'
@@ -64,6 +62,23 @@ jobs:
     name: 生成引导清单（Ed25519签名）
     runs-on: ubuntu-latest
     steps:
+      # ★ 发布参数护栏：手动触发时版本号必须**显式给出**。
+      # 旧版给 version_name 默认值 `0.1.0`，于是"忘了填"就会产出 0.1.0 的包
+      # （真事故：APK 显示 0.1.0，而 App 内部版本来自代码常量，看起来"正常"）。
+      # 现在默认值已删除，这里再做一道硬校验，空值/非法值一律拒绝。
+      - name: 校验发布参数（手动触发必填）
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VN: ${{ inputs.version_name }}
+          VNUM: ${{ inputs.version_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${VN:-}" ] || { echo '::error::version_name 必填（不再有 0.1.0 默认值）'; exit 1; }
+          echo "$VN" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$' || { echo "::error::version_name 需形如 2.0 或 2.0.0，当前：$VN"; exit 1; }
+          echo "$VNUM" | grep -Eq '^[1-9][0-9]*$' || { echo "::error::version_number 需为正整数，当前：$VNUM"; exit 1; }
+          echo "发布参数校验通过：version_name=$VN version_number=$VNUM"
+
       - name: 拉取代码
         uses: actions/checkout@v4
 
@@ -81,7 +96,7 @@ jobs:
 
       - name: 生成并注入 .dart_define.json
         env:
-          VERSION_INPUT: ${{ github.event.inputs.version_name }}
+          VERSION_INPUT: ${{ inputs.version_name }}
         run: |
           python3 tool/boot_manifest.py \
             --version "$VERSION_INPUT" \
@@ -311,16 +326,16 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.22.1" >/dev/null 2>&1 \
             && echo 'CMake 预装完成' || echo 'CMake 预装未完成（不阻塞）'
 
-      - name: 构建 ${{ matrix.label }}
-        # 非 dispatch / 非 Android 目标：按 pubspec 默认版本构建。
-        if: github.event_name != 'workflow_dispatch' || (matrix.build != 'apk' && matrix.build != 'appbundle')
+      - name: 构建 ${{ matrix.label }}（非发布：按 pubspec 版本）
+        if: github.event_name != 'workflow_dispatch'
         run: >-
           flutter build ${{ matrix.build }} ${{ matrix.args }}
           --dart-define-from-file=dart_define.json
 
-      - name: 构建 ${{ matrix.label }}（dispatch · 带版本号）
-        # 手动发布时：把输入框里的 versionName / versionCode 灌进 Android 产物。
-        if: github.event_name == 'workflow_dispatch' && (matrix.build == 'apk' || matrix.build == 'appbundle')
+      - name: 构建 ${{ matrix.label }}（发布：全平台注入版本号）
+        # ★ 所有平台都灌入 versionName / versionCode（旧版只给 Android，导致
+        #   Windows/Linux/macOS/iOS 产物仍停留在 pubspec 版本，跨平台不一致）。
+        if: github.event_name == 'workflow_dispatch'
         run: >-
           flutter build ${{ matrix.build }} ${{ matrix.args }}
           --build-name=${{ inputs.version_name }}
@@ -352,6 +367,31 @@ jobs:
             rm -f "$APK.aligned"
             python3 tool/verify_apk_cert.py --apk "$APK" --keystore "$KS"
           done
+
+      - name: 版本号护栏（Android：versionName 必须等于发布版本）
+        # ★ 针对"发布出来却是 0.1.0"的事故加的硬护栏：
+        # 逐个 APK 读它的 versionName，与输入框的 version_name 比对，不一致即失败。
+        if: matrix.build == 'apk' && github.event_name == 'workflow_dispatch'
+        env:
+          WANT: ${{ inputs.version_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          AAPT="$BT/aapt"
+          [ -x "$AAPT" ] || AAPT="$BT/aapt2"
+          shopt -s nullglob
+          found=0
+          for APK in build/app/outputs/flutter-apk/*.apk; do
+            found=1
+            GOT="$("$AAPT" dump badging "$APK" 2>/dev/null | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)"
+            echo "APK=$APK versionName=$GOT 期望=$WANT"
+            if [ "$GOT" != "$WANT" ]; then
+              echo "::error::APK versionName 与发布版本不一致：$GOT != $WANT（$APK）"
+              exit 1
+            fi
+          done
+          [ "$found" = "1" ] || { echo '::error::未找到 APK 产物'; exit 1; }
 
       - name: 网络权限护栏（Android：release 必须含 INTERNET）
         # 注意：矩阵里 Android 腿的 build 值是 apk / appbundle（不是 'android'）；
