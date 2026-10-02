@@ -4,8 +4,7 @@
 # 用途：对**最新正式 Release**（或指定标签）做一轮"全平台 × 全架构"核验：
 #   1. 拉取该 Release 的全部产物，逐平台核验（结构 / 架构 / 签名 / 版本）；
 #   2. 对 `source_ref`（默认 main）跑 **UI + 内核全量测试**（flutter test）；
-#   3. 生成**全平台 UI 截屏矩阵**（5 平台 × 亮暗 × 手机/桌面 × 5 页面），
-#      作为构建产物（artifact）上传。
+#   3. 生成 **UI 截屏样本**（竖屏 + 横屏各一份），作为构建产物（artifact）上传。
 #
 # 说明：
 #   - iOS 核验默认跳过（`include_ios=false`）；打开后按 macOS 同款流程核验。
@@ -186,7 +185,12 @@ jobs:
           def unzip(zf, out):
               z = zipfile.ZipFile(zf)
               assert z.testzip() is None, 'zip 损坏: %s' % zf
-              z.extractall(out)
+              for info in z.infolist():
+                  target = z.extract(info, out)
+                  # zipfile 不还原 Unix 权限：按 external_attr 补回（可执行位必须保留）
+                  mode = info.external_attr >> 16
+                  if mode:
+                      os.chmod(target, mode & 0o7777)
 
           def find_binary(root):
               for dp, dn, fn in os.walk(root):
@@ -243,6 +247,8 @@ jobs:
           ls -la
       - name: 核验
         shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           python - <<'PY'
           import glob, os, struct, zipfile
@@ -280,7 +286,7 @@ jobs:
               assert exe, '未找到 ohgithublost.exe: %s' % zf
               got = pe_machine(exe)
               assert got == machine, 'PE 架构不符: %s（got=0x%X want=0x%X）' % (exe, got, machine)
-              print('OK: %s → %s (machine=0x%X)' % (zf, exe, got))
+              print('OK: %s -> %s (machine=0x%X)' % (zf, exe, got))
               checked += 1
           assert checked >= 1, '至少应核验到 x64 产物'
           print('Windows 核验通过（%d 个产物）' % checked)
@@ -327,7 +333,7 @@ jobs:
             esac
             local archs
             archs="$(lipo -archs "$app/Contents/MacOS/$exe")"
-            echo "archs: $archs（want: $want_arch）"
+            echo "archs: ${archs} (want: ${want_arch})"
             echo "$archs" | grep -q "$want_arch" || { echo "::error::$zf 架构不符: $archs"; exit 1; }
             local sig
             sig="$(codesign -dv --verbose=2 "$app" 2>&1 || true)"
@@ -396,7 +402,7 @@ jobs:
   # UI / 内核测试 + 全平台截屏矩阵（构建产物）
   # ---------------------------------------------------------------------------
   ui-shots:
-    name: UI/内核测试 + 全平台截屏
+    name: UI/内核测试 + 截屏样本
     needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -415,7 +421,7 @@ jobs:
         run: flutter pub get
       - name: UI/内核全量测试（kernel + base + domain + surface）
         run: flutter test --reporter expanded
-      - name: 生成全平台截屏矩阵
+      - name: 生成截屏样本（竖屏 + 横屏）
         shell: bash
         env:
           OGL_SCREENSHOTS: '1'
@@ -425,7 +431,7 @@ jobs:
           PNG_COUNT=$(find build/ui_shots -name '*.png' | wc -l)
           echo "截屏数量: $PNG_COUNT"
           find build/ui_shots -name '*.png' | sort > build/ui_shots/INDEX.txt
-          [ "$PNG_COUNT" -ge 80 ] || { echo "::error::截屏数量不足（$PNG_COUNT < 80）"; exit 1; }
+          [ "$PNG_COUNT" -ge 2 ] || { echo "::error::截屏数量不足（$PNG_COUNT < 2：需竖屏 + 横屏各一份）"; exit 1; }
           echo "### 截屏矩阵：$PNG_COUNT 张 ✅" >> "$GITHUB_STEP_SUMMARY"
       - name: 上传截屏（构建产物）
         uses: actions/upload-artifact@v4

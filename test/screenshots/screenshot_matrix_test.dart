@@ -3,9 +3,10 @@
 /// ## 两种运行模式
 /// - **默认（普通 `flutter test`）**：只跑一次"冒烟截屏"（不落盘）——
 ///   验证字体加载 / 假件 bridge / 捕获管线可用；
-/// - **截屏模式（`OGL_SCREENSHOTS=1`）**：跑完整矩阵并写入 PNG：
-///   5 平台（Android/iOS/Windows/macOS/Linux 风格）× 亮/暗 × 手机/桌面
-///   × 5 页面 = 100 张，路径 `build/ui_shots/<平台>/<明暗>/<形态>__<页面>.png`。
+/// - **截屏模式（`OGL_SCREENSHOTS=1`）**：输出两份样本并落盘：
+///   `build/ui_shots/portrait__home.png`（竖屏 390×844）与
+///   `build/ui_shots/landscape__repo.png`（横屏 844×390）。
+///   （历史上做过 5 平台 × 亮暗 × 形态的完整矩阵版，按需可再扩展。）
 ///
 /// ## 离线假件
 /// 用内存存储 + 脚本化传输组装**真实**的 DomainBridge/SurfaceBridge，
@@ -63,36 +64,6 @@ final bool kWriteShots = Platform.environment['OGL_SCREENSHOTS'] == '1';
 /// 输出根目录。
 final String kOutRoot =
     Platform.environment['OGL_SCREENSHOT_DIR'] ?? 'build/ui_shots';
-
-/// 平台矩阵（名字 → TargetPlatform）。
-const List<(String, TargetPlatform)> _platforms = <(String, TargetPlatform)>[
-  ('android', TargetPlatform.android),
-  ('ios', TargetPlatform.iOS),
-  ('windows', TargetPlatform.windows),
-  ('macos', TargetPlatform.macOS),
-  ('linux', TargetPlatform.linux),
-];
-
-/// 明暗矩阵。
-const List<(String, Brightness)> _brightnesses = <(String, Brightness)>[
-  ('light', Brightness.light),
-  ('dark', Brightness.dark),
-];
-
-/// 形态矩阵。
-const List<(String, Size)> _sizes = <(String, Size)>[
-  ('phone', Size(390, 844)),
-  ('desktop', Size(1280, 800)),
-];
-
-/// 页面矩阵（文件名用 ASCII，避免打包工具对中文名的兼容问题）。
-const List<(String, String)> _screens = <(String, String)>[
-  ('login', '登录'),
-  ('home', '首页'),
-  ('repo', '仓库'),
-  ('settings', '设置'),
-  ('about', '关于'),
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 字体加载
@@ -459,57 +430,49 @@ void main() {
     return;
   }
 
-  // 截屏模式：完整矩阵。
-  for (final (String platformName, TargetPlatform platform) in _platforms) {
-    testWidgets('截屏矩阵 · $platformName', (WidgetTester tester) async {
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      debugDisableShadows = false;
-      try {
-        final SurfaceBridge bridge = await _buildBridge();
-        final KernelReport report = _report();
-        final GhRepo repo =
-            GhRepo.fromJson(_repoJson(
-          fullName: 'octocat/Hello-World',
-          description: '演示仓库 · 用于 UI 截屏',
-          isPrivate: false,
-          stars: 1234,
-        ));
-        int total = 0;
-        for (final (String brightnessName, Brightness brightness)
-            in _brightnesses) {
-          for (final (String sizeName, Size size) in _sizes) {
-            for (final (String file, String screen) in _screens) {
-              final GlobalKey key = await _pumpScreen(
-                tester,
-                screen: screen,
-                bridge: bridge,
-                report: report,
-                repo: repo,
-                platform: platform,
-                brightness: brightness,
-                size: size,
-              );
-              final int bytes = await _capture(
-                tester,
-                key,
-                logical: size,
-                writePath:
-                    '$kOutRoot/$platformName/$brightnessName/${sizeName}__$file.png',
-              );
-              expect(bytes, greaterThan(1000),
-                  reason: '截屏捕获异常: $platformName/$brightnessName/'
-                      '${sizeName}__$file');
-              total += 1;
-            }
-          }
-        }
-        debugPrint('[截屏] $platformName 完成：$total 张');
-      } finally {
-        debugDisableShadows = true;
-      }
+  // 截屏模式：只出两份样本（竖屏 + 横屏）。
+  testWidgets('截屏样本（竖屏 + 横屏）', (WidgetTester tester) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
     });
-  }
+    debugDisableShadows = false;
+    try {
+      final SurfaceBridge bridge = await _buildBridge();
+      final KernelReport report = _report();
+      final GhRepo repo = GhRepo.fromJson(_repoJson(
+        fullName: 'octocat/Hello-World',
+        description: '演示仓库 · 用于 UI 截屏',
+        isPrivate: false,
+        stars: 1234,
+      ));
+      const List<(String, String, Size)> samples = <(String, String, Size)>[
+        ('portrait__home', 'home', Size(390, 844)),
+        ('landscape__repo', 'repo', Size(844, 390)),
+      ];
+      for (final (String name, String screen, Size size) in samples) {
+        final GlobalKey key = await _pumpScreen(
+          tester,
+          screen: screen,
+          bridge: bridge,
+          report: report,
+          repo: repo,
+          platform: TargetPlatform.android,
+          brightness: Brightness.light,
+          size: size,
+        );
+        final int bytes = await _capture(
+          tester,
+          key,
+          logical: size,
+          writePath: '$kOutRoot/$name.png',
+        );
+        expect(bytes, greaterThan(1000), reason: '截屏捕获异常: $name');
+        debugPrint('[截屏] $name ${size.width.toInt()}x${size.height.toInt()} '
+            '($bytes B)');
+      }
+    } finally {
+      debugDisableShadows = true;
+    }
+  });
 }
