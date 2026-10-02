@@ -26,6 +26,7 @@ import '../app/error_surface.dart';
 import '../kit/kit.dart';
 import '../readme/link_opener.dart';
 import '../readme/readme_view.dart';
+import '../util/gh_view_format.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -153,22 +154,6 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
     }
   }
 
-  String _loginOf(Map<String, dynamic> node) {
-    final Object? user = node['user'];
-    if (user is Map<Object?, Object?>) {
-      return GhJson.str(Map<String, dynamic>.from(user), 'login');
-    }
-    return '';
-  }
-
-  String _dateOf(Map<String, dynamic> node) {
-    final String raw = GhJson.str(node, 'created_at');
-    if (raw.isEmpty) {
-      return '';
-    }
-    return raw.split('T').first;
-  }
-
   @override
   Widget build(BuildContext context) {
     final OgLTheme ogL = OgLTheme.of(context);
@@ -182,8 +167,11 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
 
     return OgLPageScaffold(
       title: '#$_number ${GhJson.str(issue, 'title')}',
-      description: 'by @${_loginOf(issue)}'
-          '${_dateOf(issue).isEmpty ? '' : ' · ${_dateOf(issue)}'}',
+      description: <String>[
+        'by @${ogLNodeLogin(issue)}',
+        if (ogLDateOnly(issue, 'created_at').isNotEmpty)
+          ogLDateOnly(issue, 'created_at'),
+      ].join(' · '),
       leading: OgLIconButton(
         icon: OgLIconName.arrowLeft,
         label: '返回',
@@ -289,8 +277,8 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
                         for (int i = 0; i < list.length; i++)
                           _CommentBlock(
                             comment: list[i],
-                            login: _loginOf(list[i]),
-                            date: _dateOf(list[i]),
+                            login: ogLNodeLogin(list[i]),
+                            date: ogLDateOnly(list[i], 'created_at'),
                             showDivider: i != list.length - 1,
                             onOpenLink: _openLink,
                           ),

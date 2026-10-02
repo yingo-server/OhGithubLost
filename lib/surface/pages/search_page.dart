@@ -165,14 +165,49 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
 
   /// 代码结果没有完整的仓库对象，只能按 `full_name` 现造一个最小的
   /// （仓库页会自己补齐缺失字段 —— 不再有"猜默认分支"的问题）。
+  ///
+  /// 增强（本批）：把命中的 **文件路径** 一起带进去，仓库页会**直接打开那个文件**
+  /// —— 旧实现只能把用户丢到仓库首页，还得自己一层层点进去。
   void _openCodeHit(Map<String, dynamic> item) {
     final String full = _repoOf(item);
     if (full.isEmpty || !full.contains('/')) {
       OgLAppLog.instance.add('搜索', '代码结果缺少仓库信息，无法跳转：$item');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这条结果没有仓库信息，无法跳转')),
+        );
+      }
       return;
     }
     final GhRepo repo = GhRepo.fromJson(<String, dynamic>{'full_name': full});
-    _openRepo(repo);
+    final String path = GhJson.str(item, 'path');
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLRepoPage(
+          surface: widget.surface,
+          repo: repo,
+          initialPath: path.isEmpty ? null : path,
+        ),
+      ),
+    );
+  }
+
+  /// 命中的代码片段（GitHub 在 `text_matches` 里给上下文；没有就退回路径说明）。
+  String? _fragmentOf(Map<String, dynamic> item) {
+    final Object? matches = item['text_matches'];
+    if (matches is! List<Object?>) {
+      return null;
+    }
+    for (final Object? match in matches) {
+      if (match is Map<Object?, Object?>) {
+        final String fragment =
+            GhJson.str(Map<String, dynamic>.from(match), 'fragment').trim();
+        if (fragment.isNotEmpty) {
+          return fragment.replaceAll(RegExp(r'\s+'), ' ').trim();
+        }
+      }
+    }
+    return null;
   }
 
   String _repoOf(Map<String, dynamic> item) {
@@ -391,6 +426,7 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
                   _CodeHitRow(
                     item: list[i],
                     repoOf: _repoOf(list[i]),
+                    fragment: _fragmentOf(list[i]),
                     showDivider: i != list.length - 1,
                     onOpen: _openCodeHit,
                   ),
@@ -448,10 +484,14 @@ class _CodeHitRow extends StatelessWidget {
     required this.repoOf,
     required this.showDivider,
     required this.onOpen,
+    this.fragment,
   });
 
   final Map<String, dynamic> item;
   final String repoOf;
+
+  /// 命中上下文（`text_matches` 片段）；为空时退回"仓库 · 点开直达文件"。
+  final String? fragment;
   final bool showDivider;
   final void Function(Map<String, dynamic> item) onOpen;
 
@@ -461,8 +501,10 @@ class _CodeHitRow extends StatelessWidget {
     final String path = GhJson.str(item, 'path');
     final String name = GhJson.str(item, 'name');
     final String title = path.isEmpty ? name : path;
-    final String subtitle =
-        repoOf.isEmpty ? '（未知仓库）' : '$repoOf · 点开进入该仓库';
+    final String? hit = fragment;
+    final String subtitle = hit != null && hit.isNotEmpty
+        ? hit
+        : (repoOf.isEmpty ? '（未知仓库）' : '$repoOf · 点开直达该文件');
     return OgLActionRow(
       leading: OgLIcon(
         name: OgLIconName.file,

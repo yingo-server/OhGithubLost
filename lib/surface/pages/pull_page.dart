@@ -21,6 +21,7 @@ import '../app/async_view.dart';
 import '../kit/kit.dart';
 import '../readme/link_opener.dart';
 import '../readme/readme_view.dart';
+import '../util/gh_view_format.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -98,14 +99,6 @@ class _OgLPullPageState extends State<OgLPullPage> {
     }
   }
 
-  String _loginOf(Map<String, dynamic> node) {
-    final Object? user = node['user'];
-    if (user is Map<Object?, Object?>) {
-      return GhJson.str(Map<String, dynamic>.from(user), 'login');
-    }
-    return '';
-  }
-
   /// 来源分支名（`head` 在 GitHub 的响应里是对象，不是字符串）。
   String _headRef(Map<String, dynamic> pull) {
     final Object? head = pull['head'];
@@ -132,24 +125,6 @@ class _OgLPullPageState extends State<OgLPullPage> {
     return const OgLLabel(text: '打开中', variant: OgLLabelVariant.accent);
   }
 
-  /// 文件状态 → 中文（GitHub 给的是 added / modified / removed…）。
-  String _statusText(String status) {
-    switch (status) {
-      case 'added':
-        return '新增';
-      case 'removed':
-        return '删除';
-      case 'modified':
-        return '修改';
-      case 'renamed':
-        return '重命名';
-      case 'copied':
-        return '复制';
-      default:
-        return status.isEmpty ? '变更' : status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final OgLTheme ogL = OgLTheme.of(context);
@@ -161,8 +136,10 @@ class _OgLPullPageState extends State<OgLPullPage> {
 
     return OgLPageScaffold(
       title: '#$_number ${GhJson.str(pull, 'title')}',
-      description: 'by @${_loginOf(pull)}'
-          '${_headRef(pull).isEmpty ? '' : ' · 分支 ${_headRef(pull)}'}',
+      description: <String>[
+        'by @${ogLNodeLogin(pull)}',
+        if (_headRef(pull).isNotEmpty) '分支 ${_headRef(pull)}',
+      ].join(' · '),
       leading: OgLIconButton(
         icon: OgLIconName.arrowLeft,
         label: '返回',
@@ -257,7 +234,7 @@ class _OgLPullPageState extends State<OgLPullPage> {
                               color: ogL.palette.textDim,
                             ),
                             title: GhJson.str(files[i], 'filename'),
-                            subtitle: _statusText(
+                            subtitle: ogLFileStatusText(
                               GhJson.str(files[i], 'status'),
                             ),
                             trailing: Row(

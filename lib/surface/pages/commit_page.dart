@@ -21,6 +21,7 @@ import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../kit/kit.dart';
 import '../surface_bridge.dart';
+import '../util/gh_view_format.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
@@ -99,30 +100,13 @@ class _OgLCommitPageState extends State<OgLCommitPage> {
     return controller;
   }
 
-  String _statusText(String status) {
-    switch (status) {
-      case 'added':
-        return '新增';
-      case 'removed':
-        return '删除';
-      case 'modified':
-        return '修改';
-      case 'renamed':
-        return '重命名';
-      default:
-        return status.isEmpty ? '变更' : status;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final OgLTheme ogL = OgLTheme.of(context);
     final OgLTokens tokens = ogL.tokens;
     final OgLTypeScale scale = const OgLTypeScale.standard();
     final GhCommit commit = widget.commit;
-    final String shortSha = commit.sha.length >= 7
-        ? commit.sha.substring(0, 7)
-        : commit.sha;
+    final String shortSha = ogLShortSha(commit.sha);
     final OgLAsyncController<List<Map<String, dynamic>>> controller = _filesC();
     final List<String> messageLines = commit.message.split('\n');
 
@@ -130,7 +114,7 @@ class _OgLCommitPageState extends State<OgLCommitPage> {
       title: messageLines.isEmpty || messageLines.first.isEmpty
           ? '（无提交信息）'
           : messageLines.first,
-      description: '$shortSha · @${commit.authorLogin ?? commit.authorName ?? '未知'}',
+      description: '$shortSha · @${ogLCommitAuthor(commit)}',
       leading: OgLIconButton(
         icon: OgLIconName.arrowLeft,
         label: '返回',
@@ -224,7 +208,7 @@ class _OgLCommitPageState extends State<OgLCommitPage> {
                         for (int i = 0; i < files.length; i++)
                           _FileDiffBlock(
                             file: files[i],
-                            statusText: _statusText(
+                            statusText: ogLFileStatusText(
                               GhJson.str(files[i], 'status'),
                             ),
                             expanded: _expandedIndex == i,

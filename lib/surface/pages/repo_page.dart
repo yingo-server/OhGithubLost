@@ -53,13 +53,21 @@ enum _RepoTab {
 /// 仓库详情页。
 class OgLRepoPage extends StatefulWidget {
   /// 创建页面。
-  const OgLRepoPage({required this.surface, required this.repo, super.key});
+  const OgLRepoPage({
+    required this.surface,
+    required this.repo,
+    this.initialPath,
+    super.key,
+  });
 
   /// 表面桥。
   final SurfaceBridge surface;
 
   /// 仓库（来自列表的既有数据）。
   final GhRepo repo;
+
+  /// 可选：进入后直接打开的文件路径（代码搜索结果"直达文件"用）。
+  final String? initialPath;
 
   @override
   State<OgLRepoPage> createState() => _OgLRepoPageState();
@@ -129,6 +137,15 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     _privateVal = _repo.isPrivate;
     _entriesC().loadIfNeeded();
     _readmeC().loadIfNeeded();
+    // 代码搜索等入口可以"带着文件路径进来"：首帧后直接打开那个文件。
+    final String? initial = widget.initialPath;
+    if (initial != null && initial.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openFile(GhContent(path: initial, sha: ''));
+        }
+      });
+    }
     // 列表里的仓库对象可能缺 `default_branch`（猜 main 会让 master 仓库全 404），
     // 因此用一次详情请求把事实补齐；失败不影响浏览（只写日志）。
     _refreshRepo();

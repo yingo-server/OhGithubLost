@@ -71,6 +71,13 @@ class _OgLClientShellState extends State<OgLClientShell> {
   bool _guest = false;
   String? _accountId;
 
+  /// 已经访问过的页面（**懒挂载**）。
+  ///
+  /// 旧实现把五个页面全部塞进 `IndexedStack`：启动瞬间就会同时构建
+  /// 首页 / 搜索 / 我的 / 设置 / 关于（各自可能立刻发请求、建控制器），
+  /// 冷启动因此明显变慢。现在只挂载"用过的"页面，其它放占位。
+  final Set<OgLShellTab> _visited = <OgLShellTab>{OgLShellTab.home};
+
   static const List<OgLNavDestination<OgLShellTab>> _nav =
       <OgLNavDestination<OgLShellTab>>[
     OgLNavDestination<OgLShellTab>(
@@ -128,7 +135,29 @@ class _OgLClientShellState extends State<OgLClientShell> {
     if (tab == _tab) {
       return;
     }
-    setState(() => _tab = tab);
+    setState(() {
+      _tab = tab;
+      _visited.add(tab);
+    });
+  }
+
+  /// 某一页的实例（懒挂载：只有访问过的 tab 才会被构建）。
+  Widget _pageFor(OgLShellTab tab) {
+    switch (tab) {
+      case OgLShellTab.home:
+        return OgLDashboardPage(
+          key: ValueKey<String>('dash-${_accountId ?? "guest"}'),
+          surface: widget.surface,
+        );
+      case OgLShellTab.search:
+        return OgLSearchPage(surface: widget.surface);
+      case OgLShellTab.profile:
+        return OgLProfilePage(surface: widget.surface, onAccountsChanged: _check);
+      case OgLShellTab.settings:
+        return OgLSettingsView(surface: widget.surface);
+      case OgLShellTab.about:
+        return OgLAboutView(report: widget.report);
+    }
   }
 
   @override
@@ -164,14 +193,8 @@ class _OgLClientShellState extends State<OgLClientShell> {
     }
 
     final List<Widget> pages = <Widget>[
-      OgLDashboardPage(
-        key: ValueKey<String>('dash-${_accountId ?? "guest"}'),
-        surface: widget.surface,
-      ),
-      OgLSearchPage(surface: widget.surface),
-      OgLProfilePage(surface: widget.surface, onAccountsChanged: _check),
-      OgLSettingsView(surface: widget.surface),
-      OgLAboutView(report: widget.report),
+      for (final OgLShellTab tab in OgLShellTab.values)
+        _visited.contains(tab) ? _pageFor(tab) : const SizedBox.shrink(),
     ];
     final int index = OgLShellTab.values.indexOf(_tab);
     final Widget body = IndexedStack(index: index, children: pages);

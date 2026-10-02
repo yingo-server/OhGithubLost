@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../kit/kit.dart';
+import '../util/gh_view_format.dart';
 import '../readme/link_opener.dart';
 import '../surface_bridge.dart';
 import '../theme/icon_pack.dart';
@@ -88,14 +89,6 @@ class _OgLGistsPageState extends State<OgLGistsPage> {
   int _fileCountOf(Map<String, dynamic> gist) {
     final Object? files = gist['files'];
     return files is Map<Object?, Object?> ? files.length : 0;
-  }
-
-  String _dateOf(Map<String, dynamic> gist) {
-    final Object? updated = gist['updated_at'];
-    if (updated is! String || updated.isEmpty) {
-      return '';
-    }
-    return updated.split('T').first;
   }
 
   Future<void> _open(Map<String, dynamic> gist) async {
@@ -175,7 +168,7 @@ class _OgLGistsPageState extends State<OgLGistsPage> {
                         gist: list[i],
                         title: _titleOf(list[i]),
                         fileCount: _fileCountOf(list[i]),
-                        date: _dateOf(list[i]),
+                        date: ogLDateOnly(list[i], 'updated_at'),
                         showDivider: i != list.length - 1,
                         onOpen: _open,
                       ),

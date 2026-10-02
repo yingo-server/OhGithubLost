@@ -228,6 +228,20 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
       禁自写滚动、禁手写状态判定）；`og_l_app.dart` 额外禁 `ListView(` / `ExpansionTile(` / `IconButton(`
 - [x] 批内自查：等价脚本预跑（页面 + 应用壳）**0 违规**
 
+### W8-P9 · 代码搜索直达文件 + E1/E2/E3 首批 ✅ 本批
+
+- [x] **代码搜索增强**：`OgLRepoPage` 新增 `initialPath`（可选）—— 代码搜索结果点进去
+      **直接打开命中的那个文件**（旧实现只把人丢到仓库首页）；命中上下文用
+      `text_matches.fragment` 显示为行副标题（没有则退回"仓库 · 点开直达该文件"）
+- [x] **E1 动效**：新增护栏测试 —— `reducedMotion ⇒ motion() == Duration.zero`、
+      紧凑密度比 `fast` 长的动效再快一档、`textScale` 夹紧 ≤2.0
+- [x] **E2 性能**：主壳 `IndexedStack` 改为**懒挂载**（只构建访问过的 tab，
+      未访问用 `SizedBox.shrink()` 占位）—— 冷启动不再同时拉起五个页面及其控制器/请求
+- [x] **E3 代码之美**：新增 `lib/surface/util/gh_view_format.dart`（唯一实现处）：
+      `ogLNodeLogin` / `ogLDateOnly` / `ogLFileStatusText` / `ogLShortSha` / `ogLCommitAuthor`；
+      议题 / PR / 提交 / Gists 四个页面里的重复私有实现**全部删除**，改为共用
+- [x] 层内检查：`test/surface/gh_view_format_test.dart`（格式 5 组 + 动效/密度/字号 4 组断言）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；
