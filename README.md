@@ -19,11 +19,18 @@ Flutter 编写的 GitHub 仓库管理客户端。仓库地址与项目同名。
 
 ## 星标与提交历史
 
-![star 与 commit 折线图](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/star-history.svg)
+星标数量（蓝色折线）：
 
-- 上图由 GitHub Actions 每 10 分钟更新一次。
-- 数据点写入 `stats/history.json`，折线图写入 `stats/star-history.svg`，两份文件位于 `stats` 分支。
-- 数据来源：仓库接口返回的 stargazers_count，以及提交接口分页计数。
+![星标数量折线图](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/star-history.png)
+
+提交数量（绿色折线）：
+
+![提交数量折线图](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/commit-history.png)
+
+- 两张图由 GitHub Actions 每 10 分钟更新一次。
+- 数据点写入 `stats/history.json`，折线图写入 `stats/star-history.png` 与 `stats/commit-history.png`，三份文件位于 `stats` 分支。
+- 数据来源：仓库接口的 stargazers_count，以及提交接口分页计数。
+- 折线按各自的极值缩放，量级差异下两条线仍可辨认。
 
 ## 功能
 
@@ -134,4 +141,4 @@ tool/         构建脚本与图表脚本
 
 ## 许可
 
-见 `LICENSE`。
+本仓库使用 GNU Affero General Public License v3.0（AGPL-3.0）。条款见 `LICENSE`。

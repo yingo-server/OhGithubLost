@@ -1,30 +1,44 @@
 #!/usr/bin/env python3
-"""抓取星标数与提交数，追加历史点，生成折线图 SVG。
+"""抓取星标数与提交数，追加历史点，生成两张折线图（PNG）。
 
 用法：
-    python3 tool/stats_chart.py --repo owner/name \
-        --history stats/history.json --svg stats/star-history.svg
+    python3 tool/stats_chart.py --repo owner/name --history stats/history.json \
+        --out-dir stats
+
+产出：
+    <out-dir>/star-history.png    星标折线图
+    <out-dir>/commit-history.png  提交折线图
 
 环境变量：
-    GH_TOKEN  具备 repo 读取权限的令牌（Actions 中使用 secrets.GITHUB_TOKEN）。
+    GH_TOKEN  具备读取权限的令牌（Actions 中使用 secrets.GITHUB_TOKEN）。
 
-设计要点：
-- 历史文件为 JSON 数组，元素形如 {"t": "ISO8601", "stars": N, "commits": N}。
-- 提交数用提交接口的 Link 头取末页编号，避免逐页遍历。
-- 折线图两条线各自按极值缩放，避免量级差异导致其中一条贴底。
-- 任一步失败以非 0 退出，工作流据此判红；不写入半成品文件。
+实现说明：
+- 选 PNG 而非 SVG：GitHub 对 README 内 SVG 的代理支持不稳定，PNG 稳定显示。
+- 不依赖第三方绘图库：用 zlib 与 struct 直接写 PNG，Actions 中零安装运行。
+- 图形不绘制文字（无需字体）：颜色含义写在 README 图注中。
+- 提交数用提交接口的 Link 头取末页编号。
+- 任一步失败以非 0 退出，工作流据此判红。
 """
 
 import argparse
 import json
 import os
 import re
+import struct
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
+import zlib
 from datetime import datetime, timezone
 
 API = "https://api.github.com"
+
+WIDTH = 760
+HEIGHT = 260
+PAD = 36
+GRID = (234, 238, 242)
+BORDER = (208, 215, 222)
+BG = (255, 255, 255)
 
 
 def _request(path, token):
@@ -73,70 +87,91 @@ def write_history(path, points):
         f.write("\n")
 
 
-def _scaled(values, lo, hi, height, pad):
+# ───────────────────────── PNG 绘制 ─────────────────────────
+
+def _canvas(width, height, color):
+    row = bytes(color) * width
+    return [bytearray(row) for _ in range(height)]
+
+
+def _rect(rows, x0, y0, x1, y1, color):
+    h = len(rows)
+    w = len(rows[0]) // 3
+    for y in range(max(0, y0), min(h, y1)):
+        for x in range(max(0, x0), min(w, x1)):
+            rows[y][3 * x:3 * x + 3] = bytes(color)
+
+
+def _line(rows, x0, y0, x1, y1, color, thick=2):
+    steps = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
+    for i in range(steps):
+        t = i / float(steps)
+        x = int(round(x0 + (x1 - x0) * t))
+        y = int(round(y0 + (y1 - y0) * t))
+        _rect(rows, x, y, x + thick, y + thick, color)
+
+
+def _write_png(path, rows):
+    width = len(rows[0]) // 3
+    height = len(rows)
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    blob = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(blob)
+
+
+def _scaled(values, plot_h):
+    lo, hi = min(values), max(values)
     span = hi - lo
-    if span <= 0:
-        return [pad + height / 2.0 for _ in values]
-    out = []
-    for v in values:
-        out.append(pad + (hi - v) / float(span) * height)
-    return out
+
+    def fx(v):
+        if span <= 0:
+            return PAD + plot_h / 2.0
+        return PAD + (hi - v) / float(span) * plot_h
+    return [fx(v) for v in values]
 
 
-def _polyline(xs, ys, color):
-    pts = " ".join("%.1f,%.1f" % (x, y) for x, y in zip(xs, ys))
-    return ('<polyline fill="none" stroke="%s" stroke-width="2" '
-            'stroke-linejoin="round" points="%s"/>' % (color, pts))
-
-
-def render_svg(points, repo):
-    width, height, pad = 760.0, 260.0, 36.0
-    plot_w = width - pad * 2
-    plot_h = height - pad * 2 - 18
-    stars = [int(p.get("stars", 0)) for p in points]
-    commits = [int(p.get("commits", 0)) for p in points]
-    n = len(points)
-    xs = [pad + (plot_w * i / (n - 1) if n > 1 else plot_w / 2.0) for i in range(n)]
-
-    parts = []
-    parts.append('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" '
-                 'viewBox="0 0 %d %d">' % (width, height, width, height))
-    parts.append('<rect width="100%%" height="100%%" fill="#ffffff"/>')
-    parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="none" '
-                 'stroke="#d0d7de"/>' % (pad, pad, plot_w, plot_h))
+def render_series(points, key, color, path):
+    """按一个指标绘制折线图并写出 PNG。"""
+    rows = _canvas(WIDTH, HEIGHT, BG)
+    plot_w = WIDTH - PAD * 2
+    plot_h = HEIGHT - PAD * 2 - 18
+    # 边框
+    _rect(rows, PAD, PAD, PAD + plot_w, PAD + 1, BORDER)
+    _rect(rows, PAD, PAD + plot_h - 1, PAD + plot_w, PAD + plot_h, BORDER)
+    _rect(rows, PAD, PAD, PAD + 1, PAD + plot_h, BORDER)
+    _rect(rows, PAD + plot_w - 1, PAD, PAD + plot_w, PAD + plot_h, BORDER)
+    # 网格
     for k in range(1, 4):
-        y = pad + plot_h * k / 4.0
-        parts.append('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" '
-                     'stroke="#eaeef2"/>' % (pad, y, pad + plot_w, y))
+        y = int(PAD + plot_h * k / 4.0)
+        _rect(rows, PAD + 1, y, PAD + plot_w - 1, y + 1, GRID)
 
+    values = [int(p.get(key, 0)) for p in points]
+    n = len(values)
     if n >= 1:
-        ys = _scaled(stars, min(stars), max(stars), plot_h, pad)
-        yc = _scaled(commits, min(commits), max(commits), plot_h, pad)
+        ys = _scaled(values, plot_h)
+        xs = [int(PAD + (plot_w - 1) * (i / (n - 1) if n > 1 else 0.5)) for i in range(n)]
         if n >= 2:
-            parts.append(_polyline(xs, ys, "#0969da"))
-            parts.append(_polyline(xs, yc, "#2da44e"))
+            for i in range(n - 1):
+                _line(rows, xs[i], int(ys[i]), xs[i + 1], int(ys[i + 1]), color)
         else:
-            parts.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#0969da"/>' % (xs[0], ys[0]))
-            parts.append('<circle cx="%.1f" cy="%.1f" r="3" fill="#2da44e"/>' % (xs[0], yc[0]))
-
-    last = points[-1] if points else {}
-    parts.append('<text x="%.1f" y="%.1f" font-family="monospace" font-size="13" '
-                 'fill="#0969da">stars: %s</text>' % (pad, 20, last.get("stars", 0)))
-    parts.append('<text x="%.1f" y="%.1f" font-family="monospace" font-size="13" '
-                 'fill="#2da44e">commits: %s</text>' % (pad + 150, 20, last.get("commits", 0)))
-    parts.append('<text x="%.1f" y="%.1f" font-family="monospace" font-size="11" '
-                 'fill="#57606a">updated %s   points %d   %s</text>'
-                 % (pad, height - 12, datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-                    n, repo))
-    parts.append('</svg>')
-    return "\n".join(parts) + "\n"
+            _rect(rows, xs[0] - 3, int(ys[0]) - 3, xs[0] + 3, int(ys[0]) + 3, color)
+    _write_png(path, rows)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
     ap.add_argument("--history", required=True)
-    ap.add_argument("--svg", required=True)
+    ap.add_argument("--out-dir", required=True)
     ap.add_argument("--max-points", type=int, default=500)
     args = ap.parse_args()
 
@@ -162,10 +197,10 @@ def main():
         points = points[-args.max_points:]
 
     write_history(args.history, points)
-    svg = render_svg(points, args.repo)
-    os.makedirs(os.path.dirname(args.svg) or ".", exist_ok=True)
-    with open(args.svg, "w", encoding="utf-8") as f:
-        f.write(svg)
+    render_series(points, "stars", (9, 105, 218),
+                  os.path.join(args.out_dir, "star-history.png"))
+    render_series(points, "commits", (45, 164, 78),
+                  os.path.join(args.out_dir, "commit-history.png"))
     print("stars=%d commits=%d points=%d" % (stars, commits, len(points)))
     return 0
 

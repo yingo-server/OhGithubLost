@@ -65,7 +65,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tool/stats_chart.py" \
             --repo "$GITHUB_REPOSITORY" \
             --history /tmp/stats-repo/stats/history.json \
-            --svg /tmp/stats-repo/stats/star-history.svg
+            --out-dir /tmp/stats-repo/stats
 
       - name: 提交到 stats 分支
         env:
@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           cd /tmp/stats-repo
-          git add stats/history.json stats/star-history.svg
+          git add stats/history.json stats/star-history.png stats/commit-history.png
           if git diff --cached --quiet; then
             echo '数据无变化，跳过提交'
             exit 0
