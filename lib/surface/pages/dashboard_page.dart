@@ -180,16 +180,16 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
   }
 
   Future<void> _openLogin() async {
-    await Navigator.of(context).push<void>(
+    // 先把 Navigator 抓在手里：回调里 await 之后不再碰 `context`（lint: use_build_context_synchronously）。
+    final NavigatorState nav = Navigator.of(context);
+    await nav.push<void>(
       MaterialPageRoute<void>(
         builder: (BuildContext context) => OgLLoginPage(
           surface: widget.surface,
           onLoggedIn: () async {
             // 登录页把"登录成功后去哪"交给宿主：这里刷新首页并退回首页。
             await _prepare();
-            if (mounted) {
-              Navigator.of(context).pop();
-            }
+            nav.pop();
           },
         ),
       ),
