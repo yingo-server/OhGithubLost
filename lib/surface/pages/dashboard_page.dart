@@ -1,8 +1,17 @@
-/// OGL 页面 · 首页（Dashboard）—— 全客户端的信息入口：
-/// 账户摘要 + 我的仓库 + 星标仓库（数据全部来自 `domain.gh`）。
+/// OGL 页面 · 首页（Dashboard）—— 全客户端的信息入口。
 ///
-/// 约束与旧页面一致：无 `MediaQuery` 宽度判断、无 `Colors.xxx`、
-/// 无 `Icons.xxx`；视觉全部走 OGL Kit + 主题令牌。
+/// ## 布局（严格按 `docs/UI_PAGES_PLAN.md` §2.2）
+/// ```
+/// OgLPageScaffold(标题 + 账户摘要 + 动作：新建仓库 / 刷新；支持下拉刷新)
+/// ├ [未登录] OgLBanner(warning, action: 接入令牌) + 「接下来」行式引导
+/// └ [已登录] OgLSegmented(我的仓库 | 星标仓库)
+///            └ OgLSection(计数说明) → OgLBox(padded:false) → 行 ×N
+/// ```
+///
+/// ## 纪律
+/// - 四态**只走** `ogLAsyncView`（唯一映射点）：空 ≠ 载 ≠ 错（W7 教训）；
+/// - 视觉全部令牌化 + 自绘矢量图标；不写 `Colors.*` / `Icons.*` / 字面量间距；
+/// - 行只用 `OgLActionRow`，列表由 `OgLBox(padded:false)` 包裹（行自带发丝分割线）。
 library;
 
 import 'package:flutter/material.dart';
@@ -10,14 +19,25 @@ import 'package:flutter/material.dart';
 import '../../domain/gh/gh_auth.dart';
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
+import '../app/async_view.dart';
 import '../app/error_surface.dart';
 import '../kit/kit.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import 'login_page.dart';
 import 'new_repo_page.dart';
 import 'repo_page.dart';
+
+/// 首页列表范围。
+enum _DashTab {
+  /// 我的仓库（含私有、协作）。
+  mine,
+
+  /// 我星标（收藏）的仓库。
+  starred,
+}
 
 /// 首页。
 class OgLDashboardPage extends StatefulWidget {
@@ -36,6 +56,7 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
   OgLAsyncController<List<GhRepo>>? _starred;
   GhAccount? _account;
   bool _bootChecked = false;
+  _DashTab _tab = _DashTab.mine;
 
   @override
   void initState() {
@@ -158,192 +179,249 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
     }
   }
 
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OgLLoginPage(
+          surface: widget.surface,
+          onLoggedIn: () async {
+            // 登录页把"登录成功后去哪"交给宿主：这里刷新首页并退回首页。
+            await _prepare();
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ),
+    );
+    if (mounted) {
+      await _prepare();
+    }
+  }
+
+  /// 小节说明：把"有多少"讲清楚（而不是让用户自己数）。
+  String _describe(OgLAsync<List<GhRepo>> state) {
+    final List<GhRepo>? data = state.data;
+    if (state.isFirstLoading) {
+      return '读取中…';
+    }
+    if (state.failureMessage != null) {
+      return '读取失败（下方可重试）';
+    }
+    if (state.isEmptyResult || data == null) {
+      return '一个都还没有';
+    }
+    final int priv = data.where((GhRepo repo) => repo.isPrivate).length;
+    return '共 ${data.length} 个${priv > 0 ? ' · 其中私有 $priv 个' : ''}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
+    final OgLTheme ogL = OgLTheme.of(context);
     if (!_bootChecked) {
-      return const Center(child: OgLSpinner(label: '准备中…'));
+      return const OgLPageScaffold(
+        title: '首页',
+        child: OgLSkeletonText(lines: 6),
+      );
     }
-    final account = _account;
-    return ListView(
-      padding: EdgeInsets.symmetric(
-        vertical: ogL.tokens.space(OgLSpacing.lg),
-      ),
-      children: <Widget>[
-        OgLPageHeader(
-          title: '首页',
-          description: account == null
-              ? '未登录'
-              : '${account.name ?? account.login} · @${account.login}',
-          actions: <Widget>[
-            OgLButton(
-              label: '新建',
-              leadingIcon: OgLIconName.add,
-              onPressed: account == null ? null : _createRepo,
+    final GhAccount? account = _account;
+    final bool mine = _tab == _DashTab.mine;
+    final OgLAsyncController<List<GhRepo>> controller =
+        mine ? _reposC() : _starredC();
+
+    return OgLPageScaffold(
+      title: '首页',
+      description: account == null
+          ? '未登录 · 只读公开内容'
+          : '${account.name ?? account.login} · @${account.login}',
+      onRefresh: account == null ? null : _refreshAll,
+      actions: <Widget>[
+        OgLButton(
+          label: '新建仓库',
+          leadingIcon: OgLIconName.add,
+          onPressed: account == null ? null : _createRepo,
+        ),
+        OgLButton(
+          label: '刷新',
+          variant: OgLButtonVariant.invisible,
+          leadingIcon: OgLIconName.sync,
+          onPressed: account == null ? null : _refreshAll,
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (account == null) ...<Widget>[
+            OgLBanner(
+              variant: OgLBannerVariant.warning,
+              title: '未登录',
+              text: '接入个人访问令牌后，这里会显示你的仓库与星标；'
+                  '令牌只保存在本机（可在设置 → 账户里随时移除）。',
+              actions: <Widget>[
+                OgLButton(
+                  label: '接入令牌',
+                  leadingIcon: OgLIconName.key,
+                  onPressed: _openLogin,
+                ),
+              ],
             ),
-            OgLButton(
-              label: '刷新',
-              variant: OgLButtonVariant.invisible,
-              leadingIcon: OgLIconName.sync,
-              onPressed: account == null ? null : _refreshAll,
+            OgLSection(
+              title: '接下来',
+              description: '不需要账号也能用的部分',
+              child: OgLBox(
+                padded: false,
+                child: const Column(
+                  children: <Widget>[
+                    OgLActionRow(
+                      leading: OgLIcon(name: OgLIconName.search, size: 20),
+                      title: '搜索公开仓库与代码',
+                      subtitle: '到「搜索」页输入关键字即可，无需登录',
+                    ),
+                    OgLActionRow(
+                      leading: OgLIcon(name: OgLIconName.shield, size: 20),
+                      title: '只读浏览',
+                      subtitle: '未登录时不会发起任何写入操作',
+                      showDivider: false,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...<Widget>[
+            Row(
+              children: <Widget>[
+                OgLSegmented<_DashTab>(
+                  items: const <OgLSegmentedItem<_DashTab>>[
+                    OgLSegmentedItem<_DashTab>(
+                      value: _DashTab.mine,
+                      label: '我的仓库',
+                    ),
+                    OgLSegmentedItem<_DashTab>(
+                      value: _DashTab.starred,
+                      label: '星标仓库',
+                    ),
+                  ],
+                  value: _tab,
+                  onChanged: (_DashTab value) => setState(() => _tab = value),
+                ),
+                SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
+                Expanded(
+                  child: Text(
+                    _describe(controller.state),
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: ogL.tokens.fontSize(
+                        const OgLTypeScale.standard().label,
+                      ),
+                      color: ogL.palette.textDim,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            OgLSection(
+              title: mine ? '我的仓库' : '星标仓库',
+              description: mine
+                  ? '含私有与协作仓库；点一行进入仓库页'
+                  : '你在 GitHub 上点过 ★ 的公开项目',
+              topSpacing: OgLSpacing.md,
+              child: _RepoList(
+                controller: controller,
+                mine: mine,
+                onRetry: _refreshAll,
+                onOpen: _openRepo,
+                onCreate: _createRepo,
+              ),
             ),
           ],
-        ),
-        if (account == null)
-          const OgLBanner(
-            variant: OgLBannerVariant.warning,
-            title: '未登录',
-            text: '接入个人访问令牌后，这里会显示你的仓库与星标。',
-          ),
-        if (account != null) ...<Widget>[
-          _Section(
-            title: '我的仓库',
-            ogL: ogL,
-            child: _RepoSection(
-              controller: _reposC(),
-              onRetry: _refreshAll,
-              onOpen: _openRepo,
-              emptyText: '还没有仓库，先在 GitHub 创建一个吧。',
-            ),
-          ),
-          SizedBox(height: ogL.tokens.space(OgLSpacing.xl)),
-          _Section(
-            title: '星标仓库',
-            ogL: ogL,
-            child: _RepoSection(
-              controller: _starredC(),
-              onRetry: _refreshAll,
-              onOpen: _openRepo,
-              emptyText: '还没有星标的仓库。',
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.ogL, required this.child});
-
-  final String title;
-  final OgLTheme ogL;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: EdgeInsets.only(
-              top: ogL.tokens.space(OgLSpacing.md),
-              bottom: ogL.tokens.space(OgLSpacing.sm),
-            ),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize:
-                    ogL.tokens.fontSize(const OgLTypeScale.standard().title),
-                fontWeight: FontWeight.w600,
-                color: ogL.palette.text,
-              ),
-            ),
-          ),
-          child,
-        ],
-      );
-}
-
-class _RepoSection extends StatelessWidget {
-  const _RepoSection({
+/// 一排仓库（四态由 `ogLAsyncView` 统一决定）。
+class _RepoList extends StatelessWidget {
+  const _RepoList({
     required this.controller,
+    required this.mine,
     required this.onRetry,
     required this.onOpen,
-    required this.emptyText,
+    required this.onCreate,
   });
 
   final OgLAsyncController<List<GhRepo>> controller;
+  final bool mine;
   final Future<void> Function() onRetry;
   final void Function(GhRepo repo) onOpen;
-  final String emptyText;
+  final Future<void> Function() onCreate;
 
   @override
-  Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (BuildContext context, Widget? child) {
-        final state = controller.state;
-        final data = state.data;
-        if (data == null &&
-            (state.phase == OgLAsyncPhase.idle ||
-                state.phase == OgLAsyncPhase.loading)) {
-          return const OgLSkeletonText(lines: 4);
-        }
-        if (state.failureMessage != null) {
-          return OgLBanner(
-            variant: OgLBannerVariant.danger,
-            title: '加载失败',
-            text: state.failureMessage!,
-            actions: <Widget>[
-              OgLButton(
-                label: '重试',
-                size: OgLButtonSize.small,
-                onPressed: () async {
-                  await onRetry();
-                },
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: controller,
+        builder: (BuildContext context, Widget? child) {
+          final OgLAsync<List<GhRepo>> state = controller.state;
+          final List<GhRepo> list = state.data ?? const <GhRepo>[];
+          return ogLAsyncView<List<GhRepo>>(
+            state: state,
+            onRetry: onRetry,
+            errorTitle: mine ? '我的仓库读取失败' : '星标仓库读取失败',
+            emptyIcon: mine ? OgLIconName.repository : OgLIconName.star,
+            emptyTitle: mine ? '还没有仓库' : '还没有星标',
+            emptyBody: mine
+                ? '可以在这里直接新建一个：公开、私有都行。'
+                : '在仓库页点 ★ 收藏的项目会出现在这里。',
+            emptyAction: mine
+                ? OgLButton(
+                    label: '新建仓库',
+                    leadingIcon: OgLIconName.add,
+                    onPressed: () async {
+                      await onCreate();
+                    },
+                  )
+                : null,
+            skeletonLines: 5,
+            child: OgLBox(
+              padded: false,
+              child: Column(
+                children: <Widget>[
+                  for (int i = 0; i < list.length; i++)
+                    _RepoRow(
+                      repo: list[i],
+                      showDivider: i != list.length - 1,
+                      onOpen: onOpen,
+                    ),
+                ],
               ),
-            ],
-          );
-        }
-        if (state.phase == OgLAsyncPhase.empty ||
-            (data != null && data.isEmpty)) {
-          return Text(
-            emptyText,
-            style: TextStyle(
-              fontSize:
-                  ogL.tokens.fontSize(const OgLTypeScale.standard().body),
-              color: ogL.palette.textDim,
             ),
           );
-        }
-        final list = data ?? const <GhRepo>[];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (state.refreshError != null)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: ogL.tokens.space(OgLSpacing.sm),
-                ),
-                child: OgLBanner(
-                  variant: OgLBannerVariant.warning,
-                  text: '刷新失败：${state.refreshError}',
-                ),
-              ),
-            for (final repo in list) _RepoRow(repo: repo, onOpen: onOpen),
-          ],
-        );
-      },
-    );
-  }
+        },
+      );
 }
 
+/// 仓库行。
 class _RepoRow extends StatelessWidget {
-  const _RepoRow({required this.repo, required this.onOpen});
+  const _RepoRow({
+    required this.repo,
+    required this.onOpen,
+    required this.showDivider,
+  });
 
   final GhRepo repo;
   final void Function(GhRepo repo) onOpen;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    final meta = <String>[
-      repo.isPrivate ? '私有' : '公开',
-      if (repo.language != null) repo.language!,
+    final OgLTheme ogL = OgLTheme.of(context);
+    final List<String> meta = <String>[
+      if (repo.language != null && repo.language!.isNotEmpty) repo.language!,
       '★ ${repo.stars}',
-    ].join(' · ');
-    final description = repo.description;
+      if (repo.forks > 0) 'Fork ${repo.forks}',
+    ];
+    final String? description = repo.description;
     return OgLActionRow(
       leading: OgLIcon(
         name: repo.isFork ? OgLIconName.fork : OgLIconName.repository,
@@ -352,12 +430,21 @@ class _RepoRow extends StatelessWidget {
       ),
       title: repo.fullName,
       subtitle: description == null || description.isEmpty
-          ? meta
-          : '$meta — $description',
-      trailing: repo.isArchived
-          ? const OgLLabel(text: '归档', variant: OgLLabelVariant.attention)
-          : null,
+          ? meta.join(' · ')
+          : '${meta.join(' · ')} — $description',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (repo.isPrivate)
+            const OgLLabel(text: '私有', variant: OgLLabelVariant.neutral),
+          if (repo.isArchived) ...<Widget>[
+            SizedBox(width: ogL.tokens.space(OgLSpacing.xs)),
+            const OgLLabel(text: '归档', variant: OgLLabelVariant.attention),
+          ],
+        ],
+      ),
       showChevron: true,
+      showDivider: showDivider,
       onTap: () => onOpen(repo),
     );
   }

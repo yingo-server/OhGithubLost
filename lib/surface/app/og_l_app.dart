@@ -20,7 +20,6 @@ import '../../domain/gh/gh_auth.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
 import '../kit/kit.dart';
-import '../layout/adaptive.dart';
 import '../settings/settings_model.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
@@ -28,7 +27,6 @@ import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 import 'client_shell.dart';
 import 'error_surface.dart';
-import 'repos_page.dart';
 
 /// 设置页：DNS 服务器展示名（与 base 层内置表一一对应）。
 const Map<String, String> _dnsChoiceLabels = <String, String>{
@@ -107,7 +105,7 @@ class OgLBootFailureApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF85149),
+          seedColor: kOgLDangerDark,
           brightness: Brightness.dark,
         ),
       ),
@@ -151,167 +149,6 @@ class OgLBootFailureApp extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 主壳：按布局结论自动切换导航形态。
-class OgLShell extends StatefulWidget {
-  /// 创建主壳。
-  const OgLShell({required this.surface, required this.report, super.key});
-
-  /// 表面桥。
-  final SurfaceBridge surface;
-
-  /// 启动报告。
-  final KernelReport report;
-
-  @override
-  State<OgLShell> createState() => _OgLShellState();
-}
-
-class _OgLShellState extends State<OgLShell> {
-  int _index = 0;
-
-  static const List<OgLIconName> _icons = <OgLIconName>[
-    OgLIconName.repository,
-    OgLIconName.settings,
-    OgLIconName.info,
-  ];
-  static const List<String> _titles = <String>['仓库', '设置', '关于'];
-  @override
-  Widget build(BuildContext context) {
-    final ogL = OgLTheme.of(context);
-    final layout = ogL.layout;
-    final destinations = <Widget>[
-      OgLReposPage(surface: widget.surface),
-      _SettingsPage(surface: widget.surface),
-      _AboutPage(report: widget.report),
-    ];
-
-    final body = _ContentFrame(
-      maxWidth: layout.contentMaxWidth,
-      gutter: ogL.tokens.space(OgLSpacing.lg),
-      child: destinations[_index],
-    );
-
-    // ── 窄轨 / 宽轨：侧边的信息密度随宽度增加 ──
-    if (layout.navigation.isRail) {
-      return Scaffold(
-        body: Row(
-          children: <Widget>[
-            NavigationRail(
-              extended: layout.showNavLabels,
-              selectedIndex: _index,
-              onDestinationSelected: (int value) => setState(() => _index = value),
-              leading: layout.showNavLabels
-                  ? _Brand(ogL: ogL)
-                  : Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: ogL.tokens.space(OgLSpacing.sm),
-                      ),
-                      child: OgLIcon(name: OgLIconName.repository),
-                    ),
-              destinations: <NavigationRailDestination>[
-                for (var i = 0; i < _icons.length; i++)
-                  NavigationRailDestination(
-                    icon: OgLIcon(name: _icons[i]),
-                    label: Text(_titles[i]),
-                  ),
-              ],
-            ),
-            VerticalDivider(width: ogL.tokens.hairline),
-            Expanded(child: body),
-          ],
-        ),
-      );
-    }
-
-    // ── 手机：底部栏 ──
-    if (layout.navigation == OgLNavKind.bottomBar) {
-      return Scaffold(
-        appBar: AppBar(title: Text(_titles[_index])),
-        body: body,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (int value) => setState(() => _index = value),
-          destinations: <Widget>[
-            for (var i = 0; i < _icons.length; i++)
-              NavigationDestination(
-                icon: OgLIcon(name: _icons[i]),
-                label: _titles[i],
-              ),
-          ],
-        ),
-      );
-    }
-
-    // ── 桌面窄窗：抽屉 ──
-    return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
-      drawer: Drawer(
-        child: SafeArea(
-          child: ListView(
-            padding: EdgeInsets.symmetric(
-              vertical: ogL.tokens.space(OgLSpacing.sm),
-            ),
-            children: <Widget>[
-              _Brand(ogL: ogL),
-              for (var i = 0; i < _icons.length; i++)
-                ListTile(
-                  leading: OgLIcon(name: _icons[i]),
-                  title: Text(_titles[i]),
-                  selected: i == _index,
-                  onTap: () {
-                    setState(() => _index = i);
-                    Navigator.of(context).pop();
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-      body: body,
-    );
-  }
-}
-
-class _Brand extends StatelessWidget {
-  const _Brand({required this.ogL});
-
-  final OgLTheme ogL;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.all(ogL.tokens.space(OgLSpacing.md)),
-        child: Row(
-          children: <Widget>[
-            OgLIcon(name: OgLIconName.code, color: ogL.palette.accent),
-            SizedBox(width: ogL.tokens.space(OgLSpacing.sm)),
-            Text('OhGithubLost', style: Theme.of(context).textTheme.titleMedium),
-          ],
-        ),
-      );
-}
-
-/// 内容框：宽屏限宽居中、窄屏贴边（**不硬编码**断点）。
-class _ContentFrame extends StatelessWidget {
-  const _ContentFrame({
-    required this.child,
-    required this.maxWidth,
-    required this.gutter,
-  });
-
-  final Widget child;
-  final double maxWidth;
-  final double gutter;
-
-  @override
-  Widget build(BuildContext context) => Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Padding(padding: EdgeInsets.all(gutter), child: child),
-        ),
-      );
 }
 
 /// 关于页：启动概览 / 模块 / 信任告警 / 依赖图 / 阶段 / 日志 —— 全部收进折叠栏。

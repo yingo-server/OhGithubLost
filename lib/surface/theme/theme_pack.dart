@@ -13,6 +13,9 @@
 /// 两者正交，因此"换成极客风 + 大字体 + 平板三栏"是可以自由组合的。
 library;
 
+/// Primer `fgColor-danger`（dark）—— 兜底界面与深色调色板共用，避免字面量到处复制。
+const Color kOgLDangerDark = Color(0xFFF85149);
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -294,7 +297,7 @@ abstract final class OgLThemePacks {
       textFaint: Color(0xFF6E7681), // fgColor-subtle（dark）
       accent: Color(0xFF2F81F7), // fgColor-accent（dark）
       onAccent: Color(0xFFFFFFFF), // fgColor-onEmphasis
-      danger: Color(0xFFF85149), // fgColor-danger（dark）
+      danger: kOgLDangerDark, // fgColor-danger（dark）
       warning: Color(0xFFD29922), // fgColor-attention（dark）
       success: Color(0xFF3FB950), // fgColor-success（dark）
       info: Color(0xFF2F81F7),

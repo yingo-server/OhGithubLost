@@ -63,7 +63,7 @@ OgLActionRow(
 | 序 | 页面 | 文件 | 状态 |
 | --- | --- | --- | --- |
 | 1 | 设置（含外观/网络/开发者/账户） | `surface/app/og_l_app.dart` | ✅ 本批完成（分区行式 + 底部选择表 + 自绘开关 + 退出登录二次确认） |
-| 2 | 首页（我的 / 星标 / 新建） | `pages/dashboard_page.dart` | ⏳ |
+| 2 | 首页（我的 / 星标 / 新建） | `pages/dashboard_page.dart` | ✅ 本批完成（骨架 + 分段切换 + 计数说明 + 四态走唯一映射点） |
 | 3 | 搜索（仓库 / 代码） | `pages/search_page.dart` | ⏳ |
 | 4 | 我的（账户管理） | `pages/profile_page.dart` | ⏳ |
 | 5 | 议题详情 | `pages/issue_page.dart` | ⏳ |
@@ -71,7 +71,7 @@ OgLActionRow(
 | 7 | 提交详情（diff） | `pages/commit_page.dart` | ⏳ |
 | 8 | Gists | `pages/gists_page.dart` | ⏳ |
 | 9 | 登录 / 新增账户向导 | `pages/login_page.dart` | ⏳ |
-| 10 | 表单页（新建仓库 / 议题 / 发布） | `pages/new_*.dart` | ⏳ |
+| 10 | 表单页（新建仓库 / 议题 / 发布） | `pages/new_repo_page.dart` · `pages/new_issue_page.dart` · `pages/new_release_page.dart` | ⏳ |
 | — | 仓库页 | `pages/repo_page.dart` | ✅ 已按本规划落地（骨架 + 元信息盒 + 七标签） |
 
 **每页一次推送**（代码 + 该页测试 + 文档），CI 绿进下一页；每页推送前后各备份一份到 `_backup/`。

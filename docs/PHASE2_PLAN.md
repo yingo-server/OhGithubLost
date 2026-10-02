@@ -141,6 +141,20 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [ ] 关于页（启动报告 / 日志 / 复制）并入同一次重构的下半场
 - [ ] 页面级 widget 测试（bridge 依赖 → 需先做测试用 SurfaceBridge 假体）
 
+### W8-P2 · 首页重写 + 页面纪律护栏 ✅ 本批
+
+- [x] **首页** `dashboard_page.dart` 重写：`OgLPageScaffold`（页头 + 新建/刷新 + 下拉刷新）+
+      `OgLSegmented`（我的仓库 / 星标仓库，一次只看一个列表，右侧给**计数说明**）+ `OgLBox` 包行；
+      未登录 = `OgLBanner`(action 接入令牌) + 「接下来」行式引导；**四态全部改走 `ogLAsyncView`**
+- [x] **页面纪律护栏**（把规范写成会失败的测试）`test/surface/page_discipline_test.dart`：
+      ① 页面必须在施工图立项（不许野生）② 页面/应用壳禁止 `Colors.` `Color(0x` `Icons.`
+      `SwitchListTile` `ChoiceChip` `RadioListTile` `ListTile(` ③ 已重写页面必须走 `OgLPageScaffold`
+      且不许自己写 `ListView(`/`SingleChildScrollView(` ④ 已重写页面不许手写"data==null 即加载中"
+- [x] **死代码收口**：删除旧主壳 `OgLShell`/`_OgLShellState`/`_Brand`/`_ContentFrame` 与
+      `app/repos_page.dart`（入口早已是 `OgLClientShell`，全仓含测试无引用）；`og_l_app.dart` 32.7 KB → 28.0 KB
+- [x] **色值字面量收敛**：兜底界面的 `Color(0xFFF85149)` → 主题常量 `kOgLDangerDark`（唯一来源）
+- [ ] W8-P3：主壳 `client_shell.dart` 规范化（现在的 `AppBar` + `Drawer` + `ListTile` 还是 Material 形态）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；

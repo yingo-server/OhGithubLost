@@ -51,6 +51,13 @@
   **整行可点 → 底部选择表**（当前项打勾），开关改为自绘 `OgLToggleSwitch` 行，
   自定义 `_SectionTitle`/`_Banner`/`_KeyValue` 退役；**退出登录补二次确认**（原实现点一下即删令牌）。
 - **页面施工图**：`docs/UI_PAGES_PLAN.md`（先规划后写：结构 / 层级 / 行规格 / 状态 / 检查）。
+- **首页重写**（W8-P2）：`OgLPageScaffold` + `OgLSegmented`（我的仓库 / 星标仓库，右侧计数说明）
+  + `OgLBox` 包行；未登录给 `OgLBanner`（动作：接入令牌）+「接下来」引导；四态全部走 `ogLAsyncView`。
+- **页面纪律护栏**（W8-P2）：`test/surface/page_discipline_test.dart` —— 页面不许野生（必须先在施工图立项）、
+  不许 `Colors.`/`Color(0x`/`Icons.`/`ListTile(`/`SwitchListTile`/`ChoiceChip`、已重写页面必须走
+  `OgLPageScaffold` 且不许自己写 `ListView(`、不许手写"`data == null` 即加载中"。
+- **死代码收口**（W8-P2）：删除旧主壳 `OgLShell` 一族与 `app/repos_page.dart`（入口已是 `OgLClientShell`）；
+  兜底色值 `Color(0xFFF85149)` 收敛为主题常量 `kOgLDangerDark`。
 
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 
