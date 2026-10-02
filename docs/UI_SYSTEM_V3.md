@@ -209,7 +209,26 @@
   宽屏文字拉成一行"这类不一致必然出现。
 - **实现**：`lib/surface/kit/kit_page_scaffold.dart` · **测试**：`test/surface/kit_states_test.dart`（组件冒烟）+ 组件矩阵快照
 
-## 4. 页面版图（`lib/surface/pages/`）
+### 3.19 导航外壳：OgLBottomNav / OgLNavRail / OgLNavDrawer / OgLShellHeader（W8-P3）
+
+**实现**：`lib/surface/kit/kit_nav_shell.dart`
+
+**Primer 对照**：底栏 ≈ 移动端底部标签栏（icon + label + 顶部 2px 指示条）；导航轨 ≈ Primer 侧边导航；
+抽屉 ≈ Primitive 的 ActionList 分组。
+
+| 组件 | 用在哪儿 | 规格要点 |
+| --- | --- | --- |
+| `OgLNavDestination<T>` | 数据源 | `value / label / icon`；标题与图标**只写一遍** |
+| `OgLBrandMark` | 轨 / 抽屉 / 窄窗页头 | `compact` 时只显示图标；颜色取 `palette.accent` |
+| `OgLBottomNav<T>` | 手机底栏 | 顶发丝描边 + `SafeArea(bottom)`；选中 = accent 色 + 600 字重 + 顶部 2px 指示条；触摸目标 ≥ `targetSize` |
+| `OgLNavRail<T>` | 平板 / 桌面 | `extended` 控制是否显示标签；选中 = `surfaceAlt` 底 + 左侧 2px 强调条；右侧发丝描边 |
+| `OgLNavDrawer<T>` | 桌面窄窗 | 品牌 + 发丝分隔 + `OgLActionRow` 行（`selected` 语义）；**不用 ListTile** |
+| `OgLShellHeader` | 桌面窄窗 | 菜单按钮（≥44 触摸目标）+ 标题（`title` 字阶，600）；底发丝描边；**替代 Material AppBar** |
+
+**为什么外壳也进规范**：导航是"每屏都看见"的东西。外壳若用 Material 的阴影 / 涟漪 / 系统字重，
+就会和页面内部（发丝描边 + 令牌间距 + 自绘图标）不是一套 —— 这是"看起来像半成品"的常见来源。
+护栏 `test/surface/page_discipline_test.dart` 已禁止主壳再出现
+`AppBar(` / `NavigationBar(` / `NavigationRail(` / `NavigationDestination(` / `ListTile(`。
 
 - **登录门** `login_page.dart`：令牌向导（暂存 → 验证 → 转正 → 保险库回读四阶段日志；游客模式入口）。
 - **首页** `dashboard_page.dart`：我的仓库 / 星标仓库（骨架 → 空态 → 失败重试四态纪律）；「新建」仓库。
