@@ -5,12 +5,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../app/error_surface.dart';
 import '../kit/kit.dart';
+import '../readme/readme_view.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
@@ -73,6 +75,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   // 浏览状态
   String _path = '';
   OgLAsyncController<List<GhContent>>? _entries;
+  OgLAsyncController<String?>? _readme;
 
   // 标签页
   _RepoTab _tab = _RepoTab.code;
@@ -125,6 +128,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     _descCtl = TextEditingController(text: _repo.description ?? '');
     _privateVal = _repo.isPrivate;
     _entriesC().loadIfNeeded();
+    _readmeC().loadIfNeeded();
     // 列表里的仓库对象可能缺 `default_branch`（猜 main 会让 master 仓库全 404），
     // 因此用一次详情请求把事实补齐；失败不影响浏览（只写日志）。
     _refreshRepo();
@@ -134,6 +138,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   void dispose() {
     _entries?.removeListener(_onChanged);
     _entries?.dispose();
+    _readme?.removeListener(_onChanged);
+    _readme?.dispose();
     _issues?.removeListener(_onChanged);
     _issues?.dispose();
     _pulls?.removeListener(_onChanged);
@@ -185,6 +191,28 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     );
     controller.addListener(_onChanged);
     _entries = controller;
+    return controller;
+  }
+
+  /// README 控制器（`null` = 仓库没有 README，属于**空态**不是错误）。
+  OgLAsyncController<String?> _readmeC() {
+    final existing = _readme;
+    if (existing != null) {
+      return existing;
+    }
+    final controller = OgLAsyncController<String?>(
+      label: 'README',
+      isEmpty: (String? value) => value == null || value.trim().isEmpty,
+      loader: () async {
+        OgLAppLog.instance.add('仓库', '拉取 README（$_full）…');
+        final text = await widget.surface.domain.api.readme(_full);
+        OgLAppLog.instance
+            .add('仓库', 'README：${text == null ? '无' : '${text.length} 字符'}');
+        return text;
+      },
+    );
+    controller.addListener(_onChanged);
+    _readme = controller;
     return controller;
   }
 
@@ -613,14 +641,16 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             },
           ),
           SizedBox(height: tokens.space(OgLSpacing.md)),
-          if (_tab == _RepoTab.code)
+          if (_tab == _RepoTab.code) ...<Widget>[
             if (_fileLoading && _file == null)
               const Center(child: OgLSpinner(label: '读取中…'))
             else if (_file != null)
               _buildFileView(ogL, tokens)
             else
-              _buildBrowser(ogL, tokens)
-          else if (_tab == _RepoTab.issues)
+              _buildBrowser(ogL, tokens),
+            // README：GitHub 的仓库页把它放在文件列表下面，这里保持一致。
+            _buildReadme(ogL, tokens),
+          ] else if (_tab == _RepoTab.issues)
             _buildIssues(ogL, tokens)
           else if (_tab == _RepoTab.pulls)
             _buildPulls(ogL, tokens)
@@ -636,6 +666,67 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
             _buildSettings(ogL, tokens),
         ],
       ),
+    );
+  }
+
+  /// README 区块：**离线安全**渲染（净化 Markdown → 令牌化排版）。
+  ///
+  /// 四态纪律：`null` / 空文本 = **空态**（没有 README 是正常现象），
+  /// 只有真异常才显示错误 + 重试 —— 不许把"没有"渲染成"坏了"。
+  Widget _buildReadme(OgLTheme ogL, OgLTokens tokens) {
+    final controller = _readmeC();
+    return OgLSection(
+      title: 'README',
+      description: '显示在仓库首页的说明文档（图片不联网加载，链接可点开）',
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (BuildContext context, Widget? child) {
+          final OgLAsync<String?> state = controller.state;
+          final String text = state.data ?? '';
+          return ogLAsyncView<String?>(
+            state: state,
+            errorTitle: 'README 读取失败',
+            onRetry: () async {
+              await controller.load();
+            },
+            emptyIcon: OgLIconName.book,
+            emptyTitle: '这个仓库还没有 README',
+            emptyBody: '在默认分支放一个 `README.md`，它的内容会显示在这里。',
+            skeletonLines: 6,
+            child: OgLBox(
+              child: OgLReadmeView(
+                markdown: text,
+                onOpenLink: _openLink,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 打开 README 里的链接：优先交给系统；失败则把 URL 摊开让用户自己复制
+  /// （**不许"点了没反应"**）。
+  Future<void> _openLink(Uri url) async {
+    OgLAppLog.instance.add('仓库', '打开链接：$url');
+    try {
+      final bool ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _showLink(url);
+      }
+    } catch (error) {
+      OgLAppLog.instance
+          .add('仓库', '打开链接失败：$error', severity: OgLNoticeSeverity.warn);
+      _showLink(url);
+    }
+  }
+
+  void _showLink(Uri url) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('无法打开浏览器，链接：$url')),
     );
   }
 

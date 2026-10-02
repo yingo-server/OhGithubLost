@@ -62,6 +62,10 @@
   `OgLNavDrawer` / `OgLShellHeader` / `OgLBrandMark`）；主壳删掉 Material `AppBar`/`NavigationBar`/
   `NavigationRail`/`ListTile`，五个页面的标题与图标收成单一数据源 `_nav`；手机形态不再叠 `AppBar`。
 - **护栏升级**：`page_discipline_test.dart` 对主壳额外禁止 Material 导航控件。
+- **README 渲染**（W8-P4）：`lib/surface/readme/readme_view.dart` —— 净化 Markdown
+  （HTML 清理 / 徽章行删除 / 图片占位 / 空行压缩 / 超长截断且告知）+ `flutter_markdown` 渲染
+  （样式表全走令牌）；仓库页「代码」标签下新增 README 区块（四态走 `ogLAsyncView`，
+  没有 README = 空态而非错误）；链接用 `url_launcher` 打开，失败摊开 URL。层内检查 8 条断言。
 
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 

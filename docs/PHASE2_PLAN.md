@@ -169,6 +169,19 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
       `AppBar(` / `NavigationBar(` / `NavigationRail(` / `NavigationDestination(` / `ListTile(`
 - [x] 手机形态不再叠 Material `AppBar`：页面自带 `OgLPageScaffold` 页头，壳只提供底栏（少一层视觉噪音）
 
+### W8-P4 · README 渲染 ✅ 本批
+
+- [x] 新增 `lib/surface/readme/readme_view.dart`：
+      **纯函数净化** `ogLSimplifyReadme()`（HTML 注释/标签清理、`[![…](…)](…)` 徽章行整行删除、
+      图片 → `（图：alt）` 占位、连续空行压缩、超长按行边界截断且**明确告知**）+
+      `OgLReadmeView`（`flutter_markdown` 后端，样式表全部来自令牌与调色板）
+- [x] **代码块原样保留**：围栏内部不清理标签/图片/注释（示例代码不许被改）
+- [x] 仓库页接线：`_readmeC()`（`null`/空文本 = **空态**，不是错误）+ 代码标签下 `OgLSection('README')`，
+      四态走 `ogLAsyncView`；空态给"放一个 README.md 就会显示在这里"的可操作说明
+- [x] 链接：`url_launcher` 打开；失败**不静默**（SnackBar 摊开 URL）
+- [x] 层内检查 `test/surface/readme_test.dart`：8 条断言（离线安全 / 徽章行 / HTML / 代码块 / 压缩 / 截断 / 空态）
+- [x] 离线红线：README 里的图片**一律不联网取**（避免徽章与截图拖死首屏）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；
