@@ -204,6 +204,23 @@ class _ActionRunPageState extends State<ActionRunPage> {
     }
   }
 
+  /// 把步骤/作业的 `started_at` → `completed_at` 折成"耗时"（缺失返回空串）。
+  static String _durationText(Map<String, dynamic> node) {
+    final DateTime? start = DateTime.tryParse(ghStr(node, 'started_at'));
+    final DateTime? end = DateTime.tryParse(ghStr(node, 'completed_at'));
+    if (start == null || end == null) {
+      return '';
+    }
+    final Duration d = end.difference(start);
+    if (d.isNegative) {
+      return '';
+    }
+    if (d.inSeconds < 60) {
+      return '耗时 ${d.inSeconds}s';
+    }
+    return '耗时 ${d.inMinutes}m${d.inSeconds % 60}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -347,6 +364,15 @@ class _ActionRunPageState extends State<ActionRunPage> {
                                     '${ghInt(step, 'number')}. ${ghStr(step, 'name')}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    <String>[
+                                      ghStr(step, 'status'),
+                                      if (ghStr(step, 'conclusion').isNotEmpty)
+                                        ghStr(step, 'conclusion'),
+                                      if (_durationText(step).isNotEmpty)
+                                        _durationText(step),
+                                    ].join(' · '),
                                   ),
                                 );
                               }),

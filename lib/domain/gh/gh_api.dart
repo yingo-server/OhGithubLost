@@ -667,6 +667,52 @@ class GhApi implements CacheRemote {
     }
   }
 
+  /// 按基线 SHA **加锁**删除（走 D1/D2/D7）。
+  ///
+  /// 与 [deleteContent] 的区别：本方法在删除前确认基线未过期（D2），
+  /// 并要求二次确认（D7）；基线过期时**不删除**，如实返回冲突。
+  Future<GhWriteResult> deleteContentLocked(
+    String fullName,
+    String path, {
+    required String message,
+    required String baseSha,
+    String? branch,
+    bool confirmed = false,
+  }) async {
+    final RepositoryCache? cache = _cache;
+    final CacheKey? key = await _cacheKeyFor(fullName, path, branch);
+    if (cache == null || key == null) {
+      await deleteContent(
+        fullName,
+        path,
+        message: message,
+        baseSha: baseSha,
+        branch: branch,
+      );
+      return GhWriteResult(
+        ok: true,
+        conflict: GhWriteConflict.none,
+        baseSha: baseSha,
+      );
+    }
+    final WriteOutcome outcome = await cache.delete(
+      key,
+      message: message,
+      baseSha: baseSha,
+      confirmed: confirmed,
+    );
+    return GhWriteResult(
+      ok: outcome.ok,
+      conflict: _toGhConflict(outcome.conflict),
+      sha: outcome.sha,
+      baseSha: outcome.baseSha,
+      detail: outcome.detail,
+      remoteContent: outcome.threeWay?.remote,
+      baseContent: outcome.threeWay?.base,
+      localContent: outcome.threeWay?.local,
+    );
+  }
+
   /// 删除内容（**危险操作**）。
   Future<void> deleteContent(
     String fullName,
@@ -871,6 +917,7 @@ class GhApi implements CacheRemote {
     String? name,
     String? body,
     bool prerelease = false,
+    bool draft = false,
     String? targetCommitish,
   }) async {
     final response = await client.send(GhRequest(
@@ -881,6 +928,7 @@ class GhApi implements CacheRemote {
         if (name != null) 'name': name,
         if (body != null) 'body': body,
         'prerelease': prerelease,
+        'draft': draft,
         if (targetCommitish != null) 'target_commitish': targetCommitish,
       },
       label: 'POST releases',
@@ -898,6 +946,31 @@ class GhApi implements CacheRemote {
         label: 'DELETE release($releaseId)',
       ))
       .then((_) {});
+
+  /// 更新发布（标题 / 说明 / 草稿 / 预发布 / 标签）。
+  Future<GhRelease> updateRelease(
+    String fullName,
+    int releaseId, {
+    String? tagName,
+    String? name,
+    String? body,
+    bool? draft,
+    bool? prerelease,
+  }) async {
+    final response = await client.send(GhRequest(
+      path: '/repos/$fullName/releases/$releaseId',
+      method: NetMethod.patch,
+      body: <String, Object?>{
+        if (tagName != null) 'tag_name': tagName,
+        if (name != null) 'name': name,
+        if (body != null) 'body': body,
+        if (draft != null) 'draft': draft,
+        if (prerelease != null) 'prerelease': prerelease,
+      },
+      label: 'PATCH release($releaseId)',
+    ));
+    return GhRelease.fromJson(response.jsonObject ?? const <String, dynamic>{});
+  }
 
   // ───────────────────────── 搜索 ─────────────────────────
 
@@ -1243,6 +1316,46 @@ class GhApi implements CacheRemote {
         .toList();
   }
 
+  /// 仓库工作流列表（用于"手动触发"选择目标）。
+  Future<List<Map<String, dynamic>>> workflows(String fullName) async {
+    final object = await client.getObject(
+      '/repos/$fullName/actions/workflows',
+      query: const <String, String>{'per_page': '100'},
+      label: 'GET actions/workflows',
+    );
+    final items = object?['workflows'];
+    if (items is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+    return items
+        .whereType<Map<Object?, Object?>>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+  }
+
+  /// 手动触发工作流（`workflow_dispatch`）。
+  ///
+  /// [workflowIdOrFile] 可用工作流数字 ID，或文件名（如 `build.yml`）。
+  /// GitHub 对**未声明 `workflow_dispatch`** 的工作流会返回 422。
+  Future<void> dispatchWorkflow(
+    String fullName, {
+    required String workflowIdOrFile,
+    required String ref,
+    Map<String, String> inputs = const <String, String>{},
+  }) =>
+      client
+          .send(GhRequest(
+            path:
+                '/repos/$fullName/actions/workflows/$workflowIdOrFile/dispatches',
+            method: NetMethod.post,
+            body: <String, Object?>{
+              'ref': ref,
+              if (inputs.isNotEmpty) 'inputs': inputs,
+            },
+            label: 'POST actions/workflows/$workflowIdOrFile/dispatches',
+          ))
+          .then((_) {});
+
   /// 单个 Actions 运行详情。
   Future<Map<String, dynamic>?> workflowRun(String fullName, int runId) =>
       client.getObject(
@@ -1393,6 +1506,21 @@ class GhApi implements CacheRemote {
     );
     return RemoteDocument(content: content, sha: written.sha);
   }
+
+  /// 按期望 sha 删除（给一致性引擎用）。
+  @override
+  Future<void> delete(
+    CacheKey key, {
+    required String message,
+    required String expectedSha,
+  }) =>
+      deleteContent(
+        key.scope.repo,
+        key.path,
+        message: message,
+        baseSha: expectedSha,
+        branch: key.scope.branch,
+      );
 
   // ───────────────────────── 内部辅助 ─────────────────────────
 

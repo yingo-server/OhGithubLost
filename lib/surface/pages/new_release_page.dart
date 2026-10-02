@@ -39,6 +39,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _body = TextEditingController();
   bool _prerelease = false;
+  bool _draft = false;
   bool _busy = false;
   String? _error;
 
@@ -70,6 +71,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
         name: _name.text.trim().isEmpty ? null : _name.text.trim(),
         body: _body.text.trim().isEmpty ? null : _body.text.trim(),
         prerelease: _prerelease,
+        draft: _draft,
         targetCommitish:
             widget.defaultBranch.isEmpty ? null : widget.defaultBranch,
       );
@@ -128,6 +130,14 @@ class _NewReleasePageState extends State<NewReleasePage> {
             ),
           ),
           const SizedBox(height: 12),
+          SwitchListTile(
+            title: const Text('草稿'),
+            subtitle: const Text('保存为草稿，暂不发布'),
+            value: _draft,
+            onChanged: _busy
+                ? null
+                : (bool value) => setState(() => _draft = value),
+          ),
           SwitchListTile(
             title: const Text('预发布'),
             subtitle: const Text('标记为 pre-release'),

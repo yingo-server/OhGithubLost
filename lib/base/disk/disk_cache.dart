@@ -48,6 +48,15 @@ abstract class CacheRemote {
     required String message,
     String? expectedSha,
   });
+
+  /// 按 [expectedSha] 删除；版本不符必须抛 [RemoteConflictException]。
+  ///
+  /// 删除同属"可能顶掉别人提交"的操作，因此同样需要基线（D1/D2）。
+  Future<void> delete(
+    CacheKey key, {
+    required String message,
+    required String expectedSha,
+  });
 }
 
 /// 未绑定远端时的占位实现（启动早期 / 纯离线）。
@@ -67,6 +76,14 @@ class UnavailableCacheRemote implements CacheRemote {
     String content, {
     required String message,
     String? expectedSha,
+  }) async =>
+      throw StateError('缓存远端未绑定（等待 API 中枢注入）');
+
+  @override
+  Future<void> delete(
+    CacheKey key, {
+    required String message,
+    required String expectedSha,
   }) async =>
       throw StateError('缓存远端未绑定（等待 API 中枢注入）');
 }
@@ -247,6 +264,98 @@ class RepositoryCache {
   Future<void> invalidate(CacheKey key) async {
     _ensureKey(key);
     return _mutex.run(key.encode(), () => _evictEncoded(key.encode()));
+  }
+
+  /// 删除（**危险操作**）：完整走 D1 / D2 / D7。
+  ///
+  /// 为什么**不入提交日志**：日志记录会被 [replayPending] 还原成 [WriteIntent]
+  /// 重放，而删除无法用 WriteIntent 表达——强行入队，重放会把它当成"写入空内容"，
+  /// 反而制造数据事故。因此删除只做**在线加锁**，失败如实返回、由用户重试。
+  Future<WriteOutcome> delete(
+    CacheKey key, {
+    required String message,
+    required String baseSha,
+    bool confirmed = false,
+  }) async {
+    _ensureKey(key);
+    return _mutex.run(key.encode(), () async {
+      final WriteIntent intent = WriteIntent(
+        key: key,
+        content: '',
+        message: message,
+        baseSha: baseSha,
+        dangerous: true,
+      );
+      // D7：危险操作必须二次确认。
+      if (!confirmed) {
+        return _fail(
+          intent,
+          WriteConflict.needsConfirmation,
+          '删除属于危险操作，需二次确认（D7）',
+          code: 'OGL-CONS-208',
+        );
+      }
+      try {
+        // D1/D2：删除前确认目标仍在，且基线未过期。
+        final RemoteDocument? latest = await _remote.read(key);
+        if (latest == null) {
+          return _fail(
+            intent,
+            WriteConflict.notFound,
+            '目标已不存在（可能已被删除）',
+            code: 'OGL-CONS-210',
+          );
+        }
+        if (latest.sha != baseSha) {
+          return _fail(
+            intent,
+            WriteConflict.staleSha,
+            '本地基线已过期：期望 ${shortSha(baseSha)}，'
+                '远端 ${shortSha(latest.sha)}（D2）',
+            sha: latest.sha,
+            baseSha: baseSha,
+            threeWay: ConflictThreeWay(
+              local: '',
+              base: null,
+              remote: latest.content,
+            ),
+            code: 'OGL-CONS-202',
+          );
+        }
+        await _remote.delete(key, message: message, expectedSha: baseSha);
+        await _evictEncoded(key.encode());
+        _diagnostics.info(
+          'CACHE',
+          '删除成功',
+          code: 'OGL-CONS-005',
+          data: <String, Object?>{
+            'key': key.encode(),
+            'sha': shortSha(baseSha),
+          },
+        );
+        return WriteOutcome(
+          ok: true,
+          conflict: WriteConflict.none,
+          baseSha: baseSha,
+        );
+      } on RemoteConflictException catch (error) {
+        return _fail(
+          intent,
+          _classify(error),
+          '远端冲突未解决（HTTP ${error.statusCode}）',
+          sha: error.currentSha,
+          baseSha: baseSha,
+          code: 'OGL-CONS-203',
+        );
+      } catch (error) {
+        return _fail(
+          intent,
+          WriteConflict.server,
+          '删除异常终止：$error',
+          code: 'OGL-CONS-206',
+        );
+      }
+    });
   }
 
   /// 本地有效条目数（诊断）。

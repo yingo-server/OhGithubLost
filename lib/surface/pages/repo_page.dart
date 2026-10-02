@@ -26,11 +26,14 @@ import '../util/link_opener.dart';
 import '../widgets/code_view.dart';
 import '../widgets/readme_view.dart';
 import 'action_run_page.dart';
+import 'code_editor_page.dart';
 import 'commit_page.dart';
 import 'issue_page.dart';
 import 'new_issue_page.dart';
 import 'new_release_page.dart';
 import 'pull_page.dart';
+import 'release_detail_page.dart';
+import 'workflow_dispatch_page.dart';
 
 /// 仓库详情页。
 class RepoPage extends StatefulWidget {
@@ -249,9 +252,6 @@ class _CodeTabState extends State<_CodeTab> {
   AsyncController<List<GhContent>>? _entries;
   GhContent? _file;
   bool _fileBusy = false;
-  bool _editing = false;
-  bool _saving = false;
-  final TextEditingController _editor = TextEditingController();
 
   /// 下一次目录加载是否**强制绕过缓存**（下拉刷新 / 写操作后使用）。
   bool _forceEntries = false;
@@ -277,7 +277,6 @@ class _CodeTabState extends State<_CodeTab> {
   @override
   void dispose() {
     _entries?.dispose();
-    _editor.dispose();
     super.dispose();
   }
 
@@ -359,8 +358,6 @@ class _CodeTabState extends State<_CodeTab> {
       } else {
         setState(() {
           _file = content;
-          _editing = false;
-          _editor.text = content.text ?? '';
         });
       }
     } catch (error) {
@@ -418,8 +415,6 @@ class _CodeTabState extends State<_CodeTab> {
       }
       setState(() {
         _file = content;
-        _editing = false;
-        _editor.text = content.text ?? '';
       });
     } catch (error) {
       _toast('读取失败：$error');
@@ -427,6 +422,26 @@ class _CodeTabState extends State<_CodeTab> {
       if (mounted) {
         setState(() => _fileBusy = false);
       }
+    }
+  }
+
+  /// 打开**全屏编辑器**编辑该文件；保存成功后刷新文件与目录。
+  Future<void> _openEditor(GhContent file) async {
+    final bool? saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => CodeEditorPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          path: file.path,
+          initialText: file.text ?? '',
+          baseSha: file.sha,
+          branch: widget.defaultBranch,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      await _refreshFile(file.path);
+      await _reloadEntries();
     }
   }
 
@@ -443,149 +458,11 @@ class _CodeTabState extends State<_CodeTab> {
       }
       setState(() {
         _file = fresh;
-        _editor.text = fresh.text ?? '';
       });
     } catch (_) {
       // 刷新失败不阻塞（旧内容还在屏幕上，下一次操作会再试）。
     }
   }
-
-  Future<void> _save() async {
-    final GhContent? file = _file;
-    if (file == null || _saving) {
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      // 加锁提交：走底座 D1–D7（缺基线拒绝 / 基线过期拒绝 / 写后回读校验）。
-      GhWriteResult result = await widget.surface.domain.api.putContentLocked(
-        widget.fullName,
-        file.path,
-        content: _editor.text,
-        message: 'docs: update ${file.path}',
-        baseSha: file.sha,
-        branch: widget.defaultBranch,
-      );
-
-      // 基线过期：**绝不静默覆盖**——把三方差异交给用户决定。
-      if (!result.ok && result.canForceOverwrite) {
-        final bool? overwrite = await _showConflictDialog(result);
-        if (overwrite != true) {
-          _toast('已取消：远端已被更新，未覆盖');
-          return;
-        }
-        result = await widget.surface.domain.api.putContentLocked(
-          widget.fullName,
-          file.path,
-          content: _editor.text,
-          message: 'docs: update ${file.path}',
-          baseSha: file.sha,
-          branch: widget.defaultBranch,
-          force: true,
-          confirmed: true,
-        );
-      }
-
-      if (!result.ok) {
-        OgLAppLog.instance.add(
-          '编辑',
-          '提交失败（${result.conflict.name}）：${result.detail ?? ''}',
-          severity: OgLNoticeSeverity.critical,
-        );
-        if (mounted) {
-          _toast('提交失败：${result.detail ?? result.conflict.name}');
-        }
-        return;
-      }
-
-      OgLAppLog.instance.result('编辑', '已提交', file.path);
-      if (!mounted) {
-        return;
-      }
-      setState(() => _editing = false);
-      _toast('已提交修改：${file.path}');
-      await _refreshFile(file.path);
-      await _reloadEntries();
-    } catch (error) {
-      OgLAppLog.instance.add(
-        '编辑',
-        '提交失败：$error',
-        severity: OgLNoticeSeverity.critical,
-      );
-      if (mounted) {
-        setState(() {});
-        _toast('提交失败：$error');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  /// 冲突对话框：展示"基线 / 远端 / 我的"指纹并可查看三方差异。
-  ///
-  /// 返回值：`true` = 用户选择强制覆盖；`false`/`null` = 放弃（保留现状）。
-  Future<bool?> _showConflictDialog(GhWriteResult result) {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('远端已更新，可能覆盖他人改动'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text('你的基线：${ghShortSha(result.baseSha ?? '')}'),
-              Text('远端最新：${ghShortSha(result.sha ?? '')}'),
-              const SizedBox(height: 8),
-              const Text('直接覆盖会丢弃远端这一次改动。建议先查看差异。'),
-              if (result.remoteContent != null) ...<Widget>[
-                const SizedBox(height: 12),
-                const Text('远端最新内容：'),
-                Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(dialogContext)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      _preview(result.remoteContent!),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消（保留远端）'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('强制覆盖'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _preview(String text) =>
-      text.length <= 4000 ? text : '${text.substring(0, 4000)}\n…（已截断预览）';
 
   Future<void> _delete() async {
     final GhContent? file = _file;
@@ -616,20 +493,33 @@ class _CodeTabState extends State<_CodeTab> {
       return;
     }
     try {
-      await widget.surface.domain.api.deleteContent(
+      // 加锁删除：走 D1/D2/D7（基线过期会被拒绝，不误删他人更新）。
+      final GhWriteResult result =
+          await widget.surface.domain.api.deleteContentLocked(
         widget.fullName,
         file.path,
         message: 'chore: delete ${file.path}',
         baseSha: file.sha,
         branch: widget.defaultBranch,
+        confirmed: true,
       );
+      if (!result.ok) {
+        OgLAppLog.instance.add(
+          '编辑',
+          '删除被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
+          severity: OgLNoticeSeverity.warning,
+        );
+        if (mounted) {
+          _toast('删除失败：${result.detail ?? result.conflict.name}');
+        }
+        return;
+      }
       OgLAppLog.instance.result('编辑', '已删除', file.path);
       if (!mounted) {
         return;
       }
       setState(() {
         _file = null;
-        _editing = false;
       });
       _toast('已删除：${file.path}');
       await _reloadEntries();
@@ -769,13 +659,27 @@ class _CodeTabState extends State<_CodeTab> {
       return;
     }
     try {
-      await widget.surface.domain.api.deleteContent(
+      // 加锁删除：走 D1/D2/D7。
+      final GhWriteResult result =
+          await widget.surface.domain.api.deleteContentLocked(
         widget.fullName,
         entry.path,
         message: 'chore: delete ${entry.path}',
         baseSha: entry.sha,
         branch: widget.defaultBranch,
+        confirmed: true,
       );
+      if (!result.ok) {
+        OgLAppLog.instance.add(
+          '编辑',
+          '删除被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
+          severity: OgLNoticeSeverity.warning,
+        );
+        if (mounted) {
+          _toast('删除失败：${result.detail ?? result.conflict.name}');
+        }
+        return;
+      }
       OgLAppLog.instance.result('编辑', '已删除', entry.path);
       if (!mounted) {
         return;
@@ -783,7 +687,6 @@ class _CodeTabState extends State<_CodeTab> {
       if (_file?.path == entry.path) {
         setState(() {
           _file = null;
-          _editing = false;
         });
       }
       _toast('已删除：${entry.path}');
@@ -929,7 +832,6 @@ class _CodeTabState extends State<_CodeTab> {
             onPressed: () {
               setState(() {
                 _file = null;
-                _editing = false;
               });
             },
           ),
@@ -941,29 +843,22 @@ class _CodeTabState extends State<_CodeTab> {
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
-          if (!_editing && !file.isTooLarge)
+          if (!file.isTooLarge)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑',
-              onPressed: () {
-                setState(() {
-                  _editing = true;
-                  _editor.text = file.text ?? '';
-                });
-              },
+              tooltip: '编辑（全屏编辑器）',
+              onPressed: () => _openEditor(file),
             ),
-          if (!_editing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: '删除',
-              onPressed: _delete,
-            ),
-          if (!_editing)
-            IconButton(
-              icon: const Icon(Icons.open_in_new),
-              tooltip: '用浏览器打开',
-              onPressed: () => _openFileInBrowser(file),
-            ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '删除',
+            onPressed: _delete,
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: '用浏览器打开',
+            onPressed: () => _openFileInBrowser(file),
+          ),
         ],
       ),
     );
@@ -1026,50 +921,6 @@ class _CodeTabState extends State<_CodeTab> {
     );
   }
 
-  Widget _buildEditor() {
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _editor,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: widget.surface.settings.settings.codeFontSize,
-              ),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: '文件内容',
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Row(
-            children: <Widget>[
-              TextButton(
-                onPressed: _saving
-                    ? null
-                    : () => setState(() => _editing = false),
-                child: const Text('取消'),
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: Text(_saving ? '提交中…' : '提交修改'),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_fileBusy) {
@@ -1080,9 +931,7 @@ class _CodeTabState extends State<_CodeTab> {
       return Column(
         children: <Widget>[
           _buildFileHeader(file),
-          Expanded(
-            child: _editing ? _buildEditor() : _buildViewer(file),
-          ),
+          Expanded(child: _buildViewer(file)),
         ],
       );
     }
@@ -1741,32 +1590,19 @@ class _ReleasesTabState extends State<_ReleasesTab> {
     }
   }
 
-  void _showNotes(GhRelease release) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(
-          release.tagName +
-              (release.name == null || release.name!.isEmpty
-                  ? ''
-                  : ' · ${release.name}'),
+  Future<void> _openDetail(GhRelease release) async {
+    final bool? changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => ReleaseDetailPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          release: release,
         ),
-        content: SingleChildScrollView(
-          child: ReadmeView(
-            markdown: release.body ?? '（无说明）',
-            onOpenLink: (Uri uri) {
-              unawaited(openExternalLink(uri, tag: '发布'));
-            },
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
-          ),
-        ],
       ),
     );
+    if (changed == true && mounted) {
+      await _releasesC().load();
+    }
   }
 
   @override
@@ -1827,7 +1663,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
                       tooltip: '删除',
                       onPressed: () => _delete(release),
                     ),
-                    onTap: () => _showNotes(release),
+                    onTap: () => unawaited(_openDetail(release)),
                   );
                 },
               ),
@@ -2248,6 +2084,24 @@ class _ActionsTabState extends State<_ActionsTab> {
     );
   }
 
+  Future<void> _dispatch() async {
+    final bool? triggered = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => WorkflowDispatchPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          defaultBranch: widget.defaultBranch,
+        ),
+      ),
+    );
+    if (triggered == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已触发工作流')),
+      );
+      await _runsC().load();
+    }
+  }
+
   bool _matches(Map<String, dynamic> run) {
     if (_filter == 'all') {
       return true;
@@ -2298,6 +2152,17 @@ class _ActionsTabState extends State<_ActionsTab> {
             runs.where(_matches).toList();
         return Column(
           children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  onPressed: _dispatch,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('手动触发工作流'),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Wrap(
