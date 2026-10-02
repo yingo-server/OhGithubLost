@@ -1,7 +1,7 @@
 name: CI
 
 # 质量门：静态分析 + 单元测试
-# 任何 push / PR / 手动触发都会执行；CI 未通过禁止合入（见 docs/STANDARDS.md S6）。
+# 任何 push / PR / 手动触发都会执行；CI 未通过禁止合入。
 
 on:
   push:
