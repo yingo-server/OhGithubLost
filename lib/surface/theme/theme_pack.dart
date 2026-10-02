@@ -13,15 +13,15 @@
 /// 两者正交，因此"换成极客风 + 大字体 + 平板三栏"是可以自由组合的。
 library;
 
-/// Primer `fgColor-danger`（dark）—— 兜底界面与深色调色板共用，避免字面量到处复制。
-const Color kOgLDangerDark = Color(0xFFF85149);
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../layout/adaptive.dart';
 import 'design_tokens.dart';
 import 'icon_pack.dart';
+/// Primer `fgColor-danger`（dark）—— 兜底界面与深色调色板共用，避免字面量到处复制。
+const Color kOgLDangerDark = Color(0xFFF85149);
+
 
 /// 明暗模式。
 enum OgLBrightness {
