@@ -11,10 +11,13 @@
 ///    用户第一次打开就能看见"到底加载了什么"。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'base/base_bootstrap.dart';
+import 'base/log/log_dirs.dart';
 import 'domain/domain_bridge.dart';
 import 'kernel/boot/boot_fs.dart';
 import 'kernel/boot/boot_loader.dart';
@@ -25,6 +28,7 @@ import 'kernel/boot/trust_warnings.dart';
 import 'kernel/contract/module.dart';
 import 'kernel/diagnostics.dart';
 import 'kernel/kernel.dart';
+import 'kernel/log/og_l_log_file.dart';
 import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
 import 'surface/surface_bridge.dart';
@@ -42,12 +46,38 @@ const String kOgLBootManifestJson = String.fromEnvironment('OGL_BOOT_MANIFEST');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // ── 日志落盘：**任何后续日志都必须先能写盘** ──────────────────────────
+  // 候选顺序：sdcard/logging → 应用外部目录 → 文档目录 → 支持目录；
+  // 全失败也不静默——把原因写进内存日志（关于页可见）。
+  await OgLLogFile.init(
+    candidates: await ogLLogDirectoryCandidates(),
+    appVersion: kOgLAppVersion,
+    buildMode: kReleaseMode
+        ? 'release'
+        : (kProfileMode ? 'profile' : 'debug'),
+    platform: Platform.operatingSystem,
+  );
+  OgLAppLog.instance.add(
+    '启动',
+    '进程启动：版本=$kOgLAppVersion 平台=${Platform.operatingSystem} '
+        '${Platform.operatingSystemVersion}',
+  );
+  if (!OgLLogFile.isEnabled) {
+    OgLAppLog.instance.add(
+      '日志',
+      '日志落盘不可用（尝试过：${OgLLogFile.triedDirectories.join(' | ')}；'
+          '最后错误：${OgLLogFile.lastError}）',
+      severity: OgLNoticeSeverity.critical,
+    );
+  }
 
   // ── 全局错误捕获：任何未捕获异常都必须"被看见"，不许无声消失 ──────────
   // 1) Flutter 框架异常（构建/布局/绘制）：先走默认呈现（控制台），
   //    再上报全局通知中心 → 由 OgLNoticeHost 弹窗给用户。
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
+    // 框架异常连**堆栈与上下文**一起落盘：这是排查"界面全空"唯一的线索。
+    OgLLogFile.line('崩溃', details.toString(), level: 'ERR');
     OgLNoticeCenter.instance.report(
       title: '界面异常',
       detail: details.exceptionAsString(),
@@ -58,6 +88,7 @@ void main() async {
   //    避免被框架静默吞掉。
   WidgetsBinding.instance.platformDispatcher.onError =
       (Object error, StackTrace stack) {
+    OgLLogFile.line('崩溃', '未捕获异常：$error\n$stack', level: 'ERR');
     OgLNoticeCenter.instance.report(
       title: '未捕获异常',
       detail: error.toString(),
@@ -113,7 +144,21 @@ void main() async {
   ];
 
   try {
+    OgLAppLog.instance.step('启动', '内核引导（${modules.length} 个模块）…');
     final report = await kernel.boot(modules);
+    OgLAppLog.instance.result(
+      '启动',
+      '内核引导完成',
+      '模块 ${report.moduleStates.length} 项 / 告警 ${report.trustWarnings.length} 条 / '
+          '阶段 ${report.stages.length} 个 / 安全模式=${report.safeMode}',
+    );
+    for (final String warning in report.trustWarnings) {
+      OgLAppLog.instance.add(
+        '启动',
+        '信任告警：$warning',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
     final storageError = bootstrap.storageError;
     if (storageError != null) {
       // 不静默：进应用级日志（关于页可见），并弹窗提醒。
@@ -128,10 +173,16 @@ void main() async {
         severity: OgLNoticeSeverity.critical,
       );
     }
+    OgLAppLog.instance.result('启动', '进入界面（runApp）', '启动报告已就绪');
     runApp(OgLApp(surface: surfaceModule.bridge, report: report));
   } on KernelBootException catch (error) {
     // 启动被拒（清单签名失败 / 模块依赖不满足）：**不静默降级**，
     // 直接把原因摊给用户看——这是数据安全产品该有的态度。
+    OgLAppLog.instance.add(
+      '启动',
+      '内核拒绝启动：$error',
+      severity: OgLNoticeSeverity.critical,
+    );
     runApp(OgLBootFailureApp(message: error.toString()));
   }
 }

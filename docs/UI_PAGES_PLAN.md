@@ -72,7 +72,7 @@ OgLActionRow(
 | 8 | Gists | `pages/gists_page.dart` | ✅ 本批完成（骨架 + **整行可点用浏览器打开** + 公开/私密标签 + 空态） |
 | 9 | 登录 / 新增账户向导 | `pages/login_page.dart` | ✅ 本批完成（骨架 + **四步向导可见**（暂存/验证/转正/回读）+ 回车验证 + 令牌指引） |
 | 10 | 表单页（新建仓库 / 议题 / 发布） | `pages/new_repo_page.dart` · `pages/new_issue_page.dart` · `pages/new_release_page.dart` | ✅ 本批完成（骨架 + 行内校验 + 自绘开关行 + 底部主操作） |
-| — | 仓库页 | `pages/repo_page.dart` | ✅ 已按本规划落地（骨架 + 元信息盒 + 七标签） |
+| — | 仓库页 | `pages/repo_page.dart` | ✅ 已落地（骨架 + 元信息盒 + 七标签 + **README 渲染** + **议题/PR 筛选与分页**） |
 | — | **主壳（导航外壳）** | `app/client_shell.dart` + `kit/kit_nav_shell.dart` | ✅ W8-P3 完成（底栏 / 导航轨 / 抽屉 / 壳页头全部自绘，与页面同源） |
 | — | **关于页** | `app/og_l_app.dart`（`_AboutPage`） | ✅ 本批完成（骨架 + 小节 + 信任链空态 + 日志截断显示与一键复制） |
 

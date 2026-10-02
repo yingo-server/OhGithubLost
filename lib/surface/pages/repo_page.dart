@@ -99,6 +99,20 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   String? _cnameSha;
   OgLAsyncController<List<Map<String, dynamic>>>? _issues;
   OgLAsyncController<List<Map<String, dynamic>>>? _pulls;
+  // ── 议题 / PR：状态筛选 + 分页（"加载更多"） ──────────────────────
+  // GitHub 这两个列表接口一次最多 100 条，之前固定只拉第一页 30 条；
+  // 现在可以切"打开中 / 已关闭 / 全部"，并能在尾部继续拉。
+  static const int _listPageSize = 30;
+  String _issuesState = 'open';
+  String _pullsState = 'open';
+  int _issuesPage = 1;
+  int _pullsPage = 1;
+  final List<Map<String, dynamic>> _issuesMore = <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>> _pullsMore = <Map<String, dynamic>>[];
+  bool _issuesMoreBusy = false;
+  bool _pullsMoreBusy = false;
+  bool _issuesMoreDone = false;
+  bool _pullsMoreDone = false;
   OgLAsyncController<List<GhRelease>>? _releases;
   OgLAsyncController<List<GhBranch>>? _branches;
   OgLAsyncController<List<GhCommit>>? _commits;
@@ -241,7 +255,18 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<Map<String, dynamic>>>(
       label: '议题',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.issues(_full),
+      loader: () async {
+        // 换筛选条件 = 重新开始"第一页"（旧的分页结果必须丢掉）。
+        _issuesPage = 1;
+        _issuesMore.clear();
+        _issuesMoreDone = false;
+        return widget.surface.domain.api.issues(
+          _full,
+          state: _issuesState,
+          perPage: _listPageSize,
+          page: 1,
+        );
+      },
     );
     controller.addListener(_onChanged);
     _issues = controller;
@@ -256,7 +281,17 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     final controller = OgLAsyncController<List<Map<String, dynamic>>>(
       label: 'PR',
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.pulls(_full),
+      loader: () async {
+        _pullsPage = 1;
+        _pullsMore.clear();
+        _pullsMoreDone = false;
+        return widget.surface.domain.api.pulls(
+          _full,
+          state: _pullsState,
+          perPage: _listPageSize,
+          page: 1,
+        );
+      },
     );
     controller.addListener(_onChanged);
     _pulls = controller;
@@ -1736,16 +1771,187 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     }
   }
 
+  /// 切换议题 / PR 的状态筛选（打开中 / 已关闭 / 全部）。
+  Future<void> _setListState({required bool issues, required String state}) async {
+    final bool same = issues ? state == _issuesState : state == _pullsState;
+    if (same) {
+      return;
+    }
+    setState(() {
+      if (issues) {
+        _issuesState = state;
+      } else {
+        _pullsState = state;
+      }
+    });
+    if (issues) {
+      await _issuesC().load();
+    } else {
+      await _pullsC().load();
+    }
+  }
+
+  /// "加载更多"：拉下一页并**追加**（不是替换）。
+  ///
+  /// GitHub 这两个列表不给总数，这里用"返回条数 < 每页条数 ⇒ 到底了"
+  /// 这个诚实的启发式，并在到底后显示"没有更多了"，不会无限转圈。
+  Future<void> _loadMore({required bool issues}) async {
+    if (issues ? _issuesMoreBusy : _pullsMoreBusy) {
+      return;
+    }
+    final int next = (issues ? _issuesPage : _pullsPage) + 1;
+    setState(() {
+      if (issues) {
+        _issuesMoreBusy = true;
+      } else {
+        _pullsMoreBusy = true;
+      }
+    });
+    try {
+      final List<Map<String, dynamic>> list = issues
+          ? await widget.surface.domain.api.issues(
+              _full,
+              state: _issuesState,
+              perPage: _listPageSize,
+              page: next,
+            )
+          : await widget.surface.domain.api.pulls(
+              _full,
+              state: _pullsState,
+              perPage: _listPageSize,
+              page: next,
+            );
+      OgLAppLog.instance.add(
+        '仓库',
+        '${issues ? '议题' : 'PR'} 第 $next 页：${list.length} 条',
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (issues) {
+          _issuesPage = next;
+          _issuesMore.addAll(list);
+          _issuesMoreDone = list.length < _listPageSize;
+        } else {
+          _pullsPage = next;
+          _pullsMore.addAll(list);
+          _pullsMoreDone = list.length < _listPageSize;
+        }
+      });
+    } catch (error, stackTrace) {
+      OgLAppLog.instance.add(
+        '仓库',
+        '加载更多失败（原始异常）：$error\n$stackTrace',
+        severity: OgLNoticeSeverity.critical,
+      );
+      if (mounted) {
+        setState(() => _error = '加载更多失败：$error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (issues) {
+            _issuesMoreBusy = false;
+          } else {
+            _pullsMoreBusy = false;
+          }
+        });
+      }
+    }
+  }
+
+  /// 列表底部的"加载更多 / 没有更多了"行。
+  Widget _buildMoreRow({
+    required OgLTheme ogL,
+    required OgLTokens tokens,
+    required bool issues,
+    required int shown,
+  }) {
+    final bool busy = issues ? _issuesMoreBusy : _pullsMoreBusy;
+    final bool done = issues ? _issuesMoreDone : _pullsMoreDone;
+    if (shown == 0) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: EdgeInsets.only(top: tokens.space(OgLSpacing.sm)),
+      child: done
+          ? Row(
+              children: <Widget>[
+                OgLIcon(
+                  name: OgLIconName.success,
+                  size: tokens.iconSize(base: 16),
+                  color: ogL.palette.textFaint,
+                ),
+                SizedBox(width: tokens.space(OgLSpacing.xs)),
+                Text(
+                  '没有更多了（已加载 $shown 条）',
+                  style: TextStyle(
+                    fontSize:
+                        tokens.fontSize(const OgLTypeScale.standard().label),
+                    color: ogL.palette.textFaint,
+                  ),
+                ),
+              ],
+            )
+          : OgLButton(
+              label: busy ? '加载中…' : '加载更多（当前 $shown 条）',
+              variant: OgLButtonVariant.invisible,
+              size: OgLButtonSize.small,
+              leadingIcon: OgLIconName.download,
+              loading: busy,
+              onPressed: busy
+                  ? null
+                  : () async {
+                      await _loadMore(issues: issues);
+                    },
+            ),
+    );
+  }
+
+  /// 三档状态筛选器（议题 / PR 共用）。
+  OgLSegmented<String> _stateFilter({
+    required bool issues,
+    required OgLTokens tokens,
+  }) =>
+      Padding(
+        // 与右侧计数之间留出令牌化的间距（也确保 tokens 真的被用到）。
+        padding: EdgeInsets.only(right: tokens.space(OgLSpacing.sm)),
+        child: OgLSegmented<String>(
+          items: const <OgLSegmentedItem<String>>[
+            OgLSegmentedItem<String>(value: 'open', label: '打开中'),
+            OgLSegmentedItem<String>(value: 'closed', label: '已关闭'),
+            OgLSegmentedItem<String>(value: 'all', label: '全部'),
+          ],
+          value: issues ? _issuesState : _pullsState,
+          onChanged: (String state) async {
+            await _setListState(issues: issues, state: state);
+          },
+        ),
+      );
+
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
     final state = _issuesC().state;
-    final list = state.data ?? const <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> list =
+        state.data ?? const <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> issuesAll = <Map<String, dynamic>>[
+      ...list,
+      ..._issuesMore,
+    ];
+    final String stateLabel = switch (_issuesState) {
+      'closed' => '已关闭',
+      'all' => '',
+      _ => '打开中',
+    };
     return ogLAsyncView(
       state: state,
       errorTitle: '议题读取失败',
       onRetry: () => _issuesC().load(),
       emptyIcon: OgLIconName.issue,
-      emptyTitle: '没有打开的议题',
-      emptyBody: '议题用来跟踪缺陷与任务；可以从这里直接新建一个。',
+      emptyTitle: stateLabel.isEmpty ? '还没有议题' : '没有$stateLabel的议题',
+      emptyBody: stateLabel.isEmpty
+          ? '议题用来跟踪缺陷与任务；可以从这里直接新建一个。'
+          : '换个筛选（打开中 / 已关闭 / 全部）看看，或新建一个议题。',
       emptyAction: OgLButton(
         label: '新建议题',
         variant: OgLButtonVariant.primary,
@@ -1757,9 +1963,13 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         children: <Widget>[
           Row(
             children: <Widget>[
+              _stateFilter(issues: true, tokens: tokens),
               Expanded(
                 child: Text(
-                  '共 ${list.length} 个议题',
+                  '共 ${issuesAll.length} 个议题',
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize:
                         tokens.fontSize(const OgLTypeScale.standard().label),
@@ -1767,6 +1977,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                   ),
                 ),
               ),
+              SizedBox(width: tokens.space(OgLSpacing.xs)),
               OgLButton(
                 label: '新建议题',
                 variant: OgLButtonVariant.primary,
@@ -1776,7 +1987,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               ),
             ],
           ),
-          for (final item in list)
+          for (final item in issuesAll)
             OgLActionRow(
               showDivider: true,
               leading: OgLIcon(
@@ -1787,19 +1998,28 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               title:
                   '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
               subtitle: 'by ${_loginOf(item)} · '
-                  '${GhJson.integer(item, 'comments')} 条评论',
-              trailing: OgLButton(
-                label: '关闭',
-                variant: OgLButtonVariant.invisible,
-                size: OgLButtonSize.small,
-                onPressed: () async {
-                  await _closeIssue(item);
-                },
-              ),
+                  '${GhJson.integer(item, 'comments')} 条评论 · '
+                  '${GhJson.str(item, 'state') == 'open' ? '打开中' : '已关闭'}',
+              trailing: GhJson.str(item, 'state') == 'open'
+                  ? OgLButton(
+                      label: '关闭',
+                      variant: OgLButtonVariant.invisible,
+                      size: OgLButtonSize.small,
+                      onPressed: () async {
+                        await _closeIssue(item);
+                      },
+                    )
+                  : null,
               onTap: () async {
                 await _openIssue(item);
               },
             ),
+          _buildMoreRow(
+            ogL: ogL,
+            tokens: tokens,
+            issues: true,
+            shown: issuesAll.length,
+          ),
         ],
       ),
     );
@@ -1807,18 +2027,48 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
 
   Widget _buildPulls(OgLTheme ogL, OgLTokens tokens) {
     final state = _pullsC().state;
-    final list = state.data ?? const <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> list =
+        state.data ?? const <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> pullsAll = <Map<String, dynamic>>[
+      ...list,
+      ..._pullsMore,
+    ];
+    final String stateLabel = switch (_pullsState) {
+      'closed' => '已关闭',
+      'all' => '',
+      _ => '打开中',
+    };
     return ogLAsyncView(
       state: state,
       errorTitle: 'PR 读取失败',
       onRetry: () => _pullsC().load(),
       emptyIcon: OgLIconName.pullRequest,
-      emptyTitle: '没有打开的拉取请求',
-      emptyBody: '当有人提出变更请求时，会出现在这里。',
+      emptyTitle: stateLabel.isEmpty ? '还没有拉取请求' : '没有$stateLabel的拉取请求',
+      emptyBody: stateLabel.isEmpty
+          ? '当有人提出变更请求时，会出现在这里。'
+          : '换个筛选（打开中 / 已关闭 / 全部）看看。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          for (final item in list)
+          Row(
+            children: <Widget>[
+              _stateFilter(issues: false, tokens: tokens),
+              Expanded(
+                child: Text(
+                  '共 ${pullsAll.length} 个 PR',
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize:
+                        tokens.fontSize(const OgLTypeScale.standard().label),
+                    color: ogL.palette.textDim,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          for (final item in pullsAll)
             OgLActionRow(
               showDivider: true,
               leading: OgLIcon(
@@ -1828,12 +2078,19 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               ),
               title:
                   '#${GhJson.integer(item, 'number')} ${GhJson.str(item, 'title')}',
-              subtitle: 'by ${_loginOf(item)} · ${GhJson.str(item, 'state')}',
+              subtitle:
+                  'by ${_loginOf(item)} · ${GhJson.str(item, 'state') == 'open' ? '打开中' : '已关闭'}',
               showChevron: true,
               onTap: () async {
                 await _openPull(item);
               },
             ),
+          _buildMoreRow(
+            ogL: ogL,
+            tokens: tokens,
+            issues: false,
+            shown: pullsAll.length,
+          ),
         ],
       ),
     );

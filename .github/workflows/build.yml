@@ -243,18 +243,11 @@ jobs:
         if: matrix.build != 'windows'
         shell: bash
         run: |
+          # ① Android：工具入库（幂等、带自检），见 tool/inject_android_manifest.py
+          python3 tool/inject_android_manifest.py || exit 1
+          # ② macOS：沙箱 Release entitlements 需要 network.client
           python3 - <<'PY'
           import os
-          m = 'android/app/src/main/AndroidManifest.xml'
-          if os.path.exists(m):
-              t = open(m, encoding='utf-8').read()
-              if 'android.permission.INTERNET' not in t:
-                  t = t.replace('<application',
-                                '<uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
-                  open(m, 'w', encoding='utf-8').write(t)
-                  print('AndroidManifest: INTERNET 已注入')
-              else:
-                  print('AndroidManifest: 已存在')
           for e in ('macos/Runner/Release.entitlements',
                     'macos/Runner/DebugProfile.entitlements'):
               if os.path.exists(e):
@@ -355,7 +348,7 @@ jobs:
         if: matrix.build == 'apk'
         run: |
           for APK in build/app/outputs/flutter-apk/*.apk; do
-            python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');assert 'INTERNET'.encode('utf-16-le') in d,('缺 INTERNET 权限: '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
+            python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');need=[n for n in ('INTERNET','MANAGE_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','requestLegacyExternalStorage') if n.encode('utf-16-le') not in d];assert not need,('缺权限/属性: '+','.join(need)+' <- '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
           done
 
       - name: 引导清单注入校验（防空注入回归）

@@ -18,6 +18,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../kernel/log/og_l_log_file.dart';
 
 /// 通知严重级别。
 enum OgLNoticeSeverity {
@@ -78,6 +79,16 @@ class OgLNoticeCenter extends ChangeNotifier {
     String? detail,
     OgLNoticeSeverity severity = OgLNoticeSeverity.warning,
   }) {
+    // 先落盘：通知可能因为"正在弹窗"而延后展示，但**绝不允许**丢失。
+    OgLLogFile.line(
+      '通知',
+      detail == null || detail.isEmpty ? title : '$title：$detail',
+      level: severity == OgLNoticeSeverity.critical
+          ? 'ERR'
+          : severity == OgLNoticeSeverity.warning
+              ? 'WARN'
+              : 'INFO',
+    );
     for (final existing in _pending) {
       if (existing.title == title && existing.detail == detail) {
         return;
@@ -113,7 +124,7 @@ class OgLAppLog extends ChangeNotifier {
   static final OgLAppLog instance = OgLAppLog._();
 
   /// 条目上限（环形丢弃最旧）。
-  static const int maxEntries = 200;
+  static const int maxEntries = 2000;
 
   final List<OgLAppLogEntry> _entries = <OgLAppLogEntry>[];
 
@@ -122,6 +133,9 @@ class OgLAppLog extends ChangeNotifier {
       List<OgLAppLogEntry>.unmodifiable(_entries.reversed.toList());
 
   /// 追加一条。
+  ///
+  /// **同时写入磁盘**（`OgLLogFile`）：内存只负责"关于页里能翻"，
+  /// 磁盘负责"进程死了也还在"。
   void add(
     String area,
     String message, {
@@ -137,6 +151,28 @@ class OgLAppLog extends ChangeNotifier {
       _entries.removeAt(0);
     }
     notifyListeners();
+    OgLLogFile.line(
+      area,
+      message,
+      level: severity == OgLNoticeSeverity.critical
+          ? 'ERR'
+          : severity == OgLNoticeSeverity.warning
+              ? 'WARN'
+              : 'INFO',
+    );
+  }
+
+  /// 记录**成功的结果**（用户明确要求：不要只记错误）。
+  ///
+  /// 例：`result('仓库', '拉取议题', '30 条')` → 落盘为 `✔ 拉取议题：30 条`。
+  void result(String area, String what, [String? detail]) {
+    final String suffix = (detail == null || detail.isEmpty) ? '' : '：$detail';
+    add(area, '✔ $what$suffix');
+  }
+
+  /// 记录**一个步骤的开始**（与 [result] 配对，形成"开始→结果"两行）。
+  void step(String area, String what) {
+    add(area, '▶ $what');
   }
 }
 

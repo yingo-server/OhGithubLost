@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import '../../domain/gh/gh_auth.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/kernel.dart';
+import '../../kernel/log/og_l_log_file.dart';
 import '../kit/kit.dart';
 import '../settings/settings_model.dart';
 import '../surface_bridge.dart';
@@ -253,6 +254,84 @@ class _AboutPage extends StatelessWidget {
                           ),
                           title: '安全模式',
                           subtitle: report.safeMode ? '是' : '否',
+                          dense: true,
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                OgLSection(
+                  title: '日志文件',
+                  description: '日志**即时落盘**：进程被杀 / 崩溃后现场仍在',
+                  actions: <Widget>[
+                    OgLButton(
+                      label: '复制路径',
+                      size: OgLButtonSize.small,
+                      variant: OgLButtonVariant.invisible,
+                      leadingIcon: OgLIconName.list,
+                      onPressed: () async {
+                        final String path = OgLLogFile.filePath ?? '(未启用)';
+                        await Clipboard.setData(ClipboardData(text: path));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('已复制：$path')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                  child: OgLBox(
+                    padded: false,
+                    child: Column(
+                      children: <Widget>[
+                        OgLActionRow(
+                          leading: OgLIcon(
+                            name: OgLIconName.file,
+                            size: tokens.iconSize(base: 18),
+                            color: OgLLogFile.isEnabled
+                                ? ogL.palette.success
+                                : ogL.palette.danger,
+                          ),
+                          title: '当前日志文件',
+                          subtitle: OgLLogFile.filePath ??
+                              '未启用落盘（原因见下）',
+                          dense: true,
+                        ),
+                        if (!OgLLogFile.isEnabled)
+                          OgLActionRow(
+                            leading: OgLIcon(
+                              name: OgLIconName.warning,
+                              size: tokens.iconSize(base: 18),
+                              color: ogL.palette.danger,
+                            ),
+                            title: '未能落盘的原因',
+                            subtitle: OgLLogFile.lastError ?? '未知',
+                            dense: true,
+                          ),
+                        if (!OgLLogFile.isEnabled)
+                          OgLActionRow(
+                            title: '尝试过的目录',
+                            subtitle: OgLLogFile.triedDirectories
+                                .join('\n'),
+                            dense: true,
+                          ),
+                        OgLActionRow(
+                          title: '想写到 sdcard/logging？',
+                          subtitle: 'Android 11+ 需在系统设置里授予本应用'
+                              '"所有文件访问"，重启后会自动改用该目录；'
+                              '未授予时写到应用外部目录（文件管理器同样可见）。',
+                          dense: true,
+                        ),
+                        OgLActionRow(
+                          leading: OgLIcon(
+                            name: OgLIconName.info,
+                            size: tokens.iconSize(base: 18),
+                            color: ogL.palette.textDim,
+                          ),
+                          title: '日志内容',
+                          subtitle: '启动链路 / 页面加载（开始·结果·耗时）'
+                              '/ 每个网络请求（状态码·耗时）/ 全部异常堆栈',
                           dense: true,
                           showDivider: false,
                         ),

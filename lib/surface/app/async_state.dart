@@ -24,6 +24,8 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import 'error_surface.dart';
+
 /// 异步数据的四态。
 enum OgLAsyncPhase {
   /// 尚未开始。
@@ -226,15 +228,48 @@ class OgLAsyncController<T> extends ChangeNotifier {
     _state = _state.toLoading();
     notifyListeners();
 
+    final Stopwatch watch = Stopwatch()..start();
+    OgLAppLog.instance.add('加载', '▶ $label 开始');
     try {
       final value = await loader();
+      watch.stop();
       _state = _state.settle(value, isEmpty: _isEmpty);
+      // 成功也要留痕：写清"拿到了什么、多少条、花了多久"——
+      // 只记错误的话，出问题时根本看不出哪一步是好的。
+      OgLAppLog.instance.result(
+        '加载',
+        '$label 完成',
+        '${_summarize(value)} / ${watch.elapsedMilliseconds}ms',
+      );
     } catch (error) {
+      watch.stop();
       _state = _state.fail(_describe(error));
+      OgLAppLog.instance.add(
+        '加载',
+        '$label 失败（${watch.elapsedMilliseconds}ms）：${_describe(error)}',
+        severity: OgLNoticeSeverity.critical,
+      );
     } finally {
       _inFlight = false;
       notifyListeners();
     }
+  }
+
+  /// 把加载结果压成一句人话（列表给条数、文本给长度、其它给类型）。
+  String _summarize(Object? value) {
+    if (value == null) {
+      return '空';
+    }
+    if (value is List<Object?>) {
+      return '${value.length} 条';
+    }
+    if (value is String) {
+      return '${value.length} 字符';
+    }
+    if (value is Map<Object?, Object?>) {
+      return '${value.length} 键';
+    }
+    return value.runtimeType.toString();
   }
 
   /// 本地改动后直接落定（避免为了刷新再跑一次网络）。

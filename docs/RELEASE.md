@@ -63,3 +63,12 @@ Windows（x64 / arm64*）、Linux（x64 / arm64*）、macOS（arm64 / x64）、i
 - **SDK 组件下载损坏**（`ZipException: Archive is not a ZIP archive`）：
   重跑该 run；工作流已提前预装 CMake 降低概率；
 - **APK 装不上**：旧包是否为随机证书时代的产物（先卸载）。
+
+## 日志文件在哪（支持流程第一步）
+
+- 目标路径：`/storage/emulated/0/logging/ogl-YYYY-MM-DD.log`（即 `sdcard/logging`）。
+- 写不进去时**逐级回退**：应用外部目录（`Android/data/<pkg>/files/logging`，无需权限）
+  → 应用文档目录 → 应用支持目录；实际路径与失败原因在**设置 → 关于 → 日志文件**里可见。
+- 想让它写到 `sdcard/logging`（Android 11+）：在系统设置里给本应用授予"所有文件访问"，
+  重启应用即可；Android ≤ 10 直接授权存储权限即可。
+- 报错时请附：日志文件（或"复制全部日志"的内容）+ 版本号（关于页启动报告里）。

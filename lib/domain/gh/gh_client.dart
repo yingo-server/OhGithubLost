@@ -18,6 +18,7 @@ import '../../base/disk/disk_types.dart';
 import '../../base/net/net_bridge.dart';
 import '../../base/net/net_types.dart';
 import '../../kernel/diagnostics.dart';
+import '../../kernel/log/og_l_log_file.dart';
 import 'gh_auth.dart';
 import 'gh_models.dart';
 
@@ -335,6 +336,11 @@ class GhClient {
         'x-github-api-version': '2022-11-28',
         if (token != null) 'authorization': 'Bearer ${token.value}',
       };
+      OgLLogFile.line(
+        '网络',
+        '→ ${request.method.verb} ${request.path}'
+            '${request.query.isEmpty ? '' : '?${request.query.entries.map((e) => '${e.key}=${e.value}').join('&')}'}',
+      );
       final netResponse = await _net.send(NetRequest(
         method: request.method,
         url: request.toUrl(baseUrl),
@@ -362,8 +368,25 @@ class GhClient {
         },
       );
 
-      _throwIfFailed(response, request);
-      return response;
+      OgLLogFile.line(
+        '网络',
+        '← ${response.statusCode} ${request.method.verb} ${request.path}'
+            '（${netResponse.bodyLength} 字符 / ${netResponse.duration.inMilliseconds}ms'
+            '${rateLimit == null ? '' : ' / 余量 ${rateLimit.remaining}'}'
+            '${netResponse.fromMirrorId == null ? '' : ' / 镜像 ${netResponse.fromMirrorId}'}）',
+      );
+      try {
+        _throwIfFailed(response, request);
+        return response;
+      } catch (error) {
+        // 失败要**看得见**：状态码 + 映射后的异常类型 + 服务端原话。
+        OgLLogFile.line(
+          '网络',
+          '✗ ${request.method.verb} ${request.path} → ${response.statusCode}：$error',
+          level: 'ERR',
+        );
+        rethrow;
+      }
     } finally {
       _semaphore.release();
     }
