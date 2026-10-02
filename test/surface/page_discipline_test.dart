@@ -35,14 +35,14 @@ class _Spec {
 
 /// 页面清单：**新页面必须先在施工图里立项**，否则测试红。
 const Map<String, _Spec> _pages = <String, _Spec>{
-  'commit_page.dart': _Spec('提交详情（diff）'),
+  'commit_page.dart': _Spec('提交详情（diff）', converted: true),
   'dashboard_page.dart': _Spec('首页（我的 / 星标）', converted: true),
-  'gists_page.dart': _Spec('Gists'),
+  'gists_page.dart': _Spec('Gists', converted: true),
   'issue_page.dart': _Spec('议题详情', converted: true),
-  'login_page.dart': _Spec('登录 / 新增账户向导'),
-  'new_issue_page.dart': _Spec('表单页'),
-  'new_release_page.dart': _Spec('表单页', materialAllow: true),
-  'new_repo_page.dart': _Spec('表单页', materialAllow: true),
+  'login_page.dart': _Spec('登录 / 新增账户向导', converted: true),
+  'new_issue_page.dart': _Spec('表单页', converted: true),
+  'new_release_page.dart': _Spec('表单页', converted: true),
+  'new_repo_page.dart': _Spec('表单页', converted: true),
   'profile_page.dart': _Spec('我的（账户管理）', converted: true),
   'pull_page.dart': _Spec('PR 详情', converted: true),
   'repo_page.dart': _Spec('仓库页（骨架 + 元信息盒 + 七标签）', converted: true),
@@ -58,6 +58,7 @@ const Map<String, String> _appFiles = <String, String>{
 
 /// 壳文件里额外禁止的 Material 控件（导航必须与页面同源）。
 const Map<String, List<String>> _appForbidden = <String, List<String>>{
+  'og_l_app.dart': <String>['ListView(', 'ExpansionTile(', 'IconButton('],
   'client_shell.dart': <String>[
     'AppBar(',
     'NavigationBar(',

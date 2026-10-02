@@ -151,172 +151,232 @@ class OgLBootFailureApp extends StatelessWidget {
   }
 }
 
-/// 关于页：启动概览 / 模块 / 信任告警 / 依赖图 / 阶段 / 日志 —— 全部收进折叠栏。
+/// 关于页：启动报告 / 模块 / 信任链 / 依赖图 / 阶段 / 日志。
 ///
 /// 这是导航的最后一页（产品决策：导航收敛为 仓库 / 设置 / 关于；
 /// 原「概览」与「诊断」两页整体并入本页，不再各占一个入口）。
+///
+/// ## 纪律
+/// - 页面骨架走 `OgLPageScaffold`（旧实现是裸 `ListView` + Material `ExpansionTile`）；
+/// - 折叠不再交给 Material：**关键信息默认展开**（版本 / 信任链 / 存储接线），
+///   只有"可能很长"的两块（依赖图 / 日志）做截断显示 + 明确的截断说明；
+/// - 日志必须能一键复制（用户反馈问题时最需要的东西）。
 class _AboutPage extends StatelessWidget {
   const _AboutPage({required this.report});
 
   /// 启动报告（内核在启动时定格的快照）。
   final KernelReport report;
 
+  /// 日志尾部最多显示多少条（超出的仍会被"复制全部"带走）。
+  static const int _logTailShown = 80;
+
+  Future<void> _copyAll(BuildContext context, List<String> lines) async {
+    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已复制 ${lines.length} 行日志到剪贴板')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: OgLAppLog.instance,
         builder: (BuildContext context, Widget? _) {
           final ogL = OgLTheme.of(context);
+          final OgLTokens tokens = ogL.tokens;
+          final OgLTypeScale scale = const OgLTypeScale.standard();
           final appLog = OgLAppLog.instance.entries;
-          return ListView(
-            children: <Widget>[
-              ExpansionTile(
-                title: const Text('启动报告'),
-                children: <Widget>[
-                  _KeyValue(
-                    ogL: ogL,
-                    rows: <String, String>{
-                      '版本': report.appVersion,
-                      '生成时间': '${report.generatedAt}',
-                      '安全模式': report.safeMode ? '是' : '否',
-                      '引导摘要': report.bootSummary,
-                    },
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: ogL.tokens.space(OgLSpacing.sm),
-                    ),
-                    child: _KeyValue(ogL: ogL, rows: report.moduleStates),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: ogL.tokens.space(OgLSpacing.sm),
-                    ),
-                    child: _KeyValue(
-                      ogL: ogL,
-                      rows: <String, String>{
-                        '层级桥': report.bridges.join('、'),
-                        '服务': '${report.services.length} 项',
-                      },
-                    ),
-                  ),
-                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
-                ],
-              ),
-              if (report.trustWarnings.isNotEmpty)
-                ExpansionTile(
-                  title: Text('信任告警（${report.trustWarnings.length}）'),
-                  children: <Widget>[
-                    for (final warning in report.trustWarnings)
-                      _Banner(
-                        ogL: ogL,
-                        color: ogL.palette.warning,
-                        icon: OgLIconName.warning,
-                        text: warning.toString(),
-                      ),
-                  ],
-                ),
-              ExpansionTile(
-                title: const Text('依赖图'),
-                children: <Widget>[
-                  Padding(
-                    padding: EdgeInsets.all(
-                      ogL.tokens.space(OgLSpacing.sm),
-                    ),
-                    child: Text(
-                      report.moduleGraph,
-                      style: const TextStyle(fontFamily: 'monospace'),
-                    ),
-                  ),
-                ],
-              ),
-              ExpansionTile(
-                title: Text('启动阶段（${report.stages.length}）'),
-                children: <Widget>[
-                  for (final stage in report.stages)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: ogL.tokens.space(OgLSpacing.xxs),
-                      ),
-                      child: Text(stage.toString()),
-                    ),
-                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
-                ],
-              ),
-              ExpansionTile(
-                title: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        '日志（内核 ${report.logTail.length} · 应用 ${appLog.length}）',
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '复制全部日志',
-                      icon: const OgLIcon(name: OgLIconName.list),
-                      onPressed: () async {
-                        final buffer = StringBuffer();
-                        for (final entry in report.logTail) {
-                          buffer.writeln(entry.toString());
-                        }
-                        for (final entry in appLog) {
-                          buffer.writeln(entry.toDisplay());
-                        }
-                        await Clipboard.setData(
-                          ClipboardData(text: buffer.toString()),
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('全部日志已复制到剪贴板'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                children: <Widget>[
-                  for (final entry in report.logTail)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: ogL.tokens.space(OgLSpacing.xxs),
-                      ),
-                      child: SelectableText(
-                        entry.toString(),
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: ogL.tokens
-                              .fontSize(const OgLTypeScale.standard().label),
-                          color: entry.level == KernelLogLevel.error
-                              ? ogL.palette.danger
-                              : ogL.palette.textDim,
-                        ),
-                      ),
-                    ),
-                  for (final entry in appLog)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: ogL.tokens.space(OgLSpacing.xxs),
-                      ),
-                      child: SelectableText(
-                        entry.toDisplay(),
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: ogL.tokens
-                              .fontSize(const OgLTypeScale.standard().label),
-                          color: switch (entry.severity) {
-                            OgLNoticeSeverity.critical => ogL.palette.danger,
-                            OgLNoticeSeverity.warning => ogL.palette.warning,
-                            OgLNoticeSeverity.info => ogL.palette.textDim,
-                          },
-                        ),
-                      ),
-                    ),
-                  SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
-                ],
+          final List<String> kernelLines = report.logTail
+              .map((KernelLogEntry entry) => entry.toString())
+              .toList();
+          final List<String> appLines =
+              appLog.map((OgLNotice notice) => notice.toDisplay()).toList();
+          final List<String> allLines = <String>[...kernelLines, ...appLines];
+          final int shown =
+              allLines.length > _logTailShown ? _logTailShown : allLines.length;
+          final List<String> tail = allLines.sublist(allLines.length - shown);
+
+          return OgLPageScaffold(
+            title: '关于',
+            description: '启动报告 / 信任链 / 依赖图 / 日志',
+            actions: <Widget>[
+              OgLButton(
+                label: '复制全部日志',
+                variant: OgLButtonVariant.invisible,
+                leadingIcon: OgLIconName.list,
+                onPressed: () async {
+                  await _copyAll(context, allLines);
+                },
               ),
             ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                OgLSection(
+                  title: '启动报告',
+                  topSpacing: 0,
+                  description: report.safeMode
+                      ? '安全模式：是（部分能力被关闭）'
+                      : '安全模式：否（全部能力可用）',
+                  child: OgLBox(
+                    padded: false,
+                    child: Column(
+                      children: <Widget>[
+                        OgLActionRow(
+                          leading: OgLIcon(
+                            name: OgLIconName.info,
+                            size: tokens.iconSize(base: 18),
+                            color: ogL.palette.textDim,
+                          ),
+                          title: '版本',
+                          subtitle: report.appVersion,
+                          dense: true,
+                        ),
+                        OgLActionRow(
+                          leading: OgLIcon(
+                            name: OgLIconName.clock,
+                            size: tokens.iconSize(base: 18),
+                            color: ogL.palette.textDim,
+                          ),
+                          title: '生成时间',
+                          subtitle: '${report.generatedAt}',
+                          dense: true,
+                        ),
+                        OgLActionRow(
+                          leading: OgLIcon(
+                            name: OgLIconName.shield,
+                            size: tokens.iconSize(base: 18),
+                            color: report.safeMode
+                                ? ogL.palette.warning
+                                : ogL.palette.success,
+                          ),
+                          title: '安全模式',
+                          subtitle: report.safeMode ? '是' : '否',
+                          dense: true,
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                OgLSection(
+                  title: '引导与模块',
+                  description: report.bootSummary,
+                  child: OgLBox(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        _KeyValue(ogL: ogL, rows: report.moduleStates),
+                        SizedBox(height: tokens.space(OgLSpacing.sm)),
+                        _KeyValue(
+                          ogL: ogL,
+                          rows: <String, String>{
+                            '层级桥': report.bridges.join('、'),
+                            '服务': '${report.services.length} 项',
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                OgLSection(
+                  title: '信任告警',
+                  description: report.trustWarnings.isEmpty
+                      ? '没有告警：引导清单签名与模块依赖都通过'
+                      : '共 ${report.trustWarnings.length} 条（必须处理）',
+                  child: report.trustWarnings.isEmpty
+                      ? const OgLBlankslate(
+                          icon: OgLIconName.shield,
+                          title: '信任链正常',
+                          body: '内核完成了引导清单签名校验与依赖解析，没有降级项。',
+                          compact: true,
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            for (final Object warning in report.trustWarnings)
+                              _Banner(
+                                ogL: ogL,
+                                color: ogL.palette.warning,
+                                icon: OgLIconName.warning,
+                                text: warning.toString(),
+                              ),
+                          ],
+                        ),
+                ),
+                OgLSection(
+                  title: '依赖图',
+                  description: '模块之间谁依赖谁（排查"为什么没启动"用）',
+                  child: OgLBox(
+                    child: SelectableText(
+                      report.moduleGraph,
+                      style: TextStyle(
+                        fontFamily: kOgLMonoFamily,
+                        fontSize: tokens.fontSize(scale.data),
+                        color: ogL.palette.text,
+                      ),
+                    ),
+                  ),
+                ),
+                OgLSection(
+                  title: '启动阶段',
+                  description: '共 ${report.stages.length} 个阶段',
+                  child: OgLBox(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        for (final Object stage in report.stages)
+                          SelectableText(
+                            stage.toString(),
+                            style: TextStyle(
+                              fontFamily: kOgLMonoFamily,
+                              fontSize: tokens.fontSize(scale.label),
+                              color: ogL.palette.textDim,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                OgLSection(
+                  title: '日志',
+                  description: allLines.isEmpty
+                      ? '还没有日志'
+                      : '共 ${allLines.length} 行；下面显示最后 $shown 行'
+                          '（「复制全部日志」会带走全部）',
+                  actions: <Widget>[
+                    OgLButton(
+                      label: '复制',
+                      size: OgLButtonSize.small,
+                      variant: OgLButtonVariant.invisible,
+                      leadingIcon: OgLIconName.list,
+                      onPressed: () async {
+                        await _copyAll(context, allLines);
+                      },
+                    ),
+                  ],
+                  child: OgLBox(
+                    child: tail.isEmpty
+                        ? const OgLBlankslate(
+                            icon: OgLIconName.terminal,
+                            title: '没有日志',
+                            body: '发生网络 / 写入 / 启动事件后，这里会出现记录。',
+                            compact: true,
+                          )
+                        : SelectableText(
+                            tail.join('\n'),
+                            style: TextStyle(
+                              fontFamily: kOgLMonoFamily,
+                              fontSize: tokens.fontSize(scale.label),
+                              height: 1.4,
+                              color: ogL.palette.textDim,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       );
