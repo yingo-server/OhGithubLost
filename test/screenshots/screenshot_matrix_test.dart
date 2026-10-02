@@ -425,30 +425,36 @@ Future<int> _capture(
 
 void main() {
   setUpAll(() async {
-    debugDisableShadows = false;
     await _loadRealFonts();
   });
 
   if (!kWriteShots) {
     // 默认模式：一次轻量冒烟（不落盘）——保证普通 CI 也验证管线可用。
     testWidgets('截屏冒烟（默认模式不落盘）', (WidgetTester tester) async {
-      final SurfaceBridge bridge = await _buildBridge();
-      final GlobalKey key = await _pumpScreen(
-        tester,
-        screen: 'login',
-        bridge: bridge,
-        report: _report(),
-        repo: GhRepo.fromJson(<String, dynamic>{}),
-        platform: TargetPlatform.android,
-        brightness: Brightness.light,
-        size: const Size(390, 844),
-      );
-      final int bytes = await _capture(
-        tester,
-        key,
-        logical: const Size(390, 844),
-      );
-      expect(bytes, greaterThan(1000), reason: '捕获的 PNG 字节数异常');
+      // 截屏希望保留阴影；测试框架默认关闭它，因此这里临时打开并**必须还原**
+      // （否则触发 "painting debug variable was changed by the test" 断言）。
+      debugDisableShadows = false;
+      try {
+        final SurfaceBridge bridge = await _buildBridge();
+        final GlobalKey key = await _pumpScreen(
+          tester,
+          screen: 'login',
+          bridge: bridge,
+          report: _report(),
+          repo: GhRepo.fromJson(<String, dynamic>{}),
+          platform: TargetPlatform.android,
+          brightness: Brightness.light,
+          size: const Size(390, 844),
+        );
+        final int bytes = await _capture(
+          tester,
+          key,
+          logical: const Size(390, 844),
+        );
+        expect(bytes, greaterThan(1000), reason: '捕获的 PNG 字节数异常');
+      } finally {
+        debugDisableShadows = true;
+      }
     });
     return;
   }
@@ -460,45 +466,50 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-      final SurfaceBridge bridge = await _buildBridge();
-      final KernelReport report = _report();
-      final GhRepo repo =
-          GhRepo.fromJson(_repoJson(
-        fullName: 'octocat/Hello-World',
-        description: '演示仓库 · 用于 UI 截屏',
-        isPrivate: false,
-        stars: 1234,
-      ));
-      int total = 0;
-      for (final (String brightnessName, Brightness brightness)
-          in _brightnesses) {
-        for (final (String sizeName, Size size) in _sizes) {
-          for (final (String file, String screen) in _screens) {
-            final GlobalKey key = await _pumpScreen(
-              tester,
-              screen: screen,
-              bridge: bridge,
-              report: report,
-              repo: repo,
-              platform: platform,
-              brightness: brightness,
-              size: size,
-            );
-            final int bytes = await _capture(
-              tester,
-              key,
-              logical: size,
-              writePath:
-                  '$kOutRoot/$platformName/$brightnessName/${sizeName}__$file.png',
-            );
-            expect(bytes, greaterThan(1000),
-                reason: '截屏捕获异常: $platformName/$brightnessName/'
-                    '${sizeName}__$file');
-            total += 1;
+      debugDisableShadows = false;
+      try {
+        final SurfaceBridge bridge = await _buildBridge();
+        final KernelReport report = _report();
+        final GhRepo repo =
+            GhRepo.fromJson(_repoJson(
+          fullName: 'octocat/Hello-World',
+          description: '演示仓库 · 用于 UI 截屏',
+          isPrivate: false,
+          stars: 1234,
+        ));
+        int total = 0;
+        for (final (String brightnessName, Brightness brightness)
+            in _brightnesses) {
+          for (final (String sizeName, Size size) in _sizes) {
+            for (final (String file, String screen) in _screens) {
+              final GlobalKey key = await _pumpScreen(
+                tester,
+                screen: screen,
+                bridge: bridge,
+                report: report,
+                repo: repo,
+                platform: platform,
+                brightness: brightness,
+                size: size,
+              );
+              final int bytes = await _capture(
+                tester,
+                key,
+                logical: size,
+                writePath:
+                    '$kOutRoot/$platformName/$brightnessName/${sizeName}__$file.png',
+              );
+              expect(bytes, greaterThan(1000),
+                  reason: '截屏捕获异常: $platformName/$brightnessName/'
+                      '${sizeName}__$file');
+              total += 1;
+            }
           }
         }
+        debugPrint('[截屏] $platformName 完成：$total 张');
+      } finally {
+        debugDisableShadows = true;
       }
-      debugPrint('[截屏] $platformName 完成：$total 张');
     });
   }
 }
