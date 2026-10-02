@@ -83,11 +83,11 @@ class _OgLGistsPageState extends State<OgLGistsPage> {
             ),
           ],
         ),
-        if (state.data == null && state.message != null)
+        if (state.failureMessage != null)
           OgLBanner(
             variant: OgLBannerVariant.danger,
             title: 'Gist 读取失败',
-            text: state.message!,
+            text: state.failureMessage!,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
@@ -98,7 +98,7 @@ class _OgLGistsPageState extends State<OgLGistsPage> {
               ),
             ],
           )
-        else if (state.data == null)
+        else if (state.isFirstLoading)
           const OgLSkeletonText(lines: 5)
         else if (list.isEmpty)
           const OgLBanner(

@@ -95,6 +95,29 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
 - [x] **护栏**：新增 `tool/verify_apk_cert.py`，逐包校验证书指纹，不一致即流水线失败
 - [x] 推送并复跑构建，产物证书 = 固定证书（见 CHANGELOG「修复（签名接线 · 实证驱动）」）
 
+### W7 · "空结果 = 加载中"缺陷根治 + 领域层硬化 ✅ 本批
+
+**缺陷（用户报告"仓库内很多标签失效"的真因）**：页面一律用
+`state.data == null` 当"加载中"，而 `OgLAsync.settle()` 在**结果为空**时
+进入 `empty` 阶段且 **`data` 同样是 null** ⇒ 零议题 / 零发布 / 零分支 / 零提交 /
+零评论 / 零文件 / 零 Gist / 空搜索**永远停在骨架屏**（看起来就是"标签打不开"）。
+
+- [x] **语义下沉到一处**：`OgLAsync` 新增 `isFirstLoading` / `isEmptyResult` /
+      `failureMessage` / `softError`（空 ≠ 载 ≠ 错，三者互斥）
+- [x] **唯一映射点**：新增 `lib/surface/app/async_view.dart::ogLAsyncView`，
+      四态 → 骨架 / Blankslate / Banner+重试 / 内容（+ 刷新失败软提示）
+- [x] 仓库页七标签 + 目录浏览器全部改走它；议题详情 / PR / 提交 / Gists / 搜索 /
+      账户页 / 首页的判定同步换成 phase 语义（共 12 处）
+- [x] `OgLStateView` 新增 `softError`：**刷新失败保留内容**，只加顶部警告
+- [x] **领域层硬化**：读类端点遇 404/409（不存在 / 仓库为空 / 功能未启用）一律当"没有"
+      （`listDirectory` / `content` / `commits`）
+- [x] **未知默认分支不再瞎猜**：`GhRepo.defaultBranch` 缺字段时为空串；
+      `ref` / `sha` 仅在非空时携带（GitHub 自动用真实默认分支）；
+      仓库页用 `GET /repos/{full}` 兜底补齐（失败不阻塞浏览）
+- [x] 检查：`test/surface/async_state_test.dart`（四态语义 + 映射点）·
+      `test/domain/gh_absent_test.dart`（空仓库/404/未启用/未知分支）
+- [x] 推送（本批）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；

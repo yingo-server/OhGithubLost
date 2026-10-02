@@ -200,7 +200,7 @@ class GhRepo extends GhRecord {
     required this.name,
     this.isPrivate = false,
     this.description,
-    this.defaultBranch = 'main',
+    this.defaultBranch = '',
     this.stars = 0,
     this.forks = 0,
     this.watchers = 0,
@@ -227,8 +227,9 @@ class GhRepo extends GhRecord {
       name: GhJson.str(json, 'name'),
       isPrivate: GhJson.boolean(json, 'private'),
       description: GhJson.strOrNull(json, 'description'),
-      defaultBranch:
-          GhJson.str(json, 'default_branch', fallback: 'main'),
+      // 列表接口有时不返回 default_branch；**不猜**（猜错会让目录/提交标签 404），
+      // 留空由调用方用 `GET /repos/{full}` 兜底。
+      defaultBranch: GhJson.str(json, 'default_branch'),
       stars: GhJson.integer(json, 'stargazers_count'),
       forks: GhJson.integer(json, 'forks_count'),
       watchers: GhJson.integer(json, 'watchers_count'),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
+import '../app/async_view.dart';
 import '../app/error_surface.dart';
 import '../kit/kit.dart';
 import '../surface_bridge.dart';
@@ -104,22 +105,29 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   /// 当前仓库全名（仓库改名后继续沿用，避免"改名即失联"）。
   String? _fullName;
 
+  /// 仓库信息（列表数据可能不全：缺 `default_branch` 等）。
+  late GhRepo _repo;
+
   /// 最近一次尝试打开的文件（失败后一键重试用）。
   GhContent? _pendingFile;
 
   /// 当前仓库全名（改名后仍指向同一个仓库）。
-  String get _full => _fullName ?? widget.repo.fullName;
+  String get _full => _fullName ?? _repo.fullName;
 
   @override
   void initState() {
     super.initState();
-    final raw = widget.repo.raw['viewer_has_starred'];
+    _repo = widget.repo;
+    final raw = _repo.raw['viewer_has_starred'];
     _starred = raw is bool ? raw : null;
     _messageController.text = 'chore: update $_full';
-    _nameCtl = TextEditingController(text: widget.repo.name);
-    _descCtl = TextEditingController(text: widget.repo.description ?? '');
-    _privateVal = widget.repo.isPrivate;
+    _nameCtl = TextEditingController(text: _repo.name);
+    _descCtl = TextEditingController(text: _repo.description ?? '');
+    _privateVal = _repo.isPrivate;
     _entriesC().loadIfNeeded();
+    // 列表里的仓库对象可能缺 `default_branch`（猜 main 会让 master 仓库全 404），
+    // 因此用一次详情请求把事实补齐；失败不影响浏览（只写日志）。
+    _refreshRepo();
   }
 
   @override
@@ -166,7 +174,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         final list = await widget.surface.domain.api.listDirectory(
           _full,
           _path,
-          branch: widget.repo.defaultBranch,
+          branch: _repo.defaultBranch,
         );
         final dirs = list.where((GhContent c) => c.isDirectory).toList()
           ..sort((GhContent a, GhContent b) => a.path.compareTo(b.path));
@@ -250,12 +258,26 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       isEmpty: (List<GhCommit> value) => value.isEmpty,
       loader: () => widget.surface.domain.api.commits(
             _full,
-            branch: widget.repo.defaultBranch,
+            branch: _repo.defaultBranch,
           ),
     );
     controller.addListener(_onChanged);
     _commits = controller;
     return controller;
+  }
+
+  /// 用 `GET /repos/{full}` 兜底刷新仓库信息（**失败不阻塞页面**）。
+  Future<void> _refreshRepo() async {
+    try {
+      final fresh = await widget.surface.domain.api.repo(_full);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _repo = fresh);
+      await _entriesC().load();
+    } catch (error) {
+      OgLAppLog.instance.add('仓库', '详情刷新失败（不影响浏览）：$error');
+    }
   }
 
   Future<void> _switchTab(_RepoTab tab) async {
@@ -395,7 +417,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       final file = await widget.surface.domain.api.content(
         _full,
         entry.path,
-        branch: widget.repo.defaultBranch,
+        branch: _repo.defaultBranch,
       );
       if (file == null) {
         throw Exception('读不到内容（可能是二进制文件或权限不足）');
@@ -453,7 +475,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         content: _editController.text,
         message: message,
         baseSha: file.sha,
-        branch: widget.repo.defaultBranch,
+        branch: _repo.defaultBranch,
       );
       OgLAppLog.instance.add('文件', '已提交：${file.path}');
       if (mounted) {
@@ -508,7 +530,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         file.path,
         message: 'chore: delete ${file.path}',
         baseSha: file.sha,
-        branch: widget.repo.defaultBranch,
+        branch: _repo.defaultBranch,
       );
       OgLAppLog.instance.add('文件', '已删除：${file.path}');
       if (mounted) {
@@ -586,7 +608,8 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
               text: 'Issue ${repo.openIssues}',
               variant: OgLLabelVariant.neutral,
             ),
-            OgLLabel(text: repo.defaultBranch, variant: OgLLabelVariant.done),
+            if (repo.defaultBranch.isNotEmpty)
+              OgLLabel(text: repo.defaultBranch, variant: OgLLabelVariant.done),
           ],
         ),
         if (_notice != null) ...<Widget>[
@@ -650,7 +673,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           children: <Widget>[
             Expanded(
               child: Text(
-                '/${_path.isEmpty ? widget.repo.name : _path}',
+                '/${_path.isEmpty ? _repo.name : _path}',
                 style: TextStyle(
                   fontFamily: kOgLMonoFamily,
                   fontSize:
@@ -698,12 +721,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           ),
         ],
         SizedBox(height: tokens.space(OgLSpacing.sm)),
-        OgLStateView(
-          loading: state.data == null && state.message == null,
-          error: state.data == null ? state.message : null,
+        ogLAsyncView(
+          state: state,
           errorTitle: '目录读取失败',
           onRetry: () => _entriesC().load(),
-          isEmpty: list.isEmpty,
           emptyIcon: OgLIconName.folder,
           emptyTitle: '这个目录是空的',
           emptyBody: '换个目录看看；GitHub 不支持提交空目录。',
@@ -911,7 +932,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         builder: (BuildContext context) => OgLNewReleasePage(
           surface: widget.surface,
           fullName: _full,
-          defaultBranch: widget.repo.defaultBranch,
+          defaultBranch: _repo.defaultBranch,
         ),
       ),
     );
@@ -1081,7 +1102,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
         content: '${_cnameCtl.text.trim()}\n',
         message: 'chore: configure custom domain',
         baseSha: _cnameSha,
-        branch: widget.repo.defaultBranch,
+        branch: _repo.defaultBranch,
       );
       OgLAppLog.instance.add('设置', '已保存 CNAME');
       if (mounted) {
@@ -1115,7 +1136,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     try {
       await widget.surface.domain.api.enablePages(
         _full,
-        branch: widget.repo.defaultBranch,
+        branch: _repo.defaultBranch,
       );
       OgLAppLog.instance.add('设置', 'Pages 已启用');
       if (mounted) {
@@ -1266,13 +1287,13 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (pagesState.data == null && pagesState.message != null)
+              if (pagesState.failureMessage != null)
                 // 历史缺陷：Pages 读取失败时旧实现永远停在骨架上
                 // （"大面积灰色块"来源之三，而且永远不告诉用户失败了）。
                 OgLBanner(
                   variant: OgLBannerVariant.danger,
                   title: 'Pages 状态读取失败',
-                  text: pagesState.message!,
+                  text: pagesState.failureMessage!,
                   actions: <Widget>[
                     OgLButton(
                       label: '重试',
@@ -1283,7 +1304,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                     ),
                   ],
                 )
-              else if (pagesState.data == null)
+              else if (pagesState.isFirstLoading)
                 const OgLSkeletonText(lines: 2)
               else if (!pagesEnabled) ...<Widget>[
                 Text(
@@ -1295,7 +1316,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
                 ),
                 SizedBox(height: tokens.space(OgLSpacing.sm)),
                 OgLButton(
-                  label: '启用 Pages（分支：${widget.repo.defaultBranch}）',
+                  label: '启用 Pages（分支：${_repo.defaultBranch}）',
                   leadingIcon: OgLIconName.workflow,
                   onPressed: _settingsBusy ? null : _enablePages,
                 ),
@@ -1429,7 +1450,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
       await widget.surface.domain.api.createBranch(
         _full,
         name: trimmed,
-        fromBranch: widget.repo.defaultBranch,
+        fromBranch: _repo.defaultBranch,
       );
       OgLAppLog.instance.add('分支', '已创建 $trimmed');
       if (mounted) {
@@ -1514,12 +1535,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildActions(OgLTheme ogL, OgLTokens tokens) {
     final state = _actsC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: '操作记录读取失败',
       onRetry: () => _actsC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.workflow,
       emptyTitle: '没有工作流运行记录',
       emptyBody: '该仓库还没有跑过 Actions，或当前令牌缺少 actions 读取权限。',
@@ -1562,12 +1581,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildIssues(OgLTheme ogL, OgLTokens tokens) {
     final state = _issuesC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: '议题读取失败',
       onRetry: () => _issuesC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.issue,
       emptyTitle: '没有打开的议题',
       emptyBody: '议题用来跟踪缺陷与任务；可以从这里直接新建一个。',
@@ -1633,12 +1650,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildPulls(OgLTheme ogL, OgLTokens tokens) {
     final state = _pullsC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: 'PR 读取失败',
       onRetry: () => _pullsC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.pullRequest,
       emptyTitle: '没有打开的拉取请求',
       emptyBody: '当有人提出变更请求时，会出现在这里。',
@@ -1669,12 +1684,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildReleases(OgLTheme ogL, OgLTokens tokens) {
     final state = _releasesC().state;
     final list = state.data ?? const <GhRelease>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: '发布读取失败',
       onRetry: () => _releasesC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.release,
       emptyTitle: '还没有发布',
       emptyBody: '发布用于给用户一个可下载的稳定版本。',
@@ -1739,12 +1752,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildBranches(OgLTheme ogL, OgLTokens tokens) {
     final state = _branchesC().state;
     final list = state.data ?? const <GhBranch>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: '分支读取失败',
       onRetry: () => _branchesC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.branch,
       emptyTitle: '没有分支',
       emptyBody: '分支用来隔离开发中的改动；可以从默认分支创建一个。',
@@ -1819,12 +1830,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   Widget _buildCommits(OgLTheme ogL, OgLTokens tokens) {
     final state = _commitsC().state;
     final list = state.data ?? const <GhCommit>[];
-    return OgLStateView(
-      loading: state.data == null && state.message == null,
-      error: state.data == null ? state.message : null,
+    return ogLAsyncView(
+      state: state,
       errorTitle: '提交读取失败',
       onRetry: () => _commitsC().load(),
-      isEmpty: list.isEmpty,
       emptyIcon: OgLIconName.commit,
       emptyTitle: '没有提交记录',
       emptyBody: '这个分支上还没有任何提交。',

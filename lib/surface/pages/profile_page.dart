@@ -186,11 +186,11 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
             ),
           ],
         ),
-        if (state.data == null && state.message != null)
+        if (state.failureMessage != null)
           OgLBanner(
             variant: OgLBannerVariant.danger,
             title: '账户读取失败',
-            text: state.message!,
+            text: state.failureMessage!,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
@@ -201,7 +201,7 @@ class _OgLProfilePageState extends State<OgLProfilePage> {
               ),
             ],
           )
-        else if (state.data == null)
+        else if (state.isFirstLoading)
           const OgLSkeletonText(lines: 3)
         else if (list.isEmpty)
           const OgLBanner(

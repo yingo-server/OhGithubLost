@@ -109,6 +109,25 @@ class OgLAsync<T> {
   /// 数据时间戳（用于"刚刚更新 / 5 分钟前"这类提示）。
   final DateTime? updatedAt;
 
+  /// 是否"首次加载中"（**没有任何可显示的内容**，且不是失败）。
+  ///
+  /// 注意：**空结果不算加载中** —— 这正是 W7 修掉的历史缺陷：
+  /// 页面若用 `state.data == null` 当"加载中"，空列表会被当成加载中，
+  /// 于是零议题 / 零发布等页面永远停在骨架屏（看起来就是"标签失效"）。
+  bool get isFirstLoading =>
+      (phase == OgLAsyncPhase.idle || phase == OgLAsyncPhase.loading) &&
+      data == null;
+
+  /// 是否"空结果"（加载成功，但确实没有数据）。
+  bool get isEmptyResult => phase == OgLAsyncPhase.empty;
+
+  /// 失败原因（只有 `failed` 阶段非空；刷新失败走 [softError]）。
+  String? get failureMessage =>
+      phase == OgLAsyncPhase.failed ? (message ?? '未知错误') : null;
+
+  /// 刷新失败的提示（此时 [data] 仍然可用，界面应保留内容并提示）。
+  String? get softError => refreshError;
+
   /// 是否正在忙（首次加载或刷新）。
   bool get isBusy =>
       phase == OgLAsyncPhase.loading ||

@@ -276,7 +276,9 @@ class GhApi implements CacheRemote {
     String? branch,
     bool recursive = true,
   }) async {
-    final ref = branch ?? await _defaultBranchOf(fullName);
+    final ref = (branch == null || branch.isEmpty)
+        ? await _defaultBranchOf(fullName)
+        : branch;
     final response = await client.send(GhRequest(
       path: '/repos/$fullName/git/trees/$ref',
       query: recursive ? <String, String>{'recursive': '1'} : const <String, String>{},
@@ -294,7 +296,9 @@ class GhApi implements CacheRemote {
     try {
       final object = await client.getObject(
         '/repos/$fullName/contents/$path',
-        query: <String, String>{if (branch != null) 'ref': branch},
+        query: <String, String>{
+          if (branch != null && branch.isNotEmpty) 'ref': branch,
+        },
         label: 'GET contents/$path',
       );
       if (object == null) {
@@ -308,8 +312,8 @@ class GhApi implements CacheRemote {
     } on GhNotFoundException {
       return null;
     } on GhAuthException catch (error) {
-      // Contents API 对目录可能返回 403（无权限）之外的形态，这里保守返回 null。
-      if (error.statusCode == 404) {
+      // 目录 / 空仓库 / 不存在 ⇒ 都当作"读不到"，不是失败。
+      if (_isAbsentStatus(error.statusCode)) {
         return null;
       }
       rethrow;
@@ -325,12 +329,20 @@ class GhApi implements CacheRemote {
     try {
       final response = await client.send(GhRequest(
         path: '/repos/$fullName/contents/$path',
-        query: <String, String>{if (branch != null) 'ref': branch},
+        query: <String, String>{
+          if (branch != null && branch.isNotEmpty) 'ref': branch,
+        },
         label: 'GET contents/$path',
       ));
       return response.jsonAsList.map(GhContent.fromJson).toList();
     } on GhNotFoundException {
       return const <GhContent>[];
+    } on GhAuthException catch (error) {
+      // 空仓库（409 "Git Repository is empty."）⇒ 空目录，不是失败。
+      if (_isAbsentStatus(error.statusCode)) {
+        return const <GhContent>[];
+      }
+      rethrow;
     }
   }
 
@@ -519,17 +531,27 @@ class GhApi implements CacheRemote {
     int perPage = 50,
     int page = 1,
   }) async {
-    final list = await client.getList(
-      '/repos/$fullName/commits',
-      query: <String, String>{
-        'per_page': '$perPage',
-        'page': '$page',
-        if (path != null && path.isNotEmpty) 'path': path,
-        if (branch != null) 'sha': branch,
-      },
-      label: 'GET commits',
-    );
-    return list.map(GhCommit.fromJson).toList();
+    try {
+      final list = await client.getList(
+        '/repos/$fullName/commits',
+        query: <String, String>{
+          'per_page': '$perPage',
+          'page': '$page',
+          if (path != null && path.isNotEmpty) 'path': path,
+          if (branch != null && branch.isNotEmpty) 'sha': branch,
+        },
+        label: 'GET commits',
+      );
+      return list.map(GhCommit.fromJson).toList();
+    } on GhNotFoundException {
+      return const <GhCommit>[];
+    } on GhAuthException catch (error) {
+      // 空仓库 / 分支不存在 ⇒ "没有提交"，不是失败。
+      if (_isAbsentStatus(error.statusCode)) {
+        return const <GhCommit>[];
+      }
+      rethrow;
+    }
   }
 
   /// 两个引用之间的差异（返回 `files` 数组）。
@@ -927,6 +949,13 @@ class GhApi implements CacheRemote {
 
   // ───────────────────────── 内部辅助 ─────────────────────────
 
+  /// 404 / 409 / 422 在**读**场景里都表示"这里没有东西"
+  /// （不存在 / 仓库为空 / 功能未启用）。
+  ///
+  /// 写场景不走这条：写冲突必须是冲突，不许被当成"没有"。
+  static bool _isAbsentStatus(int statusCode) =>
+      statusCode == 404 || statusCode == 409 || statusCode == 422;
+
   Future<Map<String, dynamic>?> _contentsObject(
     String fullName,
     String path,
@@ -935,7 +964,9 @@ class GhApi implements CacheRemote {
     try {
       return await client.getObject(
         '/repos/$fullName/contents/$path',
-        query: <String, String>{if (branch != null) 'ref': branch},
+        query: <String, String>{
+          if (branch != null && branch.isNotEmpty) 'ref': branch,
+        },
         label: 'GET contents/$path',
       );
     } on GhNotFoundException {

@@ -133,11 +133,11 @@ class _OgLCommitPageState extends State<OgLCommitPage> {
           ),
         ),
         SizedBox(height: tokens.space(OgLSpacing.sm)),
-        if (state.data == null && state.message != null)
+        if (state.failureMessage != null)
           OgLBanner(
             variant: OgLBannerVariant.danger,
             title: 'diff 读取失败',
-            text: state.message!,
+            text: state.failureMessage!,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
@@ -148,7 +148,7 @@ class _OgLCommitPageState extends State<OgLCommitPage> {
               ),
             ],
           )
-        else if (state.data == null)
+        else if (state.isFirstLoading)
           const OgLSkeletonText(lines: 4)
         else if (files.isEmpty)
           const OgLBanner(

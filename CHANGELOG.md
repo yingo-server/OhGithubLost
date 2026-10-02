@@ -40,6 +40,23 @@
   `icon_vector_test`（语义全覆盖 / 可解析 / **结构性拦住 `Icons.xxx`**）、`ui_component_matrix_test`（快照矩阵）。
 - 本地等价自检：`_setup/w0_selfcheck.py`（模拟测试断言；**曾抓到真实的圆角令牌漂移**）。
 
+### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
+
+- **真因**：`OgLAsync.settle()` 在结果为空时进入 `empty` 阶段而 `data` 仍为 null，
+  页面却用 `data == null` 当"加载中" ⇒ **零议题 / 零发布 / 零分支 / 零提交 / 零评论 /
+  零文件 / 零 Gist / 空搜索一律永远停在骨架屏**（用户报的"仓库里很多标签失效"）。
+- **修法**：四态语义下沉为 `OgLAsync.isFirstLoading / isEmptyResult / failureMessage /
+  softError`；新增唯一映射点 `ogLAsyncView()`（骨架 / Blankslate / Banner+重试 / 内容）；
+  仓库页七标签 + 目录浏览器与 7 个页面（共 12 处判定）全部改走 phase 语义。
+- **刷新失败保留内容**：`OgLStateView` 新增 `softError` —— 有数据时只加顶部警告，
+  不再把用户已有的内容换成整页错误。
+- **领域层硬化**：读端点遇 404 / 409（不存在 / **仓库为空** / 功能未启用）一律当"没有"
+  （`listDirectory` / `content` / `commits`）；写路径不受影响（写冲突仍是冲突）。
+- **未知默认分支不再瞎猜**：`GhRepo.defaultBranch` 缺字段时为空串，`ref` / `sha`
+  仅在非空时携带（交给 GitHub 用真实默认分支）；仓库页用 `GET /repos/{full}` 兜底补齐，
+  失败不阻塞浏览。此前猜 `main` 会让默认分支是 `master` 的仓库**整页 404**。
+- 新增测试：`test/surface/async_state_test.dart`、`test/domain/gh_absent_test.dart`。
+
 ### 修复（签名接线 · 实证驱动）
 
 - **"证书不一致"的真正根因（本轮实测发现）**：此前只把固定 keystore 铺到

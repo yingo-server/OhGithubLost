@@ -211,11 +211,11 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
   Widget _buildRepoResults(OgLTheme ogL, OgLTokens tokens) {
     final state = _reposC().state;
     final list = state.data ?? const <GhRepo>[];
-    if (state.data == null && state.message != null) {
+    if (state.failureMessage != null) {
       return OgLBanner(
         variant: OgLBannerVariant.danger,
         title: '搜索失败',
-        text: state.message!,
+        text: state.failureMessage!,
         actions: <Widget>[
           OgLButton(
             label: '重试',
@@ -227,7 +227,7 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
         ],
       );
     }
-    if (state.data == null) {
+    if (state.isFirstLoading) {
       return const OgLSkeletonText(lines: 5);
     }
     if (list.isEmpty) {
@@ -260,11 +260,11 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
   Widget _buildCodeResults(OgLTheme ogL, OgLTokens tokens) {
     final state = _codeC().state;
     final list = state.data ?? const <Map<String, dynamic>>[];
-    if (state.data == null && state.message != null) {
+    if (state.failureMessage != null) {
       return OgLBanner(
         variant: OgLBannerVariant.danger,
         title: '搜索失败',
-        text: state.message!,
+        text: state.failureMessage!,
         actions: <Widget>[
           OgLButton(
             label: '重试',
@@ -276,7 +276,7 @@ class _OgLSearchPageState extends State<OgLSearchPage> {
         ],
       );
     }
-    if (state.data == null) {
+    if (state.isFirstLoading) {
       return const OgLSkeletonText(lines: 5);
     }
     if (list.isEmpty) {

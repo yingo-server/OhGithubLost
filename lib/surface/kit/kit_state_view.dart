@@ -11,7 +11,9 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
+import '../theme/theme_pack.dart';
 import 'kit_banner.dart';
 import 'kit_blankslate.dart';
 import 'kit_button.dart';
@@ -32,6 +34,7 @@ class OgLStateView extends StatelessWidget {
     this.emptyIcon = OgLIconName.info,
     this.emptyAction,
     this.skeletonLines = 5,
+    this.softError,
     super.key,
   });
 
@@ -68,10 +71,35 @@ class OgLStateView extends StatelessWidget {
   /// 骨架行数。
   final int skeletonLines;
 
+  /// 刷新失败的提示（**有数据时**的软错误：保留内容 + 顶部提示，
+  /// 而不是把用户已有的内容换成错误页）。
+  final String? softError;
+
   @override
   Widget build(BuildContext context) {
     final String? errorText = error;
     final Future<void> Function()? retry = onRetry;
+    final String? soft = softError;
+    final Widget body = _body(retry, errorText);
+    if (soft == null) {
+      return body;
+    }
+    final ogL = OgLTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        OgLBanner(
+          variant: OgLBannerVariant.warning,
+          title: '刷新失败（显示的是上次结果）',
+          text: soft,
+        ),
+        SizedBox(height: ogL.tokens.space(OgLSpacing.sm)),
+        body,
+      ],
+    );
+  }
+
+  Widget _body(Future<void> Function()? retry, String? errorText) {
     if (errorText != null) {
       return OgLBanner(
         variant: OgLBannerVariant.danger,

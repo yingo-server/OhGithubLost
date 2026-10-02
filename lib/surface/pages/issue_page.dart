@@ -194,11 +194,11 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
           ),
         ),
         SizedBox(height: tokens.space(OgLSpacing.sm)),
-        if (commentState.data == null && commentState.message != null)
+        if (commentState.failureMessage != null)
           OgLBanner(
             variant: OgLBannerVariant.danger,
             title: '评论读取失败',
-            text: commentState.message!,
+            text: commentState.failureMessage!,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
@@ -209,7 +209,7 @@ class _OgLIssuePageState extends State<OgLIssuePage> {
               ),
             ],
           )
-        else if (commentState.data == null)
+        else if (commentState.isFirstLoading)
           const OgLSkeletonText(lines: 3)
         else if (comments.isEmpty)
           const OgLBanner(

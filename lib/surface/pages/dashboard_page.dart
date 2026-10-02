@@ -280,11 +280,11 @@ class _RepoSection extends StatelessWidget {
                 state.phase == OgLAsyncPhase.loading)) {
           return const OgLSkeletonText(lines: 4);
         }
-        if (data == null && state.message != null) {
+        if (state.failureMessage != null) {
           return OgLBanner(
             variant: OgLBannerVariant.danger,
             title: '加载失败',
-            text: state.message!,
+            text: state.failureMessage!,
             actions: <Widget>[
               OgLButton(
                 label: '重试',
