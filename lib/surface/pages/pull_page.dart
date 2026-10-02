@@ -18,7 +18,6 @@ import 'package:flutter/material.dart';
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
 import '../app/async_view.dart';
-import '../app/error_surface.dart';
 import '../kit/kit.dart';
 import '../readme/link_opener.dart';
 import '../readme/readme_view.dart';
