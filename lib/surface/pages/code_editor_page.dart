@@ -388,7 +388,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
           return;
         }
         final bool? leave = await _confirmDiscard();
-        if (leave == true && mounted) {
+        if (leave == true && context.mounted) {
           Navigator.of(context).pop(_saved);
         }
       },

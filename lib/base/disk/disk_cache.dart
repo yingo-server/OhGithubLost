@@ -299,7 +299,7 @@ class RepositoryCache {
         // D1/D2：删除前确认目标仍在，且基线未过期。
         final RemoteDocument? latest = await _remote.read(key);
         if (latest == null) {
-          return _fail(
+          return await _fail(
             intent,
             WriteConflict.notFound,
             '目标已不存在（可能已被删除）',
@@ -307,7 +307,7 @@ class RepositoryCache {
           );
         }
         if (latest.sha != baseSha) {
-          return _fail(
+          return await _fail(
             intent,
             WriteConflict.staleSha,
             '本地基线已过期：期望 ${shortSha(baseSha)}，'
