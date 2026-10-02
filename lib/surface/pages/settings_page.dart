@@ -1,14 +1,14 @@
-/// L3 展示级 · 设置（外观 / 代码与文件 / 网络 / 账户 / 维护）。
+/// L3 展示级 · 设置（**全部为可折叠分组**）。
+///
+/// ## 为什么改成折叠
+/// 设置项持续增多（外观 / 代码与文件 / 网络 / 账户 / 维护），
+/// 平铺会让用户在一屏里被几十个控件淹没、找不到目标。
+/// 折叠分组让"每一屏只展开一件关心的事"，同时保留全部能力。
 ///
 /// ## 只留"真选项"
-/// 每一个条目都必须**接到真实行为**上：
-/// - 外观 → `themeFor` / 文字缩放 / 动效；
-/// - 代码与文件 → 语法高亮 / 字号 / 换行 / 目录优先；
-/// - 网络 → DNS 策略（即时生效）；
-/// - 账户 → 退出登录；
-/// - 维护 → 重置设置 / 重新查看权限引导。
-///
-/// 没有"被存起来但不做事"的假开关——假选项比没有选项更糟。
+/// 每个条目都必须**接到真实行为**上（外观→主题/缩放/动效；代码→高亮/字号/
+/// 换行/排序；网络→DNS 即时生效；账户→退出；维护→重置/权限引导）。
+/// 没有"被存起来但不做事"的假开关。
 library;
 
 import 'package:flutter/material.dart';
@@ -176,6 +176,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     try {
       await widget.surface.domain.auth.removeAccount(account.id);
+      // 多用户安全：移除账号后清空一致性缓存，避免其它账号看到旧缓存。
+      await widget.surface.clearRepositoryCache();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已退出登录（令牌已从本机删除）')),
@@ -245,288 +247,278 @@ class _SettingsPageState extends State<SettingsPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
-              _sectionTitle(theme, '外观'),
-              Card(
-                child: Column(
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('明暗模式', style: theme.textTheme.labelLarge),
-                      ),
+              _section(
+                theme,
+                title: '外观',
+                subtitle: '明暗 / 主题色 / 密度 / 文字 / 动效',
+                expanded: true,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('明暗模式', style: theme.textTheme.labelLarge),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: SegmentedButton<OgLThemeMode>(
-                        segments: const <ButtonSegment<OgLThemeMode>>[
-                          ButtonSegment<OgLThemeMode>(
-                            value: OgLThemeMode.system,
-                            label: Text('跟随系统'),
-                          ),
-                          ButtonSegment<OgLThemeMode>(
-                            value: OgLThemeMode.light,
-                            label: Text('亮色'),
-                          ),
-                          ButtonSegment<OgLThemeMode>(
-                            value: OgLThemeMode.dark,
-                            label: Text('暗色'),
-                          ),
-                        ],
-                        selected: <OgLThemeMode>{value.mode},
-                        showSelectedIcon: false,
-                        onSelectionChanged: (Set<OgLThemeMode> selection) {
-                          if (selection.isNotEmpty) {
-                            _settings.setMode(selection.first);
-                          }
-                        },
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('主题色', style: theme.textTheme.labelLarge),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          for (final MapEntry<String, Color> entry
-                              in kOgLSeedColors.entries)
-                            ChoiceChip(
-                              avatar: CircleAvatar(
-                                backgroundColor: entry.value,
-                                radius: 10,
-                              ),
-                              label: Text(
-                                ogLSeedColorLabel(entry.key),
-                              ),
-                              selected: value.seedColorId == entry.key,
-                              onSelected: (bool on) {
-                                if (on) {
-                                  _settings.setSeedColor(entry.key);
-                                }
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('界面密度', style: theme.textTheme.labelLarge),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                      child: SegmentedButton<String>(
-                        segments: const <ButtonSegment<String>>[
-                          ButtonSegment<String>(
-                            value: 'comfortable',
-                            label: Text('舒适'),
-                          ),
-                          ButtonSegment<String>(
-                            value: 'compact',
-                            label: Text('紧凑'),
-                          ),
-                        ],
-                        selected: <String>{value.density},
-                        showSelectedIcon: false,
-                        onSelectionChanged: (Set<String> selection) {
-                          if (selection.isNotEmpty) {
-                            _settings.setDensity(selection.first);
-                          }
-                        },
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    _sliderTile(
-                      theme,
-                      title: '文字缩放',
-                      value: _fontScaleDraft ?? value.fontScale,
-                      min: OgLSettings.minFontScale,
-                      max: OgLSettings.maxFontScale,
-                      display:
-                          '${(100 * (_fontScaleDraft ?? value.fontScale)).round()}%',
-                      divisions: 16,
-                      onChanged: (double v) =>
-                          setState(() => _fontScaleDraft = v),
-                      onChangeEnd: (double v) {
-                        setState(() => _fontScaleDraft = null);
-                        _settings.setFontScale(v);
-                      },
-                    ),
-                    SwitchListTile(
-                      title: const Text('减少动效'),
-                      subtitle: const Text('关闭页面过渡等动画（无障碍）'),
-                      value: value.reduceMotion,
-                      onChanged: _settings.setReduceMotion,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _sectionTitle(theme, '代码与文件'),
-              Card(
-                child: Column(
-                  children: <Widget>[
-                    SwitchListTile(
-                      title: const Text('语法高亮'),
-                      subtitle: const Text('按文件类型着色（关键词 / 字符串 / 注释）'),
-                      value: value.codeHighlight,
-                      onChanged: _settings.setCodeHighlight,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('高亮主题', style: theme.textTheme.labelLarge),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: <Widget>[
-                          for (final MapEntry<String, String> entry
-                              in kOgLCodePresetLabels.entries)
-                            ChoiceChip(
-                              label: Text(entry.value),
-                              selected: value.codeThemePreset == entry.key,
-                              onSelected: (bool on) {
-                                if (on) {
-                                  _settings.setCodeThemePreset(entry.key);
-                                }
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (value.codeThemePreset == kOgLCodePresetCustom)
-                      ...<Widget>[
-                        const Divider(height: 1),
-                        _codeColorTile(
-                          theme,
-                          '背景',
-                          'background',
-                          value.codeColorBackground,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: SegmentedButton<OgLThemeMode>(
+                      segments: const <ButtonSegment<OgLThemeMode>>[
+                        ButtonSegment<OgLThemeMode>(
+                          value: OgLThemeMode.system,
+                          label: Text('跟随系统'),
                         ),
-                        _codeColorTile(
-                          theme,
-                          '正文',
-                          'foreground',
-                          value.codeColorForeground,
+                        ButtonSegment<OgLThemeMode>(
+                          value: OgLThemeMode.light,
+                          label: Text('亮色'),
                         ),
-                        _codeColorTile(
-                          theme,
-                          '关键词',
-                          'keyword',
-                          value.codeColorKeyword,
-                        ),
-                        _codeColorTile(
-                          theme,
-                          '类型',
-                          'typeName',
-                          value.codeColorTypeName,
-                        ),
-                        _codeColorTile(
-                          theme,
-                          '字符串',
-                          'string',
-                          value.codeColorString,
-                        ),
-                        _codeColorTile(
-                          theme,
-                          '注释',
-                          'comment',
-                          value.codeColorComment,
-                        ),
-                        _codeColorTile(
-                          theme,
-                          '数字',
-                          'number',
-                          value.codeColorNumber,
+                        ButtonSegment<OgLThemeMode>(
+                          value: OgLThemeMode.dark,
+                          label: Text('暗色'),
                         ),
                       ],
-                    SwitchListTile(
-                      title: const Text('自动换行'),
-                      subtitle: const Text('关闭则横向滚动查看长行'),
-                      value: value.codeWrap,
-                      onChanged: _settings.setCodeWrap,
-                    ),
-                    _sliderTile(
-                      theme,
-                      title: '代码字号',
-                      value: _codeFontDraft ?? value.codeFontSize,
-                      min: OgLSettings.minCodeFontSize,
-                      max: OgLSettings.maxCodeFontSize,
-                      display: '${(_codeFontDraft ?? value.codeFontSize).round()}',
-                      divisions: 12,
-                      onChanged: (double v) =>
-                          setState(() => _codeFontDraft = v),
-                      onChangeEnd: (double v) {
-                        setState(() => _codeFontDraft = null);
-                        _settings.setCodeFontSize(v);
+                      selected: <OgLThemeMode>{value.mode},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (Set<OgLThemeMode> selection) {
+                        if (selection.isNotEmpty) {
+                          _settings.setMode(selection.first);
+                        }
                       },
                     ),
-                    SwitchListTile(
-                      title: const Text('目录优先排序'),
-                      subtitle: const Text('仓库浏览时把文件夹排在文件前面'),
-                      value: value.foldersFirst,
-                      onChanged: _settings.setFoldersFirst,
+                  ),
+                  const Divider(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('主题色', style: theme.textTheme.labelLarge),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _sectionTitle(theme, '网络 / DNS'),
-              Text(
-                '当前：${widget.surface.dnsSummary}',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: <Widget>[
-                    SwitchListTile(
-                      title: const Text('自定义 DNS 解析'),
-                      subtitle: const Text('关闭则使用系统解析（推荐默认）'),
-                      value: value.dnsMode == 'custom',
-                      onChanged: (bool on) {
-                        widget.surface.setDnsMode(on ? 'custom' : 'system');
-                      },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        for (final MapEntry<String, Color> entry
+                            in kOgLSeedColors.entries)
+                          ChoiceChip(
+                            avatar: CircleAvatar(
+                              backgroundColor: entry.value,
+                              radius: 10,
+                            ),
+                            label: Text(ogLSeedColorLabel(entry.key)),
+                            selected: value.seedColorId == entry.key,
+                            onSelected: (bool on) {
+                              if (on) {
+                                _settings.setSeedColor(entry.key);
+                              }
+                            },
+                          ),
+                      ],
                     ),
-                    if (value.dnsMode == 'custom') ...<Widget>[
-                      ListTile(
-                        leading: const Icon(Icons.dns_outlined),
-                        title: const Text('DNS 服务器'),
-                        subtitle: Text(
-                          widget.surface.dnsServerChoices[value.dnsServerId] ??
-                              value.dnsServerId,
+                  ),
+                  const Divider(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('界面密度', style: theme.textTheme.labelLarge),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    child: SegmentedButton<String>(
+                      segments: const <ButtonSegment<String>>[
+                        ButtonSegment<String>(
+                          value: 'comfortable',
+                          label: Text('舒适'),
                         ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _pickDnsServer,
+                        ButtonSegment<String>(
+                          value: 'compact',
+                          label: Text('紧凑'),
+                        ),
+                      ],
+                      selected: <String>{value.density},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (Set<String> selection) {
+                        if (selection.isNotEmpty) {
+                          _settings.setDensity(selection.first);
+                        }
+                      },
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  _sliderTile(
+                    theme,
+                    title: '文字缩放',
+                    value: _fontScaleDraft ?? value.fontScale,
+                    min: OgLSettings.minFontScale,
+                    max: OgLSettings.maxFontScale,
+                    display:
+                        '${(100 * (_fontScaleDraft ?? value.fontScale)).round()}%',
+                    divisions: 16,
+                    onChanged: (double v) =>
+                        setState(() => _fontScaleDraft = v),
+                    onChangeEnd: (double v) {
+                      setState(() => _fontScaleDraft = null);
+                      _settings.setFontScale(v);
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('减少动效'),
+                    subtitle: const Text('关闭页面过渡等动画（无障碍）'),
+                    value: value.reduceMotion,
+                    onChanged: _settings.setReduceMotion,
+                  ),
+                ],
+              ),
+              _section(
+                theme,
+                title: '代码与文件',
+                subtitle: '语法高亮 / 配色 / 字号 / 换行 / 目录优先',
+                children: <Widget>[
+                  SwitchListTile(
+                    title: const Text('语法高亮'),
+                    subtitle: const Text('按文件类型着色（关键词 / 字符串 / 注释）'),
+                    value: value.codeHighlight,
+                    onChanged: _settings.setCodeHighlight,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('高亮主题', style: theme.textTheme.labelLarge),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        for (final MapEntry<String, String> entry
+                            in kOgLCodePresetLabels.entries)
+                          ChoiceChip(
+                            label: Text(entry.value),
+                            selected: value.codeThemePreset == entry.key,
+                            onSelected: (bool on) {
+                              if (on) {
+                                _settings.setCodeThemePreset(entry.key);
+                              }
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (value.codeThemePreset == kOgLCodePresetCustom)
+                    ...<Widget>[
+                      const Divider(height: 1),
+                      _codeColorTile(
+                        theme,
+                        '背景',
+                        'background',
+                        value.codeColorBackground,
                       ),
-                      SwitchListTile(
-                        title: const Text('DoH 优先（加密解析）'),
-                        subtitle: const Text('关闭则走明文 UDP，容易被中间设备干扰'),
-                        value: value.dnsPreferDoh,
-                        onChanged: widget.surface.setDnsPreferDoh,
+                      _codeColorTile(
+                        theme,
+                        '正文',
+                        'foreground',
+                        value.codeColorForeground,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        '关键词',
+                        'keyword',
+                        value.codeColorKeyword,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        '类型',
+                        'typeName',
+                        value.codeColorTypeName,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        '字符串',
+                        'string',
+                        value.codeColorString,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        '注释',
+                        'comment',
+                        value.codeColorComment,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        '数字',
+                        'number',
+                        value.codeColorNumber,
                       ),
                     ],
+                  SwitchListTile(
+                    title: const Text('自动换行'),
+                    subtitle: const Text('关闭则横向滚动查看长行'),
+                    value: value.codeWrap,
+                    onChanged: _settings.setCodeWrap,
+                  ),
+                  _sliderTile(
+                    theme,
+                    title: '代码字号',
+                    value: _codeFontDraft ?? value.codeFontSize,
+                    min: OgLSettings.minCodeFontSize,
+                    max: OgLSettings.maxCodeFontSize,
+                    display: '${(_codeFontDraft ?? value.codeFontSize).round()}',
+                    divisions: 12,
+                    onChanged: (double v) => setState(() => _codeFontDraft = v),
+                    onChangeEnd: (double v) {
+                      setState(() => _codeFontDraft = null);
+                      _settings.setCodeFontSize(v);
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('目录优先排序'),
+                    subtitle: const Text('仓库浏览时把文件夹排在文件前面'),
+                    value: value.foldersFirst,
+                    onChanged: _settings.setFoldersFirst,
+                  ),
+                ],
+              ),
+              _section(
+                theme,
+                title: '网络 / DNS',
+                subtitle: '当前：${widget.surface.dnsSummary}',
+                children: <Widget>[
+                  SwitchListTile(
+                    title: const Text('自定义 DNS 解析'),
+                    subtitle: const Text('关闭则使用系统解析（推荐默认）'),
+                    value: value.dnsMode == 'custom',
+                    onChanged: (bool on) {
+                      widget.surface.setDnsMode(on ? 'custom' : 'system');
+                    },
+                  ),
+                  if (value.dnsMode == 'custom') ...<Widget>[
+                    ListTile(
+                      leading: const Icon(Icons.dns_outlined),
+                      title: const Text('DNS 服务器'),
+                      subtitle: Text(
+                        widget.surface.dnsServerChoices[value.dnsServerId] ??
+                            value.dnsServerId,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _pickDnsServer,
+                    ),
+                    SwitchListTile(
+                      title: const Text('DoH 优先（加密解析）'),
+                      subtitle: const Text('关闭则走明文 UDP，容易被中间设备干扰'),
+                      value: value.dnsPreferDoh,
+                      onChanged: widget.surface.setDnsPreferDoh,
+                    ),
                   ],
-                ),
+                ],
               ),
               if (saveError != null) ...<Widget>[
-                const SizedBox(height: 12),
                 Card(
                   color: theme.colorScheme.errorContainer,
                   child: Padding(
@@ -539,68 +531,67 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
               ],
-              const SizedBox(height: 16),
-              _sectionTitle(theme, '账户'),
-              FutureBuilder<GhAccount?>(
-                future: widget.surface.domain.auth.activeAccount(),
-                builder: (
-                  BuildContext context,
-                  AsyncSnapshot<GhAccount?> snapshot,
-                ) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Card(
-                      child: ListTile(
-                        leading: Icon(Icons.key),
-                        title: Text('读取账户…'),
-                      ),
-                    );
-                  }
-                  final GhAccount? account = snapshot.data;
-                  if (account == null) {
-                    return const Card(
-                      child: ListTile(
-                        leading: Icon(Icons.key),
-                        title: Text('未登录'),
-                        subtitle: Text('到「我的」页接入令牌后即可浏览私有仓库'),
-                      ),
-                    );
-                  }
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.key),
-                      title: Text('@${account.login}'),
-                      subtitle: Text('账号 ID：${account.id}'),
-                      trailing: OutlinedButton(
-                        onPressed: () => _logout(account),
-                        child: const Text('退出登录'),
-                      ),
-                    ),
-                  );
-                },
+              _section(
+                theme,
+                title: '账户',
+                subtitle: '当前账号 / 退出登录',
+                children: <Widget>[
+                  FutureBuilder<GhAccount?>(
+                    future: widget.surface.domain.auth.activeAccount(),
+                    builder: (
+                      BuildContext context,
+                      AsyncSnapshot<GhAccount?> snapshot,
+                    ) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const ListTile(
+                          leading: Icon(Icons.key),
+                          title: Text('读取账户…'),
+                        );
+                      }
+                      final GhAccount? account = snapshot.data;
+                      if (account == null) {
+                        return const ListTile(
+                          leading: Icon(Icons.key),
+                          title: Text('未登录'),
+                          subtitle: Text('到「我的」页接入令牌后即可浏览私有仓库'),
+                        );
+                      }
+                      return ListTile(
+                        leading: const Icon(Icons.key),
+                        title: Text('@${account.login}'),
+                        subtitle: Text('账号 ID：${account.id}'),
+                        trailing: OutlinedButton(
+                          onPressed: () => _logout(account),
+                          child: const Text('退出登录'),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              _sectionTitle(theme, '维护'),
-              Card(
-                child: Column(
-                  children: <Widget>[
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip_outlined),
-                      title: const Text('权限与引导'),
-                      subtitle: const Text('重新查看当前平台的权限说明'),
-                      onTap: _openOnboarding,
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.settings_backup_restore),
-                      title: const Text('重置设置'),
-                      subtitle: const Text('恢复外观 / 代码 / 网络的默认值'),
-                      onTap: _reset,
-                    ),
-                  ],
-                ),
+              _section(
+                theme,
+                title: '维护',
+                subtitle: '权限引导 / 重置设置',
+                children: <Widget>[
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('权限与引导'),
+                    subtitle: const Text('重新查看当前平台的权限说明'),
+                    onTap: _openOnboarding,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.settings_backup_restore),
+                    title: const Text('重置设置'),
+                    subtitle: const Text('恢复外观 / 代码 / 网络的默认值'),
+                    onTap: _reset,
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
             ],
           );
         },
@@ -608,9 +599,30 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _sectionTitle(ThemeData theme, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: theme.textTheme.titleMedium),
+  /// 可折叠分组：标题 + 摘要（收起时也能看到关键信息）。
+  Widget _section(
+    ThemeData theme, {
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+    bool expanded = false,
+  }) =>
+      Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Theme(
+          // 去掉 ExpansionTile 展开时的上下分隔线，外观更干净。
+          data: theme.copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: expanded,
+            title: Text(title, style: theme.textTheme.titleMedium),
+            subtitle: subtitle.isEmpty
+                ? null
+                : Text(subtitle, style: theme.textTheme.bodySmall),
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            children: children,
+          ),
+        ),
       );
 
   /// 自定义配色的一行：名称 + 当前颜色 + 选择入口。

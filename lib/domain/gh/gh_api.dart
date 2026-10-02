@@ -11,6 +11,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import '../../base/disk/disk_cache.dart';
 import '../../base/disk/disk_types.dart';
 import '../../base/net/net_types.dart';
@@ -26,6 +28,81 @@ class GhApi implements CacheRemote {
   final GhClient client;
 
   static const int _contentSizeLimit = 1024 * 1024; // Contents API 的 1 MB 红线
+
+  /// 目录列表在缓存里的 SHA 标记前缀。
+  ///
+  /// 目录不是文件、没有 blob sha；用 `dir:` 前缀把"目录列表"与"文件内容"
+  /// 在同一套缓存键空间里区分开（GitHub 的文件 sha 是 40 位十六进制，
+  /// 不可能以 `dir:` 开头，因此**无歧义**）。
+  static const String _dirShaPrefix = 'dir:';
+
+  /// 目录列表缓存 TTL（变化快，给短 TTL；显式刷新可绕过）。
+  static const Duration _dirMaxAge = Duration(minutes: 1);
+
+  /// 文件内容缓存 TTL（编辑需要新鲜基线，给较短 TTL）。
+  static const Duration _contentMaxAge = Duration(seconds: 30);
+
+  // ───────────────────────── 读穿透缓存（装配期绑定）─────────────────────────
+
+  RepositoryCache? _cache;
+  Future<String> Function()? _accountIdProvider;
+  final Map<String, String> _defaultBranchMemo = <String, String>{};
+
+  /// 是否已绑定读穿透缓存。
+  bool get hasReadCache => _cache != null;
+
+  /// 绑定读穿透缓存（由 `domain_bridge` 在装配阶段调用）。
+  ///
+  /// 绑定后：目录列表 / 文件内容优先走底座 [RepositoryCache]（TTL + 完整性
+  /// 校验 + 有界淘汰），未命中再回源；写路径经 [putContentLocked] 走 D1–D7。
+  void attachReadCache(
+    RepositoryCache cache, {
+    required Future<String> Function() accountId,
+  }) {
+    _cache = cache;
+    _accountIdProvider = accountId;
+  }
+
+  int get _cacheSchemaVersion => 1;
+
+  /// 为 `(repo, branch, path)` 构造缓存键（账号维度由 provider 提供）。
+  ///
+  /// 返回 `null` 表示"不适合缓存"（未绑定 / 分支解析不出 / 键不合法）——
+  /// 此时调用方必须**落回网络**，绝不因为缓存问题阻断读取。
+  Future<CacheKey?> _cacheKeyFor(
+    String fullName,
+    String path,
+    String? branch,
+  ) async {
+    if (_cache == null) {
+      return null;
+    }
+    final String ref = (branch != null && branch.isNotEmpty)
+        ? branch
+        : await _defaultBranchOf(fullName);
+    if (ref.isEmpty) {
+      return null;
+    }
+    var account = 'guest';
+    try {
+      final String? id = await _accountIdProvider?.call();
+      if (id != null && id.isNotEmpty) {
+        account = id;
+      }
+    } catch (_) {
+      account = 'guest';
+    }
+    final CacheKey key = CacheKey(
+      scope: CacheScope(
+        schemaVersion: _cacheSchemaVersion,
+        accountId: account,
+        repo: fullName,
+        branch: ref,
+      ),
+      path: path,
+    );
+    return key.isWellFormed ? key : null;
+  }
 
   // ───────────────────────── 认证 ─────────────────────────
 
@@ -324,7 +401,49 @@ class GhApi implements CacheRemote {
   }
 
   /// 读取内容（文件或目录）。
+  ///
+  /// 绑定缓存后**优先走读穿透缓存**（短 TTL + 完整性校验）；
+  /// 缓存异常一律落回网络，绝不让缓存影响"能不能读到"。
+  /// [refresh] 为真时绕过本地缓存，直接回源并刷新。
   Future<GhContent?> content(
+    String fullName,
+    String path, {
+    String? branch,
+    bool refresh = false,
+  }) async {
+    final CacheKey? key = await _cacheKeyFor(fullName, path, branch);
+    if (key != null) {
+      try {
+        final CacheEntry? entry =
+            await _cache!.read(key, refresh: refresh, maxAge: _contentMaxAge);
+        if (entry == null) {
+          return null;
+        }
+        if (entry.sha.startsWith(_dirShaPrefix)) {
+          // 目录：`content()` 只回答"它是目录"，条目由 listDirectory 解析。
+          return GhContent(
+            path: path,
+            sha: '',
+            isDirectory: true,
+            raw: const <String, dynamic>{},
+          );
+        }
+        return GhContent(
+          path: path,
+          sha: entry.sha,
+          size: entry.content.length,
+          text: entry.content,
+          raw: const <String, dynamic>{},
+        );
+      } catch (_) {
+        // 缓存键非法 / 远端未绑定 / 完整性校验失败：落回网络。
+        return _contentNetwork(fullName, path, branch: branch);
+      }
+    }
+    return _contentNetwork(fullName, path, branch: branch);
+  }
+
+  Future<GhContent?> _contentNetwork(
     String fullName,
     String path, {
     String? branch,
@@ -357,7 +476,39 @@ class GhApi implements CacheRemote {
   }
 
   /// 列出目录条目。
+  ///
+  /// 绑定缓存后优先走读穿透缓存（目录列表 TTL 1 分钟，显式 [refresh] 绕过）。
+  /// 这是"该加缓存的地方"：目录浏览是最高频、最重复的读取。
   Future<List<GhContent>> listDirectory(
+    String fullName,
+    String path, {
+    String? branch,
+    bool refresh = false,
+  }) async {
+    final CacheKey? key = await _cacheKeyFor(fullName, path, branch);
+    if (key != null) {
+      try {
+        final CacheEntry? entry =
+            await _cache!.read(key, refresh: refresh, maxAge: _dirMaxAge);
+        if (entry != null && entry.sha.startsWith(_dirShaPrefix)) {
+          final Object? decoded = jsonDecode(entry.content);
+          if (decoded is List) {
+            return decoded
+                .whereType<Map<Object?, Object?>>()
+                .map((Map<Object?, Object?> m) =>
+                    GhContent.fromJson(Map<String, dynamic>.from(m)))
+                .toList();
+          }
+        }
+      } catch (_) {
+        // 缓存异常：落回网络。
+        return _listDirectoryNetwork(fullName, path, branch: branch);
+      }
+    }
+    return _listDirectoryNetwork(fullName, path, branch: branch);
+  }
+
+  Future<List<GhContent>> _listDirectoryNetwork(
     String fullName,
     String path, {
     String? branch,
@@ -429,6 +580,91 @@ class GhApi implements CacheRemote {
           ? Map<String, dynamic>.from(contentPart)
           : const <String, dynamic>{},
     );
+  }
+
+  /// 按基线 SHA **加锁**写入（走底座 D1–D7 一致性引擎）。
+  ///
+  /// 与 [putContent] 的区别：
+  /// - [putContent] 是**裸网络写**（供 [CacheRemote.write] 使用，不做本地锁）；
+  /// - 本方法把写交给 [RepositoryCache]：缺基线拒绝（D1）、基线过期拒绝并
+  ///   给出**三方差异**（D2/D10）、危险/强制需二次确认（D7）、写后回读校验
+  ///   （D5）、失败进入待同步队列（D8）。
+  ///
+  /// **永不抛**：失败以 [WriteOutcome.conflict] 返回，供 UI 呈现并可重试。
+  Future<GhWriteResult> putContentLocked(
+    String fullName,
+    String path, {
+    required String content,
+    required String message,
+    required String baseSha,
+    String? branch,
+    bool force = false,
+    bool confirmed = false,
+    String Function(String latestContent, String myContent)? rebase,
+  }) async {
+    final RepositoryCache? cache = _cache;
+    final CacheKey? key = await _cacheKeyFor(fullName, path, branch);
+    if (cache == null || key == null) {
+      // 未绑定缓存 / 无法构造合法键：退化为裸写。
+      // 仍带 baseSha —— **服务端 GitHub 会用它做乐观锁**，误覆盖依然被拦。
+      final GhContent written = await putContent(
+        fullName,
+        path,
+        content: content,
+        message: message,
+        baseSha: baseSha,
+        branch: branch,
+      );
+      return GhWriteResult(
+        ok: true,
+        conflict: GhWriteConflict.none,
+        sha: written.sha,
+        baseSha: baseSha,
+      );
+    }
+    final WriteOutcome outcome = await cache.write(
+      WriteIntent(
+        key: key,
+        content: content,
+        message: message,
+        baseSha: baseSha,
+        force: force,
+        rebase: rebase,
+      ),
+      confirmed: confirmed,
+    );
+    return GhWriteResult(
+      ok: outcome.ok,
+      conflict: _toGhConflict(outcome.conflict),
+      sha: outcome.sha,
+      baseSha: outcome.baseSha,
+      detail: outcome.detail,
+      remoteContent: outcome.threeWay?.remote,
+      baseContent: outcome.threeWay?.base,
+      localContent: outcome.threeWay?.local ?? content,
+    );
+  }
+
+  /// 把底座冲突分类投影成领域类型（保持分层：展示层不认识 base）。
+  static GhWriteConflict _toGhConflict(WriteConflict conflict) {
+    switch (conflict) {
+      case WriteConflict.none:
+        return GhWriteConflict.none;
+      case WriteConflict.requiresRead:
+        return GhWriteConflict.requiresRead;
+      case WriteConflict.staleSha:
+        return GhWriteConflict.staleSha;
+      case WriteConflict.needsConfirmation:
+        return GhWriteConflict.needsConfirmation;
+      case WriteConflict.notFound:
+        return GhWriteConflict.notFound;
+      case WriteConflict.forbidden:
+        return GhWriteConflict.forbidden;
+      case WriteConflict.server:
+        return GhWriteConflict.server;
+      case WriteConflict.verificationFailed:
+        return GhWriteConflict.verificationFailed;
+    }
   }
 
   /// 删除内容（**危险操作**）。
@@ -1084,11 +1320,39 @@ class GhApi implements CacheRemote {
   Future<RemoteDocument?> read(CacheKey key) async {
     final repo = key.scope.repo;
     final branch = key.scope.branch;
-    final object = await _contentsObject(repo, key.path, branch);
-    if (object == null) {
+    final String path = key.path;
+    String body;
+    try {
+      final response = await client.send(GhRequest(
+        path: '/repos/$repo/contents/$path',
+        query: <String, String>{
+          if (branch.isNotEmpty) 'ref': branch,
+        },
+        label: 'GET contents/$path',
+      ));
+      body = response.body;
+    } on GhNotFoundException {
+      return null;
+    } on GhAuthException catch (error) {
+      if (_isAbsentStatus(error.statusCode)) {
+        return null;
+      }
+      rethrow;
+    }
+
+    // 目录：Contents API 返回数组 → 用 `dir:` 标记，把整份列表 JSON 缓存起来。
+    final String probe = body.trimLeft();
+    if (probe.startsWith('[')) {
+      final String marker =
+          '$_dirShaPrefix${sha1.convert(utf8.encode(body))}';
+      return RemoteDocument(content: body, sha: marker);
+    }
+
+    final Object? decoded = jsonDecode(body);
+    if (decoded is! Map) {
       return null;
     }
-    final parsed = GhContent.fromJson(object);
+    final parsed = GhContent.fromJson(Map<String, dynamic>.from(decoded));
     var text = parsed.text;
     // Contents API 对 >1 MB 的文件会省略 content（且不报错），
     // 这里显式改走 Blobs API —— 否则会"静默拿到空内容"。
@@ -1139,31 +1403,23 @@ class GhApi implements CacheRemote {
   static bool _isAbsentStatus(int? statusCode) =>
       statusCode == 404 || statusCode == 409 || statusCode == 422;
 
-  Future<Map<String, dynamic>?> _contentsObject(
-    String fullName,
-    String path,
-    String? branch,
-  ) async {
-    try {
-      return await client.getObject(
-        '/repos/$fullName/contents/$path',
-        query: <String, String>{
-          if (branch != null && branch.isNotEmpty) 'ref': branch,
-        },
-        label: 'GET contents/$path',
-      );
-    } on GhNotFoundException {
-      return null;
-    }
-  }
-
-  /// 读取仓库的默认分支。
+  /// 读取仓库的默认分支（带**进程内记忆**）。
   ///
   /// **不猜 `main`**：拿不到就返回空串，由调用方给出明确错误——
   /// 猜错会让默认分支是 `master` 的仓库整条链路 404。
+  /// 记忆化是为了不让缓存键构造每次都多打一次 `/repos/{repo}`。
   Future<String> _defaultBranchOf(String fullName) async {
+    final String? memo = _defaultBranchMemo[fullName];
+    if (memo != null && memo.isNotEmpty) {
+      return memo;
+    }
     final object = await client.getObject('/repos/$fullName');
-    return GhJson.str(object ?? const <String, dynamic>{}, 'default_branch');
+    final String branch =
+        GhJson.str(object ?? const <String, dynamic>{}, 'default_branch');
+    if (branch.isNotEmpty) {
+      _defaultBranchMemo[fullName] = branch;
+    }
+    return branch;
   }
 
   Future<String> _headShaOf(String fullName, String branch) async {

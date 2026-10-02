@@ -187,11 +187,21 @@ class RepositoryCache {
 
   /// 读取：优先本地（未过期），缺失 / 过期 / 强制刷新时回源。
   ///
+  /// [maxAge] 覆盖默认 TTL：调用方可为"变化快的浏览数据"设更短的有效期
+  /// （例如目录列表 1 分钟），而不用改全局默认。
+  ///
   /// **永不同步抛出**：失败以 Future 异常形式返回（非法键则抛
   /// [CacheScopeException] / [CacheKeyException]），调用方可统一 try/catch。
-  Future<CacheEntry?> read(CacheKey key, {bool refresh = false}) async {
+  Future<CacheEntry?> read(
+    CacheKey key, {
+    bool refresh = false,
+    Duration? maxAge,
+  }) async {
     _ensureKey(key);
-    return _mutex.run(key.encode(), () => _readLocked(key, refresh: refresh));
+    return _mutex.run(
+      key.encode(),
+      () => _readLocked(key, refresh: refresh, maxAge: maxAge),
+    );
   }
 
   /// 写入：完整走 D1–D7。
@@ -391,11 +401,15 @@ class RepositoryCache {
 
   final _KeyedMutex _mutex = _KeyedMutex();
 
-  Future<CacheEntry?> _readLocked(CacheKey key, {required bool refresh}) async {
+  Future<CacheEntry?> _readLocked(
+    CacheKey key, {
+    required bool refresh,
+    Duration? maxAge,
+  }) async {
     if (!refresh) {
       final cached = await _loadLocal(key);
       if (cached != null) {
-        if (_isExpired(cached)) {
+        if (_isExpired(cached, maxAge)) {
           // 过期即清理，随后回源——宁可多一次请求，也不给上层陈旧数据。
           await _evictEncoded(key.encode());
         } else {
@@ -686,11 +700,12 @@ class RepositoryCache {
         contentHash: _hashOf(document.content),
       );
 
-  bool _isExpired(CacheEntry entry) {
-    if (defaultMaxAge <= Duration.zero) {
+  bool _isExpired(CacheEntry entry, [Duration? maxAge]) {
+    final limit = maxAge ?? defaultMaxAge;
+    if (limit <= Duration.zero) {
       return false;
     }
-    return DateTime.now().difference(entry.fetchedAt) > defaultMaxAge;
+    return DateTime.now().difference(entry.fetchedAt) > limit;
   }
 
   void _ensureKey(CacheKey key) {

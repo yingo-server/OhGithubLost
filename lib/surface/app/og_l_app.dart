@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../kernel/kernel.dart';
 import '../settings.dart';
@@ -49,6 +50,14 @@ class OgLApp extends StatelessWidget {
             title: 'OhGithubLost',
             debugShowCheckedModeBanner: false,
             navigatorKey: navigatorKey,
+            // 中文化系统组件文案（长按菜单：复制 / 粘贴 / 全选…）。
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const <Locale>[Locale('zh', 'CN'), Locale('en')],
+            localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
             scrollBehavior: const OgLScrollBehavior(),
             theme: surface.themeFor(MediaQuery.platformBrightnessOf(context)),
@@ -100,6 +109,13 @@ class OgLBootFailureApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
         scrollBehavior: const OgLScrollBehavior(),
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: const <Locale>[Locale('zh', 'CN'), Locale('en')],
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(

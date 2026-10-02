@@ -14,6 +14,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../domain/gh/gh_client.dart';
 import '../../domain/gh/gh_models.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
@@ -252,6 +253,9 @@ class _CodeTabState extends State<_CodeTab> {
   bool _saving = false;
   final TextEditingController _editor = TextEditingController();
 
+  /// 下一次目录加载是否**强制绕过缓存**（下拉刷新 / 写操作后使用）。
+  bool _forceEntries = false;
+
   String? _readme;
   String? _readmeError;
   bool _readmeTried = false;
@@ -285,11 +289,18 @@ class _CodeTabState extends State<_CodeTab> {
     final controller = AsyncController<List<GhContent>>(
       label: '目录',
       isEmpty: (List<GhContent> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.listDirectory(
-        widget.fullName,
-        _path,
-        branch: widget.defaultBranch,
-      ),
+      loader: () {
+        // 每次加载消费一次"强制刷新"标记：下拉刷新 / 写后刷新走网络，
+        // 普通浏览（前后导航）则允许命中缓存，避免频繁打网络。
+        final bool force = _forceEntries;
+        _forceEntries = false;
+        return widget.surface.domain.api.listDirectory(
+          widget.fullName,
+          _path,
+          branch: widget.defaultBranch,
+          refresh: force,
+        );
+      },
     );
     _entries = controller;
     return controller;
@@ -332,6 +343,7 @@ class _CodeTabState extends State<_CodeTab> {
         widget.fullName,
         path,
         branch: widget.defaultBranch,
+        refresh: true,
       );
       if (!mounted) {
         return;
@@ -377,6 +389,14 @@ class _CodeTabState extends State<_CodeTab> {
     _goTo(cut <= 0 ? '' : _path.substring(0, cut));
   }
 
+  /// 重新拉取当前目录；默认**强制绕过缓存**（写操作后 / 用户刷新时）。
+  Future<void> _reloadEntries({bool force = true}) async {
+    if (force) {
+      _forceEntries = true;
+    }
+    await _entriesC().load();
+  }
+
   Future<void> _openFile(GhContent entry) async {
     if (_fileBusy) {
       return;
@@ -387,6 +407,7 @@ class _CodeTabState extends State<_CodeTab> {
         widget.fullName,
         entry.path,
         branch: widget.defaultBranch,
+        refresh: true,
       );
       if (!mounted) {
         return;
@@ -415,6 +436,7 @@ class _CodeTabState extends State<_CodeTab> {
         widget.fullName,
         path,
         branch: widget.defaultBranch,
+        refresh: true,
       );
       if (!mounted || fresh == null) {
         return;
@@ -435,7 +457,8 @@ class _CodeTabState extends State<_CodeTab> {
     }
     setState(() => _saving = true);
     try {
-      await widget.surface.domain.api.putContent(
+      // 加锁提交：走底座 D1–D7（缺基线拒绝 / 基线过期拒绝 / 写后回读校验）。
+      GhWriteResult result = await widget.surface.domain.api.putContentLocked(
         widget.fullName,
         file.path,
         content: _editor.text,
@@ -443,6 +466,38 @@ class _CodeTabState extends State<_CodeTab> {
         baseSha: file.sha,
         branch: widget.defaultBranch,
       );
+
+      // 基线过期：**绝不静默覆盖**——把三方差异交给用户决定。
+      if (!result.ok && result.canForceOverwrite) {
+        final bool? overwrite = await _showConflictDialog(result);
+        if (overwrite != true) {
+          _toast('已取消：远端已被更新，未覆盖');
+          return;
+        }
+        result = await widget.surface.domain.api.putContentLocked(
+          widget.fullName,
+          file.path,
+          content: _editor.text,
+          message: 'docs: update ${file.path}',
+          baseSha: file.sha,
+          branch: widget.defaultBranch,
+          force: true,
+          confirmed: true,
+        );
+      }
+
+      if (!result.ok) {
+        OgLAppLog.instance.add(
+          '编辑',
+          '提交失败（${result.conflict.name}）：${result.detail ?? ''}',
+          severity: OgLNoticeSeverity.critical,
+        );
+        if (mounted) {
+          _toast('提交失败：${result.detail ?? result.conflict.name}');
+        }
+        return;
+      }
+
       OgLAppLog.instance.result('编辑', '已提交', file.path);
       if (!mounted) {
         return;
@@ -450,7 +505,7 @@ class _CodeTabState extends State<_CodeTab> {
       setState(() => _editing = false);
       _toast('已提交修改：${file.path}');
       await _refreshFile(file.path);
-      await _entriesC().load();
+      await _reloadEntries();
     } catch (error) {
       OgLAppLog.instance.add(
         '编辑',
@@ -467,6 +522,70 @@ class _CodeTabState extends State<_CodeTab> {
       }
     }
   }
+
+  /// 冲突对话框：展示"基线 / 远端 / 我的"指纹并可查看三方差异。
+  ///
+  /// 返回值：`true` = 用户选择强制覆盖；`false`/`null` = 放弃（保留现状）。
+  Future<bool?> _showConflictDialog(GhWriteResult result) {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('远端已更新，可能覆盖他人改动'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text('你的基线：${ghShortSha(result.baseSha ?? '')}'),
+              Text('远端最新：${ghShortSha(result.sha ?? '')}'),
+              const SizedBox(height: 8),
+              const Text('直接覆盖会丢弃远端这一次改动。建议先查看差异。'),
+              if (result.remoteContent != null) ...<Widget>[
+                const SizedBox(height: 12),
+                const Text('远端最新内容：'),
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(dialogContext)
+                        .colorScheme
+                        .surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      _preview(result.remoteContent!),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消（保留远端）'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('强制覆盖'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _preview(String text) =>
+      text.length <= 4000 ? text : '${text.substring(0, 4000)}\n…（已截断预览）';
 
   Future<void> _delete() async {
     final GhContent? file = _file;
@@ -513,7 +632,7 @@ class _CodeTabState extends State<_CodeTab> {
         _editing = false;
       });
       _toast('已删除：${file.path}');
-      await _entriesC().load();
+      await _reloadEntries();
     } catch (error) {
       OgLAppLog.instance.add(
         '编辑',
@@ -668,7 +787,7 @@ class _CodeTabState extends State<_CodeTab> {
         });
       }
       _toast('已删除：${entry.path}');
-      await _entriesC().load();
+      await _reloadEntries();
     } catch (error) {
       OgLAppLog.instance.add(
         '编辑',
@@ -987,7 +1106,7 @@ class _CodeTabState extends State<_CodeTab> {
                 .compareTo(ghPathName(b.path).toLowerCase());
           });
         return RefreshIndicator(
-          onRefresh: () => _entriesC().load(),
+          onRefresh: _reloadEntries,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: <Widget>[

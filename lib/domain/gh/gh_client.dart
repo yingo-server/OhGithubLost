@@ -138,6 +138,89 @@ class GhNotFoundException implements Exception {
   String toString() => 'GhNotFoundException($path)';
 }
 
+/// 写冲突分类（**领域层投影**）。
+///
+/// 底座 `WriteConflict` 属于 L1，展示层不得直接依赖；
+/// 这里做一层同构投影，让 UI 只认识领域类型。
+enum GhWriteConflict {
+  /// 无冲突。
+  none,
+
+  /// 缺少基线，需先读。
+  requiresRead,
+
+  /// 基线过期（远端已被别人改动）——**最常见的误覆盖风险**。
+  staleSha,
+
+  /// 危险 / 强制操作需二次确认。
+  needsConfirmation,
+
+  /// 目标不存在。
+  notFound,
+
+  /// 权限不足。
+  forbidden,
+
+  /// 服务端错误。
+  server,
+
+  /// 写后回读校验失败。
+  verificationFailed,
+}
+
+/// 一次加锁写入的结果（供展示层消费；**永不抛**）。
+class GhWriteResult {
+  /// 创建结果。
+  const GhWriteResult({
+    required this.ok,
+    required this.conflict,
+    this.sha,
+    this.baseSha,
+    this.detail,
+    this.remoteContent,
+    this.baseContent,
+    this.localContent,
+  });
+
+  /// 是否成功。
+  final bool ok;
+
+  /// 冲突分类。
+  final GhWriteConflict conflict;
+
+  /// 成功后的新版本指纹（冲突时为远端最新指纹）。
+  final String? sha;
+
+  /// 本次写入所基于的基线指纹。
+  final String? baseSha;
+
+  /// 失败说明（D6：必须可感知）。
+  final String? detail;
+
+  /// 冲突时的远端内容（可能为 `null` = 未取到）。
+  final String? remoteContent;
+
+  /// 冲突时的基线内容（本地缓存仍持有才给）。
+  final String? baseContent;
+
+  /// 冲突时用户要写入的本地内容。
+  final String? localContent;
+
+  /// 是否允许"查看差异"（三方内容任一可用）。
+  bool get canViewDiff =>
+      conflict == GhWriteConflict.staleSha ||
+      remoteContent != null ||
+      baseContent != null;
+
+  /// 是否允许"强制覆盖"（仅基线过期时提供）。
+  bool get canForceOverwrite => conflict == GhWriteConflict.staleSha;
+
+  @override
+  String toString() =>
+      'GhWriteResult(ok=$ok, conflict=${conflict.name}'
+      '${detail == null ? '' : ', detail=$detail'})';
+}
+
 /// 一次请求。
 class GhRequest {
   /// 创建请求。

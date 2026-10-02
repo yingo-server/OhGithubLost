@@ -126,6 +126,15 @@ class GhModule extends OgLModule {
     // 绑定之后，D1–D10 的每一次读写都会落到 GitHub 上。
     base.disk.cache.bindRemote(api);
 
+    // ★ 反向接线（此前缺失，导致 D1–D7 空转）：
+    // 让 API 的**读取路径**走底座缓存（目录列表 / 文件内容），
+    // 写入路径经 `putContentLocked` 走缓存的 D1–D7。
+    // 账号维度用于多用户隔离（未登录用 `guest`）。
+    api.attachReadCache(
+      base.disk.cache,
+      accountId: () async => (await auth.activeAccountId()) ?? 'guest',
+    );
+
     context.di.register<GhAuthService>(auth);
     context.di.register<GhClient>(client);
     context.di.register<GhApi>(api);
