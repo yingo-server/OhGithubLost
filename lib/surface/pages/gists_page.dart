@@ -20,7 +20,6 @@ import '../app/async_view.dart';
 import '../kit/kit.dart';
 import '../readme/link_opener.dart';
 import '../surface_bridge.dart';
-import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
 

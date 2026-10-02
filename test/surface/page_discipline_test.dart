@@ -21,7 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 单页规格。
 class _Spec {
-  const _Spec(this.why, {this.converted = false, this.materialAllow = false});
+  const _Spec(this.why, {this.converted = false});
 
   /// 在施工图里的定位（人类可读，便于报错时定位）。
   final String why;
@@ -29,8 +29,6 @@ class _Spec {
   /// 是否已完成"页面级商业重写"（必须走骨架 + 唯一映射点）。
   final bool converted;
 
-  /// 是否暂时允许 Material 行控件（必须在施工图里被点名，且只减不增）。
-  final bool materialAllow;
 }
 
 /// 页面清单：**新页面必须先在施工图里立项**，否则测试红。
@@ -128,9 +126,6 @@ void main() {
         expect(code.contains(bad), isFalse,
             reason: '$name（${spec?.why ?? ''}）用了 $bad：'
                 '颜色/图标只许走 ogL.palette 与 OgLIcon。');
-      }
-      if (spec?.materialAllow ?? false) {
-        continue;
       }
       for (final String bad in <String>[
         'SwitchListTile',

@@ -266,7 +266,6 @@ class _FileDiffBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final OgLTheme ogL = OgLTheme.of(context);
     final OgLTokens tokens = ogL.tokens;
-    final OgLTypeScale scale = const OgLTypeScale.standard();
     final String name = GhJson.str(file, 'filename');
     final int adds = GhJson.integer(file, 'additions');
     final int dels = GhJson.integer(file, 'deletions');

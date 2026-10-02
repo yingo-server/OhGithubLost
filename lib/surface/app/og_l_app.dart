@@ -191,7 +191,7 @@ class _AboutPage extends StatelessWidget {
               .map((KernelLogEntry entry) => entry.toString())
               .toList();
           final List<String> appLines =
-              appLog.map((OgLNotice notice) => notice.toDisplay()).toList();
+              appLog.map((OgLAppLogEntry e) => e.toDisplay()).toList();
           final List<String> allLines = <String>[...kernelLines, ...appLines];
           final int shown =
               allLines.length > _logTailShown ? _logTailShown : allLines.length;
