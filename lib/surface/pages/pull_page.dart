@@ -21,11 +21,11 @@ import '../app/async_view.dart';
 import '../kit/kit.dart';
 import '../readme/link_opener.dart';
 import '../readme/readme_view.dart';
-import '../util/gh_view_format.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import '../util/gh_view_format.dart';
 
 /// PR 详情页。
 class OgLPullPage extends StatefulWidget {

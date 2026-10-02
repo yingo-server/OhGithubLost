@@ -18,11 +18,11 @@ import 'package:flutter/material.dart';
 import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../kit/kit.dart';
-import '../util/gh_view_format.dart';
 import '../readme/link_opener.dart';
 import '../surface_bridge.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import '../util/gh_view_format.dart';
 
 /// Gist 列表页。
 class OgLGistsPage extends StatefulWidget {

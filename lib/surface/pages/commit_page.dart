@@ -21,10 +21,10 @@ import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../kit/kit.dart';
 import '../surface_bridge.dart';
-import '../util/gh_view_format.dart';
 import '../theme/design_tokens.dart';
 import '../theme/icon_pack.dart';
 import '../theme/theme_pack.dart';
+import '../util/gh_view_format.dart';
 
 /// 补丁最多渲染的行数（超出的行会被折叠并提示）。
 const int _kMaxPatchLines = 400;
