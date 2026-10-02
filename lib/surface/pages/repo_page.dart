@@ -1910,7 +1910,7 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
   }
 
   /// 三档状态筛选器（议题 / PR 共用）。
-  OgLSegmented<String> _stateFilter({
+  Widget _stateFilter({
     required bool issues,
     required OgLTokens tokens,
   }) =>

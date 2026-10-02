@@ -152,7 +152,7 @@ void main() async {
       '模块 ${report.moduleStates.length} 项 / 告警 ${report.trustWarnings.length} 条 / '
           '阶段 ${report.stages.length} 个 / 安全模式=${report.safeMode}',
     );
-    for (final String warning in report.trustWarnings) {
+    for (final Object warning in report.trustWarnings) {
       OgLAppLog.instance.add(
         '启动',
         '信任告警：$warning',
