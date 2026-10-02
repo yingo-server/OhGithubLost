@@ -194,6 +194,19 @@ L3 表面    W0 规范 → W1 仓库复查 → W2 页面结构 → W3 图标 →
       `GhRepo` 跳进仓库页（仓库页会自行补齐缺字段）
 - [x] 护栏：搜索页登记为 `converted: true`（骨架 / 无自写滚动 / 无手写状态判定）
 
+### W8-P6 · 我的（账户）+ 议题详情 ✅ 本批
+
+- [x] **我的** `profile_page.dart` 重写：`OgLPageScaffold` + 四个小节（账户 / 当前会话 / 内容 / 危险区）；
+      账户行 = 自绘钥匙图标（当前用 accent）+「当前」标签 + 切换/移除按钮；空态 = Blankslate + 「接入令牌」动作；
+      新增账户走 `ColoredBox + SafeArea`（不再套 Material `Scaffold`）；退出登录二次确认且文案说明"只删本机令牌"
+- [x] **议题详情** `issue_page.dart` 重写：页头（返回键 + `#N 标题` + by/日期）+ 状态行（`OgLStateLabel`）
+      + 「描述」「评论」两节；**正文与评论改用 `OgLReadmeView` 渲染 Markdown**（旧实现是等宽裸文本）；
+      关闭/**重新打开**同一入口（据当前状态切换）+ 二次确认；空评论 = 空态
+- [x] **Kit 补能力**：`OgLIconButton`（自绘图标按钮，≥44，支持 danger）公开给所有详情页做返回键/工具；
+      **图标包 +2**：`arrowLeft`（返回）、`chat`（评论）—— 47 个语义，矢量表与枚举数量保持一致
+- [x] **外链唯一入口** `lib/surface/readme/link_opener.dart`（`ogLOpenExternal`）：仓库页与议题页共用，
+      失败返回 `false` 由页面把 URL 摊开（杜绝"点了没反应"）
+
 ## 3. 推送策略（硬性）
 
 1. 每波收口**一次** push（代码 + 检查 + 文档 同批）；

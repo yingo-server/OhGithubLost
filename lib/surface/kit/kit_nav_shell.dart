@@ -440,7 +440,7 @@ class OgLShellHeader extends StatelessWidget {
       child: Row(
         children: <Widget>[
           if (onMenu != null)
-            _IconAction(
+            OgLIconButton(
               icon: OgLIconName.list,
               label: '打开导航',
               onTap: onMenu!,
@@ -465,16 +465,22 @@ class OgLShellHeader extends StatelessWidget {
   }
 }
 
-class _IconAction extends StatelessWidget {
-  const _IconAction({
+/// 图标按钮（自绘，触摸目标 ≥44）—— 返回键 / 菜单键 / 页内工具用。
+class OgLIconButton extends StatelessWidget {
+  const OgLIconButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.danger = false,
+    super.key,
   });
 
   final OgLIconName icon;
   final String label;
   final VoidCallback onTap;
+
+  /// 危险语义（删除 / 关闭等）。
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
@@ -497,7 +503,7 @@ class _IconAction extends StatelessWidget {
               child: OgLIcon(
                 name: icon,
                 size: tokens.iconSize(base: 20),
-                color: ogL.palette.textDim,
+                color: danger ? ogL.palette.danger : ogL.palette.textDim,
               ),
             ),
           ),

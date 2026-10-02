@@ -5,13 +5,13 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/gh/gh_models.dart';
 import '../app/async_state.dart';
 import '../app/async_view.dart';
 import '../app/error_surface.dart';
 import '../kit/kit.dart';
+import '../readme/link_opener.dart';
 import '../readme/readme_view.dart';
 import '../surface_bridge.dart';
 import '../theme/design_tokens.dart';
@@ -705,18 +705,10 @@ class _OgLRepoPageState extends State<OgLRepoPage> {
     );
   }
 
-  /// 打开 README 里的链接：优先交给系统；失败则把 URL 摊开让用户自己复制
-  /// （**不许"点了没反应"**）。
+  /// 打开 README 里的链接（统一走 `ogLOpenExternal`）；失败**不许静默**。
   Future<void> _openLink(Uri url) async {
-    OgLAppLog.instance.add('仓库', '打开链接：$url');
-    try {
-      final bool ok = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        _showLink(url);
-      }
-    } catch (error) {
-      OgLAppLog.instance
-          .add('仓库', '打开链接失败：$error', severity: OgLNoticeSeverity.warning);
+    final bool ok = await ogLOpenExternal(url, tag: '仓库');
+    if (!ok) {
       _showLink(url);
     }
   }

@@ -145,6 +145,12 @@ enum OgLIconName {
   /// 关闭。
   close,
 
+  /// 左箭头（返回）。
+  arrowLeft,
+
+  /// 评论 / 讨论。
+  chat,
+
   /// 右箭头（进入）。
   chevronRight,
 

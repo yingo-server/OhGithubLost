@@ -59,6 +59,8 @@ abstract final class OgLVectorIconData {
     OgLIconName.edit: 'M4 20 L5 15 L16 4 L20 8 L9 19 Z M14 6 L18 10',
     OgLIconName.add: 'M12 4 V20 M4 12 H20',
     OgLIconName.close: 'M5 5 L19 19 M19 5 L5 19',
+    OgLIconName.arrowLeft: 'M3 12 H21 M10 5 L3 12 L10 19',
+    OgLIconName.chat: 'M3 4 H21 V17 H13 L8 21 V17 H3 Z M6 8 H18 M6 12 H15',
     OgLIconName.chevronRight: 'M9 5 L16 12 L9 19',
     OgLIconName.chevronDown: 'M5 9 L12 16 L19 9',
     OgLIconName.external: 'M14 4 H20 V10 M20 4 L11 13 M18 14 V20 H4 V6 H10',

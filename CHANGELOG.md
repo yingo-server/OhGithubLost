@@ -69,6 +69,10 @@
 - **搜索页重写 + 输入框补能力**（W8-P5）：`OgLPageScaffold` + 回车即搜 + 分段（仓库/代码）+
   结果计数；未搜索给"常用限定符"可点引导；**代码结果可点进所属仓库**（旧实现点了没反应）；
   `OgLTextField` 新增 `onSubmitted` / `textInputAction` / `autofocus`。
+- **我的 + 议题详情**（W8-P6）：账户页四小节（账户/当前会话/内容/危险区）+ 空态引导；
+  议题页正文与评论改用 Markdown 渲染（复用 README 渲染器）、关闭/**重新打开**同入口 + 二次确认；
+  Kit 新增 `OgLIconButton`；**图标包 +2（`arrowLeft` / `chat`，共 47 个语义）**；
+  外链收敛到唯一入口 `ogLOpenExternal()`（失败由页面摊开 URL）。
 
 ### 修复（W7 · "空结果 = 加载中"根治 + 领域层硬化）
 
