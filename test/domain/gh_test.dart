@@ -29,7 +29,9 @@ void main() {
       expect(repo.stars, 42);
       expect(repo.isPrivate, isTrue);
       expect(repo.updatedAt, isNull);
-      expect(repo.defaultBranch, 'main', reason: '缺失时给安全默认值');
+      expect(repo.defaultBranch, isEmpty,
+          reason: '不猜默认分支：猜 main 会让默认分支是 master 的仓库整页 404，'
+              '留空后由 GET /repos/{full} 兜底补齐');
       expect(repo.raw['future_field'], '服务端新加的', reason: '未知字段必须保留');
     });
 

@@ -11,6 +11,7 @@
 | [NAMING.md](NAMING.md) | 层级、模块、类前缀、告警码怎么取名？ | 强制 |
 | [SURFACE.md](SURFACE.md) | 界面法则：布局断点 / DPI / 主题 / 图标 / 权限 / 设置护栏 | 强制 |
 | [UI_SYSTEM_V3.md](UI_SYSTEM_V3.md) | 双主题（Primer 官方 / OGL 自研）与 OGL Kit 组件规范 | 设计真源 |
+| [UI_PAGES_PLAN.md](UI_PAGES_PLAN.md) | **逐个页面重写的施工图**（结构 / 层级 / 行规格 / 状态 / 检查） | **先规划后写** |
 | [RELEASE.md](RELEASE.md) | 怎么发版？通道/标签/证书/产物/排查？ | 发布手册 |
 | [PHASE2_PLAN.md](PHASE2_PLAN.md) | 第二阶段修复与重构：清单/分层/层检/推送策略 | **执行契约** |
 | [FEATURES.md](FEATURES.md) | **现在到底有哪些能力？哪些还没做？** | 功能真源 |
