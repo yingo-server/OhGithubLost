@@ -357,22 +357,34 @@ class _OgLLoginPageState extends State<OgLLoginPage> {
             title: '怎么拿令牌',
             child: OgLBox(
               padded: false,
-              child: const Column(
+              child: Column(
                 children: <Widget>[
                   OgLActionRow(
-                    leading: OgLIcon(name: OgLIconName.info, size: 18),
+                    leading: OgLIcon(
+                      name: OgLIconName.info,
+                      size: 18,
+                      color: ogL.palette.textDim,
+                    ),
                     title: '网页端 → Settings',
                     subtitle: '右上角头像 → Settings',
                     dense: true,
                   ),
                   OgLActionRow(
-                    leading: OgLIcon(name: OgLIconName.info, size: 18),
+                    leading: OgLIcon(
+                      name: OgLIconName.info,
+                      size: 18,
+                      color: ogL.palette.textDim,
+                    ),
                     title: 'Developer settings',
                     subtitle: 'Settings 最下方 → Developer settings',
                     dense: true,
                   ),
                   OgLActionRow(
-                    leading: OgLIcon(name: OgLIconName.info, size: 18),
+                    leading: OgLIcon(
+                      name: OgLIconName.info,
+                      size: 18,
+                      color: ogL.palette.textDim,
+                    ),
                     title: 'Personal access tokens',
                     subtitle: '新建令牌；权限建议先只勾 repo（只读起步）',
                     dense: true,

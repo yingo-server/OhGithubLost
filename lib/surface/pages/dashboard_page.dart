@@ -236,19 +236,27 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
       );
     }
     final GhAccount? account = _account;
+    // 显示名与登录名相同（常见）时不重复展示——避免"某某 · @某某"的蠢观感。
+    final String accountLine = account == null
+        ? '未登录 · 只读公开内容'
+        : (account.name == null ||
+                account.name!.isEmpty ||
+                account.name == account.login)
+            ? '@${account.login}'
+            : '${account.name} · @${account.login}';
     final bool mine = _tab == _DashTab.mine;
     final OgLAsyncController<List<GhRepo>> controller =
         mine ? _reposC() : _starredC();
 
     return OgLPageScaffold(
       title: '首页',
-      description: account == null
-          ? '未登录 · 只读公开内容'
-          : '${account.name ?? account.login} · @${account.login}',
+      description: accountLine,
       onRefresh: account == null ? null : _refreshAll,
       actions: <Widget>[
         OgLButton(
           label: '新建仓库',
+          // 主操作用 primary（GitHub 的 New 按钮语义）：与"刷新"拉开主次。
+          variant: OgLButtonVariant.primary,
           leadingIcon: OgLIconName.add,
           onPressed: account == null ? null : _createRepo,
         ),
@@ -256,6 +264,9 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
           label: '刷新',
           variant: OgLButtonVariant.invisible,
           leadingIcon: OgLIconName.sync,
+          // 刷新时给可见反馈（并防重复点击）：点的瞬间就能看到"在转"。
+          loading:
+              account != null && (_reposC().isBusy || _starredC().isBusy),
           onPressed: account == null ? null : _refreshAll,
         ),
       ],
@@ -281,15 +292,23 @@ class _OgLDashboardPageState extends State<OgLDashboardPage> {
               description: '不需要账号也能用的部分',
               child: OgLBox(
                 padded: false,
-                child: const Column(
+                child: Column(
                   children: <Widget>[
                     OgLActionRow(
-                      leading: OgLIcon(name: OgLIconName.search, size: 20),
+                      leading: OgLIcon(
+                        name: OgLIconName.search,
+                        size: 20,
+                        color: ogL.palette.textDim,
+                      ),
                       title: '搜索公开仓库与代码',
                       subtitle: '到「搜索」页输入关键字即可，无需登录',
                     ),
                     OgLActionRow(
-                      leading: OgLIcon(name: OgLIconName.shield, size: 20),
+                      leading: OgLIcon(
+                        name: OgLIconName.shield,
+                        size: 20,
+                        color: ogL.palette.textDim,
+                      ),
                       title: '只读浏览',
                       subtitle: '未登录时不会发起任何写入操作',
                       showDivider: false,

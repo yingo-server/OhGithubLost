@@ -179,8 +179,18 @@ class _OgLClientShellState extends State<OgLClientShell> {
     final ogL = OgLTheme.of(context);
     final layout = ogL.layout;
     if (!_checked) {
-      return const Scaffold(
-        body: Center(child: OgLSpinner(label: '启动中…')),
+      // 首屏"启动中"也是产品的一部分：给品牌与说明，而不是一块灰板 + 细圈。
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const OgLBrandMark(),
+              SizedBox(height: ogL.tokens.space(OgLSpacing.lg)),
+              const OgLSpinner(label: '启动中…'),
+            ],
+          ),
+        ),
       );
     }
     if (_accountId == null && !_guest) {
@@ -224,7 +234,14 @@ class _OgLClientShellState extends State<OgLClientShell> {
               extended: layout.showNavLabels,
               onChanged: _select,
             ),
-            Expanded(child: body),
+            // 无 AppBar 的形态：页面必须自己避让状态栏（否则页头顶到屏幕边缘）。
+            Expanded(
+              child: SafeArea(
+                top: true,
+                bottom: false,
+                child: body,
+              ),
+            ),
           ],
         ),
       );
@@ -233,7 +250,12 @@ class _OgLClientShellState extends State<OgLClientShell> {
     // ── 手机：底栏（页面自带页头，故壳不再叠一条 AppBar）──
     if (layout.navigation == OgLNavKind.bottomBar) {
       return Scaffold(
-        body: body,
+        // 无 AppBar：body 自己避让状态栏（顶部安全区），底部交给底栏的 SafeArea。
+        body: SafeArea(
+          top: true,
+          bottom: false,
+          child: body,
+        ),
         bottomNavigationBar: OgLBottomNav<OgLShellTab>(
           destinations: _nav,
           value: _tab,
@@ -258,15 +280,19 @@ class _OgLClientShellState extends State<OgLClientShell> {
           },
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          OgLShellHeader(
-            title: _labelOf(_tab),
-            onMenu: () => _scaffold.currentState?.openDrawer(),
-          ),
-          Expanded(child: body),
-        ],
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            OgLShellHeader(
+              title: _labelOf(_tab),
+              onMenu: () => _scaffold.currentState?.openDrawer(),
+            ),
+            Expanded(child: body),
+          ],
+        ),
       ),
     );
   }

@@ -67,10 +67,36 @@ class OgLPageScaffold extends StatelessWidget {
     final double pad = tokens.space(gutter);
     final Widget? lead = leading;
 
-    final Widget header = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final Widget titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: tokens.fontSize(scale.headline),
+            fontWeight: FontWeight.w600,
+            color: ogL.palette.text,
+          ),
+        ),
+        if (desc != null && desc.isNotEmpty) ...<Widget>[
+          SizedBox(height: tokens.space(OgLSpacing.xxs)),
+          Text(
+            desc,
+            style: TextStyle(
+              fontSize: tokens.fontSize(scale.body),
+              color: ogL.palette.textDim,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final Widget header = LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        // 窄屏（手机）时操作**换行到标题下方**：否则两个按钮会把标题/说明
+        // 挤成窄窄一条（渲染上就是"页头破碎、描述折成两行"）。
+        final bool narrow = constraints.maxWidth < 460;
+        final Widget titleRow = Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             if (lead != null) ...<Widget>[
@@ -80,49 +106,46 @@ class OgLPageScaffold extends StatelessWidget {
               ),
               SizedBox(width: tokens.space(OgLSpacing.xs)),
             ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: tokens.fontSize(scale.headline),
-                      fontWeight: FontWeight.w600,
-                      color: ogL.palette.text,
-                    ),
-                  ),
-                  if (desc != null && desc.isNotEmpty) ...<Widget>[
-                    SizedBox(height: tokens.space(OgLSpacing.xxs)),
-                    Text(
-                      desc,
-                      style: TextStyle(
-                        fontSize: tokens.fontSize(scale.body),
-                        color: ogL.palette.textDim,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (actions.isNotEmpty) ...<Widget>[
-              SizedBox(width: tokens.space(OgLSpacing.sm)),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  // 用索引判断"是否最后一项"：`action != actions.last`
-                  // 对两个相同的 const 实例会误判（相等 → 丢间距）。
-                  for (int i = 0; i < actions.length; i++) ...<Widget>[
-                    actions[i],
-                    if (i != actions.length - 1)
-                      SizedBox(width: tokens.space(OgLSpacing.xs)),
-                  ],
-                ],
+            Expanded(child: titleBlock),
+          ],
+        );
+        if (actions.isEmpty) {
+          return titleRow;
+        }
+        if (narrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              titleRow,
+              SizedBox(height: tokens.space(OgLSpacing.sm)),
+              Wrap(
+                spacing: tokens.space(OgLSpacing.sm),
+                runSpacing: tokens.space(OgLSpacing.sm),
+                children: actions,
               ),
             ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(child: titleRow),
+            SizedBox(width: tokens.space(OgLSpacing.sm)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                // 用索引判断"是否最后一项"：`action != actions.last`
+                // 对两个相同的 const 实例会误判（相等 → 丢间距）。
+                for (int i = 0; i < actions.length; i++) ...<Widget>[
+                  actions[i],
+                  if (i != actions.length - 1)
+                    SizedBox(width: tokens.space(OgLSpacing.xs)),
+                ],
+              ],
+            ),
           ],
-        ),
-      ],
+        );
+      },
     );
 
     final Widget body = Column(

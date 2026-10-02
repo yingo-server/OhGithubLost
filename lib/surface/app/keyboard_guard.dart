@@ -70,10 +70,16 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
           WidgetsBinding.instance.platformDispatcher.views.first;
       final double dpr = view.devicePixelRatio;
       final Size logical = view.physicalSize / dpr;
+      // 注意：`ViewPadding` 没有 `/` 运算符——必须逐字段换算
+      //（键盘关心 bottom、安全区关心 top/bottom，足够定位问题）。
+      final double insetsBottom = view.viewInsets.bottom;
+      final double padTop = view.padding.top;
+      final double padBottom = view.padding.bottom;
       final String line = '$phase：窗口 ${logical.width.toStringAsFixed(0)}×'
           '${logical.height.toStringAsFixed(0)} @${dpr.toStringAsFixed(2)}x '
-          'viewInsets=${(view.viewInsets / dpr).toString()} '
-          'padding=${(view.padding / dpr).toString()}';
+          'insets.b=${(insetsBottom / dpr).toStringAsFixed(1)} '
+          'padding.t/b=${(padTop / dpr).toStringAsFixed(1)}/'
+          '${(padBottom / dpr).toStringAsFixed(1)}';
       if (line == _lastMetrics) {
         return;
       }
