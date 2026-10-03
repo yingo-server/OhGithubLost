@@ -14,8 +14,8 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import '../../kernel/contract/disk_types.dart';
 import '../../base/net/net_bridge.dart';
+import '../../kernel/contract/disk_types.dart';
 import '../../kernel/contract/net_types.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
