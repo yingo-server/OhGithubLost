@@ -24,7 +24,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../domain/gh/gh_auth.dart';
+import '../types.dart';
 import '../../kernel/kernel.dart';
 import '../../kernel/log/og_l_log_file.dart';
 import '../app/error_surface.dart';

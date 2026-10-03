@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../domain/ix/ix_download.dart';
+import '../types.dart';
 import '../app/animations.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';

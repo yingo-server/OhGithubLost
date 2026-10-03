@@ -7,7 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../domain/gh/gh_models.dart';
+import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 

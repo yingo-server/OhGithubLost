@@ -13,7 +13,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../../domain/gh/gh_client.dart';
+import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 import '../widgets/code_editor_field.dart';

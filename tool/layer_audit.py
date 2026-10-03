@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""OGL · 四层分层审计（启动 / 硬件 / 逻辑 / 交互）。
+
+## 四层与允许的方向
+    L0 启动层 kernel   —— 谁都不依赖它之外的层：它可被任意层引用（契约）
+    L1 硬件层 base     —— 网络 + 硬盘（DnsService / DiskKv / RepositoryCache…）
+    L2 逻辑层 domain   —— API 与服务
+    L3 交互层 surface  —— UI 及其它
+
+**依赖只能向下**（surface → domain → base → kernel）。
+
+## 两个"合法性例外"（装配根 / 类型门面）
+1. `domain/domain_bridge.dart`、`surface/surface_bridge.dart`：每层的**装配根**，
+   职责就是把下层接到本层，允许 import 下层桥。
+2. `surface/types.dart`：交互层的**类型门面**，唯一允许 re-export 逻辑层 DTO/异常
+   的地方；页面只 import 它，从而拿不到 domain 的服务类。
+
+## 用法
+    python3 tool/layer_audit.py            # 打印报告
+    python3 tool/layer_audit.py --fatal    # 有违规即退出 1（供 CI 使用）
+"""
+import argparse
+import os
+import re
+import sys
+
+LAYERS = ['kernel', 'base', 'domain', 'surface']
+RANK = {name: index for index, name in enumerate(LAYERS)}
+
+# 允许跨层 import 自己的"装配根 / 门面"。
+ALLOW = {
+    'domain/domain_bridge.dart',
+    'surface/surface_bridge.dart',
+    'surface/types.dart',
+}
+
+IMPORT_RE = re.compile(r"^\s*import\s+'([^']+)'", re.M)
+
+# 已知的、待收敛项（5.0 结构收口清单；修完就从这里删掉）。
+KNOWN = {
+    # domain 直接依赖 base 的内部类型（应收敛为 kernel 契约抽象）。
+    'domain/gh/gh_api.dart': {'../../base/disk/disk_cache.dart',
+                              '../../base/disk/disk_types.dart',
+                              '../../base/net/net_types.dart'},
+    'domain/gh/gh_auth.dart': {'../../base/disk/disk_store.dart'},
+    'domain/gh/gh_client.dart': {'../../base/disk/disk_types.dart',
+                                 '../../base/net/net_bridge.dart',
+                                 '../../base/net/net_types.dart'},
+    'domain/gh/gh_read_cache.dart': {'../../base/disk/disk_store.dart'},
+    'domain/ix/ix_conflict.dart': {'../../base/disk/disk_types.dart'},
+    'domain/ix/ix_session.dart': {'../../base/disk/disk_store.dart'},
+    'domain/sys/sys_access.dart': {'../../base/disk/disk_store.dart'},
+}
+
+
+def layer_of(rel):
+    parts = rel.split('/')
+    return parts[0] if parts and parts[0] in LAYERS else None
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lib', default='lib')
+    parser.add_argument('--fatal', action='store_true')
+    args = parser.parse_args()
+
+    violations = []
+    known_hits = 0
+    total = 0
+    for dirpath, _dirs, files in os.walk(args.lib):
+        for name in sorted(files):
+            if not name.endswith('.dart'):
+                continue
+            full = os.path.join(dirpath, name)
+            rel = os.path.relpath(full, args.lib).replace(os.sep, '/')
+            lay = layer_of(rel)
+            if lay is None:
+                continue
+            total += 1
+            if rel in ALLOW:
+                continue
+            with open(full, encoding='utf-8') as handle:
+                text = handle.read()
+            for imp in IMPORT_RE.findall(text):
+                if imp.startswith('package:'):
+                    continue
+                target = os.path.normpath(
+                    os.path.join(os.path.dirname(rel), imp)).replace(os.sep, '/')
+                tlay = layer_of(target)
+                if tlay is None or tlay == lay or tlay == 'kernel':
+                    continue  # 同层 / 内核契约：允许
+                if RANK[tlay] > RANK[lay]:
+                    violations.append((rel, imp, '向上依赖 %s' % tlay))
+                elif rel in KNOWN and imp in KNOWN[rel]:
+                    known_hits += 1
+                else:
+                    violations.append((rel, imp, '%s 应经桥/门面' % tlay))
+
+    print('文件总数：%d' % total)
+    print('已知待收敛（5.0 清单）：%d 处' % known_hits)
+    print('违规：%d 处' % len(violations))
+    for rel, imp, why in violations:
+        print('  %-46s %-42s %s' % (rel, imp, why))
+    if args.fatal and violations:
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

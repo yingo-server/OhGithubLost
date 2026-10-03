@@ -11,7 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../domain/gh/gh_draft.dart';
+import '../types.dart';
 import '../app/animations.dart';
 import '../app/async.dart';
 import '../surface_bridge.dart';

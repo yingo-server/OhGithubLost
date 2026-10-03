@@ -5,7 +5,7 @@
 /// 这里只保留一组**纯函数**（无 Flutter 依赖，容易单测）。
 library;
 
-import '../../domain/gh/gh_models.dart';
+import '../types.dart';
 
 /// 取字符串字段（缺省 / 非字符串 → 空串）。
 String ghStr(Map<String, dynamic> node, String key) {

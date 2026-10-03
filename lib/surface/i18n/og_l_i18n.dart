@@ -140,10 +140,26 @@ class OgLI18n extends ChangeNotifier {
     }
   }
 
-  /// 取文案：`t('shell', 'home')`。
+  /// 取文案：`t('shell', 'home')`；需要插值用 `t('repo', 'deleted', args: {'path': p})`。
   ///
   /// 兜底顺序：当前语言 → 英文基线 → 键名（**绝不返回空串**）。
-  String t(String page, String key) {
+  ///
+  /// 占位符：文案里写 `{path}`，调用时传 `args: {'path': ...}`；
+  /// 缺参时**保留原样**（`{path}`）而不是抛异常——UI 不该因为缺一个参数就崩。
+  String t(String page, String key, {Map<String, String>? args}) {
+    final String raw = _raw(page, key);
+    if (args == null || args.isEmpty) {
+      return raw;
+    }
+    String out = raw;
+    for (final MapEntry<String, String> entry in args.entries) {
+      out = out.replaceAll('{${entry.key}}', entry.value);
+    }
+    return out;
+  }
+
+  /// 原始文案（当前语言 → 英文基线 → 键名）。
+  String _raw(String page, String key) {
     final String? current = _data[_locale]?[page]?[key];
     if (current != null && current.isNotEmpty) {
       return current;

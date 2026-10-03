@@ -13,7 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../domain/gh/gh_auth.dart';
+import '../types.dart';
 import '../../kernel/kernel.dart';
 import '../i18n/og_l_i18n.dart';
 import '../pages/dashboard_page.dart';

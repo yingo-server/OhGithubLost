@@ -17,9 +17,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../domain/gh/gh_client.dart';
-import '../../domain/gh/gh_models.dart';
-import '../../domain/ix/ix_download.dart';
+import '../types.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';

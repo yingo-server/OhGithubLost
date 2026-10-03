@@ -13,8 +13,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../domain/gh/gh_models.dart';
-import '../../domain/ix/ix_download.dart';
+import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 import '../util/download_proxy.dart';
