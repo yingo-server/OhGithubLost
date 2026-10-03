@@ -117,3 +117,26 @@ class _OgLEnhancedTransitionsBuilder extends PageTransitionsBuilder {
     );
   }
 }
+
+/// 动效档位作用域：把当前档位暴露给控件层。
+///
+/// 挂点：`OgLApp` 的 `builder`（位于 `MaterialApp` 之内，随设置变化重建）。
+/// 控件据此让**动画时长**随档位变化；档位 `0` 时配合
+/// `MediaQuery.disableAnimations` 完全关闭动画。
+class OgLMotionScope extends InheritedWidget {
+  /// 创建作用域。
+  const OgLMotionScope({required this.level, required super.child, super.key});
+
+  /// 当前动效档位（0–3）。
+  final int level;
+
+  /// 读取当前档位（未挂载时按 `1` 处理）。
+  static int levelOf(BuildContext context) {
+    final OgLMotionScope? scope =
+        context.dependOnInheritedWidgetOfExactType<OgLMotionScope>();
+    return scope?.level ?? 1;
+  }
+
+  @override
+  bool updateShouldNotify(OgLMotionScope oldWidget) => oldWidget.level != level;
+}

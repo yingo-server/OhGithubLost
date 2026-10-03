@@ -81,19 +81,22 @@ class OgLApp extends StatelessWidget {
               final double systemScale = query.textScaler.scale(1.0);
               final double scale =
                   (systemScale * current.fontScale).clamp(0.85, 2.0).toDouble();
-              return MediaQuery(
-                data: query.copyWith(
-                  textScaler: TextScaler.linear(scale),
-                  disableAnimations:
-                      OgLMotion.disableAnimations(query, current),
-                ),
-                // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
-                // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
-                child: OgLKeyboardGuard(
-                  // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
-                  child: OgLNoticeHost(
-                    navigatorKey: navigatorKey,
-                    child: child ?? const SizedBox.shrink(),
+              return OgLMotionScope(
+                level: current.motionLevel,
+                child: MediaQuery(
+                  data: query.copyWith(
+                    textScaler: TextScaler.linear(scale),
+                    disableAnimations:
+                        OgLMotion.disableAnimations(query, current),
+                  ),
+                  // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
+                  // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
+                  child: OgLKeyboardGuard(
+                    // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
+                    child: OgLNoticeHost(
+                      navigatorKey: navigatorKey,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               );

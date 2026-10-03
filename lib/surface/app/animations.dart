@@ -11,31 +11,57 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// 动效时长与开关。
+import 'motion.dart';
+
+/// 动效时长与开关（按档位 0–3 变化）。
 abstract final class OgLAnim {
-  /// 当前是否允许动画（档位 `0` 时为否）。
+  /// 当前档位（未挂载作用域时按 1）。
+  static int level(BuildContext context) => OgLMotionScope.levelOf(context);
+
+  /// 当前是否允许动画。
+  ///
+  /// 档位 `0` 或系统「减少动效」时为否。
   static bool enabled(BuildContext context) =>
-      !MediaQuery.of(context).disableAnimations;
+      level(context) > 0 && !MediaQuery.of(context).disableAnimations;
 
   /// 快（短反馈）。
-  static Duration fast(BuildContext context) =>
-      enabled(context) ? const Duration(milliseconds: 150) : Duration.zero;
+  static Duration fast(BuildContext context) => _pick(context, 140, 180, 220);
 
   /// 中（入场 / 状态变化）。
-  static Duration medium(BuildContext context) =>
-      enabled(context) ? const Duration(milliseconds: 220) : Duration.zero;
+  static Duration medium(BuildContext context) => _pick(context, 180, 240, 300);
 
   /// 慢（较大范围的变化）。
-  static Duration slow(BuildContext context) =>
-      enabled(context) ? const Duration(milliseconds: 300) : Duration.zero;
+  static Duration slow(BuildContext context) => _pick(context, 240, 320, 380);
 
-  /// 列表错峰延迟（按序号递增，封顶 240ms，避免长列表越等越久）。
+  /// 列表错峰延迟（按序号递增，封顶 6 项，避免长列表越等越久）。
   static Duration stagger(BuildContext context, int index) {
+    switch (level(context)) {
+      case 0:
+        return Duration.zero;
+      case 1:
+        return Duration(milliseconds: 20 * _cap(index));
+      case 2:
+        return Duration(milliseconds: 40 * _cap(index));
+      default:
+        return Duration(milliseconds: 60 * _cap(index));
+    }
+  }
+
+  static int _cap(int index) => index > 6 ? 6 : index;
+
+  /// 档位 1 / 2 / 3 对应三档时长；档位 0 或系统减少动效一律为零。
+  static Duration _pick(BuildContext context, int a, int b, int c) {
     if (!enabled(context)) {
       return Duration.zero;
     }
-    final int capped = index > 6 ? 6 : index;
-    return Duration(milliseconds: 40 * capped);
+    switch (level(context)) {
+      case 1:
+        return Duration(milliseconds: a);
+      case 2:
+        return Duration(milliseconds: b);
+      default:
+        return Duration(milliseconds: c);
+    }
   }
 }
 
