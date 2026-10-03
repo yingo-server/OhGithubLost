@@ -23,6 +23,7 @@ import '../../domain/ix/ix_download.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
+import '../surface_bridge.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
@@ -569,7 +570,7 @@ class _CodeTab extends StatefulWidget {
 
 class _CodeTabState extends State<_CodeTab> {
   String _path = '';
-  final _Paged<GhContent> _entries = _Paged<GhContent>(loader: _loadPage);
+  late final _Paged<GhContent> _entries = _Paged<GhContent>(loader: _loadPage);
   final TextEditingController _filter = TextEditingController();
   final TextEditingController _newPath = TextEditingController();
 
