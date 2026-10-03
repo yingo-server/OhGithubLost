@@ -18,6 +18,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'animations.dart';
 import 'error_surface.dart';
 
 /// 通用异步控制器：加载 / 刷新 / 重试，并发抑制、失败保留旧数据。
@@ -184,6 +185,20 @@ class AsyncView<T> extends StatelessWidget {
   /// 嵌在 `ListView` 等无界高度场景时为 false）。
   final bool fill;
 
+  /// 在「加载 / 空 / 错误」之间做淡入淡出；档位 0 时直接返回子控件。
+  ///
+  /// 只包这三种以 `Center` 为根的状态，避免把可能含 `Expanded` 的数据态
+  /// 放进 `AnimatedSwitcher` 的 `Stack` 里造成无界高度问题。
+  Widget _animatedState(BuildContext context, String state, Widget child) {
+    if (!OgLAnim.enabled(context)) {
+      return child;
+    }
+    return AnimatedSwitcher(
+      duration: OgLAnim.fast(context),
+      child: KeyedSubtree(key: ValueKey<String>(state), child: child),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: controller,
@@ -192,23 +207,32 @@ class AsyncView<T> extends StatelessWidget {
           if (data == null) {
             final String? failure = controller.error;
             if (failure != null && !controller.isLoading) {
-              return _ErrorPane(
-                message: failure,
-                onRetry: controller.load,
+              return _animatedState(
+                context,
+                'error',
+                _ErrorPane(message: failure, onRetry: controller.load),
               );
             }
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
+            return _animatedState(
+              context,
+              'loading',
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
               ),
             );
           }
           if (controller.isEmptyResult) {
-            return _EmptyPane(
-              icon: emptyIcon,
-              text: emptyText,
-              action: emptyAction,
+            return _animatedState(
+              context,
+              'empty',
+              _EmptyPane(
+                icon: emptyIcon,
+                text: emptyText,
+                action: emptyAction,
+              ),
             );
           }
           final String? soft = controller.softError;
