@@ -23,6 +23,7 @@ import '../pages/profile_page.dart';
 import '../pages/search_page.dart';
 import '../pages/settings_page.dart';
 import '../surface_bridge.dart';
+import 'animations.dart';
 import 'error_surface.dart';
 
 /// 壳内的四个页面（导航值）。
@@ -180,7 +181,12 @@ class _OgLClientShellState extends State<OgLClientShell> {
         _visited.contains(tab) ? _pageFor(tab) : const SizedBox.shrink(),
     ];
     final int index = OgLShellTab.values.indexOf(_tab);
-    final Widget body = IndexedStack(index: index, children: pages);
+    // R7：页面切换加**左右滑动**入场动画（保留 IndexedStack 的状态与懒挂载）。
+    // 关闭动画（档位 0 / 系统减少动效）时瞬时切换。
+    final Widget body = _OgLShellSlide(
+      index: index,
+      child: IndexedStack(index: index, children: pages),
+    );
 
     final double width = MediaQuery.sizeOf(context).width;
 
@@ -257,4 +263,67 @@ class _OgLClientShellState extends State<OgLClientShell> {
       ),
     );
   }
+}
+
+/// R7：底部/侧边导航切换时的**左右滑动**入场。
+///
+/// 保留 [IndexedStack] 作为 child（状态与懒挂载不变），只在切换那一刻
+/// 对新页面做一次轻微水平位移 + 淡出过渡。关闭动画时（档位 0 / 系统减少动效）
+/// 不做任何位移——直接瞬时切换。
+class _OgLShellSlide extends StatefulWidget {
+  const _OgLShellSlide({required this.index, required this.child});
+
+  /// 当前索引（变化即触发一次入场）。
+  final int index;
+
+  /// 页面内容。
+  final Widget child;
+
+  @override
+  State<_OgLShellSlide> createState() => _OgLShellSlideState();
+}
+
+class _OgLShellSlideState extends State<_OgLShellSlide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: 1,
+  );
+
+  /// 起始水平位移（正=从右进入，负=从左进入）。
+  double _from = 0;
+
+  @override
+  void didUpdateWidget(covariant _OgLShellSlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index == widget.index) {
+      return;
+    }
+    final bool animate = OgLAnim.enabled(context);
+    if (!animate) {
+      _from = 0;
+      _controller.value = 1;
+      return;
+    }
+    _from = widget.index > oldWidget.index ? 0.06 : -0.06;
+    _controller.duration = OgLAnim.medium(context);
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _controller,
+        builder: (BuildContext context, Widget? child) => FractionalTranslation(
+          translation: Offset(_from * (1 - _controller.value), 0),
+          child: child,
+        ),
+        child: widget.child,
+      );
 }

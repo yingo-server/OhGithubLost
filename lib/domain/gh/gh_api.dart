@@ -1440,6 +1440,23 @@ class GhApi implements CacheRemote {
         .toList();
   }
 
+  /// 读取仓库内一个文件的**原始文本**（用于解析工作流 YAML）。
+  ///
+  /// 走内容接口（`contents`），失败返回 `null`（调用方据此提示，不静默）。
+  Future<String?> rawFileText(
+    String fullName,
+    String path, {
+    String? branch,
+  }) async {
+    try {
+      final GhContent? content =
+          await this.content(fullName, path, branch: branch);
+      return content?.text;
+    } on GhNotFoundException {
+      return null;
+    }
+  }
+
   /// 手动触发工作流（`workflow_dispatch`）。
   ///
   /// [workflowIdOrFile] 可用工作流数字 ID，或文件名（如 `build.yml`）。
