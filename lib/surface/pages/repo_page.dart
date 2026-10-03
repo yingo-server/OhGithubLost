@@ -1114,6 +1114,9 @@ class _CodeTabState extends State<_CodeTab> {
       _toast('该目录含 ${paths.length} 个文件，超过单次上限 $maxBatch，请分批删除');
       return;
     }
+    if (!mounted) {
+      return;
+    }
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(

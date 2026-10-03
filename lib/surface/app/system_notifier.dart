@@ -79,7 +79,7 @@ class OgLSystemNotifier {
     _initialized = true;
     try {
       final InitializationSettings settings = _initializationSettings();
-      final bool? ok = await _plugin.initialize(settings);
+      final bool? ok = await _plugin.initialize(settings: settings);
       if (ok == false) {
         _unavailable = true;
         _unavailableReason = '插件初始化返回 false';
@@ -118,7 +118,12 @@ class OgLSystemNotifier {
           priority: Priority.defaultPriority,
         ),
       );
-      await _plugin.show(_nextId++, title, body, details);
+      await _plugin.show(
+        id: _nextId++,
+        title: title,
+        body: body,
+        notificationDetails: details,
+      );
     } catch (error) {
       OgLAppLog.instance.add(
         '通知',
