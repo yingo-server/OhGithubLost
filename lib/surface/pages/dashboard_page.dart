@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_models.dart';
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
@@ -224,24 +225,27 @@ class _DashboardPageState extends State<DashboardPage> {
                       const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {
                     final GhRepo repo = repos[index];
-                    return ListTile(
-                      leading: Icon(
-                        repo.isPrivate
-                            ? Icons.lock_outline
-                            : Icons.folder_outlined,
+                    return OgLReveal(
+                      delay: OgLAnim.stagger(context, index),
+                      child: ListTile(
+                        leading: Icon(
+                          repo.isPrivate
+                              ? Icons.lock_outline
+                              : Icons.folder_outlined,
+                        ),
+                        title: Text(
+                          repo.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          _repoSubtitle(repo),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _openRepo(repo),
                       ),
-                      title: Text(
-                        repo.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        _repoSubtitle(repo),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _openRepo(repo),
                     );
                   },
                 ),

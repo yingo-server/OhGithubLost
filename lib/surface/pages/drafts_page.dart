@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/gh/gh_draft.dart';
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../surface_bridge.dart';
 
@@ -127,25 +128,28 @@ class _DraftsPageState extends State<DraftsPage> {
                 const Divider(height: 1),
             itemBuilder: (BuildContext context, int index) {
               final GhDraft draft = drafts[index];
-              return ListTile(
-                leading: const Icon(Icons.edit_note),
-                title: Text(
-                  draft.path,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              return OgLReveal(
+                delay: OgLAnim.stagger(context, index),
+                child: ListTile(
+                  leading: const Icon(Icons.edit_note),
+                  title: Text(
+                    draft.path,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${draft.repo}${draft.branch.isEmpty ? '' : '@${draft.branch}'} · '
+                    'rev ${draft.revision} · ${_fmt(draft.updatedAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    tooltip: '删除',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => unawaited(_delete(draft)),
+                  ),
+                  onTap: () => _view(draft),
                 ),
-                subtitle: Text(
-                  '${draft.repo}${draft.branch.isEmpty ? '' : '@${draft.branch}'} · '
-                  'rev ${draft.revision} · ${_fmt(draft.updatedAt)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: IconButton(
-                  tooltip: '删除',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => unawaited(_delete(draft)),
-                ),
-                onTap: () => _view(draft),
               );
             },
           ),

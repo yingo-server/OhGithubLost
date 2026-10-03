@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 
 /// 通知中心页。
@@ -83,7 +84,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {
                     final OgLAppLogEntry entry = entries[index];
-                    return ListTile(
+                    return OgLReveal(
+                      delay: OgLAnim.stagger(context, index),
+                      child: ListTile(
                       dense: true,
                       leading: Icon(
                         _iconOf(entry.severity),
@@ -108,7 +111,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           );
                         },
                       ),
-                    );
+                    ),
+                  );
                   },
                 );
               },

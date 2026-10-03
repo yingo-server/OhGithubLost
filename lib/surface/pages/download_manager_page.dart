@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/ix/ix_download.dart';
+import '../app/animations.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
 
@@ -69,8 +70,10 @@ class DownloadManagerPage extends StatelessWidget {
             itemCount: tasks.length,
             separatorBuilder: (BuildContext context, int index) =>
                 const SizedBox(height: 8),
-            itemBuilder: (BuildContext context, int index) =>
-                _taskCard(context, theme, tasks[index]),
+            itemBuilder: (BuildContext context, int index) => OgLReveal(
+              delay: OgLAnim.stagger(context, index),
+              child: _taskCard(context, theme, tasks[index]),
+            ),
           );
         },
       ),
