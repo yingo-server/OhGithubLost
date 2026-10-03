@@ -271,6 +271,23 @@ class GhApi implements CacheRemote {
       ))
       .then((_) {});
 
+  /// 当前登录用户是否已 star 指定仓库。
+  ///
+  /// `GET /user/starred/{owner}/{repo}`：已 star 返回 204，未 star 返回 404。
+  /// 404 属于**正常结果**（未 star），因此单独处理为 `false`，不当作错误抛出。
+  Future<bool> isRepoStarred(String fullName) async {
+    try {
+      await client.send(GhRequest(
+        path: '/user/starred/$fullName',
+        method: NetMethod.get,
+        label: 'GET /user/starred/$fullName',
+      ));
+      return true;
+    } on GhNotFoundException {
+      return false;
+    }
+  }
+
   // ───────────────────────── 分支 ─────────────────────────
 
   /// 分支列表。

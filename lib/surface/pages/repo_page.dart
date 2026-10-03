@@ -2462,7 +2462,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('删除仓库'),
-        content: Text('将彻底删除 $_full（含全部代码与记录）。该操作不可撤销！'),
+        content: Text('将删除 $_full（含代码与记录）。该操作不可撤销。'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -2597,7 +2597,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Text('删除仓库会连同全部代码与记录一起消失，且不可撤销。'),
+                const Text('删除仓库会连同代码与记录一起消失，且不可撤销。'),
                 const SizedBox(height: 12),
                 FilledButton(
                   style: FilledButton.styleFrom(

@@ -1,19 +1,20 @@
-/// L3 展示级 · 客户端主壳（登录门 + 五页导航）。
+/// L3 展示级 · 客户端主壳（登录门 + 四页导航）。
 ///
 /// ## 形态（Material 3 原生）
 /// - 手机（< 600）：`NavigationBar` 底栏；
 /// - 平板 / 桌面（≥ 600）：`NavigationRail` 导航轨（≥ 1200 展开标签）。
 ///
 /// ## 两个产品级细节
-/// 1. **懒挂载**：只构建访问过的标签页，避免冷启动时五个页面同时发请求；
+/// 1. **懒挂载**：只构建访问过的标签页，避免冷启动时多个页面同时发请求；
 /// 2. **登录门**：未登录时展示登录页；游客模式可跳过（只读浏览公开内容）。
+///
+/// "关于"不再是独立标签，而是设置页内的全屏子页面（见 [SettingsPage]）。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../kernel/kernel.dart';
 import '../i18n/og_l_i18n.dart';
-import '../pages/about_page.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/login_page.dart';
 import '../pages/onboarding_page.dart';
@@ -23,7 +24,7 @@ import '../pages/settings_page.dart';
 import '../surface_bridge.dart';
 import 'error_surface.dart';
 
-/// 壳内的五个页面（导航值）。
+/// 壳内的四个页面（导航值）。
 enum OgLShellTab {
   /// 首页（我的仓库 / 星标）。
   home,
@@ -34,11 +35,8 @@ enum OgLShellTab {
   /// 我的（账户 / Gist / 危险区）。
   profile,
 
-  /// 设置（外观 / 网络 / 账户）。
+  /// 设置（外观 / 网络 / 账户 / 关于）。
   settings,
-
-  /// 关于（启动报告 / 日志）。
-  about,
 }
 
 /// 客户端主壳（含登录门）。
@@ -132,9 +130,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
       case OgLShellTab.profile:
         return ProfilePage(surface: widget.surface, onAccountsChanged: _check);
       case OgLShellTab.settings:
-        return SettingsPage(surface: widget.surface);
-      case OgLShellTab.about:
-        return AboutPage(report: widget.report);
+        return SettingsPage(surface: widget.surface, report: widget.report);
     }
   }
 
@@ -199,11 +195,6 @@ class _OgLClientShellState extends State<OgLClientShell> {
               selectedIcon: const Icon(Icons.settings),
               label: OgLI18n.instance.t('shell', 'settings'),
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.info_outline),
-              selectedIcon: const Icon(Icons.info),
-              label: OgLI18n.instance.t('shell', 'about'),
-            ),
           ],
         ),
       );
@@ -240,11 +231,6 @@ class _OgLClientShellState extends State<OgLClientShell> {
                 icon: const Icon(Icons.settings_outlined),
                 selectedIcon: const Icon(Icons.settings),
                 label: Text(OgLI18n.instance.t('shell', 'settings')),
-              ),
-              NavigationRailDestination(
-                icon: const Icon(Icons.info_outline),
-                selectedIcon: const Icon(Icons.info),
-                label: Text(OgLI18n.instance.t('shell', 'about')),
               ),
             ],
           ),

@@ -2,7 +2,7 @@
 ///
 /// - 账户列表：切换 / 移除（破坏性操作二次确认）；
 /// - 新增账户：复用登录页（令牌向导）；
-/// - Gist 片段入口（只读列表，浏览器打开）；
+/// - Gist 片段入口（列表、详情、新建、编辑、删除）；
 /// - 危险区：退出登录（删除本机令牌，远端数据不受影响）。
 library;
 
@@ -255,7 +255,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: const Text('Gist 片段'),
-                subtitle: const Text('代码片段列表（只读；编辑请到网页端）'),
+                subtitle: const Text('代码片段：列表、详情、新建、编辑、删除'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openGists,
               ),

@@ -22,6 +22,7 @@ import '../surface_bridge.dart';
 import 'client_shell.dart';
 import 'error_surface.dart';
 import 'keyboard_guard.dart';
+import 'motion.dart';
 
 /// 应用根。
 class OgLApp extends StatelessWidget {
@@ -64,7 +65,12 @@ class OgLApp extends StatelessWidget {
             ],
             // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
             scrollBehavior: const OgLScrollBehavior(),
-            theme: surface.themeFor(MediaQuery.platformBrightnessOf(context)),
+            theme: surface
+                .themeFor(MediaQuery.platformBrightnessOf(context))
+                .copyWith(
+                  pageTransitionsTheme:
+                      OgLMotion.pageTransitions(current.motionLevel),
+                ),
             // ⚠️ 文字缩放必须在 `builder` 里覆盖：
             // 该层位于 `WidgetsApp` 自建的 MediaQuery **之内**，
             // 若在外层包 MediaQuery，会被 WidgetsApp 的 MediaQuery 覆盖掉。
@@ -79,7 +85,7 @@ class OgLApp extends StatelessWidget {
                 data: query.copyWith(
                   textScaler: TextScaler.linear(scale),
                   disableAnimations:
-                      query.disableAnimations || current.reduceMotion,
+                      OgLMotion.disableAnimations(query, current),
                 ),
                 // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
                 // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。

@@ -1,7 +1,7 @@
 /// L3 展示级 · 首页（我的仓库 / 星标仓库）。
 ///
 /// - 分段切换：`SegmentedButton`（我的 / 星标）；
-/// - 列表：`ListTile` + 刷新（下拉刷新 + 页头刷新按钮）；
+/// - 列表：`ListTile` + 下拉刷新；
 /// - 四态收敛在 [AsyncView]（载 / 空 / 错 / 有数据，错误不许无声消失）；
 /// - 主操作只有一个：新建仓库（页头）。
 library;
@@ -122,11 +122,6 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('首页'),
         actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: _refresh,
-          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: '新建仓库',

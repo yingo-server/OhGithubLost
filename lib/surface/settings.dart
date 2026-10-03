@@ -3,7 +3,7 @@
 /// ## 只留"真选项"
 /// 每个字段都必须接到真实行为上，否则就是"假选项"（比没有选项更糟）：
 /// - 外观：`mode` / `seedColorId` / `fontScale` / `density` / `reduceMotion`
-///   → 直接决定 `ThemeData`、文字缩放与动效；
+///   / `motionLevel` → 直接决定 `ThemeData`、文字缩放与动效；
 /// - 代码与文件：`codeHighlight` / `codeFontSize` / `codeWrap` / `foldersFirst`
 ///   → 直接作用于仓库代码查看器与目录排序；
 /// - 网络：`dnsMode` / `dnsServerId` / `dnsPreferDoh` → 即时作用到底座网络；
@@ -73,6 +73,7 @@ class OgLSettings {
     this.codeColorComment = 0xFF6A9955,
     this.codeColorNumber = 0xFFB5CEA8,
     this.onboardingDone = false,
+    this.motionLevel = 1,
     this.languageCode = 'zh',
   });
 
@@ -134,8 +135,22 @@ class OgLSettings {
       codeColorNumber:
           _asColorInt(raw['codeColorNumber'], fallback: 0xFFB5CEA8),
       onboardingDone: _asBool(raw['onboardingDone'], fallback: false),
+      motionLevel: _motionLevelOf(raw),
       languageCode: _asLocale(raw['languageCode']),
     );
+  }
+
+  /// 动效档位解析（0–3；旧键 `reduceMotion` 为真时视为最小动效）。
+  static int _motionLevelOf(Map<dynamic, dynamic> raw) {
+    final Object? level = raw['motionLevel'];
+    if (level is num) {
+      final int v = level.toInt();
+      return v < 0 ? 0 : (v > 3 ? 3 : v);
+    }
+    if (_asBool(raw['reduceMotion'], fallback: false)) {
+      return 0;
+    }
+    return 1;
   }
 
   static bool _asBool(Object? value, {required bool fallback}) =>
@@ -148,6 +163,9 @@ class OgLSettings {
     'soft',
     'custom',
   ];
+
+  /// 动效档位可选值（0 最小、1 当前、2 标准、3 增强）。
+  static const List<int> motionLevelIds = <int>[0, 1, 2, 3];
 
   static String _asPreset(Object? value) =>
       value is String && codeThemePresetIds.contains(value) ? value : 'theme';
@@ -259,6 +277,9 @@ class OgLSettings {
   /// 界面语言代码（见 [languageCodes]）。
   final String languageCode;
 
+  /// 动效档位：0 最小、1 当前、2 标准、3 增强（详见 `app/motion.dart`）。
+  final int motionLevel;
+
   /// 复制并覆盖部分字段。
   OgLSettings copyWith({
     OgLThemeMode? mode,
@@ -283,6 +304,7 @@ class OgLSettings {
     int? codeColorNumber,
     bool? onboardingDone,
     String? languageCode,
+    int? motionLevel,
   }) =>
       OgLSettings(
         mode: mode ?? this.mode,
@@ -307,6 +329,7 @@ class OgLSettings {
         codeColorNumber: codeColorNumber ?? this.codeColorNumber,
         onboardingDone: onboardingDone ?? this.onboardingDone,
         languageCode: languageCode ?? this.languageCode,
+        motionLevel: motionLevel ?? this.motionLevel,
       );
 
   /// 序列化。
@@ -332,6 +355,7 @@ class OgLSettings {
         'codeColorComment': codeColorComment,
         'codeColorNumber': codeColorNumber,
         'onboardingDone': onboardingDone,
+        'motionLevel': motionLevel,
         'languageCode': languageCode,
       };
 
@@ -463,6 +487,13 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：设置减少动效。
   Future<void> setReduceMotion(bool enabled) =>
       apply(_settings.copyWith(reduceMotion: enabled));
+
+  /// 便捷：设置全局动效档位（越界夹紧到 0–3）。
+  Future<void> setMotionLevel(int level) => apply(
+        _settings.copyWith(
+          motionLevel: level < 0 ? 0 : (level > 3 ? 3 : level),
+        ),
+      );
 
   /// 便捷：设置目录优先。
   Future<void> setFoldersFirst(bool enabled) =>
