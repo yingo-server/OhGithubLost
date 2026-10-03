@@ -264,7 +264,7 @@ class _LoginPageState extends State<LoginPage> {
           FilledButton(
             onPressed: _busy ? null : _login,
             child: _busy
-                ? const Row(
+                ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       SizedBox(
@@ -293,7 +293,7 @@ class _LoginPageState extends State<LoginPage> {
                   OgLI18n.instance.t(
                     'login',
                     'errorDetail',
-                    args: <String, String>{'error': _error},
+                    args: <String, String>{'error': _error ?? ''},
                   ),
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onErrorContainer,
@@ -334,7 +334,7 @@ class _LoginPageState extends State<LoginPage> {
           const SizedBox(height: 24),
           Text(OgLI18n.instance.t('login', 'howToTitle'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          const Card(
+          Card(
             child: Column(
               children: <Widget>[
                 ListTile(
