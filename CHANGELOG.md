@@ -18,6 +18,42 @@
 - 主题切换带动画（`themeAnimationDuration`）：换明暗 / 主题色不再"硬切"；
   系统关闭动画时自动为 0（与 R11 一致）。
 
+## v5.0.0（计划 · 未发布）
+
+用户明确的 5.0 范围（在 4.9 之后再动）：
+
+1. **下载管理器多线程下载**：确保真正并发分片；并优化进度条与速度显示的动画。
+2. **页面过渡动画卡顿**：自 4.8 起，**页面过渡**动画总是卡顿，而其它动画不卡
+   （4.8 引入了 `_OgLShellSlide` + `themeAnimationDuration`，需定位冲突/重复动画）。
+3. **Actions 运行日志（详细页）**：长日志加载缓慢，需要懒加载 / 虚拟化 / 分块渲染。
+4. **通知中心**：emoji 风格"撕裂"（**不应使用 emoji**，改为统一图标）；详情展开无动画。
+5. **安卓返回键绑定**：全局返回键行为不佳，需要统一处理（含二级页 / 弹窗 / 抽屉）。
+
+## v4.9.0（2026-10-03）
+
+本版本 = **结构与多语言工程**（不含新功能）。
+
+### 四层结构收口（启动 / 硬件 / 逻辑 / 交互）
+- 依赖方向固定为 `surface → domain → base → kernel`，只允许向下。
+- 新增交互层**类型门面** `lib/surface/types.dart`：UI 只能看到 DTO / 枚举 / 异常，
+  服务类（`GhClient` / `GhAuthService` / `IxDownloadManager` / `IxSession` /
+  `IxNotificationCenter`）被 `hide`，只能经 `SurfaceBridge` 取用。
+- 15 个页面 / 组件改为只 import 门面；导入段按 `directives_ordering` 重排。
+- **下载能力上桥**：`SurfaceBridge` 提供 `downloadTasks / downloadsListenable /
+  pauseDownload / resumeDownload / retryDownload / cancelDownload /
+  removeDownload / clearFinishedDownloads`，下载页不再接触管理器实现。
+- 新增 `tool/layer_audit.py`（四层审计）：**当前违规 0**；domain 直接依赖 base
+  内部类型的 11 处已登记为"待收敛"清单，后续批次逐步消掉。
+
+### 多语言（工程侧）
+- i18n 内核 `t(page, key, {args})` 支持 `{name}` 占位符（缺参保留原样，不抛异常），
+  动态文案（`已删除：{path}`）从此可本地化。
+- 新增 `tool/i18n_scan.py`：扫描中文字面量、映射到页面分片、对齐各语言 key 集合，
+  并提供 `--check` 供 CI 卡住回退。
+- 现状盘点：**1324 处**中文字面量 / **27 个页面分片**；现有分片仅 **66 个 key**
+  （common 22 / settings 22 / repo 9 / shell 7 / login 6），覆盖约 5%。
+  → 文案抽取与翻译按页面分批推进（zh / zh_TW / en 人工按语境、其余机翻）。
+
 ## v4.8.0（2026-10-03）
 
 ### 下载加速通道（重做）

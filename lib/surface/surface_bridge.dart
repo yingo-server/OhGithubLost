@@ -29,6 +29,7 @@ import 'app/error_surface.dart';
 import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
 import 'theme.dart';
+import 'types.dart';
 import 'util/accel.dart';
 
 /// 表面桥：展示层对外的唯一入口。
@@ -169,6 +170,32 @@ class SurfaceBridge {
 
   /// 便捷：记录"已同意当前版本协议"（含时间凭据）。
   Future<void> acceptAccelConsent() => settings.acceptAccelConsent();
+
+  // ── 下载能力（交互层**通过桥取用**，不接触逻辑层的管理器实现）──────────
+
+  /// 下载状态监听（任务增删 / 进度变化）。
+  Listenable get downloadsListenable => domain.downloads;
+
+  /// 全部下载任务快照。
+  List<IxDownloadTask> get downloadTasks => domain.downloads.tasks;
+
+  /// 清除已完成任务。
+  void clearFinishedDownloads() => domain.downloads.clearFinished();
+
+  /// 暂停某个下载。
+  Future<void> pauseDownload(String id) => domain.downloads.pause(id);
+
+  /// 继续某个下载。
+  Future<void> resumeDownload(String id) => domain.downloads.resume(id);
+
+  /// 重试某个失败下载。
+  Future<void> retryDownload(String id) => domain.downloads.retry(id);
+
+  /// 取消某个下载。
+  Future<void> cancelDownload(String id) => domain.downloads.cancel(id);
+
+  /// 从列表移除某个下载记录。
+  Future<void> removeDownload(String id) => domain.downloads.remove(id);
 
   /// 切换界面语言：先落盘设置，再加载对应语言分片。
   ///

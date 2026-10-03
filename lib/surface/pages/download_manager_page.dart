@@ -24,9 +24,6 @@ class DownloadManagerPage extends StatelessWidget {
   /// 表面桥。
   final SurfaceBridge surface;
 
-  /// 下载管理器（**不写显式类型**：它属于逻辑层服务，
-  /// 交互层只能通过桥拿到"能力"，不能命名服务类）。
-  get _manager => surface.domain.downloads;
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +35,14 @@ class DownloadManagerPage extends StatelessWidget {
           IconButton(
             tooltip: '清理已结束',
             icon: const Icon(Icons.cleaning_services_outlined),
-            onPressed: _manager.clearFinished,
+            onPressed: surface.clearFinishedDownloads,
           ),
         ],
       ),
       body: ListenableBuilder(
-        listenable: _manager,
+        listenable: surface.downloadsListenable,
         builder: (BuildContext context, Widget? _) {
-          final List<IxDownloadTask> tasks = _manager.tasks;
+          final List<IxDownloadTask> tasks = surface.downloadTasks;
           if (tasks.isEmpty) {
             return Center(
               child: Column(
@@ -143,26 +140,26 @@ class DownloadManagerPage extends StatelessWidget {
                   IconButton(
                     tooltip: '暂停',
                     icon: const Icon(Icons.pause),
-                    onPressed: () => unawaited(_manager.pause(task.id)),
+                    onPressed: () => unawaited(surface.pauseDownload(task.id)),
                   ),
                 if (paused)
                   IconButton(
                     tooltip: '继续',
                     icon: const Icon(Icons.play_arrow),
-                    onPressed: () => unawaited(_manager.resume(task.id)),
+                    onPressed: () => unawaited(surface.resumeDownload(task.id)),
                   ),
                 if (task.status == IxDownloadStatus.failed ||
                     task.status == IxDownloadStatus.canceled)
                   IconButton(
                     tooltip: '重试',
                     icon: const Icon(Icons.refresh),
-                    onPressed: () => unawaited(_manager.retry(task.id)),
+                    onPressed: () => unawaited(surface.retryDownload(task.id)),
                   ),
                 if (active || task.status == IxDownloadStatus.queued || paused)
                   IconButton(
                     tooltip: '取消',
                     icon: const Icon(Icons.close),
-                    onPressed: () => unawaited(_manager.cancel(task.id)),
+                    onPressed: () => unawaited(surface.cancelDownload(task.id)),
                   ),
                 if (done) ...<Widget>[
                   IconButton(
@@ -179,7 +176,7 @@ class DownloadManagerPage extends StatelessWidget {
                 IconButton(
                   tooltip: '移除',
                   icon: const Icon(Icons.delete_outline),
-                  onPressed: () => unawaited(_manager.remove(task.id)),
+                  onPressed: () => unawaited(surface.removeDownload(task.id)),
                 ),
               ],
             ),
