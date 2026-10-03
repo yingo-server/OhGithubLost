@@ -224,8 +224,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       return;
     }
     try {
+      // 是否走加速通道由设置决定（默认关闭）。
+      final bool accel =
+          widget.surface.settings.settings.releaseProxyEnabled;
       await widget.surface.domain.downloads.enqueue(
-        url: ogLProxiedReleaseUrl(url),
+        url: ogLReleaseDownloadUrl(url, enabled: accel),
         fileName: asset.name,
         category: IxDownloadCategory.release,
       );

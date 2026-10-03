@@ -87,6 +87,7 @@ void main() {
       expect(s.codeWrap, isFalse);
       expect(s.codeThemePreset, 'theme');
       expect(s.codeColorKeyword, 0xFF569CD6);
+      expect(s.releaseProxyEnabled, isFalse);
       expect(s.onboardingDone, isFalse);
     });
 

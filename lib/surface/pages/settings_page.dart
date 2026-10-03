@@ -743,6 +743,13 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: widget.surface.setDnsPreferDoh,
             ),
           ],
+          const Divider(height: 1),
+          SwitchListTile(
+            title: const Text('Release 附件加速通道'),
+            subtitle: const Text('经加速通道下载发布附件；关闭则直连（不影响其它下载）'),
+            value: value.releaseProxyEnabled,
+            onChanged: _settings.setReleaseProxyEnabled,
+          ),
         ],
       );
 

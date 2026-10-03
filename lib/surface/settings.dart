@@ -60,6 +60,7 @@ class OgLSettings {
     this.dnsMode = 'system',
     this.dnsServerId = 'alidns',
     this.dnsPreferDoh = true,
+    this.releaseProxyEnabled = false,
     this.foldersFirst = true,
     this.codeHighlight = true,
     this.codeFontSize = 13,
@@ -110,6 +111,8 @@ class OgLSettings {
       dnsServerId:
           serverId is String && serverId.isNotEmpty ? serverId : 'alidns',
       dnsPreferDoh: _asBool(raw['dnsPreferDoh'], fallback: true),
+      releaseProxyEnabled:
+          _asBool(raw['releaseProxyEnabled'], fallback: false),
       foldersFirst: _asBool(raw['foldersFirst'], fallback: true),
       codeHighlight: _asBool(raw['codeHighlight'], fallback: true),
       codeFontSize: _clampDouble(
@@ -235,6 +238,12 @@ class OgLSettings {
   /// 是否优先 DoH（加密解析）。
   final bool dnsPreferDoh;
 
+  /// Release 附件是否走加速通道。
+  ///
+  /// 默认**关闭**：加速通道属于第三方信任边界，需用户显式开启；
+  /// 通道地址属实现细节，**不出现在界面文案中**。
+  final bool releaseProxyEnabled;
+
   /// 仓库浏览器是否**目录优先**。
   final bool foldersFirst;
 
@@ -290,6 +299,7 @@ class OgLSettings {
     String? dnsMode,
     String? dnsServerId,
     bool? dnsPreferDoh,
+    bool? releaseProxyEnabled,
     bool? foldersFirst,
     bool? codeHighlight,
     double? codeFontSize,
@@ -315,6 +325,7 @@ class OgLSettings {
         dnsMode: dnsMode ?? this.dnsMode,
         dnsServerId: dnsServerId ?? this.dnsServerId,
         dnsPreferDoh: dnsPreferDoh ?? this.dnsPreferDoh,
+        releaseProxyEnabled: releaseProxyEnabled ?? this.releaseProxyEnabled,
         foldersFirst: foldersFirst ?? this.foldersFirst,
         codeHighlight: codeHighlight ?? this.codeHighlight,
         codeFontSize: codeFontSize ?? this.codeFontSize,
@@ -342,6 +353,7 @@ class OgLSettings {
         'dnsMode': dnsMode,
         'dnsServerId': dnsServerId,
         'dnsPreferDoh': dnsPreferDoh,
+        'releaseProxyEnabled': releaseProxyEnabled,
         'foldersFirst': foldersFirst,
         'codeHighlight': codeHighlight,
         'codeFontSize': codeFontSize,
@@ -462,6 +474,10 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：设置 DoH 优先。
   Future<void> setDnsPreferDoh(bool enabled) =>
       apply(_settings.copyWith(dnsPreferDoh: enabled));
+
+  /// 便捷：Release 附件是否走加速通道。
+  Future<void> setReleaseProxyEnabled(bool enabled) =>
+      apply(_settings.copyWith(releaseProxyEnabled: enabled));
 
   /// 便捷：设置主题色。
   Future<void> setSeedColor(String id) =>
