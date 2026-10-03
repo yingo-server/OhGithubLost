@@ -18,6 +18,7 @@ import '../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';
+import 'ix/ix_download.dart';
 import 'ix/ix_notify.dart';
 import 'ix/ix_session.dart';
 import 'ix/ix_task.dart';
@@ -27,7 +28,7 @@ import 'sys/sys_info.dart';
 /// 中枢层桥（L2 唯一出口）。
 class DomainBridge {
   /// 创建桥。
-  const DomainBridge({
+  DomainBridge({
     required this.auth,
     required this.api,
     required this.client,
@@ -36,7 +37,8 @@ class DomainBridge {
     required this.notifications,
     required this.sysInfo,
     required this.sysAccess,
-  });
+    IxDownloadManager? downloads,
+  }) : downloads = downloads ?? IxDownloadManager();
 
   /// 认证（多账号 / 令牌）。
   final GhAuthService auth;
@@ -61,6 +63,9 @@ class DomainBridge {
 
   /// Mod 能力守门。
   final SysAccessGuard sysAccess;
+
+  /// 内建下载管理器。
+  final IxDownloadManager downloads;
 
   /// 从内核桥表解析中枢桥（展示层的标准取用方式）。
   static DomainBridge of(KernelBridgeRegistry bridges) =>
@@ -237,14 +242,15 @@ class IxModule extends OgLModule {
         layer: ModuleLayer.domain,
         version: '0.1.0',
         requires: <String>['domain.gh', 'domain.sys'],
-        provides: <String>['ix.session', 'ix.task', 'ix.notify'],
-        description: '中枢·交互逻辑（会话 / 批量任务 / 冲突编排 / 通知）',
+        provides: <String>['ix.session', 'ix.task', 'ix.notify', 'ix.download'],
+        description: '中枢·交互逻辑（会话 / 批量任务 / 冲突编排 / 通知 / 下载）',
       );
 
   /// 装配出的服务。
   late final IxSession session;
   late final IxTaskRunner tasks;
   late final IxNotificationCenter notifications;
+  late final IxDownloadManager downloads;
 
   @override
   Future<void> onRegister(KernelContext context) async {
@@ -263,10 +269,12 @@ class IxModule extends OgLModule {
       channelApplier: buildChannelApplier(base.net),
     );
     notifications = IxNotificationCenter();
+    downloads = IxDownloadManager();
 
     context.di.register<IxSession>(session);
     context.di.register<IxTaskRunner>(tasks);
     context.di.register<IxNotificationCenter>(notifications);
+    context.di.register<IxDownloadManager>(downloads);
     context.diagnostics.info(
       'IX',
       '交互逻辑就绪',
@@ -275,6 +283,7 @@ class IxModule extends OgLModule {
         'channelOptions': IxChannel.values.length,
         'batchConfirmRequired': true,
         'channelWired': tasks.hasChannelApplier,
+        'downloader': '32 线程分块',
       },
     );
   }
@@ -312,6 +321,7 @@ class DomainLayerModule extends OgLModule {
       notifications: context.di.resolve<IxNotificationCenter>(),
       sysInfo: context.di.resolve<SysInfoService>(),
       sysAccess: context.di.resolve<SysAccessGuard>(),
+      downloads: context.di.resolve<IxDownloadManager>(),
     );
     context.bridges.register(ModuleLayer.domain.key, bridge);
     context.diagnostics.info(

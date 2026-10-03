@@ -1,7 +1,8 @@
 /// L3 展示级 · 发布详情（说明 / 资产下载 / 编辑 / 删除）。
 ///
 /// 补齐原"发布页只能看说明 + 删除"的缺口：
-/// - **资产**：逐个列出（文件名 / 大小 / 下载次数），可**下载**（交给系统浏览器）；
+/// - **资产**：逐个列出（文件名 / 大小 / 下载次数），可**下载**
+///   （交给内建下载器；Release 附件走内置代理加速，落盘到 `<ogl>/download/release/`）；
 /// - **编辑**：标签 / 标题 / 说明 / 草稿 / 预发布，`PATCH` 后即时刷新；
 /// - **删除**：二次确认；
 /// - 返回时把"是否发生变更"带回列表页，列表据此刷新。
@@ -13,10 +14,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/gh/gh_models.dart';
+import '../../domain/ix/ix_download.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../util/download_proxy.dart';
 import '../util/gh_format.dart';
-import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
 
 /// 发布详情页。
@@ -220,7 +222,20 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       _toast('该附件没有下载地址');
       return;
     }
-    await openLinkOrCopy(context, url, tag: '下载');
+    try {
+      await widget.surface.domain.downloads.enqueue(
+        url: ogLProxiedReleaseUrl(url),
+        fileName: asset.name,
+        category: IxDownloadCategory.release,
+      );
+      if (mounted) {
+        _toast('已加入下载：${asset.name}');
+      }
+    } catch (error) {
+      if (mounted) {
+        _toast('加入下载失败：$error');
+      }
+    }
   }
 
   Future<void> _copyNotes() async {

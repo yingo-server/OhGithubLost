@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 
 import '../../domain/gh/gh_client.dart';
 import '../../domain/gh/gh_models.dart';
+import '../../domain/ix/ix_download.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
@@ -567,15 +568,23 @@ class _CodeTabState extends State<_CodeTab> {
         '${Uri.encodeComponent(widget.defaultBranch)}/$encodedPath';
   }
 
-  /// 下载：交给系统下载器 / 浏览器打开原始直链（二进制文件也安全）。
+  /// 下载：交给内建下载器（仓库文件不套代理），落盘到 `<ogl>/download/repo/`。
   Future<void> _downloadEntry(GhContent entry) async {
     final String? url = _downloadUrlOf(entry);
     if (url == null || url.isEmpty) {
       _toast('该条目没有可用的下载链接');
       return;
     }
-    _toast('已交给系统下载：${ghPathName(entry.path)}');
-    await openLinkOrCopy(context, url, tag: '下载');
+    try {
+      await widget.surface.domain.downloads.enqueue(
+        url: url,
+        fileName: ghPathName(entry.path),
+        category: IxDownloadCategory.repo,
+      );
+      _toast('已加入下载：${ghPathName(entry.path)}');
+    } catch (error) {
+      _toast('加入下载失败：$error');
+    }
   }
 
   /// 详情：把接口能给的元信息摊开，并可复制关键字段。

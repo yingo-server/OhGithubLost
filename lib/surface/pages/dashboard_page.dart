@@ -3,7 +3,7 @@
 /// - 分段切换：`SegmentedButton`（我的 / 星标）；
 /// - 列表：`ListTile` + 下拉刷新；
 /// - 四态收敛在 [AsyncView]（载 / 空 / 错 / 有数据，错误不许无声消失）；
-/// - 主操作只有一个：新建仓库（页头）。
+/// - 主操作：新建仓库（页头）；页头另有下载管理入口。
 library;
 
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import '../../domain/gh/gh_models.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import 'download_manager_page.dart';
 import 'new_repo_page.dart';
 import 'repo_page.dart';
 
@@ -94,6 +95,16 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// 打开下载管理。
+  void _openDownloads() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) =>
+            DownloadManagerPage(surface: widget.surface),
+      ),
+    );
+  }
+
   Future<void> _createRepo() async {
     final GhRepo? created = await Navigator.of(context).push<GhRepo>(
       MaterialPageRoute<GhRepo>(
@@ -122,6 +133,22 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('首页'),
         actions: <Widget>[
+          ListenableBuilder(
+            listenable: widget.surface.domain.downloads,
+            builder: (BuildContext context, Widget? _) {
+              final int running = widget.surface.domain.downloads.runningCount;
+              return IconButton(
+                icon: running > 0
+                    ? Badge(
+                        label: Text('$running'),
+                        child: const Icon(Icons.download_outlined),
+                      )
+                    : const Icon(Icons.download_outlined),
+                tooltip: '下载管理',
+                onPressed: _openDownloads,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: '新建仓库',
