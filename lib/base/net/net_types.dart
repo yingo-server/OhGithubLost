@@ -59,11 +59,17 @@ enum NetErrorKind {
   unknown;
 
   /// 是否属于"可重试"类别（幂等语义由调用方保证）。
+  ///
+  /// [NetErrorKind.unknown] 也列入：`dart:io` 会把"连接在接收中被关闭"等
+  /// 场景归为未分类异常，而对幂等方法而言它们只是瞬时失败。真正是否重试
+  /// 仍受调用方的幂等集合约束（见 `ResilientTransport.retryableMethods`），
+  /// 因此 `POST` 一类非幂等请求依旧不会被自动重试。
   bool get isRetryable =>
       this == NetErrorKind.connection ||
       this == NetErrorKind.timeout ||
       this == NetErrorKind.server ||
-      this == NetErrorKind.rateLimited;
+      this == NetErrorKind.rateLimited ||
+      this == NetErrorKind.unknown;
 }
 
 /// 网络层统一异常。

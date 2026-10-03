@@ -42,6 +42,12 @@ import 'workflow_dispatch_page.dart';
 /// 每页条数（统一）。
 const int _kPageSize = 30;
 
+/// 重负载端点（发布 / Actions）每页条数。
+///
+/// 这两类响应**单条就很大**（发布含全部附件、Actions 含全部作业），
+/// 按 30 条一次拉取会产出数百 KB 到数 MB 的响应体——既慢，又容易在弱网下中断。
+const int _kHeavyPageSize = 10;
+
 /// 仓库详情页。
 class RepoPage extends StatefulWidget {
   /// 创建页面。
@@ -447,21 +453,80 @@ class _BranchSheetState extends State<_BranchSheet> {
 // 分页控制器与统一列表渲染
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 一次成功的分页快照（供同目标的标签页重建后"秒开"，避免重复请求）。
+class _CachedPage {
+  const _CachedPage(this.at, this.items, this.done, this.page);
+
+  final DateTime at;
+  final List<Object?> items;
+  final bool done;
+  final int page;
+}
+
+/// 分页快照缓存（按 `cacheKey` 隔离）。
+final Map<String, _CachedPage> _recentPage = <String, _CachedPage>{};
+
+/// 快照有效期：过期即回源。
+const Duration _kPageCacheTtl = Duration(seconds: 6);
+
 /// 通用分页数据源（首屏 + 加载更多 + 下拉刷新）。
 class _Paged<T> extends ChangeNotifier {
-  _Paged({required this.loader, this.pageSize = _kPageSize});
+  _Paged({required this.loader, this.pageSize = _kPageSize, this.cacheKey});
 
   final Future<List<T>> Function(int page) loader;
   final int pageSize;
+
+  /// 快照键：同一目标（仓库 / 分支 / 目录 / 滤器）共用一个键。
+  ///
+  /// 为什么需要：`TabBarView` 会销毁不可见页，切回来时 State 重建 →
+  /// 每个标签都会重新拉取，短时间内把同一端点连打数次（配额与带宽白烧）。
+  /// 有了快照，重建即秒开、不再重复请求。目录 / 滤器会变化的目标，
+  /// 由调用方在加载前更新本键。
+  String? cacheKey;
 
   final List<T> items = <T>[];
   int _page = 1;
   bool loading = false;
   bool done = false;
+  bool _everLoaded = false;
+  bool _everFailed = false;
   String? error;
 
-  Future<void> loadMore() async {
-    if (loading || done) {
+  /// 未显式要求时：首次加载按"自动"处理（可用快照），
+  /// 之后一律按"显式"处理（用户下拉刷新 / 写后重载，必须真的回源）。
+  bool get _shouldForce => _everLoaded || _everFailed;
+
+  Future<void> loadMore() => _load(force: false);
+
+  Future<void> refresh() => _load(force: _shouldForce, reset: true);
+
+  Future<void> _load({required bool force, bool reset = false}) async {
+    if (loading) {
+      return;
+    }
+    final String? key = cacheKey;
+    if (!force && reset && key != null) {
+      final _CachedPage? cached = _recentPage[key];
+      if (cached != null &&
+          DateTime.now().difference(cached.at) < _kPageCacheTtl) {
+        // 命中快照：直接展示，不发请求（重建的标签页因此"秒开"）。
+        items
+          ..clear()
+          ..addAll(cached.items.whereType<T>());
+        done = cached.done;
+        _page = cached.page;
+        error = null;
+        _everLoaded = true;
+        notifyListeners();
+        return;
+      }
+    }
+    if (reset) {
+      items.clear();
+      _page = 1;
+      done = false;
+      error = null;
+    } else if (done) {
       return;
     }
     loading = true;
@@ -474,20 +539,22 @@ class _Paged<T> extends ChangeNotifier {
         done = true;
       }
       _page++;
+      _everLoaded = true;
+      if (key != null) {
+        _recentPage[key] = _CachedPage(
+          DateTime.now(),
+          List<Object?>.of(items),
+          done,
+          _page,
+        );
+      }
     } catch (e) {
       error = '$e';
+      _everFailed = true;
     } finally {
       loading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> refresh() async {
-    items.clear();
-    _page = 1;
-    done = false;
-    error = null;
-    await loadMore();
   }
 }
 
@@ -570,7 +637,10 @@ class _CodeTab extends StatefulWidget {
 
 class _CodeTabState extends State<_CodeTab> {
   String _path = '';
-  late final _Paged<GhContent> _entries = _Paged<GhContent>(loader: _loadPage);
+  late final _Paged<GhContent> _entries = _Paged<GhContent>(
+    loader: _loadPage,
+    cacheKey: _keyFor(''),
+  );
   final TextEditingController _filter = TextEditingController();
   final TextEditingController _newPath = TextEditingController();
 
@@ -578,6 +648,12 @@ class _CodeTabState extends State<_CodeTab> {
   bool _busy = false;
   String? _readme;
   bool _readmeTried = false;
+
+  /// 目录列表"是否强制回源"（下拉刷新 / 写操作后置真；平时走缓存）。
+  bool _forceList = false;
+
+  String _keyFor(String path) =>
+      'code:${widget.fullName}:${widget.branch}:$path';
 
   @override
   void initState() {
@@ -604,16 +680,28 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   /// 目录内容一次性返回（Contents API 不分页），因此第 2 页起即结束。
+  ///
+  /// 缓存交给底座：默认走缓存（目录 TTL 1 分钟），仅下拉刷新 / 写操作后
+  /// （[_forceList]）才强制回源——此前这里恒为 `true`，导致缓存永不命中、
+  /// 每次切目录 / 切标签都重新下载。
   Future<List<GhContent>> _loadPage(int page) async {
     if (page > 1) {
       return const <GhContent>[];
     }
+    final bool force = _forceList;
+    _forceList = false;
     return widget.surface.domain.api.listDirectory(
       widget.fullName,
       _path,
       branch: widget.branch,
-      refresh: true,
+      refresh: force,
     );
+  }
+
+  /// 重新拉取当前目录（[force] 为真时绕过 HTTP 缓存）。
+  Future<void> _reload({bool force = true}) async {
+    _forceList = force;
+    await _entries.refresh();
   }
 
   void _toast(String message) {
@@ -644,6 +732,8 @@ class _CodeTabState extends State<_CodeTab> {
       _path = path;
       _file = null;
     });
+    // 快照键跟随目录：否则标签页重建后会拿到"上一个目录"的快照。
+    _entries.cacheKey = _keyFor(path);
     await _entries.refresh();
     if (path.isEmpty) {
       _readmeTried = false;
@@ -654,11 +744,11 @@ class _CodeTabState extends State<_CodeTab> {
   Future<void> _openPath(String path) async {
     setState(() => _busy = true);
     try {
+      // 走缓存（30 秒 TTL）：同一文件短时间内重复打开不再回源。
       final GhContent? content = await widget.surface.domain.api.content(
         widget.fullName,
         path,
         branch: widget.branch,
-        refresh: true,
       );
       if (!mounted) {
         return;
@@ -687,11 +777,11 @@ class _CodeTabState extends State<_CodeTab> {
     }
     setState(() => _busy = true);
     try {
+      // 走缓存（30 秒 TTL）。
       final GhContent? content = await widget.surface.domain.api.content(
         widget.fullName,
         entry.path,
         branch: widget.branch,
-        refresh: true,
       );
       if (!mounted) {
         return;
@@ -725,12 +815,13 @@ class _CodeTabState extends State<_CodeTab> {
     );
     if (saved == true && mounted) {
       await _refreshFile(file.path);
-      await _entries.refresh();
+      await _reload();
     }
   }
 
   Future<void> _refreshFile(String path) async {
     try {
+      // 刚从编辑器写回：必须回源（写路径已失效本地缓存，这里是双保险）。
       final GhContent? fresh = await widget.surface.domain.api.content(
         widget.fullName,
         path,
@@ -811,7 +902,7 @@ class _CodeTabState extends State<_CodeTab> {
       OgLAppLog.instance.result('仓库', '已新建文件', path);
       content.dispose();
       _toast('已创建：$path');
-      await _entries.refresh();
+      await _reload();
     } catch (error) {
       content.dispose();
       _toast('创建失败：$error');
@@ -861,7 +952,7 @@ class _CodeTabState extends State<_CodeTab> {
         setState(() => _file = null);
       }
       _toast('已删除：${entry.path}');
-      await _entries.refresh();
+      await _reload();
     } catch (error) {
       _toast('删除失败：$error');
     }
@@ -1291,7 +1382,7 @@ class _CodeTabState extends State<_CodeTab> {
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh: _entries.refresh,
+                  onRefresh: () => _reload(),
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: <Widget>[
@@ -1657,8 +1748,12 @@ class _ReleasesTab extends StatefulWidget {
 
 class _ReleasesTabState extends State<_ReleasesTab> {
   late final _Paged<GhRelease> _paged = _Paged<GhRelease>(
-    loader: (int page) => widget.surface.domain.api
-        .releases(widget.fullName, perPage: _kPageSize, page: page),
+    loader: (int page) => widget.surface.domain.api.releases(
+      widget.fullName,
+      perPage: _kHeavyPageSize,
+      page: page,
+    ),
+    cacheKey: 'releases:${widget.fullName}',
   );
 
   @override
@@ -1784,8 +1879,12 @@ class _BranchesTab extends StatefulWidget {
 
 class _BranchesTabState extends State<_BranchesTab> {
   late final _Paged<GhBranch> _paged = _Paged<GhBranch>(
-    loader: (int page) => widget.surface.domain.api
-        .branches(widget.fullName, perPage: _kPageSize, page: page),
+    loader: (int page) => widget.surface.domain.api.branches(
+      widget.fullName,
+      perPage: _kPageSize,
+      page: page,
+    ),
+    cacheKey: 'branches:${widget.fullName}',
   );
   final TextEditingController _createName = TextEditingController();
   final TextEditingController _renameName = TextEditingController();
@@ -2021,6 +2120,7 @@ class _CommitsTabState extends State<_CommitsTab> {
       perPage: _kPageSize,
       page: page,
     ),
+    cacheKey: 'commits:${widget.fullName}:${widget.branch}',
   );
 
   @override
@@ -2093,13 +2193,16 @@ class _ActionsTab extends StatefulWidget {
 class _ActionsTabState extends State<_ActionsTab> {
   String _filter = 'all';
   late final _Paged<Map<String, dynamic>> _paged =
-      _Paged<Map<String, dynamic>>(loader: _load);
+      _Paged<Map<String, dynamic>>(
+    loader: _load,
+    cacheKey: 'actions:${widget.fullName}:${widget.branch}',
+  );
 
   Future<List<Map<String, dynamic>>> _load(int page) =>
       widget.surface.domain.api.workflowRuns(
         widget.fullName,
         branch: widget.branch,
-        perPage: _kPageSize,
+        perPage: _kHeavyPageSize,
         page: page,
       );
 

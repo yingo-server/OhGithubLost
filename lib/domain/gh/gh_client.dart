@@ -509,10 +509,14 @@ class GhClient {
         return response;
       } catch (error) {
         // 失败要**看得见**：状态码 + 映射后的异常类型 + 服务端原话。
+        // 404 属"语义性不存在"——很多读取就是把 404 当"没有"（仓库没有
+        // README / CNAME / Pages），故降级为 WARN：否则日志会被正常缺省刷屏，
+        // 也容易把"没有"误读成故障。
+        final String level = error is GhNotFoundException ? 'WARN' : 'ERR';
         OgLLogFile.line(
           '网络',
           '✗ ${request.method.verb} ${request.path} → ${response.statusCode}：$error',
-          level: 'ERR',
+          level: level,
         );
         rethrow;
       }

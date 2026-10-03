@@ -1541,11 +1541,11 @@ class GhApi implements CacheRemote {
       client.getList('/repos/$fullName/labels', label: 'GET labels');
 
   /// README（Markdown 原文）。
+  ///
+  /// 直接走 GitHub 的 `GET /repos/{o}/{r}/readme`：一次请求就能拿到仓库
+  /// 实际的 README（含 `README.rst` 等），**不需要先探测 `README.md`**——
+  /// 后者会让"没有 README 的仓库"每次白打一次 404。
   Future<String?> readme(String fullName) async {
-    final content = await this.content(fullName, 'README.md');
-    if (content?.text != null) {
-      return content!.text;
-    }
     try {
       final object = await client.getObject(
         '/repos/$fullName/readme',
@@ -1554,7 +1554,11 @@ class GhApi implements CacheRemote {
       final encoded = GhJson.str(object ?? const <String, dynamic>{}, 'content');
       return GhContent.decodeContent(
         encoded,
-        GhJson.str(object ?? const <String, dynamic>{}, 'encoding', fallback: 'base64'),
+        GhJson.str(
+          object ?? const <String, dynamic>{},
+          'encoding',
+          fallback: 'base64',
+        ),
       );
     } on GhNotFoundException {
       return null;

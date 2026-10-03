@@ -33,6 +33,7 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
     with WidgetsBindingObserver {
   bool _ignoring = false;
   String _lastMetrics = '';
+  DateTime _lastLogAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -83,6 +84,14 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
       if (line == _lastMetrics) {
         return;
       }
+      // 节流：设备上报的 inset 会在 0 与大值之间高频跳动，逐条落盘只会
+      // 把日志刷满（且没有新信息）。同一形态至多 1 秒记 1 条。
+      final DateTime now = DateTime.now();
+      if (now.difference(_lastLogAt) < const Duration(seconds: 1)) {
+        _lastMetrics = line;
+        return;
+      }
+      _lastLogAt = now;
       _lastMetrics = line;
       OgLLogFile.line('窗口', line);
     } catch (error) {
