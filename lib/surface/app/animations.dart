@@ -112,17 +112,32 @@ class _OgLRevealState extends State<OgLReveal> {
     if (!OgLAnim.enabled(context)) {
       return widget.child;
     }
+    final int level = OgLAnim.level(context);
     final Duration duration = OgLAnim.medium(context);
-    return AnimatedOpacity(
+    // 档位越高，叠加的效果越多（成本也越高）：
+    //   1 → 仅淡入；2 → 淡入 + 位移；3 → 淡入 + 位移 + 缩放。
+    Widget result = AnimatedOpacity(
       opacity: _shown ? 1 : 0,
       duration: duration,
       curve: Curves.easeOut,
-      child: AnimatedSlide(
+      child: widget.child,
+    );
+    if (level >= 2) {
+      result = AnimatedSlide(
         offset: _shown ? Offset.zero : const Offset(0, 0.04),
         duration: duration,
         curve: Curves.easeOut,
-        child: widget.child,
-      ),
-    );
+        child: result,
+      );
+    }
+    if (level >= 3) {
+      result = AnimatedScale(
+        scale: _shown ? 1 : 0.98,
+        duration: duration,
+        curve: Curves.easeOut,
+        child: result,
+      );
+    }
+    return result;
   }
 }

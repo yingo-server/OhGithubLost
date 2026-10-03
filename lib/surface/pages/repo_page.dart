@@ -1483,20 +1483,23 @@ class _PullsTabState extends State<_PullsTab> {
             );
           }
           final Map<String, dynamic> item = _items[index];
-          return ListTile(
-            leading: const Icon(Icons.call_merge),
-            title: Text(
-              '#${ghInt(item, 'number')} ${ghStr(item, 'title')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          return OgLReveal(
+            delay: OgLAnim.stagger(context, index),
+            child: ListTile(
+              leading: const Icon(Icons.call_merge),
+              title: Text(
+                '#${ghInt(item, 'number')} ${ghStr(item, 'title')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                'by ${ghLogin(item)} · ${ghDate(item, 'created_at')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _openPull(item),
             ),
-            subtitle: Text(
-              'by ${ghLogin(item)} · ${ghDate(item, 'created_at')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _openPull(item),
           );
         },
       ),
@@ -1656,32 +1659,35 @@ class _ReleasesTabState extends State<_ReleasesTab> {
                     if (release.isDraft) '草稿',
                     if (release.isPrerelease) '预发布',
                   ];
-                  return ListTile(
-                    leading: const Icon(Icons.new_releases_outlined),
-                    title: Text(
-                      release.tagName +
-                          (release.name == null || release.name!.isEmpty
-                              ? ''
-                              : ' · ${release.name}'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  return OgLReveal(
+                    delay: OgLAnim.stagger(context, index),
+                    child: ListTile(
+                      leading: const Icon(Icons.new_releases_outlined),
+                      title: Text(
+                        release.tagName +
+                            (release.name == null || release.name!.isEmpty
+                                ? ''
+                                : ' · ${release.name}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        <String>[
+                          if (release.publishedAt != null)
+                            '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
+                          if (marks.isNotEmpty) marks.join(' / '),
+                          '${release.assets.length} 个附件',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: '删除',
+                        onPressed: () => _delete(release),
+                      ),
+                      onTap: () => unawaited(_openDetail(release)),
                     ),
-                    subtitle: Text(
-                      <String>[
-                        if (release.publishedAt != null)
-                          '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
-                        if (marks.isNotEmpty) marks.join(' / '),
-                        '${release.assets.length} 个附件',
-                      ].join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: '删除',
-                      onPressed: () => _delete(release),
-                    ),
-                    onTap: () => unawaited(_openDetail(release)),
                   );
                 },
               ),
@@ -1901,36 +1907,39 @@ class _BranchesTabState extends State<_BranchesTab> {
                 itemBuilder: (BuildContext context, int index) {
                   final GhBranch branch = branches[index];
                   final bool isDefault = branch.name == widget.defaultBranch;
-                  return ListTile(
-                    leading: Icon(
-                      branch.isProtected
-                          ? Icons.lock_outline
-                          : Icons.account_tree_outlined,
-                    ),
-                    title: Text(
-                      branch.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      '${ghShortSha(branch.sha)}'
-                      '${isDefault ? ' · 默认分支' : ''}'
-                      '${branch.isProtected ? ' · 受保护' : ''}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: '重命名',
-                          onPressed: isDefault ? null : () => _rename(branch),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: '删除',
-                          onPressed: isDefault ? null : () => _delete(branch),
-                        ),
-                      ],
+                  return OgLReveal(
+                    delay: OgLAnim.stagger(context, index),
+                    child: ListTile(
+                      leading: Icon(
+                        branch.isProtected
+                            ? Icons.lock_outline
+                            : Icons.account_tree_outlined,
+                      ),
+                      title: Text(
+                        branch.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${ghShortSha(branch.sha)}'
+                        '${isDefault ? ' · 默认分支' : ''}'
+                        '${branch.isProtected ? ' · 受保护' : ''}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: '重命名',
+                            onPressed: isDefault ? null : () => _rename(branch),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: '删除',
+                            onPressed: isDefault ? null : () => _delete(branch),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -2022,22 +2031,25 @@ class _CommitsTabState extends State<_CommitsTab> {
               const Divider(height: 1),
           itemBuilder: (BuildContext context, int index) {
             final GhCommit commit = commits[index];
-            return ListTile(
-              leading: const Icon(Icons.history),
-              title: Text(
-                commit.subject,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            return OgLReveal(
+              delay: OgLAnim.stagger(context, index),
+              child: ListTile(
+                leading: const Icon(Icons.history),
+                title: Text(
+                  commit.subject,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${ghCommitAuthor(commit)} · '
+                  '${commit.date?.toIso8601String().split('T').first ?? ''} · '
+                  '${ghShortSha(commit.sha)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openCommit(commit),
               ),
-              subtitle: Text(
-                '${ghCommitAuthor(commit)} · '
-                '${commit.date?.toIso8601String().split('T').first ?? ''} · '
-                '${ghShortSha(commit.sha)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _openCommit(commit),
             );
           },
         ),
@@ -2232,33 +2244,36 @@ class _ActionsTabState extends State<_ActionsTab> {
                           final Map<String, dynamic> run = shown[index];
                           final String status = ghStr(run, 'status');
                           final String conclusion = ghStr(run, 'conclusion');
-                          return ListTile(
-                            leading: Icon(
-                              _iconFor(status, conclusion),
-                              color: conclusion == 'success'
-                                  ? const Color(0xFF1A7F37)
-                                  : conclusion == 'failure' ||
-                                          conclusion == 'timed_out'
-                                      ? Theme.of(context).colorScheme.error
-                                      : Theme.of(context).colorScheme.outline,
+                          return OgLReveal(
+                            delay: OgLAnim.stagger(context, index),
+                            child: ListTile(
+                              leading: Icon(
+                                _iconFor(status, conclusion),
+                                color: conclusion == 'success'
+                                    ? const Color(0xFF1A7F37)
+                                    : conclusion == 'failure' ||
+                                            conclusion == 'timed_out'
+                                        ? Theme.of(context).colorScheme.error
+                                        : Theme.of(context).colorScheme.outline,
+                              ),
+                              title: Text(
+                                ghStr(run, 'display_title').isEmpty
+                                    ? ghStr(run, 'name')
+                                    : ghStr(run, 'display_title'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
+                                '${ghStr(run, 'head_branch')} · '
+                                '${status.isEmpty ? '—' : status}'
+                                '${conclusion.isEmpty ? '' : ' / $conclusion'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _openRun(run),
                             ),
-                            title: Text(
-                              ghStr(run, 'display_title').isEmpty
-                                  ? ghStr(run, 'name')
-                                  : ghStr(run, 'display_title'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
-                              '${ghStr(run, 'head_branch')} · '
-                              '${status.isEmpty ? '—' : status}'
-                              '${conclusion.isEmpty ? '' : ' / $conclusion'}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => _openRun(run),
                           );
                         },
                       ),

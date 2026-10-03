@@ -60,17 +60,36 @@ void main() {
     expect(OgLAnim.medium(context), Duration.zero);
   });
 
-  testWidgets('OgLReveal 在档位 0 直接显示子控件', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: OgLMotionScope(
-          level: 0,
-          child: OgLReveal(child: Text('内容')),
+  testWidgets('OgLReveal 按档位叠加效果（成本随档位增加）', (WidgetTester tester) async {
+    Future<void> pumpAt(int level) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OgLMotionScope(
+            level: level,
+            child: const OgLReveal(child: Text('内容')),
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    // 档位 0：无动画层。
+    await pumpAt(0);
     expect(find.text('内容'), findsOneWidget);
-    // 档位 0 下不包动画层，直接显示。
     expect(find.byType(AnimatedOpacity), findsNothing);
+
+    // 档位 1：仅淡入。
+    await pumpAt(1);
+    expect(find.byType(AnimatedOpacity), findsOneWidget);
+    expect(find.byType(AnimatedSlide), findsNothing);
+
+    // 档位 2：淡入 + 位移。
+    await pumpAt(2);
+    expect(find.byType(AnimatedSlide), findsOneWidget);
+    expect(find.byType(AnimatedScale), findsNothing);
+
+    // 档位 3：淡入 + 位移 + 缩放。
+    await pumpAt(3);
+    expect(find.byType(AnimatedSlide), findsOneWidget);
+    expect(find.byType(AnimatedScale), findsOneWidget);
   });
 }
