@@ -301,7 +301,7 @@ class IxModule extends OgLModule {
       channelApplier: buildChannelApplier(base.net),
     );
     notifications = IxNotificationCenter();
-    downloads = IxDownloadManager();
+    downloads = IxDownloadManager(diagnostics: context.diagnostics);
     actionLogs = IxActionLogs(
       tokenProvider: () async => (await auth.activeToken())?.value,
     );

@@ -90,6 +90,25 @@ class SurfaceBridge {
   /// 由设置/账户页显式调用本方法。
   Future<int> clearRepositoryCache() async => await cache?.purge() ?? 0;
 
+  /// 清空**全部**本机缓存（仓库缓存 + DNS 缓存 + 页面分页快照）。
+  ///
+  /// 用户要求：**切换 / 移除账号时必须清除所有缓存**。
+  /// 页面级快照由调用方额外调用 `clearOgLRepoPageCaches()`（避免桥依赖页面）。
+  Future<int> clearAllCaches() async {
+    final int removed = await clearRepositoryCache();
+    try {
+      net?.dns?.cache.clear();
+    } catch (error) {
+      // 不允许静默：清不掉也要留痕（通知中心可见）。
+      OgLAppLog.instance.add(
+        '缓存',
+        '清空 DNS 缓存失败：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
+    return removed;
+  }
+
   /// DNS 可选服务器（id → 展示名）。
   Map<String, String> get dnsServerChoices =>
       net?.dnsServerChoices ?? const <String, String>{};

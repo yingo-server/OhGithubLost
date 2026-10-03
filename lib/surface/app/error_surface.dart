@@ -330,23 +330,25 @@ class _OgLNoticeHostState extends State<OgLNoticeHost> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// 把内核诊断里的 **error** 转发到通知中心。
+/// 把内核诊断的 **warn / error** 转发到通知中心。
 ///
-/// 这样"任何一层"通过 `KernelDiagnostics` 记下的错误都会自动触达用户，
-/// 而不是只躺在日志里 —— 通知系统因此**贯穿全局**（L0/L1/L2 都经此路）。
+/// 用户要求：**不允许静默降级** —— 任何降级 / 异常都必须以"带事件码"的通知
+/// 形式可见（error → 严重级，走弹窗；warn → 告警级，走横幅）。
 class OgLDiagnosticsNoticeSink implements KernelLogSink {
   /// 创建接收方。
   const OgLDiagnosticsNoticeSink();
 
   @override
   void onLog(KernelLogEntry entry) {
-    if (entry.level != KernelLogLevel.error) {
+    final bool isError = entry.level == KernelLogLevel.error;
+    final bool isWarn = entry.level == KernelLogLevel.warn;
+    if (!isError && !isWarn) {
       return;
     }
     OgLNoticeCenter.instance.report(
       title: entry.message,
-      detail: entry.tag,
-      severity: OgLNoticeSeverity.warning,
+      detail: entry.code == null ? entry.tag : '${entry.tag} · ${entry.code}',
+      severity: isError ? OgLNoticeSeverity.critical : OgLNoticeSeverity.warning,
     );
   }
 }

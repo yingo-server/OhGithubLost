@@ -15,6 +15,7 @@ import '../surface_bridge.dart';
 import 'drafts_page.dart';
 import 'gists_page.dart';
 import 'login_page.dart';
+import 'repo_page.dart';
 
 /// 我的页。
 class ProfilePage extends StatefulWidget {
@@ -100,16 +101,10 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
       OgLAppLog.instance.result('账户', '已切换', '@${account.login}');
-      // 多用户安全：缓存不含账号维度，切换后必须清空，避免串台。
-      try {
-        await widget.surface.clearRepositoryCache();
-      } catch (error) {
-        OgLAppLog.instance.add(
-          '账户',
-          '清空仓库缓存失败（不影响当前登录）：$error',
-          severity: OgLNoticeSeverity.warning,
-        );
-      }
+      // 多用户安全：缓存不含账号维度（分页快照 / 仓库缓存都不含），
+      // 切换后必须**清空所有缓存**，避免"用 B 账号看到 A 账号的私有数据"。
+      await widget.surface.clearAllCaches();
+      clearOgLRepoPageCaches();
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(

@@ -16,9 +16,12 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
+
+import '../../kernel/diagnostics.dart';
 
 /// 下载分类（决定落到哪个子目录）。
 enum IxDownloadCategory {
@@ -174,12 +177,17 @@ class IxDownloadTask {
 /// 下载管理器（展示层唯一入口；内部委托 `background_downloader`）。
 class IxDownloadManager extends ChangeNotifier {
   /// 创建管理器。
-  IxDownloadManager({FileDownloader? downloader})
-      : _downloader = downloader ?? FileDownloader() {
+  ///
+  /// [diagnostics] 用于把"取不到文件大小"等**降级**情况按事件码上报
+  /// （不允许静默）。
+  IxDownloadManager({FileDownloader? downloader, KernelDiagnostics? diagnostics})
+      : _downloader = downloader ?? FileDownloader(),
+        _diagnostics = diagnostics {
     _subscription = _downloader.updates.listen(_onUpdate);
   }
 
   final FileDownloader _downloader;
+  KernelDiagnostics? _diagnostics;
   StreamSubscription<TaskUpdate>? _subscription;
 
   final Map<String, IxDownloadTask> _snapshots = <String, IxDownloadTask>{};
@@ -328,15 +336,22 @@ class IxDownloadManager extends ChangeNotifier {
   /// 把库的更新映射成对外快照（进度节流）。
   void _onUpdate(TaskUpdate update) {
     if (update is TaskStatusUpdate) {
-      final IxDownloadTask? snap = _snapshots[update.task.taskId];
+      final String id = update.task.taskId;
+      final IxDownloadTask? snap = _snapshots[id];
       if (snap == null) {
         return;
       }
-      _snapshots[update.task.taskId] = snap.copyWith(
-        status: _mapStatus(update.status),
+      final IxDownloadStatus status = _mapStatus(update.status);
+      _snapshots[id] = snap.copyWith(
+        status: status,
         error: update.exception?.description,
       );
       notifyListeners();
+      if (status == IxDownloadStatus.completed) {
+        // 库对小文件可能一次进度事件都不发 → 界面会一直显示 "0 B"（截图实证）。
+        // 完成时以磁盘上的真实文件大小回填。
+        unawaited(_fillCompletedSize(id));
+      }
       return;
     }
     if (update is TaskProgressUpdate) {
@@ -377,6 +392,35 @@ class IxDownloadManager extends ChangeNotifier {
     }
     _lastNotify = now;
     notifyListeners();
+  }
+
+  /// 完成后回填真实文件大小。
+  ///
+  /// 库对小文件可能一次进度事件都不发 → 界面会一直显示 "0 B"（截图实证）。
+  Future<void> _fillCompletedSize(String id) async {
+    try {
+      final DownloadTask? task = _tasks[id];
+      final IxDownloadTask? snap = _snapshots[id];
+      if (task == null || snap == null) {
+        return;
+      }
+      final String path = await task.filePath();
+      final File file = File(path);
+      if (!await file.exists()) {
+        return;
+      }
+      final int size = await file.length();
+      _snapshots[id] = snap.copyWith(received: size, total: size);
+      notifyListeners();
+    } catch (error) {
+      // 不允许静默：按事件码上报到通知中心。
+      _diagnostics?.warn(
+        'DOWNLOAD',
+        '下载完成后无法读取文件大小',
+        code: 'OGL-DL-101',
+        data: <String, Object?>{'taskId': id, 'error': '$error'},
+      );
+    }
   }
 
   static IxDownloadStatus _mapStatus(TaskStatus status) {

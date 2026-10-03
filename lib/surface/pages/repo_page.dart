@@ -453,6 +453,12 @@ class _BranchSheetState extends State<_BranchSheet> {
 // 分页控制器与统一列表渲染
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 清空所有"按目标缓存"的分页快照。
+///
+/// **切换账号时必须调用**：快照里可能含上一个账号可见的私有数据
+/// （用户要求：切号清除所有缓存）。
+void clearOgLRepoPageCaches() => _recentPage.clear();
+
 /// 一次成功的分页快照（供同目标的标签页重建后"秒开"，避免重复请求）。
 class _CachedPage {
   const _CachedPage(this.at, this.items, this.done, this.page);
@@ -558,7 +564,10 @@ class _Paged<T> extends ChangeNotifier {
   }
 }
 
-/// 统一渲染分页列表（空/错/载三态 + 加载更多 + 下拉刷新）。
+/// 统一渲染分页列表（空 / 错 / 载三态 + 加载更多 + 下拉刷新）。
+///
+/// [items] 为空时渲染 `paged.items` 全量；给了则只渲染该子集
+/// （用于**客户端筛选**：筛选只影响展示，不影响分页状态）。
 Widget _pagedBody<T>(
   BuildContext context,
   _Paged<T> paged,
@@ -566,7 +575,9 @@ Widget _pagedBody<T>(
   required String emptyText,
   IconData emptyIcon = Icons.inbox_outlined,
   Widget? emptyAction,
+  List<T>? items,
 }) {
+  final List<T> list = items ?? paged.items;
   if (paged.items.isEmpty && paged.loading) {
     return const Center(child: CircularProgressIndicator());
   }
@@ -587,11 +598,11 @@ Widget _pagedBody<T>(
     onRefresh: paged.refresh,
     child: ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: paged.items.length + (paged.done ? 0 : 1),
+      itemCount: list.length + (paged.done ? 0 : 1),
       separatorBuilder: (BuildContext context, int index) =>
           const Divider(height: 1),
       itemBuilder: (BuildContext context, int index) {
-        if (index == paged.items.length) {
+        if (index == list.length) {
           return Padding(
             padding: const EdgeInsets.all(12),
             child: Center(
@@ -606,7 +617,7 @@ Widget _pagedBody<T>(
         }
         return OgLReveal(
           delay: OgLAnim.stagger(context, index),
-          child: itemBuilder(context, paged.items[index], index),
+          child: itemBuilder(context, list[index], index),
         );
       },
     ),
@@ -2369,7 +2380,7 @@ class _ActionsTabState extends State<_ActionsTab> {
                       },
                       emptyIcon: Icons.play_circle_outline,
                       emptyText: '没有工作流运行记录',
-                    ),
+                      items: shown,
             ),
           ],
         );

@@ -197,8 +197,16 @@ class _SearchPageState extends State<SearchPage> {
                   selected: <int>{_mode},
                   showSelectedIcon: false,
                   onSelectionChanged: (Set<int> selection) {
-                    if (selection.isNotEmpty) {
-                      setState(() => _mode = selection.first);
+                    if (selection.isNotEmpty && selection.first != _mode) {
+                      // 切换模式必须清空旧结果：否则会出现"代码结果留在仓库标签下"。
+                      final AsyncController<List<_SearchHit>>? old = _results;
+                      setState(() {
+                        _mode = selection.first;
+                        _results = null;
+                        _query = '';
+                        _input.clear();
+                      });
+                      old?.dispose();
                     }
                   },
                 ),

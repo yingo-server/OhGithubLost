@@ -34,6 +34,7 @@ import '../theme.dart';
 import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
 import 'onboarding_page.dart';
+import 'repo_page.dart';
 
 /// 设置页。
 class SettingsPage extends StatefulWidget {
@@ -211,8 +212,9 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     try {
       await widget.surface.domain.auth.removeAccount(account.id);
-      // 多用户安全：移除账号后清空一致性缓存，避免其它账号看到旧缓存。
-      await widget.surface.clearRepositoryCache();
+      // 多用户安全：移除账号后清空**所有**缓存，避免其它账号看到旧缓存。
+      await widget.surface.clearAllCaches();
+      clearOgLRepoPageCaches();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已退出登录（令牌已从本机删除）')),
@@ -744,12 +746,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
           const Divider(height: 1),
-          SwitchListTile(
-            title: const Text('Release 附件加速通道'),
-            subtitle: const Text('经加速通道下载发布附件；关闭则直连（不影响其它下载）'),
-            value: value.releaseProxyEnabled,
-            onChanged: _settings.setReleaseProxyEnabled,
-          ),
+          // 说明：Release 附件加速通道**已从界面移除**（临时关闭）。
+          // 通道地址仍只存在于实现内部常量，不对外暴露。
         ],
       );
 
