@@ -74,5 +74,6 @@ const List<OgLDependencyLicense> kOgLDependencyLicenses =
   OgLDependencyLicense('cryptography', 'Apache-2.0', '引导清单签名校验'),
   OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', 'Markdown 渲染'),
   OgLDependencyLicense('url_launcher', 'BSD-3-Clause', '外链打开'),
+  OgLDependencyLicense('permission_handler', 'MIT', '运行时权限请求与系统设置入口'),
   OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', '系统组件本地化'),
 ];

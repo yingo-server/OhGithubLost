@@ -24,6 +24,8 @@ import sys
 PERMISSIONS = [
     ('android.permission.INTERNET', None,
      '网络：GitHub API 必需（release 主清单默认没有）'),
+    ('android.permission.POST_NOTIFICATIONS', None,
+     '通知：Android 13+ 主动提示（限流 / 下载完成等）需运行时授权'),
     ('android.permission.MANAGE_EXTERNAL_STORAGE', None,
      '日志：Android 11+ 写 /sdcard/logging 需"所有文件访问"'),
     ('android.permission.READ_EXTERNAL_STORAGE', '32',

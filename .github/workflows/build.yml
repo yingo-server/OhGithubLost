@@ -257,6 +257,14 @@ jobs:
           flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
           rm -f test/widget_test.dart
 
+      - name: 注入 Android compileSdk（permission_handler 要求）
+        # ★ permission_handler_android 要求宿主 compileSdk 高于 Flutter 模板默认值；
+        #   平台目录由 CI 现场生成，故在构建期对生成物做幂等注入
+        #   （见 tool/inject_android_gradle.py）。
+        if: matrix.build == 'apk' || matrix.build == 'appbundle'
+        shell: bash
+        run: python3 tool/inject_android_gradle.py || exit 1
+
       - name: 注入平台网络权限（release 必需）
         # ★ Android：Flutter 模板的 INTERNET 权限只在 debug/profile 清单里，
         #   release 主清单**没有** → 不注入则安装包能启动但任何网络请求直接失败。
@@ -399,7 +407,7 @@ jobs:
         if: matrix.build == 'apk'
         run: |
           for APK in build/app/outputs/flutter-apk/*.apk; do
-            python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');need=[n for n in ('INTERNET','MANAGE_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','requestLegacyExternalStorage') if n.encode('utf-16-le') not in d];assert not need,('缺权限/属性: '+','.join(need)+' <- '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
+            python3 -c "import sys,zipfile;d=zipfile.ZipFile(sys.argv[1]).read('AndroidManifest.xml');need=[n for n in ('INTERNET','POST_NOTIFICATIONS','MANAGE_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','requestLegacyExternalStorage') if n.encode('utf-16-le') not in d];assert not need,('缺权限/属性: '+','.join(need)+' <- '+sys.argv[1]);print('护栏通过: '+sys.argv[1])" "$APK" || exit 1
           done
 
       - name: 引导清单注入校验（防空注入回归）

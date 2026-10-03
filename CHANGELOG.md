@@ -2,6 +2,23 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## v3.3.0（2026-10-03）
+
+权限
+
+- 权限申请改用成熟库 `permission_handler`：Android / iOS / macOS **真正调起系统权限弹窗**
+  （修复旧版"只探测、不请求、且打开系统设置的 URI 在 Android 上无效"导致权限申请基本无效的问题）；
+- Android 11+ 的「所有文件访问」走 `manageExternalStorage` 特殊设置页；
+- 打开系统设置改用各平台正确入口（不再使用 iOS 专用的 `app-settings:` URI）；
+- Android 13+（API 33+）注入并在运行时请求 `POST_NOTIFICATIONS`；
+- 构建期新增 `tool/inject_android_gradle.py`：幂等提升宿主 `compileSdk`
+  （平台目录由 CI 现场生成，故在构建期注入）。
+
+其他
+
+- 依赖许可清单补充 `permission_handler`（MIT）；
+- 发布护栏的 Android 权限断言加入 `POST_NOTIFICATIONS`。
+
 ## v3.2.0（2026-10-03）
 
 动效（与设置里的「动效档位」联动）
