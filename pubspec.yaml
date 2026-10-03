@@ -8,7 +8,7 @@
 #
 # 架构分层映射：
 #   kernel/boot   → cryptography（Ed25519 引导清单签名校验）
-#   base/net      → dio（传输引擎：池化/取消/流式/进度/重试）
+#   base/net      → dart:io HttpClient（传输引擎：超时 / 重定向 / 连接策略）
 #   base/disk     → path_provider · flutter_secure_storage
 #   base/disk     → crypto（SHA256 摘要）
 #   surface/readme → flutter_markdown（README / 正文渲染）
@@ -37,7 +37,7 @@ dependencies:
     sdk: flutter
 
   # ── 底座 · 网络连接 ─────────────────────────────────────────────────
-  dio: ^5.11.1                     # HTTP 传输引擎（池化 / 取消 / 流式 / 进度）
+  # （无外部依赖：传输层直接使用 dart:io 的 HttpClient；2026-10-03 移除 dio）
 
   # ── 底座 · 硬盘逻辑 ─────────────────────────────────────────────────
   path_provider: ^2.1.6            # 跨平台目录规划

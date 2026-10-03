@@ -68,7 +68,7 @@ enum NetErrorKind {
 
 /// 网络层统一异常。
 ///
-/// 约定：**所有**传输实现都必须把底层异常（Dio / Socket / TLS）翻译成本类型，
+/// 约定：**所有** 传输实现都必须把底层异常（HttpClient / Socket / TLS）翻译成本类型，
 /// 上层（中枢 / 交互）只认识它——这样重试与提示逻辑只有一处。
 class NetException implements Exception {
   /// 创建异常。

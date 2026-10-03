@@ -1,11 +1,11 @@
 /// L1 底座级 · 网络连接：门面与模块装配。
 ///
-/// [NetBridge] 是**本层对外唯一出口**：上层只认识它，不认识 Dio、
+/// [NetBridge] 是**本层对外唯一出口**：上层只认识它，不认识 HttpClient、
 /// 不认识重试策略、更不认识镜像通道实现。
 library;
 
 import '../../kernel/contract/module.dart';
-import 'dio_net_transport.dart';
+import 'io_net_transport.dart';
 import 'net_dns.dart';
 import 'net_mirror.dart';
 import 'net_retry.dart';
@@ -143,7 +143,7 @@ class NetModule extends OgLModule {
 
     final inner = _explicit ??
         _factory?.call() ??
-        DioNetTransport(
+        IoNetTransport(
           dns: _dns,
           connectTimeout: const Duration(seconds: 15),
         );

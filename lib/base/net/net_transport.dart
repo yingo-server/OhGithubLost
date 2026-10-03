@@ -5,7 +5,7 @@
 /// NetBridge（门面）
 ///   └─ ResilientTransport（重试 + 镜像回落 + 观测）  ← 本文件
 ///        └─ NetTransport（纯发送，无策略）
-///             └─ DioNetTransport（真实 HTTP） / 测试桩
+///             └─ IoNetTransport（真实 HTTP） / 测试桩
 /// ```
 /// 这样"策略"与"能力"分离：换 HTTP 客户端不影响重试与观测，
 /// 换策略也不影响传输实现。

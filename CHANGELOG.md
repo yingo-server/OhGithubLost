@@ -2,6 +2,22 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## 未发布
+
+网络（**弃用 dio**）
+
+- 传输层由 `dio` 改为**直接使用 `dart:io HttpClient`**（新增 `lib/base/net/io_net_transport.dart`，
+  删除 `dio_net_transport.dart`），`pubspec.yaml` 移除 `dio` 依赖；Actions 日志下载（`IxActionLogs`）
+  同步改为 `HttpClient`。理由：Dio 把"连接策略"藏进适配器层，排查与修都无法直接动手。
+- **禁用 keep-alive 连接复用**（`persistentConnection = false`）：
+  设备日志实证 `Connection closed before full header was received` 反复出现，
+  而同一时刻原生自检全绿——差别只在"是否复用连接"。禁用复用后每个请求走新连接，
+  从根上消除该类故障。
+- 连接类失败（`SocketException` / `HttpException`）统一归为**可重试**的连接错误，
+  并在重试前**清空 DNS 缓存**（避免钉在坏 IP 上）。
+- 新增 PoC / 回归测试 `test/base/net_transport_reconnect_test.dart`：
+  对端"响应后即关闭连接"时，连续请求必须全部成功；并断言连接策略已禁用复用。
+
 ## v4.1.0（2026-10-03）
 
 本版聚焦「仓库浏览」的补齐与控件/布局的 Material 3 规范化。
