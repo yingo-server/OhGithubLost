@@ -129,7 +129,10 @@ class DownloadManagerPage extends StatelessWidget {
                       ?.copyWith(color: theme.colorScheme.error),
                 ),
               ),
-            Row(
+            Wrap(
+              spacing: 4,
+              runSpacing: 0,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 if (active || task.status == IxDownloadStatus.queued)
                   IconButton(
@@ -168,7 +171,6 @@ class DownloadManagerPage extends StatelessWidget {
                     onPressed: () => unawaited(_copyPath(context, task)),
                   ),
                 ],
-                const Spacer(),
                 IconButton(
                   tooltip: '移除',
                   icon: const Icon(Icons.delete_outline),
