@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../domain/gh/gh_models.dart';
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
@@ -234,23 +235,26 @@ class _SearchPageState extends State<SearchPage> {
                           const Divider(height: 1),
                       itemBuilder: (BuildContext context, int index) {
                         final _SearchHit hit = hits[index];
-                        return ListTile(
-                          leading: Icon(
-                            hit.initialPath == null
-                                ? Icons.folder_outlined
-                                : Icons.description_outlined,
+                        return OgLReveal(
+                          delay: OgLAnim.stagger(context, index),
+                          child: ListTile(
+                            leading: Icon(
+                              hit.initialPath == null
+                                  ? Icons.folder_outlined
+                                  : Icons.description_outlined,
+                            ),
+                            title: Text(
+                              hit.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              hit.subtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => _open(hit),
                           ),
-                          title: Text(
-                            hit.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            hit.subtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onTap: () => _open(hit),
                         );
                       },
                     ),

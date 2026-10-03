@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../domain/gh/gh_auth.dart';
 import '../../kernel/kernel.dart';
 import '../i18n/og_l_i18n.dart';
 import '../pages/dashboard_page.dart';
@@ -74,7 +75,21 @@ class _OgLClientShellState extends State<OgLClientShell> {
   void initState() {
     super.initState();
     _onboardingDone = widget.surface.settings.settings.onboardingDone;
+    // ★ 认证是全局可观察状态：登录 / 失效 / 切号 / 登出都自动联动。
+    widget.surface.domain.auth.addListener(_onAuthChanged);
     _check();
+  }
+
+  @override
+  void dispose() {
+    widget.surface.domain.auth.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (mounted) {
+      _check();
+    }
   }
 
   Future<void> _check() async {
@@ -148,7 +163,9 @@ class _OgLClientShellState extends State<OgLClientShell> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    if (_accountId == null && !_guest) {
+    if ((_accountId == null ||
+        widget.surface.domain.auth.state == GhAuthState.expired) &&
+        !_guest) {
       return LoginPage(
         surface: widget.surface,
         onLoggedIn: _check,

@@ -12,6 +12,7 @@ library;
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../base/disk/disk_cache.dart';
 import '../../base/disk/disk_types.dart';
@@ -51,6 +52,13 @@ class GhApi implements CacheRemote {
 
   /// 是否已绑定读穿透缓存。
   bool get hasReadCache => _cache != null;
+
+  /// 草稿变更通知（草稿箱 / 角标据此实时刷新）。
+  ///
+  /// 未绑定缓存时返回一个**永不通知**的占位，便于 UI 无条件订阅。
+  Listenable get draftsChanged => _cache?.drafts ?? _neverNotifier;
+
+  static final ChangeNotifier _neverNotifier = ChangeNotifier();
 
   /// 绑定读穿透缓存（由 `domain_bridge` 在装配阶段调用）。
   ///
@@ -1472,6 +1480,39 @@ class GhApi implements CacheRemote {
         .map(Map<String, dynamic>.from)
         .toList();
   }
+
+  /// 一次运行的日志压缩包地址（302 → zip；需带令牌请求）。
+  ///
+  /// 由域层服务 `IxActionLogs` 负责带令牌下载并解压（见 `domain/ix/ix_action_logs.dart`）。
+  String workflowRunLogsUrl(String fullName, int runId) =>
+      '${client.baseUrl}/repos/$fullName/actions/runs/$runId/logs';
+
+  /// 默认 API 根（供域层服务拼日志地址）。
+  String get apiBaseUrl => client.baseUrl;
+
+  /// 一次运行的产物（artifacts）列表。
+  Future<List<Map<String, dynamic>>> workflowRunArtifacts(
+    String fullName,
+    int runId,
+  ) async {
+    final object = await client.getObject(
+      '/repos/$fullName/actions/runs/$runId/artifacts',
+      query: const <String, String>{'per_page': '100'},
+      label: 'GET actions/runs/$runId/artifacts',
+    );
+    final items = object?['artifacts'];
+    if (items is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+    return items
+        .whereType<Map<Object?, Object?>>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+  }
+
+  /// 单个产物的下载地址（zip）。
+  String artifactDownloadUrl(String fullName, int artifactId) =>
+      '${client.baseUrl}/repos/$fullName/actions/artifacts/$artifactId/zip';
 
   /// 重新运行一次工作流（**写操作**）。
   Future<void> rerunWorkflowRun(String fullName, int runId) =>

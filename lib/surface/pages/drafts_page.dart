@@ -2,7 +2,8 @@
 ///
 /// - 列出本机草稿：仓库 / 路径 / 修订 / 更新时间；
 /// - 查看内容（可复制）、删除草稿；
-/// - 数据来自 `GhApi.drafts`（与编辑器写入同一套键）。
+/// - 数据来自 `GhApi.drafts`（与编辑器写入同一套键）；
+/// - **订阅草稿变更**：提交清稿 / 新草稿落盘后列表自动刷新。
 library;
 
 import 'dart:async';
@@ -34,12 +35,21 @@ class _DraftsPageState extends State<DraftsPage> {
   void initState() {
     super.initState();
     _controller().loadIfNeeded();
+    // 草稿变更可观察：提交清稿 / 新草稿落盘后列表自动刷新。
+    widget.surface.domain.api.draftsChanged.addListener(_onDraftsChanged);
   }
 
   @override
   void dispose() {
+    widget.surface.domain.api.draftsChanged.removeListener(_onDraftsChanged);
     _drafts?.dispose();
     super.dispose();
+  }
+
+  void _onDraftsChanged() {
+    if (mounted) {
+      unawaited(_controller().load());
+    }
   }
 
   AsyncController<List<GhDraft>> _controller() {

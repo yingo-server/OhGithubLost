@@ -588,6 +588,8 @@ class GhClient {
     }
     switch (status) {
       case 401:
+        // ★ 认证失效的**全局唯一出口**：标记状态，外壳据此自动回登录门。
+        _auth.markExpired('令牌无效或已过期，请重新授权');
         throw const GhAuthException(
           '令牌无效或已过期，请重新授权',
           statusCode: 401,

@@ -57,8 +57,12 @@ dependencies:
   #    构建期由 tool/inject_android_gradle.py 幂等注入（见 build.yml）。
   permission_handler: ^13.0.2
 
+  # ── 中枢层 · 下载与二进制 ───────────────────────────────────────────
+  background_downloader: ^9.6.3     # 多平台后台下载（断点续传 / 队列 / 通知）
+  archive: ^3.6.1                   # Actions 日志 zip 解压
+
   # 已移除（未被任何代码 import，重写时一并裁掉）：
-  #   provider · shared_preferences · archive · file_picker
+  #   provider · shared_preferences · file_picker
   #   window_manager · cached_network_image · mocktail
   #
   # 注意：device_info_plus **暂不引入**（iOS 构建链报 NSProcessInfo 选择器缺失），

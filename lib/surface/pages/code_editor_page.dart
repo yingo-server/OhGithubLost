@@ -1,13 +1,13 @@
-/// L3 展示级 · 全屏代码编辑器。
+/// L3 展示级 · 全屏代码编辑器（**编辑态语法高亮 + 内建撤销/重做**）。
 ///
-/// 目标：把"嵌在仓库页里的一个小输入框"升级为可用的文件编辑器，
-/// 参考 MT 管理器的文件编辑器体验，但在移动端做取舍：
-/// - **全屏**：编辑时不被仓库页的头部/列表挤压；
-/// - **撤销 / 重做**：自带快照栈（防抖合并），不依赖第三方；
-/// - **查找 / 替换**：查找下一个、替换、全部替换；
-/// - **换行 / 字号**：随时切换，立即生效；
-/// - **未保存拦截**：返回时若未保存先确认，绝不静默丢改动；
-/// - **加锁保存**：走 `putContentLocked`（D1–D7），基线过期弹冲突对话框。
+/// 相对旧版的两处关键改进：
+/// 1. **高亮**：编辑区改为「高亮图层 + 透明输入层」叠加，编辑时即可见语法高亮
+///    （`highlight` 系库要求 Dart < 3，故复用项目既有词法器 `CodeView`）；
+/// 2. **撤销/重做**：改用 Flutter 内建的 [UndoHistoryController]，
+///    语义与输入法一致，不再依赖自研防抖快照栈（旧版"撤销不灵敏"）。
+///
+/// 其余能力保留：查找/替换、换行/字号、未保存拦截、草稿防抖落盘、
+/// 加锁保存（走 D1–D7，基线过期弹冲突对话框）。
 library;
 
 import 'dart:async';
@@ -55,17 +55,12 @@ class CodeEditorPage extends StatefulWidget {
 }
 
 class _CodeEditorPageState extends State<CodeEditorPage> {
-  final TextEditingController _text =
-      TextEditingController(text: ''); // 在 initState 里赋初值
+  final TextEditingController _text = TextEditingController();
   final TextEditingController _find = TextEditingController();
   final TextEditingController _replace = TextEditingController();
 
-  /// 撤销 / 重做快照栈。
-  final List<String> _undo = <String>[];
-  final List<String> _redo = <String>[];
-  String _lastSnapshot = '';
-  Timer? _snapshotTimer;
-  bool _applying = false;
+  /// Flutter 内建撤销/重做历史。
+  final UndoHistoryController _undoHistory = UndoHistoryController();
 
   bool _showFind = false;
   bool _wrap = false;
@@ -80,19 +75,26 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   void initState() {
     super.initState();
     _text.text = widget.initialText;
-    _lastSnapshot = widget.initialText;
+    _undoHistory.addListener(_onHistoryChanged);
     unawaited(_restoreDraft());
   }
 
   @override
   void dispose() {
-    _snapshotTimer?.cancel();
     _draftTimer?.cancel();
     unawaited(_persistDraft());
+    _undoHistory.removeListener(_onHistoryChanged);
+    _undoHistory.dispose();
     _text.dispose();
     _find.dispose();
     _replace.dispose();
     super.dispose();
+  }
+
+  void _onHistoryChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// 进入编辑器时尝试恢复上次未提交的草稿。
@@ -107,7 +109,6 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         return;
       }
       if (draft == widget.initialText) {
-        // 草稿与远端一致：没有恢复价值，清掉避免打扰。
         await widget.surface.domain.api.discardDraft(
           widget.fullName,
           widget.path,
@@ -117,7 +118,6 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       }
       setState(() {
         _text.text = draft;
-        _lastSnapshot = draft;
       });
       _toast('已恢复上次未提交的草稿');
     } catch (_) {
@@ -151,63 +151,13 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   bool get _dirty => _text.text != widget.initialText;
 
   void _onChanged() {
-    if (_applying) {
-      return;
-    }
-    _snapshotTimer?.cancel();
-    // 防抖：连续输入合并为一个撤销点，避免每个字符都占一个快照。
-    _snapshotTimer = Timer(const Duration(milliseconds: 600), _pushSnapshot);
-    // 草稿落盘同样防抖：停顿后再写，避免高频写盘。
+    // 草稿落盘防抖：停顿后再写，避免高频写盘。
     _draftTimer?.cancel();
     _draftTimer = Timer(const Duration(milliseconds: 900), _persistDraft);
     setState(() {});
   }
 
-  void _pushSnapshot() {
-    if (_text.text == _lastSnapshot) {
-      return;
-    }
-    _undo.add(_lastSnapshot);
-    if (_undo.length > 200) {
-      _undo.removeAt(0);
-    }
-    _lastSnapshot = _text.text;
-    _redo.clear();
-  }
-
-  void _applySnapshot(String value) {
-    _applying = true;
-    _text.value = TextEditingValue(
-      text: value,
-      selection: TextSelection.collapsed(offset: value.length),
-    );
-    _applying = false;
-    setState(() {});
-  }
-
-  void _undoAction() {
-    _snapshotTimer?.cancel();
-    _pushSnapshot();
-    if (_undo.isEmpty) {
-      return;
-    }
-    _redo.add(_lastSnapshot);
-    _lastSnapshot = _undo.removeLast();
-    _applySnapshot(_lastSnapshot);
-  }
-
-  void _redoAction() {
-    if (_redo.isEmpty) {
-      return;
-    }
-    _undo.add(_lastSnapshot);
-    _lastSnapshot = _redo.removeLast();
-    _applySnapshot(_lastSnapshot);
-  }
-
-  void _toggleWrap() {
-    setState(() => _wrap = !_wrap);
-  }
+  void _toggleWrap() => setState(() => _wrap = !_wrap);
 
   void _changeFont(double delta) {
     setState(() => _fontSize = (_fontSize + delta).clamp(10.0, 24.0).toDouble());
@@ -234,12 +184,10 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       _toast('未找到：$needle');
       return;
     }
-    _applying = true;
     _text.selection = TextSelection(
       baseOffset: index,
       extentOffset: index + needle.length,
     );
-    _applying = false;
   }
 
   void _replaceCurrent() {
@@ -254,12 +202,10 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         _text.text.substring(sel.start, sel.end) == needle;
     if (selectedMatches) {
       final String next = _text.text.replaceRange(sel.start, sel.end, _replace.text);
-      _applying = true;
       _text.value = TextEditingValue(
         text: next,
         selection: TextSelection.collapsed(offset: sel.start + _replace.text.length),
       );
-      _applying = false;
       _onChanged();
     } else {
       _findNext();
@@ -442,10 +388,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final _EditorPrefs prefs = _EditorPrefs(widget.surface);
     final TextStyle codeStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: _fontSize,
       height: 1.5,
+      color: Colors.transparent, // 文字透明：可见颜色来自下层高亮图层
     );
     final int lines = '\n'.allMatches(_text.text).length + 1;
     return PopScope(
@@ -471,12 +419,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
             IconButton(
               icon: const Icon(Icons.undo),
               tooltip: '撤销',
-              onPressed: _undo.isEmpty ? null : _undoAction,
+              onPressed: _undoHistory.canUndo ? _undoHistory.undo : null,
             ),
             IconButton(
               icon: const Icon(Icons.redo),
               tooltip: '重做',
-              onPressed: _redo.isEmpty ? null : _redoAction,
+              onPressed: _undoHistory.canRedo ? _undoHistory.redo : null,
             ),
             IconButton(
               icon: Icon(_showFind ? Icons.search_off : Icons.search),
@@ -493,28 +441,53 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         body: Column(
           children: <Widget>[
             if (_showFind) _findBar(theme),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: TextField(
-                  controller: _text,
-                  onChanged: (_) => _onChanged(),
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  keyboardType: TextInputType.multiline,
-                  style: codeStyle,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                  ),
-                ),
-              ),
-            ),
+            Expanded(child: _editorBody(prefs, codeStyle)),
             _statusBar(theme, lines),
           ],
         ),
       ),
+    );
+  }
+
+  /// 编辑区：高亮图层（不可交互）+ 透明输入层，两层同字号同边距以对齐。
+  Widget _editorBody(_EditorPrefs prefs, TextStyle codeStyle) {
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: IgnorePointer(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: CodeView(
+                code: _text.text.isEmpty ? ' ' : _text.text,
+                language: ogLDetectLanguage(widget.path),
+                fontSize: _fontSize,
+                wrap: true,
+                highlight: prefs.highlight,
+                showLineNumbers: false,
+                codeTheme: prefs.theme(context),
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _text,
+              undoController: _undoHistory,
+              onChanged: (_) => _onChanged(),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              style: codeStyle,
+              cursorColor: Theme.of(context).colorScheme.primary,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -13,6 +13,7 @@ import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+import 'action_log_page.dart';
 
 /// 一次运行 + 它的作业列表。
 class _RunDetail {
@@ -231,6 +232,23 @@ class _ActionRunPageState extends State<ActionRunPage> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: '查看日志',
+            onPressed: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => ActionLogPage(
+                    surface: widget.surface,
+                    fullName: widget.fullName,
+                    runId: widget.runId,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: AsyncView<_RunDetail>(
         controller: _detailC(),

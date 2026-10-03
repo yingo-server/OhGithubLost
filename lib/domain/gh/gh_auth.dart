@@ -1,4 +1,4 @@
-/// L2 中枢级 · API 逻辑：GitHub 认证（多账号 + 安全保险库）。
+/// L2 中枢级 · API 逻辑：GitHub 认证（多账号 + 安全保险库 + **可观察状态**）。
 ///
 /// ## 三条安全铁律
 /// 1. **令牌只进保险库**（Android Keystore / Windows DPAPI / Linux libsecret），
@@ -7,6 +7,11 @@
 /// 3. **元数据与密文分开存**：账号元数据（登录名/头像）可被清理，
 ///    而令牌必须**显式删除**才消失——避免"清缓存把令牌一起清了"。
 ///
+/// ## 为什么是可观察的（[ChangeNotifier]）
+/// 登录态此前只在入口一次性读取，导致：令牌失效（401）后无人全局处理、
+/// 切号后各页各自刷新。现在认证是**单一可观察状态源**：
+/// 外壳与页面订阅它，登录 / 失效 / 切号 / 登出都自动联动。
+///
 /// ## 依赖约定（分层规则）
 /// 本文件只使用 `base` 层暴露的**接口类型**（[DiskVault] / [DiskKv]）；
 /// 实例一律由装配层经 `BaseBridge` 注入，**绝不 `new` 底座实现**。
@@ -14,8 +19,31 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../base/disk/disk_store.dart';
 import '../../kernel/diagnostics.dart';
+
+/// 认证状态（**全局单一真相**）。
+enum GhAuthState {
+  /// 尚未探测。
+  unknown,
+
+  /// 未登录。
+  signedOut,
+
+  /// 登录流程进行中。
+  signingIn,
+
+  /// 已登录（令牌可用）。
+  signedIn,
+
+  /// 令牌失效（如 401）。
+  expired,
+
+  /// 游客模式（只读浏览公开内容）。
+  guest,
+}
 
 /// 访问令牌（**刻意不可打印明文**）。
 class GhToken {
@@ -128,8 +156,8 @@ class GhAccount {
   String toString() => 'GhAccount($login)';
 }
 
-/// 认证服务。
-class GhAuthService {
+/// 认证服务（**可观察**）。
+class GhAuthService extends ChangeNotifier {
   /// 创建服务。
   GhAuthService({
     required DiskVault vault,
@@ -152,9 +180,27 @@ class GhAuthService {
   final DiskKv _store;
   KernelDiagnostics? _diagnostics;
 
+  GhAuthState _state = GhAuthState.unknown;
+  String? _stateReason;
+
+  /// 当前认证状态。
+  GhAuthState get state => _state;
+
+  /// 状态说明（如 401 的原因）。
+  String? get stateReason => _stateReason;
+
+  /// 是否已登录（令牌可用）。
+  bool get isSignedIn => _state == GhAuthState.signedIn;
+
   /// 绑定诊断中枢（装配阶段调用）。
   void attachDiagnostics(KernelDiagnostics diagnostics) {
     _diagnostics = diagnostics;
+  }
+
+  void _setState(GhAuthState next, {String? reason}) {
+    _state = next;
+    _stateReason = reason;
+    notifyListeners();
   }
 
   /// 全部账号（按添加时间升序）。
@@ -207,6 +253,11 @@ class GhAuthService {
         'scopes': account.scopes,
       },
     );
+    if (await activeAccountId() == account.id) {
+      _setState(GhAuthState.signedIn);
+    } else {
+      notifyListeners();
+    }
   }
 
   /// 当前账号 ID（未设置返回 `null`）。
@@ -229,6 +280,39 @@ class GhAuthService {
     }
   }
 
+  /// 从磁盘刷新一次认证状态（启动时调用）。
+  Future<void> refreshState() async {
+    final id = await activeAccountId();
+    if (id == null) {
+      _setState(GhAuthState.signedOut);
+      return;
+    }
+    final hasToken = await _store.read('$accountPrefix$id') != null &&
+        await _vault.readSecret('$secretPrefix$id') != null;
+    _setState(hasToken ? GhAuthState.signedIn : GhAuthState.expired,
+        reason: hasToken ? null : '令牌缺失');
+  }
+
+  /// 标记为令牌失效（由 401 统一出口调用）。
+  void markExpired([String reason = '令牌无效或已过期']) {
+    if (_state == GhAuthState.expired) {
+      return;
+    }
+    _diagnostics?.warn(
+      'AUTH',
+      '令牌已失效：$reason',
+      code: 'OGL-AUTH-101',
+    );
+    _setState(GhAuthState.expired, reason: reason);
+  }
+
+  /// 标记为游客模式。
+  void markGuest() => _setState(GhAuthState.guest);
+
+  /// 标记为未登录。
+  void markSignedOut([String? reason]) =>
+      _setState(GhAuthState.signedOut, reason: reason);
+
   /// 切换当前账号。
   ///
   /// **切换前校验令牌存在**：切到一个没有令牌的账号，
@@ -250,6 +334,7 @@ class GhAuthService {
       code: 'OGL-AUTH-002',
       data: <String, Object?>{'accountId': id},
     );
+    _setState(GhAuthState.signedIn);
     return true;
   }
 
@@ -284,7 +369,8 @@ class GhAuthService {
   Future<void> removeAccount(String id) async {
     await _vault.deleteSecret('$secretPrefix$id');
     await _store.remove('$accountPrefix$id');
-    if (await activeAccountId() == id) {
+    final wasActive = await activeAccountId() == id;
+    if (wasActive) {
       await _store.remove(activeKey);
     }
     _diagnostics?.warn(
@@ -293,6 +379,11 @@ class GhAuthService {
       code: 'OGL-AUTH-003',
       data: <String, Object?>{'accountId': id},
     );
+    if (wasActive) {
+      _setState(GhAuthState.signedOut);
+    } else {
+      notifyListeners();
+    }
   }
 
   /// 清空所有账号与其令牌（"退出全部"）。

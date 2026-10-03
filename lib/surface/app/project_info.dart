@@ -75,5 +75,7 @@ const List<OgLDependencyLicense> kOgLDependencyLicenses =
   OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', 'Markdown 渲染'),
   OgLDependencyLicense('url_launcher', 'BSD-3-Clause', '外链打开'),
   OgLDependencyLicense('permission_handler', 'MIT', '运行时权限请求与系统设置入口'),
+  OgLDependencyLicense('background_downloader', 'MIT', '多平台后台下载（断点续传 / 队列）'),
+  OgLDependencyLicense('archive', 'MIT', 'Actions 日志 zip 解压'),
   OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', '系统组件本地化'),
 ];

@@ -8,10 +8,14 @@
 /// 1. **先落盘，再展示**：编辑器每次变更都要 `save()`（调用方做防抖）；
 /// 2. **提交成功即清草稿**：由 `RepositoryCache` 在写成功后调用 [discard]，
 ///    保证"草稿"不会在提交成功后阴魂不散地盖住新内容；
-/// 3. **草稿带基线**：记录起草时基于哪个远端版本，冲突判定才有依据。
+/// 3. **草稿带基线**：记录起草时基于哪个远端版本，冲突判定才有依据；
+/// 4. **变更可观察**：本类是可监听的（[ChangeNotifier]），草稿箱与角标
+///    据此实时刷新，不再靠"一次性 FutureBuilder"造成状态滞后。
 library;
 
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import '../../kernel/diagnostics.dart';
 import 'disk_store.dart';
@@ -91,8 +95,8 @@ class DraftRecord {
       'DraftRecord(${key.encode()}, rv=$revision, ${content.length}B)';
 }
 
-/// 草稿仓库（持久化）。
-class DraftStore {
+/// 草稿仓库（持久化，**可观察**）。
+class DraftStore extends ChangeNotifier {
   /// 创建草稿仓库。
   DraftStore({
     DiskKv? store,
@@ -127,6 +131,7 @@ class DraftStore {
       updatedAt: DateTime.now(),
     );
     await _store.write(_keyOf(key), jsonEncode(record.toJson()));
+    notifyListeners();
     return record;
   }
 
@@ -150,6 +155,7 @@ class DraftStore {
   /// 丢弃草稿（提交成功后由缓存引擎调用）。
   Future<void> discard(CacheKey key) async {
     await _store.remove(_keyOf(key));
+    notifyListeners();
   }
 
   /// 列出全部草稿（按更新时间升序，便于"恢复上次编辑"列表）。
@@ -194,6 +200,7 @@ class DraftStore {
       code: 'OGL-DRAFT-002',
       data: <String, Object?>{'removed': removed.length},
     );
+    notifyListeners();
     return removed.length;
   }
 

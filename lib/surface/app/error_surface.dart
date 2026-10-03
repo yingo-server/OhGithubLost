@@ -18,6 +18,8 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../kernel/boot/trust_warnings.dart';
+import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
 
 /// 通知严重级别。
@@ -67,6 +69,10 @@ class OgLNoticeCenter extends ChangeNotifier {
   static const int maxPending = 50;
 
   final List<OgLNotice> _pending = <OgLNotice>[];
+  final List<OgLNotice> _history = <OgLNotice>[];
+
+  /// 历史通知（最新在前，供通知中心页展示）。
+  List<OgLNotice> get history => List<OgLNotice>.unmodifiable(_history);
 
   /// 待展示队列（只读视图）。
   List<OgLNotice> get pending => List<OgLNotice>.unmodifiable(_pending);
@@ -101,7 +107,12 @@ class OgLNoticeCenter extends ChangeNotifier {
       );
       _pending.removeAt(dropIndex == -1 ? 0 : dropIndex);
     }
-    _pending.add(OgLNotice(title: title, detail: detail, severity: severity));
+    final notice = OgLNotice(title: title, detail: detail, severity: severity);
+    _pending.add(notice);
+    _history.insert(0, notice);
+    while (_history.length > 200) {
+      _history.removeLast();
+    }
     notifyListeners();
   }
 
@@ -317,4 +328,42 @@ class _OgLNoticeHostState extends State<OgLNoticeHost> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// 把内核诊断里的 **error** 转发到通知中心。
+///
+/// 这样"任何一层"通过 `KernelDiagnostics` 记下的错误都会自动触达用户，
+/// 而不是只躺在日志里 —— 通知系统因此**贯穿全局**（L0/L1/L2 都经此路）。
+class OgLDiagnosticsNoticeSink implements KernelLogSink {
+  /// 创建接收方。
+  const OgLDiagnosticsNoticeSink();
+
+  @override
+  void onLog(KernelLogEntry entry) {
+    if (entry.level != KernelLogLevel.error) {
+      return;
+    }
+    OgLNoticeCenter.instance.report(
+      title: entry.message,
+      detail: entry.tag,
+      severity: OgLNoticeSeverity.warning,
+    );
+  }
+}
+
+/// 把引导层信任告警转发到通知中心（`docs/BOOT.md` 要求"必须 UI 触达"）。
+class OgLTrustNoticeSink implements TrustWarningSink {
+  /// 创建接收方。
+  const OgLTrustNoticeSink();
+
+  @override
+  void onWarning(BootTrustWarning warning) {
+    OgLNoticeCenter.instance.report(
+      title: warning.message,
+      detail: warning.subject,
+      severity: warning.severity == TrustSeverity.danger
+          ? OgLNoticeSeverity.critical
+          : OgLNoticeSeverity.warning,
+    );
+  }
 }

@@ -16,9 +16,34 @@
 - 构建期新增 `tool/inject_windows_cmake.py`：注入 MSVC 兼容宏，修复
   `permission_handler_windows` 在新工具链下的编译错误。
 
+通知与认证
+
+- 通知系统贯穿全局：内核诊断的 error 与引导层信任告警统一转发到通知中心，任何一层的告警都能触达用户；
+- 通知中心新增历史记录（通知中心页可回看）；
+- 认证改为**可观察状态机**（登录 / 失效 / 切号 / 登出自动联动）；401 成为全局唯一出口，令牌失效自动回到登录门。
+
+草稿与编辑器
+
+- 草稿变更可观察：编辑保存 / 提交清稿后草稿箱与角标实时刷新；
+- 编辑器改为「高亮图层 + 透明输入层」叠加，**编辑时即可见语法高亮**；
+- 撤销 / 重做改用 Flutter 内建 `UndoHistoryController`（修复旧版撤销不灵敏）。
+
+下载
+
+- 下载器改用成熟库 `background_downloader`（断点续传 / 队列 / 暂停继续），对外契约不变。
+
+Actions
+
+- 新增运行日志页：带令牌下载日志 zip 并经 `archive` 解压，按 job 展示与搜索；
+- 新增产物（artifacts）列表与下载地址端点。
+
+动效
+
+- 搜索等页面补齐入场动效（统一走 `OgLReveal` 与动效档位）。
+
 其他
 
-- 依赖许可清单补充 `permission_handler`（MIT）；
+- 依赖许可清单补充 `permission_handler` / `background_downloader` / `archive`；
 - 发布护栏的 Android 权限断言加入 `POST_NOTIFICATIONS`。
 
 ## v3.2.0（2026-10-03）

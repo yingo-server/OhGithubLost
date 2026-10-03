@@ -43,12 +43,21 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _accountsC().loadIfNeeded();
+    // 草稿变更可观察：编辑保存 / 提交清稿后角标实时刷新。
+    widget.surface.domain.api.draftsChanged.addListener(_onDraftsChanged);
   }
 
   @override
   void dispose() {
+    widget.surface.domain.api.draftsChanged.removeListener(_onDraftsChanged);
     _accounts?.dispose();
     super.dispose();
+  }
+
+  void _onDraftsChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   AsyncController<List<GhAccount>> _accountsC() {
@@ -264,13 +273,16 @@ class _ProfilePageState extends State<ProfilePage> {
               child: ListTile(
                 leading: const Icon(Icons.edit_note),
                 title: const Text('草稿箱'),
-                subtitle: FutureBuilder<int>(
-                  future: widget.surface.domain.api.draftCount(),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<int> snapshot) {
-                    final int count = snapshot.data ?? 0;
-                    return Text(count == 0 ? '没有未提交的草稿' : '$count 条未提交草稿');
-                  },
+                subtitle: ListenableBuilder(
+                  listenable: widget.surface.domain.api.draftsChanged,
+                  builder: (BuildContext context, Widget? _) => FutureBuilder<int>(
+                    future: widget.surface.domain.api.draftCount(),
+                    builder:
+                        (BuildContext context, AsyncSnapshot<int> snapshot) {
+                      final int count = snapshot.data ?? 0;
+                      return Text(count == 0 ? '没有未提交的草稿' : '$count 条未提交草稿');
+                    },
+                  ),
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openDrafts,

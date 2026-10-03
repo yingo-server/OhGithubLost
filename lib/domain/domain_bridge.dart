@@ -20,6 +20,7 @@ import '../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';
+import 'ix/ix_action_logs.dart';
 import 'ix/ix_download.dart';
 import 'ix/ix_notify.dart';
 import 'ix/ix_session.dart';
@@ -40,7 +41,9 @@ class DomainBridge {
     required this.sysInfo,
     required this.sysAccess,
     IxDownloadManager? downloads,
-  }) : downloads = downloads ?? IxDownloadManager();
+    IxActionLogs? actionLogs,
+  })  : downloads = downloads ?? IxDownloadManager(),
+        actionLogs = actionLogs ?? IxActionLogs(tokenProvider: () async => null);
 
   /// 认证（多账号 / 令牌）。
   final GhAuthService auth;
@@ -68,6 +71,9 @@ class DomainBridge {
 
   /// 内建下载管理器。
   final IxDownloadManager downloads;
+
+  /// Actions 运行日志服务。
+  final IxActionLogs actionLogs;
 
   /// 从内核桥表解析中枢桥（展示层的标准取用方式）。
   static DomainBridge of(KernelBridgeRegistry bridges) =>
@@ -276,6 +282,7 @@ class IxModule extends OgLModule {
   late final IxTaskRunner tasks;
   late final IxNotificationCenter notifications;
   late final IxDownloadManager downloads;
+  late final IxActionLogs actionLogs;
 
   @override
   Future<void> onRegister(KernelContext context) async {
@@ -295,11 +302,15 @@ class IxModule extends OgLModule {
     );
     notifications = IxNotificationCenter();
     downloads = IxDownloadManager();
+    actionLogs = IxActionLogs(
+      tokenProvider: () async => (await auth.activeToken())?.value,
+    );
 
     context.di.register<IxSession>(session);
     context.di.register<IxTaskRunner>(tasks);
     context.di.register<IxNotificationCenter>(notifications);
     context.di.register<IxDownloadManager>(downloads);
+    context.di.register<IxActionLogs>(actionLogs);
     context.diagnostics.info(
       'IX',
       '交互逻辑就绪',
@@ -347,6 +358,7 @@ class DomainLayerModule extends OgLModule {
       sysInfo: context.di.resolve<SysInfoService>(),
       sysAccess: context.di.resolve<SysAccessGuard>(),
       downloads: context.di.resolve<IxDownloadManager>(),
+      actionLogs: context.di.resolve<IxActionLogs>(),
     );
     context.bridges.register(ModuleLayer.domain.key, bridge);
     context.diagnostics.info(

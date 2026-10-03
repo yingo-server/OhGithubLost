@@ -100,6 +100,11 @@ void main() async {
   final diagnostics = KernelDiagnostics(appVersion: kOgLAppVersion);
   final warnings = TrustWarningCollector();
 
+  // ★ 通知系统贯穿全局：把内核诊断的 error 与引导层信任告警转发到通知中心，
+  //   这样"任何一层"的告警都能触达用户，而不是只躺在日志里。
+  diagnostics.addSink(const OgLDiagnosticsNoticeSink());
+  warnings.addSink(const OgLTrustNoticeSink());
+
   // ★ 零外部资源的关键一步：
   // 引导文件系统完全在内存里，仓库不含任何 assets 文件。
   // 发布构建时把 CI 签名好的清单（经 `--dart-define-from-file` 注入）
