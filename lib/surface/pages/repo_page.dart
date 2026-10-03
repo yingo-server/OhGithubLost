@@ -173,7 +173,7 @@ class _RepoPageState extends State<RepoPage> {
     List<GhBranch> branches;
     try {
       branches = await widget.surface.domain.api
-          .branches(widget.fullName, perPage: 100);
+          .branches(_full, perPage: 100);
     } catch (error) {
       _toast('分支读取失败：$error');
       return;
