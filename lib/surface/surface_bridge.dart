@@ -13,9 +13,12 @@
 /// 设置里的明暗偏好 + 系统亮度 → 唯一一次 `ThemeData` 编译。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../base/base_bridge.dart';
+import '../base/disk/app_dirs.dart';
 import '../base/disk/disk_cache.dart';
 import '../base/disk/disk_store.dart';
 import '../base/net/net_bridge.dart';
@@ -34,6 +37,7 @@ class SurfaceBridge {
     required this.domain,
     this.net,
     this.cache,
+    this.storageProbe,
   });
 
   /// 从内核桥表解析（展示层的标准取用方式）。
@@ -51,6 +55,33 @@ class SurfaceBridge {
 
   /// 一致性缓存（**仅供账号切换时清空**，页面不得直接读写）。
   final RepositoryCache? cache;
+
+  /// 存储可用性探针（由装配层注入；返回是否可写）。
+  ///
+  /// 展示层不直接依赖底座，因此以函数形式注入。
+  final Future<bool> Function()? storageProbe;
+
+  /// 探测存储是否可用（无探针时按可用处理）。
+  Future<bool> ensureStorage() async {
+    final probe = storageProbe;
+    if (probe == null) {
+      return true;
+    }
+    try {
+      return await probe();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 应用根目录展示串（供"关于"等处展示实际落盘位置）。
+  Future<String> appRootPath() async {
+    try {
+      return await OgLAppDirs.root();
+    } catch (_) {
+      return '(未知)';
+    }
+  }
 
   /// 清空本机仓库缓存。
   ///
@@ -192,6 +223,7 @@ class SurfaceLayerModule extends OgLModule {
       domain: DomainBridge.of(context.bridges),
       net: base.net,
       cache: base.disk.cache,
+      storageProbe: _probeStorage,
     );
     context.bridges.register(ModuleLayer.surface.key, bridge);
 
@@ -220,3 +252,16 @@ class SurfaceLayerModule extends OgLModule {
 List<OgLModule> surfaceLayerModules() => <OgLModule>[
       SurfaceLayerModule(),
     ];
+
+/// 真实写入探针：能写删应用根目录下的探针文件即视为可用。
+Future<bool> _probeStorage() async {
+  try {
+    final String root = await OgLAppDirs.root();
+    final File probe = File('$root/.ogl_probe_ui');
+    await probe.writeAsString('ok', flush: true);
+    await probe.delete();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}

@@ -2382,14 +2382,41 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         'CNAME',
         branch: widget.repo.defaultBranch,
       );
-      await widget.surface.domain.api.putContent(
-        _full,
-        'CNAME',
-        content: '$domain\n',
-        message: 'chore: configure custom domain',
-        baseSha: existing?.sha,
-        branch: widget.repo.defaultBranch,
-      );
+      if (existing == null) {
+        // 新建 CNAME：远端没有基线可锁定，走裸写（服务端仍是原子创建）。
+        await widget.surface.domain.api.putContent(
+          _full,
+          'CNAME',
+          content: '$domain\n',
+          message: 'chore: configure custom domain',
+          branch: widget.repo.defaultBranch,
+        );
+      } else {
+        // 更新 CNAME：走加锁写（D1–D7），基线过期时拒绝覆盖并如实提示。
+        final result = await widget.surface.domain.api.putContentLocked(
+          _full,
+          'CNAME',
+          content: '$domain\n',
+          message: 'chore: configure custom domain',
+          baseSha: existing.sha,
+          branch: widget.repo.defaultBranch,
+        );
+        if (!result.ok) {
+          OgLAppLog.instance.add(
+            '仓库',
+            'CNAME 保存被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
+            severity: OgLNoticeSeverity.warning,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('CNAME 保存失败：${result.detail ?? result.conflict.name}'),
+              ),
+            );
+          }
+          return;
+        }
+      }
       OgLAppLog.instance.result('仓库', 'CNAME 已写入', domain);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

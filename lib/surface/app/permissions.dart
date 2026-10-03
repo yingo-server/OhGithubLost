@@ -1,17 +1,22 @@
-/// L3 展示级 · 权限网关（跨平台分派）。
+/// L3 展示级 · 权限网关（跨平台分派 + 真实探测）。
 ///
 /// ## 为什么不是 `permission_handler`
 /// `pubspec.yaml` 已明确记录：`permission_handler_android` 要求宿主
 /// `compileSdk ≥ 37`，与当前 Flutter 构建链冲突，会在 CI 直接构建失败。
-/// 因此本项目**不引入第三方权限插件**，改用一个纯 Dart 的"权限网关"：
-/// - 网关只描述"这个平台有哪些权限、需要用户做什么"；
-/// - 真正拿权限的动作是**跳转到系统设置**（`url_launcher`，已有依赖）；
-/// - 无法读取的授权状态如实呈现为"需用户手动确认"，**绝不假装已授权**。
+/// 因此本项目**不引入第三方权限插件**，改用纯 Dart 的权限网关。
 ///
-/// ## 不同平台，不同网关
+/// ## "主动获取"能做到什么
+/// - **存储**：用**真实写入探针**主动尝试（建目录 → 写探针 → 删探针）。
+///   成功即视为已具备（应用会自动选一个可写目录，无需系统权限）；
+///   失败则引导到系统设置。
+/// - **通知**：纯 Dart 无法直接申请系统通知权限，网关会**打开系统设置**
+///   让用户开启；拿不到就如实说明。
+/// 网关绝不假装已授权：状态来自真实探测或用户的明确动作。
+///
+/// ## 不同平台
 /// | 平台            | 存储                 | 通知                 |
 /// |-----------------|----------------------|----------------------|
-/// | Android         | 需手动（分区存储）   | 需手动（13+）        |
+/// | Android         | 探针可用即具备       | 需手动（13+）        |
 /// | iOS             | 不需要（沙箱）       | 需手动               |
 /// | Windows/Linux   | 不需要               | 不需要               |
 /// | macOS           | 不需要               | 需手动               |
@@ -70,17 +75,13 @@ class OgLPermissionInfo {
   /// 当前状态。
   final OgLPermissionStatus status;
 
-  /// 复制并覆盖状态。
-  OgLPermissionInfo withStatus(OgLPermissionStatus next) => OgLPermissionInfo(
-        permission: permission,
-        title: title,
-        rationale: rationale,
-        status: next,
-      );
-
   /// 是否还需要用户处理。
-  bool get actionable =>
-      status == OgLPermissionStatus.needsUserAction;
+  bool get actionable => status == OgLPermissionStatus.needsUserAction;
+
+  /// 是否已就绪（无需再处理）。
+  bool get ready =>
+      status == OgLPermissionStatus.granted ||
+      status == OgLPermissionStatus.notRequired;
 }
 
 /// 权限网关接口（各平台实现）。
@@ -91,7 +92,7 @@ abstract class OgLPermissionGateway {
   /// 本平台托管的权限清单及其当前状态。
   Future<List<OgLPermissionInfo>> describe();
 
-  /// 发起一次授权（尽量跳系统设置）。返回发起后的状态。
+  /// 主动获取一次（尽力而为）。返回获取后的状态。
   Future<OgLPermissionStatus> request(OgLPermission permission);
 
   /// 是否具备"跳到本应用系统设置页"的能力。
@@ -99,12 +100,17 @@ abstract class OgLPermissionGateway {
 }
 
 /// 按运行平台创建网关（**唯一入口**）。
-OgLPermissionGateway ogLPermissionGateway() {
+///
+/// [storageProbe] 由装配层注入：返回"应用目录当前是否可写"。
+/// 不传时按"可用"处理（例如桌面端）。
+OgLPermissionGateway ogLPermissionGateway({
+  Future<bool> Function()? storageProbe,
+}) {
   if (kIsWeb) {
     return const _WebPermissionGateway();
   }
   if (Platform.isAndroid) {
-    return const _AndroidPermissionGateway();
+    return _AndroidPermissionGateway(storageProbe: storageProbe);
   }
   if (Platform.isIOS) {
     return const _IosPermissionGateway();
@@ -135,10 +141,13 @@ Future<bool> _openAppSettings() async {
   return false;
 }
 
-/// Android：存储（分区存储需手动授权）+ 通知（13+ 需手动）。
+/// Android：存储（探针可用即具备）+ 通知（13+ 需手动）。
 class _AndroidPermissionGateway implements OgLPermissionGateway {
   /// 创建网关。
-  const _AndroidPermissionGateway();
+  const _AndroidPermissionGateway({this.storageProbe});
+
+  /// 存储探针（由装配层注入）。
+  final Future<bool> Function()? storageProbe;
 
   @override
   String get platformLabel => 'Android';
@@ -146,27 +155,54 @@ class _AndroidPermissionGateway implements OgLPermissionGateway {
   @override
   bool get canOpenSettings => true;
 
+  Future<bool> _storageOk() async {
+    final probe = storageProbe;
+    if (probe == null) {
+      return true;
+    }
+    try {
+      return await probe();
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
-  Future<List<OgLPermissionInfo>> describe() async => const <OgLPermissionInfo>[
-        OgLPermissionInfo(
-          permission: OgLPermission.storage,
-          title: '存储 / 文件访问',
-          rationale: '用于把日志与下载文件写到你能在文件管理器里找到的位置。'
-              'Android 10+ 采用分区存储，根目录默认不可写，'
-              '本应用**不申请**"所有文件访问"重型权限：'
-              '写不进系统目录时会自动退到应用目录，并如实告知。',
-          status: OgLPermissionStatus.needsUserAction,
-        ),
-        OgLPermissionInfo(
-          permission: OgLPermission.notifications,
-          title: '通知',
-          rationale: 'Android 13+ 需要你手动允许通知，否则限流提醒等提示不会出现。',
-          status: OgLPermissionStatus.needsUserAction,
-        ),
-      ];
+  Future<List<OgLPermissionInfo>> describe() async {
+    final bool storageOk = await _storageOk();
+    return <OgLPermissionInfo>[
+      OgLPermissionInfo(
+        permission: OgLPermission.storage,
+        title: '存储 / 文件访问',
+        rationale: storageOk
+            ? '已找到一个可写目录，日志与下载文件会写在那里，无需额外授权。'
+            : '未找到可写目录。请在系统设置中允许本应用访问存储，'
+                '或授予"所有文件访问"以便写入根目录下的 ogl 文件夹。',
+        status: storageOk
+            ? OgLPermissionStatus.granted
+            : OgLPermissionStatus.needsUserAction,
+      ),
+      const OgLPermissionInfo(
+        permission: OgLPermission.notifications,
+        title: '通知',
+        rationale: 'Android 13+ 需要你手动允许通知，否则限流提醒等提示不会出现。',
+        status: OgLPermissionStatus.needsUserAction,
+      ),
+    ];
+  }
 
   @override
   Future<OgLPermissionStatus> request(OgLPermission permission) async {
+    if (permission == OgLPermission.storage) {
+      // 先尝试"就地获取"：探针成功即说明无需系统权限。
+      if (await _storageOk()) {
+        return OgLPermissionStatus.granted;
+      }
+      final bool opened = await _openAppSettings();
+      return opened
+          ? OgLPermissionStatus.needsUserAction
+          : OgLPermissionStatus.unsupported;
+    }
     final bool opened = await _openAppSettings();
     return opened
         ? OgLPermissionStatus.needsUserAction

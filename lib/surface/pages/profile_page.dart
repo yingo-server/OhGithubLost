@@ -12,6 +12,7 @@ import '../../domain/gh/gh_auth.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import 'drafts_page.dart';
 import 'gists_page.dart';
 import 'login_page.dart';
 
@@ -191,6 +192,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _openDrafts() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => DraftsPage(surface: widget.surface),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AsyncController<List<GhAccount>> controller = _accountsC();
@@ -250,6 +259,24 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Text('内容'),
             ),
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListTile(
+                leading: const Icon(Icons.edit_note),
+                title: const Text('草稿箱'),
+                subtitle: FutureBuilder<int>(
+                  future: widget.surface.domain.api.draftCount(),
+                  builder:
+                      (BuildContext context, AsyncSnapshot<int> snapshot) {
+                    final int count = snapshot.data ?? 0;
+                    return Text(count == 0 ? '没有未提交的草稿' : '$count 条未提交草稿');
+                  },
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openDrafts,
+              ),
+            ),
+            const SizedBox(height: 8),
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: ListTile(

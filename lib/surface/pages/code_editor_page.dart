@@ -73,20 +73,79 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   bool _saving = false;
   bool _saved = false;
 
+  /// 草稿自动保存（防抖）。
+  Timer? _draftTimer;
+
   @override
   void initState() {
     super.initState();
     _text.text = widget.initialText;
     _lastSnapshot = widget.initialText;
+    unawaited(_restoreDraft());
   }
 
   @override
   void dispose() {
     _snapshotTimer?.cancel();
+    _draftTimer?.cancel();
+    unawaited(_persistDraft());
     _text.dispose();
     _find.dispose();
     _replace.dispose();
     super.dispose();
+  }
+
+  /// 进入编辑器时尝试恢复上次未提交的草稿。
+  Future<void> _restoreDraft() async {
+    try {
+      final String? draft = await widget.surface.domain.api.loadDraft(
+        widget.fullName,
+        widget.path,
+        branch: widget.branch,
+      );
+      if (!mounted || draft == null) {
+        return;
+      }
+      if (draft == widget.initialText) {
+        // 草稿与远端一致：没有恢复价值，清掉避免打扰。
+        await widget.surface.domain.api.discardDraft(
+          widget.fullName,
+          widget.path,
+          branch: widget.branch,
+        );
+        return;
+      }
+      setState(() {
+        _text.text = draft;
+        _lastSnapshot = draft;
+      });
+      _toast('已恢复上次未提交的草稿');
+    } catch (_) {
+      // 草稿读取失败不影响编辑。
+    }
+  }
+
+  /// 把当前文本写入草稿（与远端一致则清掉草稿）。
+  Future<void> _persistDraft() async {
+    try {
+      if (_text.text == widget.initialText) {
+        await widget.surface.domain.api.discardDraft(
+          widget.fullName,
+          widget.path,
+          branch: widget.branch,
+        );
+        return;
+      }
+      await widget.surface.domain.api.saveDraft(
+        widget.fullName,
+        widget.path,
+        _text.text,
+        branch: widget.branch,
+        baseSha: widget.baseSha,
+      );
+    } catch (_) {
+      // 草稿落盘失败不阻断编辑。
+    }
   }
 
   bool get _dirty => _text.text != widget.initialText;
@@ -98,6 +157,9 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
     _snapshotTimer?.cancel();
     // 防抖：连续输入合并为一个撤销点，避免每个字符都占一个快照。
     _snapshotTimer = Timer(const Duration(milliseconds: 600), _pushSnapshot);
+    // 草稿落盘同样防抖：停顿后再写，避免高频写盘。
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 900), _persistDraft);
     setState(() {});
   }
 
@@ -264,6 +326,11 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         return;
       }
       OgLAppLog.instance.result('编辑', '已提交', widget.path);
+      await widget.surface.domain.api.discardDraft(
+        widget.fullName,
+        widget.path,
+        branch: widget.branch,
+      );
       _saved = true;
       if (mounted) {
         _toast('已提交修改：${widget.path}');

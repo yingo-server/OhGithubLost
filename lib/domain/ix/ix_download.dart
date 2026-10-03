@@ -518,7 +518,7 @@ class _DownloadJob {
           validateStatus: (int? status) => status != null && status < 500,
         ),
       );
-      final int? len = int.tryParse('${head.headers.value('content-length') ?? ''}');
+      final int? len = int.tryParse(head.headers.value('content-length') ?? '');
       final String? acceptRanges = head.headers.value('accept-ranges');
       final bool rangeOk = acceptRanges == null ||
           acceptRanges.toLowerCase() != 'none';

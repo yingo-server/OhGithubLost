@@ -9,6 +9,8 @@
 /// 3. **`kernel.probes`**：各层把自己的自检项挂上去，启动报告才看得见全貌。
 library;
 
+import 'dart:async';
+
 import '../base/base_bridge.dart';
 import '../base/net/net_bridge.dart';
 import '../base/net/net_transport.dart';
@@ -138,6 +140,29 @@ class GhModule extends OgLModule {
     api.attachReadCache(
       base.disk.cache,
       accountId: () async => (await auth.activeAccountId()) ?? 'guest',
+    );
+
+    // ★ 失败写入重放（D8）：把上次中断的写入在启动后补做。
+    // 只依赖磁盘上的提交日志，失败不阻断启动（记录后照常进入界面）。
+    unawaited(
+      base.disk.cache.replayPending().then((outcomes) {
+        final int ok = outcomes.where((o) => o.ok).length;
+        context.diagnostics.info(
+          'CONS',
+          '失败写入重放完成',
+          code: 'OGL-CONS-REPLAY',
+          data: <String, Object?>{
+            'replayed': outcomes.length,
+            'succeeded': ok,
+          },
+        );
+      }).catchError((Object error) {
+        context.diagnostics.warn(
+          'CONS',
+          '失败写入重放异常：$error',
+          code: 'OGL-CONS-REPLAY-ERR',
+        );
+      }),
     );
 
     context.di.register<GhAuthService>(auth);

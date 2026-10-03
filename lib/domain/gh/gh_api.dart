@@ -17,6 +17,7 @@ import '../../base/disk/disk_cache.dart';
 import '../../base/disk/disk_types.dart';
 import '../../base/net/net_types.dart';
 import 'gh_client.dart';
+import 'gh_draft.dart';
 import 'gh_models.dart';
 
 /// GitHub 端点封装。
@@ -286,6 +287,78 @@ class GhApi implements CacheRemote {
     } on GhNotFoundException {
       return false;
     }
+  }
+
+  // ───────────────────────── 草稿（D9）─────────────────────────
+
+  /// 列出本机草稿（草稿箱数据源）。
+  Future<List<GhDraft>> drafts() async {
+    final store = _cache?.drafts;
+    if (store == null) {
+      return const <GhDraft>[];
+    }
+    final all = await store.all();
+    return <GhDraft>[
+      for (final record in all)
+        GhDraft(
+          repo: record.key.scope.repo,
+          branch: record.key.scope.branch,
+          path: record.key.path,
+          content: record.content,
+          revision: record.revision,
+          updatedAt: record.updatedAt,
+        ),
+    ];
+  }
+
+  /// 草稿数量（角标数据源）。
+  Future<int> draftCount() async => (await drafts()).length;
+
+  /// 读取某文件的草稿内容（无草稿返回 `null`）。
+  ///
+  /// 键与写入路径完全一致（同一账号 / 仓库 / 分支 / 路径），
+  /// 因此编辑器保存的草稿能被草稿箱与"重新进入"读到。
+  Future<String?> loadDraft(
+    String fullName,
+    String path, {
+    String? branch,
+  }) async {
+    final key = await _cacheKeyFor(fullName, path, branch);
+    final store = _cache?.drafts;
+    if (key == null || store == null) {
+      return null;
+    }
+    return (await store.load(key))?.content;
+  }
+
+  /// 保存草稿（编辑器防抖调用）。
+  Future<void> saveDraft(
+    String fullName,
+    String path,
+    String content, {
+    String? branch,
+    String? baseSha,
+  }) async {
+    final key = await _cacheKeyFor(fullName, path, branch);
+    final store = _cache?.drafts;
+    if (key == null || store == null) {
+      return;
+    }
+    await store.save(key, content, baseSha: baseSha);
+  }
+
+  /// 丢弃某文件的草稿（提交成功后缓存引擎也会自动清理）。
+  Future<void> discardDraft(
+    String fullName,
+    String path, {
+    String? branch,
+  }) async {
+    final key = await _cacheKeyFor(fullName, path, branch);
+    final store = _cache?.drafts;
+    if (key == null || store == null) {
+      return;
+    }
+    await store.discard(key);
   }
 
   // ───────────────────────── 分支 ─────────────────────────

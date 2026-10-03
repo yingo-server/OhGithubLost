@@ -14,6 +14,7 @@ import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 import 'download_manager_page.dart';
 import 'new_repo_page.dart';
+import 'notifications_page.dart';
 import 'repo_page.dart';
 
 /// 首页。
@@ -105,6 +106,15 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// 打开通知中心。
+  void _openNotifications() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const NotificationsPage(),
+      ),
+    );
+  }
+
   Future<void> _createRepo() async {
     final GhRepo? created = await Navigator.of(context).push<GhRepo>(
       MaterialPageRoute<GhRepo>(
@@ -133,6 +143,25 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('首页'),
         actions: <Widget>[
+          ListenableBuilder(
+            listenable: OgLAppLog.instance,
+            builder: (BuildContext context, Widget? _) {
+              final int alerts = OgLAppLog.instance.entries
+                  .where((OgLAppLogEntry e) =>
+                      e.severity != OgLNoticeSeverity.info)
+                  .length;
+              return IconButton(
+                icon: alerts > 0
+                    ? Badge(
+                        label: Text('$alerts'),
+                        child: const Icon(Icons.notifications_outlined),
+                      )
+                    : const Icon(Icons.notifications_outlined),
+                tooltip: '通知中心',
+                onPressed: _openNotifications,
+              );
+            },
+          ),
           ListenableBuilder(
             listenable: widget.surface.domain.downloads,
             builder: (BuildContext context, Widget? _) {
