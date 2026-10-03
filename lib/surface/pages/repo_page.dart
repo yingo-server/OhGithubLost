@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import '../../domain/gh/gh_client.dart';
 import '../../domain/gh/gh_models.dart';
 import '../../domain/ix/ix_download.dart';
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
@@ -1294,27 +1295,30 @@ class _IssuesTabState extends State<_IssuesTab> {
           }
           final Map<String, dynamic> item = _items[index];
           final int number = ghInt(item, 'number');
-          return ListTile(
-            leading: const Icon(Icons.bug_report_outlined),
-            title: Text(
-              '#$number ${ghStr(item, 'title')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          return OgLReveal(
+            delay: OgLAnim.stagger(context, index),
+            child: ListTile(
+              leading: const Icon(Icons.bug_report_outlined),
+              title: Text(
+                '#$number ${ghStr(item, 'title')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
+                '${ghDate(item, 'created_at')}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: ghStr(item, 'state') == 'open'
+                  ? IconButton(
+                      icon: const Icon(Icons.task_alt),
+                      tooltip: '关闭',
+                      onPressed: () => _close(number),
+                    )
+                  : const Icon(Icons.chevron_right),
+              onTap: () => _openIssue(item),
             ),
-            subtitle: Text(
-              'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
-              '${ghDate(item, 'created_at')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: ghStr(item, 'state') == 'open'
-                ? IconButton(
-                    icon: const Icon(Icons.task_alt),
-                    tooltip: '关闭',
-                    onPressed: () => _close(number),
-                  )
-                : const Icon(Icons.chevron_right),
-            onTap: () => _openIssue(item),
           );
         },
       ),
