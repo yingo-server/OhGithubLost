@@ -59,13 +59,13 @@ class _LoginPageState extends State<LoginPage> {
     }
     final String raw = _input.text.trim();
     if (raw.isEmpty) {
-      setState(() => _error = '请先粘贴个人访问令牌');
+      setState(() => _error = OgLI18n.instance.t('login', 'tokenRequired'));
       return;
     }
     final GhToken token = GhToken(raw);
     if (!token.looksValid) {
       setState(
-        () => _error = '形态不像 GitHub 令牌（应以 ghp_ / gho_ / ghu_ / github_pat_ 等开头）',
+        () => _error = OgLI18n.instance.t('login', 'tokenShapeInvalid'),
       );
       return;
     }
@@ -73,7 +73,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _busy = true;
       _error = null;
-      _phase = '正在验证…';
+      _phase = OgLI18n.instance.t('login', 'verifying');
       _step = 1;
     });
 
@@ -82,13 +82,13 @@ class _LoginPageState extends State<LoginPage> {
     final String pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
     try {
       OgLAppLog.instance.add('登录', '1/4 暂存待验证账户（$pendingId）');
-      await auth.saveAccount(GhAccount(id: pendingId, login: '（待验证）'), token);
+      await auth.saveAccount(GhAccount(id: pendingId, login: OgLI18n.instance.t('login', 'pendingSuffix')), token);
       await auth.switchTo(pendingId);
 
       if (mounted) {
         setState(() {
           _step = 2;
-          _phase = '正在验证令牌（GET /user）…';
+          _phase = OgLI18n.instance.t('login', 'phaseVerify');
         });
       }
       OgLAppLog.instance.add('登录', '2/4 验证令牌（GET /user）…');
@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         setState(() {
           _step = 3;
-          _phase = '正在转正并切换账户…';
+          _phase = OgLI18n.instance.t('login', 'phasePromote');
         });
       }
       await auth.removeAccount(pendingId);
@@ -111,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         setState(() {
           _step = 4;
-          _phase = '正在回读保险库（自检）…';
+          _phase = OgLI18n.instance.t('login', 'phaseVault');
         });
       }
       final readBack = await auth.activeToken();
@@ -125,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
       }
       setState(() {
         _step = 5;
-        _phase = '登录完成，正在进入…';
+        _phase = OgLI18n.instance.t('login', 'phaseDone');
       });
       OgLAppLog.instance.add('登录', '完成：@${me.login}');
       await widget.onLoggedIn();
@@ -151,7 +151,7 @@ class _LoginPageState extends State<LoginPage> {
       }
       if (mounted) {
         setState(() {
-          _error = '验证失败：$error';
+          _error = OgLI18n.instance.t('login', 'verifyFailed', args: <String, String>{'error': '$error'});
           _phase = '';
         });
       }
@@ -188,7 +188,7 @@ class _LoginPageState extends State<LoginPage> {
       ),
       title: Text('$index/4 $title'),
       subtitle: Text(detail),
-      trailing: Text(done ? '完成' : (current ? '进行中' : '待做')),
+      trailing: Text(done ? OgLI18n.instance.t('login', 'statusDone') : (current ? OgLI18n.instance.t('login', 'statusRunning') : OgLI18n.instance.t('login', 'statusPending'))),
     );
   }
 
@@ -222,10 +222,10 @@ class _LoginPageState extends State<LoginPage> {
                 children: <Widget>[
                   Icon(Icons.security, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      '令牌只保存在本机安全保险库（Android Keystore / iOS Keychain / '
-                      '桌面秘密服务），请求只会发往 api.github.com，不经过任何第三方服务器。',
+                      // 保险库说明：`vaultNote`（含平台与域名等专有名词，不译）。
+                      OgLI18n.instance.t('login', 'vaultNote'),
                     ),
                   ),
                 ],
@@ -233,7 +233,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('粘贴令牌', style: Theme.of(context).textTheme.titleMedium),
+          Text(OgLI18n.instance.t('login', 'pasteToken'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           TextField(
             controller: _input,
@@ -241,13 +241,13 @@ class _LoginPageState extends State<LoginPage> {
             enabled: !_busy,
             autocorrect: false,
             decoration: InputDecoration(
-              labelText: '个人访问令牌（Personal Access Token）',
+              labelText: OgLI18n.instance.t('login', 'tokenLabel'),
               hintText: 'ghp_… / github_pat_…',
               border: const OutlineInputBorder(),
               prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                tooltip: _obscure ? '显示令牌' : '隐藏令牌',
+                tooltip: _obscure ? OgLI18n.instance.t('login', 'showToken') : OgLI18n.instance.t('login', 'hideToken'),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
@@ -273,7 +273,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                       SizedBox(width: 8),
-                      Text('验证中…'),
+                      Text(OgLI18n.instance.t('login', 'verifying')),
                     ],
                   )
                 : Text(OgLI18n.instance.t('login', 'signIn')),
@@ -289,7 +289,12 @@ class _LoginPageState extends State<LoginPage> {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(
-                  '$_error\n（详细原因已写入应用日志，可在「关于」页复制）',
+                  // 错误详情：保留原始异常 + 引导去「关于」页复制。
+                  OgLI18n.instance.t(
+                    'login',
+                    'errorDetail',
+                    args: <String, String>{'error': _error},
+                  ),
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onErrorContainer,
                   ),
@@ -298,54 +303,54 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ],
           const SizedBox(height: 24),
-          Text('向导进度', style: Theme.of(context).textTheme.titleMedium),
+          Text(OgLI18n.instance.t('login', 'progressTitle'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Column(
               children: <Widget>[
                 _stepTile(
                   index: 1,
-                  title: '暂存待验证账户',
-                  detail: '先写入一个占位账户，验证通过再转正',
+                  title: OgLI18n.instance.t('login', 'stepStageTitle'),
+                  detail: OgLI18n.instance.t('login', 'stepStageDesc'),
                 ),
                 _stepTile(
                   index: 2,
-                  title: '验证令牌（GET /user）',
-                  detail: '确认令牌有效，并读出你的登录名',
+                  title: OgLI18n.instance.t('login', 'stepVerifyTitle'),
+                  detail: OgLI18n.instance.t('login', 'stepVerifyDesc'),
                 ),
                 _stepTile(
                   index: 3,
-                  title: '转正并切换账户',
-                  detail: '用真实账号 ID 覆盖占位账户，并切到它',
+                  title: OgLI18n.instance.t('login', 'stepPromoteTitle'),
+                  detail: OgLI18n.instance.t('login', 'stepPromoteDesc'),
                 ),
                 _stepTile(
                   index: 4,
-                  title: '保险库回读自检',
-                  detail: '把令牌读回来核对（防"存进去读不出来"）',
+                  title: OgLI18n.instance.t('login', 'stepVaultTitle'),
+                  detail: OgLI18n.instance.t('login', 'stepVaultDesc'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          Text('怎么拿令牌', style: Theme.of(context).textTheme.titleMedium),
+          Text(OgLI18n.instance.t('login', 'howToTitle'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           const Card(
             child: Column(
               children: <Widget>[
                 ListTile(
                   leading: Icon(Icons.info_outline),
-                  title: Text('网页端 → Settings'),
-                  subtitle: Text('右上角头像 → Settings'),
+                  title: Text(OgLI18n.instance.t('login', 'howToWeb')),
+                  subtitle: Text(OgLI18n.instance.t('login', 'howToAvatar')),
                 ),
                 ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Developer settings'),
-                  subtitle: Text('Settings 最下方 → Developer settings'),
+                  subtitle: Text(OgLI18n.instance.t('login', 'howToDeveloper')),
                 ),
                 ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Personal access tokens'),
-                  subtitle: Text('新建令牌；权限建议先只勾 repo（只读起步）'),
+                  subtitle: Text(OgLI18n.instance.t('login', 'howToScope')),
                 ),
               ],
             ),
