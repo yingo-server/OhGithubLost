@@ -273,10 +273,14 @@ jobs:
         #   故这里探测解释器，避免"命令找不到"直接把整条腿打红。
         if: matrix.build == 'windows'
         shell: bash
+        env:
+          # Windows 控制台默认码页非 UTF-8：Python 打印非 ASCII 会抛
+          # UnicodeEncodeError（曾把整条腿打红）。这里强制 UTF-8 输出。
+          PYTHONIOENCODING: utf-8
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
-          echo "使用解释器：$PY"
+          echo "python: $PY"
           "$PY" tool/inject_windows_cmake.py || exit 1
 
       - name: 注入平台网络权限（release 必需）
