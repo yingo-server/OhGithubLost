@@ -4,7 +4,7 @@
 /// - `0` 最小：关闭动效（`disableAnimations` 置真），页面切换即时；
 /// - `1` 当前：沿用既有行为（尊重系统"减少动效"与 `reduceMotion`），
 ///   页面过渡使用 Flutter 默认；
-/// - `2` 标准：页面过渡使用 Material 标准（Android/桌面 Zoom、iOS/Cupertino）；
+/// - `2` 标准：页面过渡使用 Material 标准（各平台统一 Zoom）；
 /// - `3` 增强：在标准之上叠一层淡入 + 轻微位移 + 缩放的过渡。
 ///
 /// ## 分层
@@ -46,8 +46,8 @@ abstract final class OgLMotion {
         return const PageTransitionsTheme(
           builders: <TargetPlatform, PageTransitionsBuilder>{
             TargetPlatform.android: ZoomPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
+            TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
             TargetPlatform.windows: ZoomPageTransitionsBuilder(),
             TargetPlatform.linux: ZoomPageTransitionsBuilder(),
             TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
