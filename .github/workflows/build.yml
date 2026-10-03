@@ -265,6 +265,14 @@ jobs:
         shell: bash
         run: python3 tool/inject_android_gradle.py || exit 1
 
+      - name: 注入 Windows 兼容宏（permission_handler_windows）
+        # ★ permission_handler_windows 使用旧的 <experimental/coroutine>，
+        #   新版 MSVC 把它判为错误；在构建期幂等注入抑制宏
+        #   （见 tool/inject_windows_cmake.py）。
+        if: matrix.build == 'windows'
+        shell: bash
+        run: python3 tool/inject_windows_cmake.py || exit 1
+
       - name: 注入平台网络权限（release 必需）
         # ★ Android：Flutter 模板的 INTERNET 权限只在 debug/profile 清单里，
         #   release 主清单**没有** → 不注入则安装包能启动但任何网络请求直接失败。

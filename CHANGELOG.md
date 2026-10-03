@@ -12,7 +12,9 @@
 - 打开系统设置改用各平台正确入口（不再使用 iOS 专用的 `app-settings:` URI）；
 - Android 13+（API 33+）注入并在运行时请求 `POST_NOTIFICATIONS`；
 - 构建期新增 `tool/inject_android_gradle.py`：幂等提升宿主 `compileSdk`
-  （平台目录由 CI 现场生成，故在构建期注入）。
+  （平台目录由 CI 现场生成，故在构建期注入）；
+- 构建期新增 `tool/inject_windows_cmake.py`：注入 MSVC 兼容宏，修复
+  `permission_handler_windows` 在新工具链下的编译错误。
 
 其他
 
