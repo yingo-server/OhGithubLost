@@ -19,6 +19,8 @@
 /// 换行/排序；网络→DNS 即时生效；账户→退出；维护→重置/权限引导）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,6 +33,7 @@ import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../theme.dart';
+import '../util/accel.dart';
 import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
 import 'onboarding_page.dart';
@@ -764,11 +767,223 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: widget.surface.setDnsPreferDoh,
             ),
           ],
-          const Divider(height: 1),
-          // 说明：Release 附件加速通道**已从界面移除**（临时关闭）。
-          // 通道地址仍只存在于实现内部常量，不对外暴露。
+const Divider(height: 1),
+          ..._accelTiles(theme, value),
         ],
       );
+
+  /// 轻提示。
+  void _toast(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// ── Release 下载加速（总开关 + 多通道 + 协议同意）────────────────────
+  ///
+  /// 设计：**只有一个总开关**；下面是通道列表（内置 + 自定义），可多选一。
+  /// 开启总开关前若尚未同意当前版本协议，会先弹出协议并要求勾选同意
+  /// （同意版本与时间会落盘，作为凭据）。
+  List<Widget> _accelTiles(ThemeData theme, OgLSettings value) {
+    final List<Widget> tiles = <Widget>[
+      SwitchListTile(
+        title: const Text('Release 下载加速'),
+        subtitle: const Text('仅影响 Release 附件下载；关闭时始终直连'),
+        value: value.releaseProxyEnabled,
+        onChanged: (bool on) => unawaited(_toggleAccel(on)),
+      ),
+    ];
+    if (!value.releaseProxyEnabled) {
+      return tiles;
+    }
+    tiles.add(_subTitle(theme, '加速通道'));
+    for (final OgLAccelChannel channel in value.allAccelChannels) {
+      final bool selected = channel.id == value.activeAccelChannel.id;
+      tiles.add(
+        ListTile(
+          leading: Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          ),
+          title: Text(channel.name),
+          subtitle: Text(
+            channel.builtin ? '开发者自建（HTTPS）' : channel.baseUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: channel.builtin
+              ? null
+              : IconButton(
+                  tooltip: '移除该通道',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () =>
+                      unawaited(widget.surface.removeAccelChannel(channel.id)),
+                ),
+          onTap: () =>
+              unawaited(widget.surface.setReleaseProxySelected(channel.id)),
+        ),
+      );
+    }
+    tiles.add(
+      ListTile(
+        leading: const Icon(Icons.add),
+        title: const Text('添加自定义通道'),
+        subtitle: const Text('第三方服务，需自行确认可信；地址需为 https://'),
+        onTap: _addAccelChannel,
+      ),
+    );
+    tiles.add(
+      ListTile(
+        leading: const Icon(Icons.gavel_outlined),
+        title: const Text('查看加速通道协议'),
+        subtitle: Text(
+          value.accelConsentCurrent
+              ? '已同意（v${value.releaseProxyConsentVersion}'
+                  '${value.releaseProxyConsentAt == null ? '' : ' · ${value.releaseProxyConsentAt}'}）'
+              : '尚未同意',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => unawaited(
+          _showAccelAgreement(value.activeAccelChannel, requireConsent: true),
+        ),
+      ),
+    );
+    return tiles;
+  }
+
+  /// 打开总开关：必须先同意当前版本协议。
+  Future<void> _toggleAccel(bool on) async {
+    if (!on) {
+      await widget.surface.setReleaseProxyEnabled(false);
+      return;
+    }
+    final OgLSettings value = widget.surface.settings.settings;
+    if (!value.accelConsentCurrent) {
+      final bool accepted = await _showAccelAgreement(
+        value.activeAccelChannel,
+        requireConsent: true,
+      );
+      if (!accepted) {
+        return;
+      }
+    }
+    await widget.surface.setReleaseProxyEnabled(true);
+  }
+
+  /// 展示协议；[requireConsent] 为真时返回"是否勾选并同意"。
+  Future<bool> _showAccelAgreement(
+    OgLAccelChannel channel, {
+    required bool requireConsent,
+  }) async {
+    bool agreed = false;
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setLocal) => AlertDialog(
+          title: Text(channel.builtin ? '内置通道安全声明' : '外来服务自负责任协议'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Text(ogLAccelAgreementFor(channel)),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('不同意'),
+            ),
+            FilledButton(
+              onPressed: agreed
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              child: const Text('同意并继续'),
+            ),
+            if (requireConsent)
+              CheckboxListTile(
+                value: agreed,
+                onChanged: (bool? v) => setLocal(() => agreed = v ?? false),
+                title: const Text('我已阅读并同意上述条款'),
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+              ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true && agreed) {
+      await widget.surface.acceptAccelConsent();
+      if (mounted) {
+        OgLAppLog.instance.result('设置', '已同意加速通道协议', channel.id);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /// 添加自定义通道（名称 + https 地址）。
+  Future<void> _addAccelChannel() async {
+    final TextEditingController name = TextEditingController();
+    final TextEditingController url = TextEditingController();
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('添加自定义通道'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(
+                labelText: '名称',
+                hintText: '例如：我的加速',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: url,
+              decoration: const InputDecoration(
+                labelText: '地址',
+                hintText: 'https://example.com/',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      name.dispose();
+      url.dispose();
+      return;
+    }
+    final String? error = ogLValidateAccelBaseUrl(url.text);
+    if (error != null) {
+      name.dispose();
+      url.dispose();
+      _toast(error);
+      return;
+    }
+    final String label = name.text.trim().isEmpty ? '自定义通道' : name.text.trim();
+    final String id = 'custom-${DateTime.now().millisecondsSinceEpoch}';
+    await widget.surface
+        .upsertAccelChannel(OgLAccelChannel(id: id, name: label, baseUrl: url.text));
+    name.dispose();
+    url.dispose();
+    if (mounted) {
+      _toast('已添加通道：$label');
+    }
+  }
 
   /// 账户。
   Widget _accountSection(ThemeData theme) => _section(

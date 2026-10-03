@@ -29,6 +29,7 @@ import 'app/error_surface.dart';
 import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
 import 'theme.dart';
+import 'util/accel.dart';
 
 /// 表面桥：展示层对外的唯一入口。
 class SurfaceBridge {
@@ -147,6 +148,27 @@ class SurfaceBridge {
     await settings.setDnsPreferDoh(enabled);
     applyDns();
   }
+
+  // ── Release 下载加速通道（总开关 / 通道增删选 / 协议同意）───────────────
+
+  /// 便捷：Release 附件是否走加速通道（总开关）。
+  Future<void> setReleaseProxyEnabled(bool enabled) =>
+      settings.setReleaseProxyEnabled(enabled);
+
+  /// 便捷：选择生效的加速通道。
+  Future<void> setReleaseProxySelected(String channelId) =>
+      settings.setReleaseProxySelected(channelId);
+
+  /// 便捷：新增 / 更新一个自定义加速通道。
+  Future<void> upsertAccelChannel(OgLAccelChannel channel) =>
+      settings.upsertAccelChannel(channel);
+
+  /// 便捷：删除一个自定义加速通道（内置通道不可删）。
+  Future<void> removeAccelChannel(String channelId) =>
+      settings.removeAccelChannel(channelId);
+
+  /// 便捷：记录"已同意当前版本协议"（含时间凭据）。
+  Future<void> acceptAccelConsent() => settings.acceptAccelConsent();
 
   /// 切换界面语言：先落盘设置，再加载对应语言分片。
   ///

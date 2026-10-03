@@ -18,7 +18,7 @@
 name: ohgithublost
 description: "OGL · OhGithubLost — GitHub 仓库管理器（Flutter 多平台重构版）"
 publish_to: 'none'
-version: 4.7.0+40700
+version: 4.8.0+40800
 
 homepage: https://github.com/yingo-server/OhGithubLost
 repository: https://github.com/yingo-server/OhGithubLost

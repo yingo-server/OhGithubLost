@@ -20,6 +20,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'util/accel.dart';
+
 /// 明暗模式偏好。
 enum OgLThemeMode {
   /// 跟随系统。
@@ -61,6 +63,10 @@ class OgLSettings {
     this.dnsServerId = 'alidns',
     this.dnsPreferDoh = true,
     this.releaseProxyEnabled = false,
+    this.releaseProxyChannels = const <OgLAccelChannel>[],
+    this.releaseProxySelectedId = kOgLAccelBuiltinId,
+    this.releaseProxyConsentVersion = 0,
+    this.releaseProxyConsentAt,
     this.foldersFirst = true,
     this.codeHighlight = true,
     this.codeFontSize = 13,
@@ -113,6 +119,15 @@ class OgLSettings {
       dnsPreferDoh: _asBool(raw['dnsPreferDoh'], fallback: true),
       releaseProxyEnabled:
           _asBool(raw['releaseProxyEnabled'], fallback: false),
+      releaseProxyChannels: _asAccelChannels(raw['releaseProxyChannels']),
+      releaseProxySelectedId: _asAccelSelectedId(raw['releaseProxySelectedId']),
+      releaseProxyConsentVersion:
+          _asInt(raw['releaseProxyConsentVersion'], fallback: 0),
+      releaseProxyConsentAt:
+          raw['releaseProxyConsentAt'] is String &&
+                  (raw['releaseProxyConsentAt'] as String).isNotEmpty
+              ? raw['releaseProxyConsentAt'] as String
+              : null,
       foldersFirst: _asBool(raw['foldersFirst'], fallback: true),
       codeHighlight: _asBool(raw['codeHighlight'], fallback: true),
       codeFontSize: _clampDouble(
@@ -158,6 +173,31 @@ class OgLSettings {
 
   static bool _asBool(Object? value, {required bool fallback}) =>
       value is bool ? value : fallback;
+
+  static int _asInt(Object? value, {required int fallback}) =>
+      value is int ? value : (value is num ? value.toInt() : fallback);
+
+  /// 解析自定义通道列表（坏条目直接丢弃，绝不抛异常）。
+  static List<OgLAccelChannel> _asAccelChannels(Object? value) {
+    if (value is! List) {
+      return const <OgLAccelChannel>[];
+    }
+    final List<OgLAccelChannel> result = <OgLAccelChannel>[];
+    final Set<String> seen = <String>{};
+    for (final Object? item in value) {
+      final OgLAccelChannel? channel = OgLAccelChannel.fromJson(item);
+      if (channel == null || channel.builtin) {
+        continue;
+      }
+      if (seen.add(channel.id)) {
+        result.add(channel);
+      }
+    }
+    return result;
+  }
+
+  static String _asAccelSelectedId(Object? value) =>
+      value is String && value.isNotEmpty ? value : kOgLAccelBuiltinId;
 
   /// 代码主题预设白名单（与展示层 `code_editor_field.dart` 保持一致）。
   static const List<String> codeThemePresetIds = <String>[
@@ -244,6 +284,45 @@ class OgLSettings {
   /// 通道地址属实现细节，**不出现在界面文案中**。
   final bool releaseProxyEnabled;
 
+  /// 用户自定义的加速通道（**不含**内置通道；内置通道是常量）。
+  final List<OgLAccelChannel> releaseProxyChannels;
+
+  /// 当前选中的通道 id（内置为 [kOgLAccelBuiltinId]）。
+  final String releaseProxySelectedId;
+
+  /// 已同意的协议版本（0 = 从未同意；与 [kOgLAccelConsentVersion] 不一致需重新同意）。
+  final int releaseProxyConsentVersion;
+
+  /// 同意时间（ISO8601，作为"已同意"的凭据留痕）。
+  final String? releaseProxyConsentAt;
+
+  /// 全部可选通道（内置在前）。
+  List<OgLAccelChannel> get allAccelChannels => <OgLAccelChannel>[
+        kOgLAccelBuiltinChannel,
+        ...releaseProxyChannels,
+      ];
+
+  /// 当前选中的通道（选择失效时回落内置通道——**不是降级猜测**：
+  /// 内置通道是产品的默认通道，选择失效只可能是用户删除了它）。
+  OgLAccelChannel get activeAccelChannel {
+    for (final OgLAccelChannel channel in allAccelChannels) {
+      if (channel.id == releaseProxySelectedId) {
+        return channel;
+      }
+    }
+    return kOgLAccelBuiltinChannel;
+  }
+
+  /// 是否已完成当前版本的协议同意。
+  bool get accelConsentCurrent =>
+      releaseProxyConsentVersion >= kOgLAccelConsentVersion;
+
+  /// 当前生效的加速前缀；未启用（或未同意）时为 `null`（=直连）。
+  String? get activeAccelPrefix =>
+      releaseProxyEnabled && accelConsentCurrent
+          ? ogLNormalizeAccelBase(activeAccelChannel.baseUrl)
+          : null;
+
   /// 仓库浏览器是否**目录优先**。
   final bool foldersFirst;
 
@@ -300,6 +379,10 @@ class OgLSettings {
     String? dnsServerId,
     bool? dnsPreferDoh,
     bool? releaseProxyEnabled,
+    List<OgLAccelChannel>? releaseProxyChannels,
+    String? releaseProxySelectedId,
+    int? releaseProxyConsentVersion,
+    String? releaseProxyConsentAt,
     bool? foldersFirst,
     bool? codeHighlight,
     double? codeFontSize,
@@ -326,6 +409,14 @@ class OgLSettings {
         dnsServerId: dnsServerId ?? this.dnsServerId,
         dnsPreferDoh: dnsPreferDoh ?? this.dnsPreferDoh,
         releaseProxyEnabled: releaseProxyEnabled ?? this.releaseProxyEnabled,
+        releaseProxyChannels:
+            releaseProxyChannels ?? this.releaseProxyChannels,
+        releaseProxySelectedId:
+            releaseProxySelectedId ?? this.releaseProxySelectedId,
+        releaseProxyConsentVersion:
+            releaseProxyConsentVersion ?? this.releaseProxyConsentVersion,
+        releaseProxyConsentAt:
+            releaseProxyConsentAt ?? this.releaseProxyConsentAt,
         foldersFirst: foldersFirst ?? this.foldersFirst,
         codeHighlight: codeHighlight ?? this.codeHighlight,
         codeFontSize: codeFontSize ?? this.codeFontSize,
@@ -354,6 +445,14 @@ class OgLSettings {
         'dnsServerId': dnsServerId,
         'dnsPreferDoh': dnsPreferDoh,
         'releaseProxyEnabled': releaseProxyEnabled,
+        'releaseProxyChannels': <Object?>[
+          for (final OgLAccelChannel channel in releaseProxyChannels)
+            channel.toJson(),
+        ],
+        'releaseProxySelectedId': releaseProxySelectedId,
+        'releaseProxyConsentVersion': releaseProxyConsentVersion,
+        if (releaseProxyConsentAt != null)
+          'releaseProxyConsentAt': releaseProxyConsentAt,
         'foldersFirst': foldersFirst,
         'codeHighlight': codeHighlight,
         'codeFontSize': codeFontSize,
@@ -475,9 +574,43 @@ class OgLSettingsController extends ChangeNotifier {
   Future<void> setDnsPreferDoh(bool enabled) =>
       apply(_settings.copyWith(dnsPreferDoh: enabled));
 
-  /// 便捷：Release 附件是否走加速通道。
+  /// 便捷：Release 附件是否走加速通道（总开关）。
   Future<void> setReleaseProxyEnabled(bool enabled) =>
       apply(_settings.copyWith(releaseProxyEnabled: enabled));
+
+  /// 便捷：选择生效的加速通道。
+  Future<void> setReleaseProxySelected(String channelId) =>
+      apply(_settings.copyWith(releaseProxySelectedId: channelId));
+
+  /// 便捷：新增/更新一个自定义加速通道。
+  Future<void> upsertAccelChannel(OgLAccelChannel channel) {
+    final List<OgLAccelChannel> next = <OgLAccelChannel>[
+      for (final OgLAccelChannel item in _settings.releaseProxyChannels)
+        if (item.id != channel.id) item,
+      channel,
+    ];
+    return apply(_settings.copyWith(releaseProxyChannels: next));
+  }
+
+  /// 便捷：删除一个自定义加速通道（内置通道不可删）。
+  Future<void> removeAccelChannel(String channelId) {
+    final List<OgLAccelChannel> next = <OgLAccelChannel>[
+      for (final OgLAccelChannel item in _settings.releaseProxyChannels)
+        if (item.id != channelId) item,
+    ];
+    final bool needFallback = _settings.releaseProxySelectedId == channelId;
+    return apply(_settings.copyWith(
+      releaseProxyChannels: next,
+      releaseProxySelectedId:
+          needFallback ? kOgLAccelBuiltinId : _settings.releaseProxySelectedId,
+    ));
+  }
+
+  /// 便捷：记录"已同意当前版本协议"（写入时间作为凭据）。
+  Future<void> acceptAccelConsent() => apply(_settings.copyWith(
+        releaseProxyConsentVersion: kOgLAccelConsentVersion,
+        releaseProxyConsentAt: DateTime.now().toIso8601String(),
+      ));
 
   /// 便捷：设置主题色。
   Future<void> setSeedColor(String id) =>
