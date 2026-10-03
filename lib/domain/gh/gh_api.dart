@@ -1397,11 +1397,17 @@ class GhApi implements CacheRemote {
   /// Actions 运行列表。
   Future<List<Map<String, dynamic>>> workflowRuns(
     String fullName, {
+    String? branch,
     int perPage = 20,
+    int page = 1,
   }) async {
     final object = await client.getObject(
       '/repos/$fullName/actions/runs',
-      query: <String, String>{'per_page': '$perPage'},
+      query: <String, String>{
+        'per_page': '$perPage',
+        'page': '$page',
+        if (branch != null && branch.isNotEmpty) 'branch': branch,
+      },
       label: 'GET actions/runs',
     );
     final runs = object?['workflow_runs'];

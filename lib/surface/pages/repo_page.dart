@@ -1,12 +1,15 @@
-/// L3 展示级 · 仓库详情页（八标签）。
+/// L3 展示级 · 仓库详情页（八标签 + 分支切换）。
 ///
-/// 标签：代码 / 议题 / PR / 发布 / 分支 / 提交 / Actions / 设置。
+/// ## 4.1 仓库浏览增强
+/// - **分支切换**：AppBar 下方常驻分支栏，切换后代码 / 提交 / 发布 / Actions 同步；
+/// - **新建文件**：代码标签提供 FAB 入口；
+/// - **目录内筛选**：当前目录按名称过滤；
+/// - **图片预览**：图片文件直接在应用内预览（不再显示二进制乱码）；
+/// - **分页**：仓库列表与仓库页各列表统一「加载更多」。
 ///
-/// ## 保守实现
-/// - 全部使用 Material 3：`DefaultTabController` + `TabBar` + `TabBarView`；
-/// - 每个标签自己懒加载（进入才发请求）；
-/// - 危险操作（删文件 / 删分支 / 删发布 / 删仓库）一律二次确认；
-/// - 写操作带基线 sha（乐观锁）：基线过期时服务端会拒绝，绝不静默覆盖。
+/// ## 控件规范
+/// 全部使用 Material 3；「新建」类主操作统一为 [FloatingActionButton]，
+/// 次要操作收进 [PopupMenuButton]，空/错/载三态统一收敛。
 library;
 
 import 'dart:async';
@@ -18,11 +21,8 @@ import '../../domain/gh/gh_client.dart';
 import '../../domain/gh/gh_models.dart';
 import '../../domain/ix/ix_download.dart';
 import '../app/animations.dart';
-import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
-import '../settings.dart';
-import '../surface_bridge.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
@@ -38,6 +38,9 @@ import 'pull_page.dart';
 import 'release_detail_page.dart';
 import 'workflow_dispatch_page.dart';
 
+/// 每页条数（统一）。
+const int _kPageSize = 30;
+
 /// 仓库详情页。
 class RepoPage extends StatefulWidget {
   /// 创建页面。
@@ -51,10 +54,10 @@ class RepoPage extends StatefulWidget {
   /// 表面桥。
   final SurfaceBridge surface;
 
-  /// 仓库（可由刷新结果覆盖）。
+  /// 仓库。
   final GhRepo repo;
 
-  /// 初始路径（从代码搜索直达某文件 / 目录；可空）。
+  /// 初始路径（从代码搜索直达；可空）。
   final String? initialPath;
 
   @override
@@ -63,11 +66,29 @@ class RepoPage extends StatefulWidget {
 
 class _RepoPageState extends State<RepoPage> {
   late GhRepo _repo = widget.repo;
+  late String _branch = widget.repo.defaultBranch;
   bool _starred = false;
   bool _starBusy = false;
   bool _forkBusy = false;
 
   String get _full => _repo.fullName;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadStarred());
+  }
+
+  Future<void> _loadStarred() async {
+    try {
+      final bool starred = await widget.surface.domain.api.isRepoStarred(_full);
+      if (mounted) {
+        setState(() => _starred = starred);
+      }
+    } catch (_) {
+      // 未登录 / 无权限：保持未星标状态即可，不打扰用户。
+    }
+  }
 
   void _toast(String message) {
     if (!mounted) {
@@ -85,17 +106,11 @@ class _RepoPageState extends State<RepoPage> {
     try {
       await widget.surface.domain.api.setStarred(_full, target);
       OgLAppLog.instance.result('仓库', target ? '已加星标' : '已取消星标', _full);
-      if (!mounted) {
-        return;
+      if (mounted) {
+        setState(() => _starred = target);
+        _toast(target ? '已加星标' : '已取消星标');
       }
-      setState(() => _starred = target);
-      _toast(target ? '已加星标' : '已取消星标');
     } catch (error) {
-      OgLAppLog.instance.add(
-        '仓库',
-        '星标操作失败：$error',
-        severity: OgLNoticeSeverity.critical,
-      );
       _toast('操作失败：$error');
     } finally {
       if (mounted) {
@@ -134,11 +149,6 @@ class _RepoPageState extends State<RepoPage> {
       OgLAppLog.instance.result('仓库', '已复刻', forked.fullName);
       _toast('已复刻为 ${forked.fullName}');
     } catch (error) {
-      OgLAppLog.instance.add(
-        '仓库',
-        '复刻失败：$error',
-        severity: OgLNoticeSeverity.critical,
-      );
       _toast('复刻失败：$error');
     } finally {
       if (mounted) {
@@ -148,13 +158,53 @@ class _RepoPageState extends State<RepoPage> {
   }
 
   void _openInBrowser() {
-    final String url =
-        _repo.htmlUrl ?? 'https://github.com/${_repo.fullName}';
+    final String url = _repo.htmlUrl ?? 'https://github.com/${_repo.fullName}';
     unawaited(openLinkOrCopy(context, url, tag: '仓库'));
+  }
+
+  Future<void> _copyCloneUrl() async {
+    await Clipboard.setData(ClipboardData(text: 'https://github.com/$_full.git'));
+    _toast('已复制克隆地址');
+  }
+
+  /// 选择分支（Material 底部弹层 + 搜索）。
+  Future<void> _pickBranch() async {
+    List<GhBranch> branches;
+    try {
+      branches = await widget.surface.domain.api
+          .branches(widget.fullName, perPage: 100);
+    } catch (error) {
+      _toast('分支读取失败：$error');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final String? picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) => _BranchSheet(
+        branches: branches,
+        current: _branch,
+        defaultBranch: _repo.defaultBranch,
+      ),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    final String next = picked == _kDefaultBranchMark ? _repo.defaultBranch : picked;
+    if (next == _branch) {
+      return;
+    }
+    setState(() => _branch = next);
+    OgLAppLog.instance.result('仓库', '已切换分支', next);
   }
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String branchKey = _branch.isEmpty ? 'default' : _branch;
     return DefaultTabController(
       length: 8,
       child: Scaffold(
@@ -166,60 +216,106 @@ class _RepoPageState extends State<RepoPage> {
               tooltip: _starred ? '取消星标' : '加星',
               onPressed: _starBusy ? null : _toggleStar,
             ),
-            IconButton(
-              icon: const Icon(Icons.call_split),
-              tooltip: '复刻',
-              onPressed: _forkBusy ? null : _fork,
-            ),
-            IconButton(
-              icon: const Icon(Icons.open_in_new),
-              tooltip: '用浏览器打开',
-              onPressed: _openInBrowser,
+            PopupMenuButton<String>(
+              tooltip: '更多',
+              onSelected: (String value) {
+                switch (value) {
+                  case 'fork':
+                    unawaited(_fork());
+                  case 'browser':
+                    _openInBrowser();
+                  case 'clone':
+                    unawaited(_copyCloneUrl());
+                }
+              },
+              itemBuilder: (BuildContext context) =>
+                  const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  value: 'fork',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.call_split),
+                    title: Text('复刻仓库'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'clone',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.link),
+                    title: Text('复制克隆地址'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'browser',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.open_in_new),
+                    title: Text('用浏览器打开'),
+                  ),
+                ),
+              ],
             ),
           ],
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: <Tab>[
-              Tab(text: OgLI18n.instance.t('repo', 'code')),
-              Tab(text: OgLI18n.instance.t('repo', 'issues')),
-              Tab(text: OgLI18n.instance.t('repo', 'pulls')),
-              Tab(text: OgLI18n.instance.t('repo', 'releases')),
-              Tab(text: OgLI18n.instance.t('repo', 'branches')),
-              Tab(text: OgLI18n.instance.t('repo', 'commits')),
-              Tab(text: OgLI18n.instance.t('repo', 'actions')),
-              Tab(text: OgLI18n.instance.t('repo', 'repoSettings')),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(96),
+            child: Column(
+              children: <Widget>[
+                _branchBar(theme),
+                TabBar(
+                  isScrollable: true,
+                  tabs: <Tab>[
+                    Tab(text: OgLI18n.instance.t('repo', 'code')),
+                    Tab(text: OgLI18n.instance.t('repo', 'issues')),
+                    Tab(text: OgLI18n.instance.t('repo', 'pulls')),
+                    Tab(text: OgLI18n.instance.t('repo', 'releases')),
+                    Tab(text: OgLI18n.instance.t('repo', 'branches')),
+                    Tab(text: OgLI18n.instance.t('repo', 'commits')),
+                    Tab(text: OgLI18n.instance.t('repo', 'actions')),
+                    Tab(text: OgLI18n.instance.t('repo', 'repoSettings')),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         body: TabBarView(
           children: <Widget>[
             _CodeTab(
+              key: ValueKey<String>('code-$branchKey'),
               surface: widget.surface,
               fullName: _full,
-              defaultBranch: _repo.defaultBranch,
+              branch: _branch,
               initialPath: widget.initialPath,
             ),
             _IssuesTab(surface: widget.surface, fullName: _full),
             _PullsTab(surface: widget.surface, fullName: _full),
             _ReleasesTab(
+              key: ValueKey<String>('rel-$branchKey'),
               surface: widget.surface,
               fullName: _full,
-              defaultBranch: _repo.defaultBranch,
+              branch: _branch,
             ),
             _BranchesTab(
               surface: widget.surface,
               fullName: _full,
               defaultBranch: _repo.defaultBranch,
+              onBranchChanged: () => setState(() {}),
             ),
             _CommitsTab(
+              key: ValueKey<String>('cmt-$branchKey'),
               surface: widget.surface,
               fullName: _full,
-              defaultBranch: _repo.defaultBranch,
+              branch: _branch,
             ),
             _ActionsTab(
+              key: ValueKey<String>('act-$branchKey'),
               surface: widget.surface,
               fullName: _full,
-              defaultBranch: _repo.defaultBranch,
+              branch: _branch,
             ),
             _RepoSettingsTab(
               surface: widget.surface,
@@ -231,6 +327,222 @@ class _RepoPageState extends State<RepoPage> {
       ),
     );
   }
+
+  Widget _branchBar(ThemeData theme) => Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: InkWell(
+          onTap: _pickBranch,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.account_tree_outlined, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _branch.isEmpty ? '默认分支' : _branch,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge,
+                  ),
+                ),
+                if (_branch == _repo.defaultBranch)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Text('默认', style: theme.textTheme.bodySmall),
+                  ),
+                const Icon(Icons.expand_more),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// 分支弹层的「默认分支」标记值。
+const String _kDefaultBranchMark = '\u0000default';
+
+/// 分支选择弹层（搜索 + 列表）。
+class _BranchSheet extends StatefulWidget {
+  const _BranchSheet({
+    required this.branches,
+    required this.current,
+    required this.defaultBranch,
+  });
+
+  final List<GhBranch> branches;
+  final String current;
+  final String defaultBranch;
+
+  @override
+  State<_BranchSheet> createState() => _BranchSheetState();
+}
+
+class _BranchSheetState extends State<_BranchSheet> {
+  String _filter = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final List<GhBranch> shown = widget.branches
+        .where((GhBranch b) =>
+            _filter.isEmpty ||
+            b.name.toLowerCase().contains(_filter.toLowerCase()))
+        .toList();
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.6,
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              autofocus: false,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+                hintText: '搜索分支',
+              ),
+              onChanged: (String value) => setState(() => _filter = value),
+            ),
+          ),
+          Expanded(
+            child: shown.isEmpty
+                ? const Center(child: Text('没有匹配的分支'))
+                : ListView.builder(
+                    itemCount: shown.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final GhBranch branch = shown[index];
+                      final bool isCurrent = branch.name == widget.current;
+                      final bool isDefault =
+                          branch.name == widget.defaultBranch;
+                      return ListTile(
+                        leading: Icon(
+                          branch.isProtected
+                              ? Icons.lock_outline
+                              : Icons.account_tree_outlined,
+                        ),
+                        title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          '${ghShortSha(branch.sha)}'
+                          '${isDefault ? ' · 默认分支' : ''}'
+                          '${branch.isProtected ? ' · 受保护' : ''}',
+                        ),
+                        trailing: isCurrent
+                            ? Icon(Icons.check, color: theme.colorScheme.primary)
+                            : null,
+                        onTap: () => Navigator.of(context).pop(branch.name),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 分页控制器与统一列表渲染
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 通用分页数据源（首屏 + 加载更多 + 下拉刷新）。
+class _Paged<T> extends ChangeNotifier {
+  _Paged({required this.loader, this.pageSize = _kPageSize});
+
+  final Future<List<T>> Function(int page) loader;
+  final int pageSize;
+
+  final List<T> items = <T>[];
+  int _page = 1;
+  bool loading = false;
+  bool done = false;
+  String? error;
+
+  Future<void> loadMore() async {
+    if (loading || done) {
+      return;
+    }
+    loading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final List<T> list = await loader(_page);
+      items.addAll(list);
+      if (list.length < pageSize) {
+        done = true;
+      }
+      _page++;
+    } catch (e) {
+      error = '$e';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refresh() async {
+    items.clear();
+    _page = 1;
+    done = false;
+    error = null;
+    await loadMore();
+  }
+}
+
+/// 统一渲染分页列表（空/错/载三态 + 加载更多 + 下拉刷新）。
+Widget _pagedBody<T>(
+  BuildContext context,
+  _Paged<T> paged,
+  Widget Function(BuildContext context, T item, int index) itemBuilder, {
+  required String emptyText,
+  IconData emptyIcon = Icons.inbox_outlined,
+  Widget? emptyAction,
+}) {
+  if (paged.items.isEmpty && paged.loading) {
+    return const Center(child: CircularProgressIndicator());
+  }
+  if (paged.items.isEmpty && paged.error != null) {
+    return _MessagePane(
+      icon: Icons.error_outline,
+      message: paged.error!,
+      action: FilledButton.tonal(
+        onPressed: paged.refresh,
+        child: const Text('重试'),
+      ),
+    );
+  }
+  if (paged.items.isEmpty) {
+    return _MessagePane(icon: emptyIcon, message: emptyText, action: emptyAction);
+  }
+  return RefreshIndicator(
+    onRefresh: paged.refresh,
+    child: ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: paged.items.length + (paged.done ? 0 : 1),
+      separatorBuilder: (BuildContext context, int index) =>
+          const Divider(height: 1),
+      itemBuilder: (BuildContext context, int index) {
+        if (index == paged.items.length) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Center(
+              child: paged.loading
+                  ? const CircularProgressIndicator()
+                  : OutlinedButton(
+                      onPressed: paged.loadMore,
+                      child: Text('加载更多（已 ${paged.items.length} 条）'),
+                    ),
+            ),
+          );
+        }
+        return OgLReveal(
+          delay: OgLAnim.stagger(context, index),
+          child: itemBuilder(context, paged.items[index], index),
+        );
+      },
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,13 +553,14 @@ class _CodeTab extends StatefulWidget {
   const _CodeTab({
     required this.surface,
     required this.fullName,
-    required this.defaultBranch,
+    required this.branch,
     this.initialPath,
+    super.key,
   });
 
   final SurfaceBridge surface;
   final String fullName;
-  final String defaultBranch;
+  final String branch;
   final String? initialPath;
 
   @override
@@ -256,60 +569,50 @@ class _CodeTab extends StatefulWidget {
 
 class _CodeTabState extends State<_CodeTab> {
   String _path = '';
-  AsyncController<List<GhContent>>? _entries;
+  final _Paged<GhContent> _entries = _Paged<GhContent>(loader: _loadPage);
+  final TextEditingController _filter = TextEditingController();
+  final TextEditingController _newPath = TextEditingController();
+
   GhContent? _file;
-  bool _fileBusy = false;
-
-  /// 下一次目录加载是否**强制绕过缓存**（下拉刷新 / 写操作后使用）。
-  bool _forceEntries = false;
-
+  bool _busy = false;
   String? _readme;
-  String? _readmeError;
   bool _readmeTried = false;
 
   @override
   void initState() {
     super.initState();
-    _entriesC().loadIfNeeded();
-    final String? initial = widget.initialPath;
-    if (initial != null && initial.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_openPath(initial));
-      });
-    } else {
-      unawaited(_loadReadme());
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_bootstrap()));
   }
 
   @override
   void dispose() {
-    _entries?.dispose();
+    _entries.dispose();
+    _filter.dispose();
+    _newPath.dispose();
     super.dispose();
   }
 
-  AsyncController<List<GhContent>> _entriesC() {
-    final existing = _entries;
-    if (existing != null) {
-      return existing;
+  Future<void> _bootstrap() async {
+    final String? initial = widget.initialPath;
+    if (initial != null && initial.isNotEmpty) {
+      await _openPath(initial);
+    } else {
+      await _entries.refresh();
+      unawaited(_loadReadme());
     }
-    final controller = AsyncController<List<GhContent>>(
-      label: '目录',
-      isEmpty: (List<GhContent> value) => value.isEmpty,
-      loader: () {
-        // 每次加载消费一次"强制刷新"标记：下拉刷新 / 写后刷新走网络，
-        // 普通浏览（前后导航）则允许命中缓存，避免频繁打网络。
-        final bool force = _forceEntries;
-        _forceEntries = false;
-        return widget.surface.domain.api.listDirectory(
-          widget.fullName,
-          _path,
-          branch: widget.defaultBranch,
-          refresh: force,
-        );
-      },
+  }
+
+  /// 目录内容一次性返回（Contents API 不分页），因此第 2 页起即结束。
+  Future<List<GhContent>> _loadPage(int page) async {
+    if (page > 1) {
+      return const <GhContent>[];
+    }
+    return widget.surface.domain.api.listDirectory(
+      widget.fullName,
+      _path,
+      branch: widget.branch,
+      refresh: true,
     );
-    _entries = controller;
-    return controller;
   }
 
   void _toast(String message) {
@@ -325,30 +628,35 @@ class _CodeTabState extends State<_CodeTab> {
     }
     _readmeTried = true;
     try {
-      final String? text = await widget.surface.domain.api.readme(widget.fullName);
-      if (!mounted) {
-        return;
+      final String? text =
+          await widget.surface.domain.api.readme(widget.fullName);
+      if (mounted) {
+        setState(() => _readme = text);
       }
-      setState(() {
-        _readme = text;
-        _readmeError = null;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _readmeError = 'README 读取失败：$error');
+    } catch (_) {
+      // README 缺失不是错误。
     }
   }
 
-  /// 从搜索直达（文件或目录）。
+  Future<void> _goTo(String path) async {
+    setState(() {
+      _path = path;
+      _file = null;
+    });
+    await _entries.refresh();
+    if (path.isEmpty) {
+      _readmeTried = false;
+      await _loadReadme();
+    }
+  }
+
   Future<void> _openPath(String path) async {
-    setState(() => _fileBusy = true);
+    setState(() => _busy = true);
     try {
       final GhContent? content = await widget.surface.domain.api.content(
         widget.fullName,
         path,
-        branch: widget.defaultBranch,
+        branch: widget.branch,
         refresh: true,
       );
       if (!mounted) {
@@ -359,58 +667,29 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content.isDirectory) {
-        setState(() => _path = content.path);
-        _entriesC().reset();
-        await _entriesC().load();
+        await _goTo(content.path);
       } else {
-        setState(() {
-          _file = content;
-        });
+        setState(() => _file = content);
       }
     } catch (error) {
       _toast('读取失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _fileBusy = false);
+        setState(() => _busy = false);
       }
     }
   }
 
-  void _openDir(GhContent entry) => _goTo(entry.path);
-
-  /// 切换到指定目录（**先清空旧目录数据**，杜绝跨目录撕裂）。
-  void _goTo(String path) {
-    setState(() => _path = path);
-    _entriesC().reset();
-    unawaited(_entriesC().load());
-    if (path.isEmpty) {
-      unawaited(_loadReadme());
-    }
-  }
-
-  void _up() {
-    final int cut = _path.lastIndexOf('/');
-    _goTo(cut <= 0 ? '' : _path.substring(0, cut));
-  }
-
-  /// 重新拉取当前目录；默认**强制绕过缓存**（写操作后 / 用户刷新时）。
-  Future<void> _reloadEntries({bool force = true}) async {
-    if (force) {
-      _forceEntries = true;
-    }
-    await _entriesC().load();
-  }
-
   Future<void> _openFile(GhContent entry) async {
-    if (_fileBusy) {
+    if (_busy) {
       return;
     }
-    setState(() => _fileBusy = true);
+    setState(() => _busy = true);
     try {
       final GhContent? content = await widget.surface.domain.api.content(
         widget.fullName,
         entry.path,
-        branch: widget.defaultBranch,
+        branch: widget.branch,
         refresh: true,
       );
       if (!mounted) {
@@ -420,19 +699,16 @@ class _CodeTabState extends State<_CodeTab> {
         _toast('读取失败：文件可能已不存在');
         return;
       }
-      setState(() {
-        _file = content;
-      });
+      setState(() => _file = content);
     } catch (error) {
       _toast('读取失败：$error');
     } finally {
       if (mounted) {
-        setState(() => _fileBusy = false);
+        setState(() => _busy = false);
       }
     }
   }
 
-  /// 打开**全屏编辑器**编辑该文件；保存成功后刷新文件与目录。
   Future<void> _openEditor(GhContent file) async {
     final bool? saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -442,13 +718,13 @@ class _CodeTabState extends State<_CodeTab> {
           path: file.path,
           initialText: file.text ?? '',
           baseSha: file.sha,
-          branch: widget.defaultBranch,
+          branch: widget.branch,
         ),
       ),
     );
     if (saved == true && mounted) {
       await _refreshFile(file.path);
-      await _reloadEntries();
+      await _entries.refresh();
     }
   }
 
@@ -457,30 +733,96 @@ class _CodeTabState extends State<_CodeTab> {
       final GhContent? fresh = await widget.surface.domain.api.content(
         widget.fullName,
         path,
-        branch: widget.defaultBranch,
+        branch: widget.branch,
         refresh: true,
       );
-      if (!mounted || fresh == null) {
-        return;
+      if (mounted && fresh != null) {
+        setState(() => _file = fresh);
       }
-      setState(() {
-        _file = fresh;
-      });
     } catch (_) {
-      // 刷新失败不阻塞（旧内容还在屏幕上，下一次操作会再试）。
+      // 刷新失败不阻塞（旧内容仍在）。
     }
   }
 
-  Future<void> _delete() async {
-    final GhContent? file = _file;
-    if (file == null) {
+  /// 新建文件（Material 对话框：路径 + 内容）。
+  Future<void> _createFile() async {
+    _newPath.text = _path.isEmpty ? '' : '$_path/';
+    final TextEditingController content = TextEditingController();
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('新建文件'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: _newPath,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '文件路径',
+                  hintText: 'src/hello.dart',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: content,
+                minLines: 4,
+                maxLines: 8,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: '内容（可留空后编辑）',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
       return;
     }
+    final String path = _newPath.text.trim();
+    if (path.isEmpty) {
+      _toast('请填写文件路径');
+      return;
+    }
+    try {
+      await widget.surface.domain.api.putContent(
+        widget.fullName,
+        path,
+        content: content.text,
+        message: 'chore: add $path',
+        branch: widget.branch,
+      );
+      OgLAppLog.instance.result('仓库', '已新建文件', path);
+      content.dispose();
+      _toast('已创建：$path');
+      await _entries.refresh();
+    } catch (error) {
+      content.dispose();
+      _toast('创建失败：$error');
+    }
+  }
+
+  Future<void> _deleteEntry(GhContent entry) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title: const Text('删除文件'),
-        content: Text('将删除 ${file.path} 并提交到仓库。该操作不易撤销。'),
+        content: Text('将删除 ${entry.path} 并提交到仓库。该操作不易撤销。'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -500,59 +842,31 @@ class _CodeTabState extends State<_CodeTab> {
       return;
     }
     try {
-      // 加锁删除：走 D1/D2/D7（基线过期会被拒绝，不误删他人更新）。
       final GhWriteResult result =
           await widget.surface.domain.api.deleteContentLocked(
         widget.fullName,
-        file.path,
-        message: 'chore: delete ${file.path}',
-        baseSha: file.sha,
-        branch: widget.defaultBranch,
+        entry.path,
+        message: 'chore: delete ${entry.path}',
+        baseSha: entry.sha,
+        branch: widget.branch,
         confirmed: true,
       );
       if (!result.ok) {
-        OgLAppLog.instance.add(
-          '编辑',
-          '删除被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
-          severity: OgLNoticeSeverity.warning,
-        );
-        if (mounted) {
-          _toast('删除失败：${result.detail ?? result.conflict.name}');
-        }
+        _toast('删除失败：${result.detail ?? result.conflict.name}');
         return;
       }
-      OgLAppLog.instance.result('编辑', '已删除', file.path);
-      if (!mounted) {
-        return;
+      OgLAppLog.instance.result('仓库', '已删除', entry.path);
+      if (_file?.path == entry.path) {
+        setState(() => _file = null);
       }
-      setState(() {
-        _file = null;
-      });
-      _toast('已删除：${file.path}');
-      await _reloadEntries();
+      _toast('已删除：${entry.path}');
+      await _entries.refresh();
     } catch (error) {
-      OgLAppLog.instance.add(
-        '编辑',
-        '删除失败：$error',
-        severity: OgLNoticeSeverity.critical,
-      );
       _toast('删除失败：$error');
     }
   }
 
-  void _openFileInBrowser(GhContent file) {
-    final String? url = file.htmlUrl;
-    if (url == null || url.isEmpty) {
-      _toast('该文件没有可打开的链接');
-      return;
-    }
-    unawaited(openLinkOrCopy(context, url, tag: '文件'));
-  }
-
-  /// 原始下载直链（优先用接口给的 `download_url`，缺失时按 raw 规则拼）。
-  ///
-  /// **必须对路径分段做 URL 编码**：仓库路径可能含空格、`#`、中文等字符，
-  /// 未编码时会截断查询串（`#` 之后直接丢失），导致下载到错误的文件。
+  /// 原始下载直链（路径分段做 URL 编码）。
   String? _downloadUrlOf(GhContent entry) {
     final String? direct = entry.downloadUrl;
     if (direct != null && direct.isNotEmpty) {
@@ -561,15 +875,12 @@ class _CodeTabState extends State<_CodeTab> {
     if (entry.isDirectory) {
       return null;
     }
-    final String encodedPath = entry.path
-        .split('/')
-        .map(Uri.encodeComponent)
-        .join('/');
+    final String encodedPath =
+        entry.path.split('/').map(Uri.encodeComponent).join('/');
     return 'https://raw.githubusercontent.com/${widget.fullName}/'
-        '${Uri.encodeComponent(widget.defaultBranch)}/$encodedPath';
+        '${Uri.encodeComponent(widget.branch)}/$encodedPath';
   }
 
-  /// 下载：交给内建下载器（仓库文件不套代理），落盘到 `<ogl>/download/repo/`。
   Future<void> _downloadEntry(GhContent entry) async {
     final String? url = _downloadUrlOf(entry);
     if (url == null || url.isEmpty) {
@@ -588,7 +899,6 @@ class _CodeTabState extends State<_CodeTab> {
     }
   }
 
-  /// 详情：把接口能给的元信息摊开，并可复制关键字段。
   void _showEntryDetails(GhContent entry) {
     final ThemeData theme = Theme.of(context);
     final String url = _downloadUrlOf(entry) ?? '';
@@ -607,17 +917,13 @@ class _CodeTabState extends State<_CodeTab> {
                 _detailRow(theme, '大小', ghSizeText(entry.size)),
               _detailRow(theme, 'SHA', entry.sha.isEmpty ? '—' : entry.sha),
               if (url.isNotEmpty) _detailRow(theme, '下载直链', url),
-              if ((entry.htmlUrl ?? '').isNotEmpty)
-                _detailRow(theme, '网页地址', entry.htmlUrl!),
             ],
           ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () async {
-              await Clipboard.setData(
-                ClipboardData(text: entry.path),
-              );
+              await Clipboard.setData(ClipboardData(text: entry.path));
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
                 _toast('已复制路径');
@@ -648,75 +954,6 @@ class _CodeTabState extends State<_CodeTab> {
         ),
       );
 
-  /// 删除单个文件（**危险操作**，二次确认 + 基线 sha 乐观锁）。
-  Future<void> _deleteEntry(GhContent entry) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除文件'),
-        content: Text('将删除 ${entry.path} 并提交到仓库。该操作不易撤销。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-    try {
-      // 加锁删除：走 D1/D2/D7。
-      final GhWriteResult result =
-          await widget.surface.domain.api.deleteContentLocked(
-        widget.fullName,
-        entry.path,
-        message: 'chore: delete ${entry.path}',
-        baseSha: entry.sha,
-        branch: widget.defaultBranch,
-        confirmed: true,
-      );
-      if (!result.ok) {
-        OgLAppLog.instance.add(
-          '编辑',
-          '删除被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
-          severity: OgLNoticeSeverity.warning,
-        );
-        if (mounted) {
-          _toast('删除失败：${result.detail ?? result.conflict.name}');
-        }
-        return;
-      }
-      OgLAppLog.instance.result('编辑', '已删除', entry.path);
-      if (!mounted) {
-        return;
-      }
-      if (_file?.path == entry.path) {
-        setState(() {
-          _file = null;
-        });
-      }
-      _toast('已删除：${entry.path}');
-      await _reloadEntries();
-    } catch (error) {
-      OgLAppLog.instance.add(
-        '编辑',
-        '删除失败：$error',
-        severity: OgLNoticeSeverity.critical,
-      );
-      _toast('删除失败：$error');
-    }
-  }
-
-  /// 长按 / 右键 弹出条目菜单。
   Future<void> _showEntryMenu(GhContent entry) async {
     final ThemeData theme = Theme.of(context);
     await showModalBottomSheet<void>(
@@ -728,11 +965,9 @@ class _CodeTabState extends State<_CodeTab> {
           children: <Widget>[
             ListTile(
               leading: Icon(
-                ogLFileVisualFor(entry.path, isDirectory: entry.isDirectory)
-                    .icon,
-                color: ogLFileVisualFor(entry.path,
-                        isDirectory: entry.isDirectory)
-                    .color,
+                ogLFileVisualFor(entry.path, isDirectory: entry.isDirectory).icon,
+                color:
+                    ogLFileVisualFor(entry.path, isDirectory: entry.isDirectory).color,
               ),
               title: Text(ghPathName(entry.path)),
               subtitle: Text(entry.isDirectory ? '目录' : '文件'),
@@ -742,7 +977,6 @@ class _CodeTabState extends State<_CodeTab> {
               ListTile(
                 leading: const Icon(Icons.download_outlined),
                 title: const Text('下载'),
-                subtitle: const Text('用系统下载器打开原始直链'),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_downloadEntry(entry));
@@ -758,14 +992,8 @@ class _CodeTabState extends State<_CodeTab> {
             ),
             if (!entry.isDirectory)
               ListTile(
-                leading: Icon(
-                  Icons.delete_outline,
-                  color: theme.colorScheme.error,
-                ),
-                title: Text(
-                  '删除',
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
+                leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                title: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_deleteEntry(entry));
@@ -777,28 +1005,21 @@ class _CodeTabState extends State<_CodeTab> {
     );
   }
 
-  /// 目录面包屑：明确展示当前"本地路径"，避免路径与列表不一致造成误读。
   Widget _breadcrumb(BuildContext context) {
-    final List<String> parts = _path
-        .split('/')
-        .where((String p) => p.isNotEmpty)
-        .toList();
+    final List<String> parts =
+        _path.split('/').where((String p) => p.isNotEmpty).toList();
     final ColorScheme scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Row(
         children: <Widget>[
-          TextButton(
-            onPressed: () => _goTo(''),
-            child: const Text('根目录'),
-          ),
+          TextButton(onPressed: () => _goTo(''), child: const Text('根目录')),
           for (int i = 0; i < parts.length; i++) ...<Widget>[
             Icon(Icons.chevron_right, size: 16, color: scheme.outline),
             TextButton(
-              onPressed: i == parts.length - 1
-                  ? null
-                  : () => _goTo(parts.sublist(0, i + 1).join('/')),
+              onPressed:
+                  i == parts.length - 1 ? null : () => _goTo(parts.sublist(0, i + 1).join('/')),
               child: Text(parts[i]),
             ),
           ],
@@ -808,14 +1029,6 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   Widget _readmeTile() {
-    final String? err = _readmeError;
-    if (err != null) {
-      return ListTile(
-        leading: const Icon(Icons.warning_amber_rounded),
-        title: const Text('README 读取失败'),
-        subtitle: Text(err),
-      );
-    }
     final String? md = _readme;
     if (md == null || md.trim().isEmpty) {
       return const SizedBox.shrink();
@@ -844,11 +1057,7 @@ class _CodeTabState extends State<_CodeTab> {
           IconButton(
             icon: const Icon(Icons.arrow_back),
             tooltip: '返回目录',
-            onPressed: () {
-              setState(() {
-                _file = null;
-              });
-            },
+            onPressed: () => setState(() => _file = null),
           ),
           Expanded(
             child: Text(
@@ -861,25 +1070,93 @@ class _CodeTabState extends State<_CodeTab> {
           if (!file.isTooLarge)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑（全屏编辑器）',
+              tooltip: '编辑',
               onPressed: () => _openEditor(file),
             ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: '删除',
-            onPressed: _delete,
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_new),
-            tooltip: '用浏览器打开',
-            onPressed: () => _openFileInBrowser(file),
+          PopupMenuButton<String>(
+            onSelected: (String value) {
+              switch (value) {
+                case 'delete':
+                  unawaited(_deleteFromFile(file));
+                case 'browser':
+                  _openFileInBrowser(file);
+                case 'copy':
+                  unawaited(_copyPath(file.path));
+              }
+            },
+            itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(value: 'copy', child: Text('复制路径')),
+              PopupMenuItem<String>(value: 'browser', child: Text('用浏览器打开')),
+              PopupMenuItem<String>(value: 'delete', child: Text('删除文件')),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildViewer(GhContent file) {
+  Future<void> _deleteFromFile(GhContent file) => _deleteEntry(file);
+
+  Future<void> _copyPath(String path) async {
+    await Clipboard.setData(ClipboardData(text: path));
+    _toast('已复制路径');
+  }
+
+  void _openFileInBrowser(GhContent file) {
+    final String? url = file.htmlUrl;
+    if (url == null || url.isEmpty) {
+      _toast('该文件没有可打开的链接');
+      return;
+    }
+    unawaited(openLinkOrCopy(context, url, tag: '文件'));
+  }
+
+  static bool _isImage(String path) {
+    final String lower = path.toLowerCase();
+    for (final String ext in <String>[
+      '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico',
+    ]) {
+      if (lower.endsWith(ext)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildViewer(GhContent file, TextStyle codeStyle, OgLCodeTheme theme) {
+    if (_isImage(file.path)) {
+      final String? url = _downloadUrlOf(file);
+      if (url == null) {
+        return _MessagePane(
+          icon: Icons.image_not_supported_outlined,
+          message: '无法获取图片地址',
+        );
+      }
+      return Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4,
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            loadingBuilder: (BuildContext context, Widget child,
+                    ImageChunkEvent? progress) =>
+                progress == null
+                    ? child
+                    : const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(),
+                      ),
+            errorBuilder: (BuildContext context, Object error,
+                    StackTrace? stack) =>
+                _MessagePane(
+              icon: Icons.broken_image_outlined,
+              message: '图片加载失败（可点右上角用浏览器打开）',
+            ),
+          ),
+        ),
+      );
+    }
     if (file.isTooLarge) {
       return _MessagePane(
         icon: Icons.warning_amber_rounded,
@@ -912,152 +1189,173 @@ class _CodeTabState extends State<_CodeTab> {
         ),
       );
     }
-    final OgLSettings codeCfg = widget.surface.settings.settings;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: CodeView(
         code: text,
         language: ogLDetectLanguage(file.path),
-        fontSize: codeCfg.codeFontSize,
-        wrap: codeCfg.codeWrap,
-        highlight: codeCfg.codeHighlight,
-        codeTheme: ogLCodeThemeFor(
-          preset: codeCfg.codeThemePreset,
-          scheme: Theme.of(context).colorScheme,
-          customBackground: codeCfg.codeColorBackground,
-          customForeground: codeCfg.codeColorForeground,
-          customKeyword: codeCfg.codeColorKeyword,
-          customTypeName: codeCfg.codeColorTypeName,
-          customString: codeCfg.codeColorString,
-          customComment: codeCfg.codeColorComment,
-          customNumber: codeCfg.codeColorNumber,
-        ),
+        fontSize: codeStyle.fontSize ?? 13,
+        wrap: false,
+        highlight: true,
+        codeTheme: theme,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_fileBusy) {
+    final ThemeData theme = Theme.of(context);
+    final GhContent? file = _file;
+    if (_busy) {
       return const Center(child: CircularProgressIndicator());
     }
-    final GhContent? file = _file;
     if (file != null) {
       return Column(
         children: <Widget>[
           _buildFileHeader(file),
-          Expanded(child: _buildViewer(file)),
+          Expanded(
+            child: _buildViewer(
+              file,
+              const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              OgLCodeTheme.fromScheme(theme.colorScheme),
+            ),
+          ),
         ],
       );
     }
-    return AsyncView<List<GhContent>>(
-      controller: _entriesC(),
-      emptyIcon: Icons.folder_open,
-      emptyText: '这个目录是空的',
-      builder: (BuildContext context, List<GhContent> entries) {
-        // 目录优先（设置可关）+ 名称排序；只在渲染期做，不改动缓存数据。
-        // `foldersFirst` 只读取一次：排序比较器会被调用 O(n log n) 次，
-        // 每次进去读设置既浪费又会放大变更期间的抖动。
-        final bool foldersFirst =
-            widget.surface.settings.settings.foldersFirst;
-        final List<GhContent> sorted = List<GhContent>.of(entries)
-          ..sort((GhContent a, GhContent b) {
-            if (foldersFirst && a.isDirectory != b.isDirectory) {
-              return a.isDirectory ? -1 : 1;
-            }
-            return ghPathName(a.path)
-                .toLowerCase()
-                .compareTo(ghPathName(b.path).toLowerCase());
-          });
-        return RefreshIndicator(
-          onRefresh: _reloadEntries,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: <Widget>[
-              if (_path.isNotEmpty) _breadcrumb(context),
-              if (_path.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.arrow_upward),
-                  title: const Text('上一级'),
-                  onTap: _up,
-                ),
-              if (_path.isEmpty) _readmeTile(),
-              for (final GhContent entry in sorted)
-                GestureDetector(
-                  // 桌面右键（手机为长按）都弹出同一个菜单。
-                  onSecondaryTapDown: (_) => unawaited(_showEntryMenu(entry)),
-                  child: ListTile(
-                    leading: Icon(
-                      ogLFileVisualFor(
-                        entry.path,
-                        isDirectory: entry.isDirectory,
-                      ).icon,
-                      color: ogLFileVisualFor(
-                        entry.path,
-                        isDirectory: entry.isDirectory,
-                      ).color,
-                    ),
-                    title: Text(
-                      ghPathName(entry.path),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: entry.isDirectory
-                        ? null
-                        : Text(ghSizeText(entry.size)),
-                    trailing: entry.isDirectory
-                        ? const Icon(Icons.chevron_right)
-                        : null,
-                    onTap: () {
-                      if (entry.isDirectory) {
-                        _openDir(entry);
-                      } else {
-                        unawaited(_openFile(entry));
-                      }
-                    },
-                    onLongPress: () => unawaited(_showEntryMenu(entry)),
-                  ),
-                ),
-              ],
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createFile,
+        icon: const Icon(Icons.note_add_outlined),
+        label: const Text('新建文件'),
+      ),
+      body: Column(
+        children: <Widget>[
+          if (_path.isNotEmpty) _breadcrumb(context),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              controller: _filter,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.filter_alt_outlined),
+                hintText: '筛选当前目录',
+              ),
+              onChanged: (String value) => setState(() {}),
             ),
-          );
-        },
-      );
-  }
-}
-
-/// 简单消息面板（图标 + 文案 + 可选动作）。
-class _MessagePane extends StatelessWidget {
-  const _MessagePane({required this.icon, required this.message, this.action});
-
-  final IconData icon;
-  final String message;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            if (action != null) ...<Widget>[
-              const SizedBox(height: 16),
-              action!,
-            ],
-          ],
-        ),
+          ),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: _entries,
+              builder: (BuildContext context, Widget? _) {
+                final String q = _filter.text.trim().toLowerCase();
+                final List<GhContent> sorted = List<GhContent>.of(_entries.items)
+                  ..sort((GhContent a, GhContent b) {
+                    if (a.isDirectory != b.isDirectory) {
+                      return a.isDirectory ? -1 : 1;
+                    }
+                    return ghPathName(a.path)
+                        .toLowerCase()
+                        .compareTo(ghPathName(b.path).toLowerCase());
+                  });
+                final List<GhContent> shown = q.isEmpty
+                    ? sorted
+                    : sorted
+                        .where((GhContent e) =>
+                            ghPathName(e.path).toLowerCase().contains(q))
+                        .toList();
+                if (_entries.items.isEmpty && _entries.loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (_entries.items.isEmpty && _entries.error != null) {
+                  return _MessagePane(
+                    icon: Icons.error_outline,
+                    message: _entries.error!,
+                    action: FilledButton.tonal(
+                      onPressed: _entries.refresh,
+                      child: const Text('重试'),
+                    ),
+                  );
+                }
+                if (sorted.isEmpty) {
+                  return _MessagePane(
+                    icon: Icons.folder_open,
+                    message: '这个目录是空的',
+                    action: FilledButton.tonal(
+                      onPressed: _createFile,
+                      child: const Text('新建文件'),
+                    ),
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: _entries.refresh,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: <Widget>[
+                      if (_path.isNotEmpty)
+                        ListTile(
+                          leading: const Icon(Icons.arrow_upward),
+                          title: const Text('上一级'),
+                          onTap: () {
+                            final int cut = _path.lastIndexOf('/');
+                            unawaited(_goTo(cut <= 0 ? '' : _path.substring(0, cut)));
+                          },
+                        ),
+                      if (_path.isEmpty) _readmeTile(),
+                      if (shown.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(child: Text('没有匹配的条目')),
+                        ),
+                      for (int i = 0; i < shown.length; i++)
+                        OgLReveal(
+                          delay: OgLAnim.stagger(context, i),
+                          child: ListTile(
+                            leading: Icon(
+                              ogLFileVisualFor(shown[i].path,
+                                      isDirectory: shown[i].isDirectory)
+                                  .icon,
+                              color: ogLFileVisualFor(shown[i].path,
+                                      isDirectory: shown[i].isDirectory)
+                                  .color,
+                            ),
+                            title: Text(
+                              ghPathName(shown[i].path),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: shown[i].isDirectory
+                                ? null
+                                : Text(ghSizeText(shown[i].size)),
+                            trailing: shown[i].isDirectory
+                                ? const Icon(Icons.chevron_right)
+                                : null,
+                            onTap: () {
+                              if (shown[i].isDirectory) {
+                                unawaited(_goTo(shown[i].path));
+                              } else {
+                                unawaited(_openFile(shown[i]));
+                              }
+                            },
+                            onLongPress: () => unawaited(_showEntryMenu(shown[i])),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 议题 / PR 标签（筛选 + 分页）
+// 议题 / PR
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _IssuesTab extends StatefulWidget {
@@ -1071,65 +1369,28 @@ class _IssuesTab extends StatefulWidget {
 }
 
 class _IssuesTabState extends State<_IssuesTab> {
-  final List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
   String _state = 'open';
-  int _page = 1;
-  bool _loading = false;
-  bool _moreDone = false;
-  String? _error;
+  late final _Paged<Map<String, dynamic>> _paged =
+      _Paged<Map<String, dynamic>>(loader: _load);
+
+  Future<List<Map<String, dynamic>>> _load(int page) =>
+      widget.surface.domain.api.issues(
+        widget.fullName,
+        state: _state,
+        perPage: _kPageSize,
+        page: page,
+      );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_reload());
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _items.clear();
-      _page = 1;
-      _moreDone = false;
-      _error = null;
-    });
-    await _loadMore();
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading) {
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final List<Map<String, dynamic>> list =
-          await widget.surface.domain.api.issues(
-        widget.fullName,
-        state: _state,
-        perPage: 30,
-        page: _page,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _items.addAll(list);
-        _moreDone = list.length < 30;
-        _page += 1;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = '议题读取失败：$error');
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   Future<void> _create() async {
@@ -1145,7 +1406,7 @@ class _IssuesTabState extends State<_IssuesTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已创建议题')),
       );
-      await _reload();
+      await _paged.refresh();
     }
   }
 
@@ -1174,7 +1435,7 @@ class _IssuesTabState extends State<_IssuesTab> {
       await widget.surface.domain.api
           .updateIssue(widget.fullName, number, state: 'closed');
       OgLAppLog.instance.result('议题', '已关闭', '#$number');
-      await _reload();
+      await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1185,7 +1446,6 @@ class _IssuesTabState extends State<_IssuesTab> {
   }
 
   void _openIssue(Map<String, dynamic> item) {
-    final int number = ghInt(item, 'number');
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (BuildContext context) => IssuePage(
@@ -1195,132 +1455,78 @@ class _IssuesTabState extends State<_IssuesTab> {
         ),
       ),
     );
-    OgLAppLog.instance.add('议题', '打开 #$number');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'open', label: Text('打开中')),
-                  ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
-                  ButtonSegment<String>(value: 'all', label: Text('全部')),
-                ],
-                selected: <String>{_state},
-                showSelectedIcon: false,
-                onSelectionChanged: (Set<String> selection) {
-                  if (selection.isNotEmpty && selection.first != _state) {
-                    setState(() => _state = selection.first);
-                    unawaited(_reload());
-                  }
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _create,
+        icon: const Icon(Icons.add_comment_outlined),
+        label: const Text('新建议题'),
+      ),
+      body: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SegmentedButton<String>(
+              segments: const <ButtonSegment<String>>[
+                ButtonSegment<String>(value: 'open', label: Text('打开中')),
+                ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
+                ButtonSegment<String>(value: 'all', label: Text('全部')),
+              ],
+              selected: <String>{_state},
+              showSelectedIcon: false,
+              onSelectionChanged: (Set<String> selection) {
+                if (selection.isNotEmpty && selection.first != _state) {
+                  setState(() => _state = selection.first);
+                  unawaited(_paged.refresh());
+                }
+              },
+            ),
+          ),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: _paged,
+              builder: (BuildContext context, Widget? _) => _pagedBody<Map<String, dynamic>>(
+                context,
+                _paged,
+                (BuildContext context, Map<String, dynamic> item, int index) {
+                  final int number = ghInt(item, 'number');
+                  return ListTile(
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: Text(
+                      '#$number ${ghStr(item, 'title')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
+                      '${ghDate(item, 'created_at')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: ghStr(item, 'state') == 'open'
+                        ? IconButton(
+                            icon: const Icon(Icons.task_alt),
+                            tooltip: '关闭',
+                            onPressed: () => _close(number),
+                          )
+                        : const Icon(Icons.chevron_right),
+                    onTap: () => _openIssue(item),
+                  );
                 },
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonal(
+                emptyIcon: Icons.task_alt,
+                emptyText: _state == 'all' ? '还没有议题' : '没有该状态的议题',
+                emptyAction: FilledButton.tonal(
                   onPressed: _create,
                   child: const Text('新建议题'),
                 ),
               ),
-            ],
-          ),
-        ),
-        if (_error != null)
-          ListTile(
-            leading: Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(_error!),
-            trailing: TextButton(
-              onPressed: () => unawaited(_loadMore()),
-              child: const Text('重试'),
             ),
           ),
-        Expanded(child: _buildBody()),
-      ],
-    );
-  }
-
-  Widget _buildBody() {
-    if (_items.isEmpty && _loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_items.isEmpty) {
-      if (_error != null) {
-        return Center(
-          child: TextButton(
-            onPressed: () => unawaited(_reload()),
-            child: const Text('重试'),
-          ),
-        );
-      }
-      return _MessagePane(
-        icon: Icons.task_alt,
-        message: _state == 'all' ? '还没有议题' : '没有该状态的议题',
-        action: FilledButton.tonal(
-          onPressed: _create,
-          child: const Text('新建议题'),
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: _reload,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _items.length + (_moreDone ? 0 : 1),
-        separatorBuilder: (BuildContext context, int index) =>
-            const Divider(height: 1),
-        itemBuilder: (BuildContext context, int index) {
-          if (index == _items.length) {
-            return Padding(
-              padding: const EdgeInsets.all(12),
-              child: Center(
-                child: _loading
-                    ? const CircularProgressIndicator()
-                    : OutlinedButton(
-                        onPressed: () => unawaited(_loadMore()),
-                        child: const Text('加载更多'),
-                      ),
-              ),
-            );
-          }
-          final Map<String, dynamic> item = _items[index];
-          final int number = ghInt(item, 'number');
-          return OgLReveal(
-            delay: OgLAnim.stagger(context, index),
-            child: ListTile(
-              leading: const Icon(Icons.bug_report_outlined),
-              title: Text(
-                '#$number ${ghStr(item, 'title')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
-                '${ghDate(item, 'created_at')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: ghStr(item, 'state') == 'open'
-                  ? IconButton(
-                      icon: const Icon(Icons.task_alt),
-                      tooltip: '关闭',
-                      onPressed: () => _close(number),
-                    )
-                  : const Icon(Icons.chevron_right),
-              onTap: () => _openIssue(item),
-            ),
-          );
-        },
+        ],
       ),
     );
   }
@@ -1337,65 +1543,28 @@ class _PullsTab extends StatefulWidget {
 }
 
 class _PullsTabState extends State<_PullsTab> {
-  final List<Map<String, dynamic>> _items = <Map<String, dynamic>>[];
   String _state = 'open';
-  int _page = 1;
-  bool _loading = false;
-  bool _moreDone = false;
-  String? _error;
+  late final _Paged<Map<String, dynamic>> _paged =
+      _Paged<Map<String, dynamic>>(loader: _load);
+
+  Future<List<Map<String, dynamic>>> _load(int page) =>
+      widget.surface.domain.api.pulls(
+        widget.fullName,
+        state: _state,
+        perPage: _kPageSize,
+        page: page,
+      );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_reload());
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _items.clear();
-      _page = 1;
-      _moreDone = false;
-      _error = null;
-    });
-    await _loadMore();
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading) {
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final List<Map<String, dynamic>> list =
-          await widget.surface.domain.api.pulls(
-        widget.fullName,
-        state: _state,
-        perPage: 30,
-        page: _page,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _items.addAll(list);
-        _moreDone = list.length < 30;
-        _page += 1;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = 'PR 读取失败：$error');
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+  @override
+  void dispose() {
+    _paged.dispose();
+    super.dispose();
   }
 
   void _openPull(Map<String, dynamic> item) {
@@ -1429,130 +1598,78 @@ class _PullsTabState extends State<_PullsTab> {
             onSelectionChanged: (Set<String> selection) {
               if (selection.isNotEmpty && selection.first != _state) {
                 setState(() => _state = selection.first);
-                unawaited(_reload());
+                unawaited(_paged.refresh());
               }
             },
           ),
         ),
-        if (_error != null)
-          ListTile(
-            leading: Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(_error!),
-            trailing: TextButton(
-              onPressed: () => unawaited(_loadMore()),
-              child: const Text('重试'),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: _paged,
+            builder: (BuildContext context, Widget? _) => _pagedBody<Map<String, dynamic>>(
+              context,
+              _paged,
+              (BuildContext context, Map<String, dynamic> item, int index) => ListTile(
+                leading: const Icon(Icons.call_merge),
+                title: Text(
+                  '#${ghInt(item, 'number')} ${ghStr(item, 'title')}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  'by ${ghLogin(item)} · ${ghDate(item, 'created_at')}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openPull(item),
+              ),
+              emptyIcon: Icons.call_merge,
+              emptyText: _state == 'all' ? '还没有 PR' : '没有该状态的 PR',
             ),
           ),
-        Expanded(child: _buildBody()),
+        ),
       ],
-    );
-  }
-
-  Widget _buildBody() {
-    if (_items.isEmpty && _loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_items.isEmpty) {
-      return _MessagePane(
-        icon: Icons.call_merge,
-        message: _state == 'all' ? '还没有 PR' : '没有该状态的 PR',
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: _reload,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _items.length + (_moreDone ? 0 : 1),
-        separatorBuilder: (BuildContext context, int index) =>
-            const Divider(height: 1),
-        itemBuilder: (BuildContext context, int index) {
-          if (index == _items.length) {
-            return Padding(
-              padding: const EdgeInsets.all(12),
-              child: Center(
-                child: _loading
-                    ? const CircularProgressIndicator()
-                    : OutlinedButton(
-                        onPressed: () => unawaited(_loadMore()),
-                        child: const Text('加载更多'),
-                      ),
-              ),
-            );
-          }
-          final Map<String, dynamic> item = _items[index];
-          return OgLReveal(
-            delay: OgLAnim.stagger(context, index),
-            child: ListTile(
-              leading: const Icon(Icons.call_merge),
-              title: Text(
-                '#${ghInt(item, 'number')} ${ghStr(item, 'title')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                'by ${ghLogin(item)} · ${ghDate(item, 'created_at')}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _openPull(item),
-            ),
-          );
-        },
-      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 发布标签
+// 发布
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ReleasesTab extends StatefulWidget {
   const _ReleasesTab({
     required this.surface,
     required this.fullName,
-    required this.defaultBranch,
+    required this.branch,
+    super.key,
   });
 
   final SurfaceBridge surface;
   final String fullName;
-  final String defaultBranch;
+  final String branch;
 
   @override
   State<_ReleasesTab> createState() => _ReleasesTabState();
 }
 
 class _ReleasesTabState extends State<_ReleasesTab> {
-  AsyncController<List<GhRelease>>? _releases;
+  late final _Paged<GhRelease> _paged = _Paged<GhRelease>(
+    loader: (int page) => widget.surface.domain.api
+        .releases(widget.fullName, perPage: _kPageSize, page: page),
+  );
 
   @override
   void initState() {
     super.initState();
-    _releasesC().loadIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
   @override
   void dispose() {
-    _releases?.dispose();
+    _paged.dispose();
     super.dispose();
-  }
-
-  AsyncController<List<GhRelease>> _releasesC() {
-    final existing = _releases;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = AsyncController<List<GhRelease>>(
-      label: '发布',
-      isEmpty: (List<GhRelease> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.releases(widget.fullName),
-    );
-    _releases = controller;
-    return controller;
   }
 
   Future<void> _create() async {
@@ -1561,7 +1678,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
         builder: (BuildContext context) => NewReleasePage(
           surface: widget.surface,
           fullName: widget.fullName,
-          defaultBranch: widget.defaultBranch,
+          defaultBranch: widget.branch,
         ),
       ),
     );
@@ -1569,45 +1686,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已创建发布 ${created.tagName}')),
       );
-      await _releasesC().load();
-    }
-  }
-
-  Future<void> _delete(GhRelease release) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除发布'),
-        content: Text('将删除发布 ${release.tagName}。该操作不易撤销。'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(dialogContext).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.api
-          .deleteRelease(widget.fullName, release.id);
-      OgLAppLog.instance.result('发布', '已删除', release.tagName);
-      await _releasesC().load();
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$error')),
-        );
-      }
+      await _paged.refresh();
     }
   }
 
@@ -1622,85 +1701,67 @@ class _ReleasesTabState extends State<_ReleasesTab> {
       ),
     );
     if (changed == true && mounted) {
-      await _releasesC().load();
+      await _paged.refresh();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.tonal(
-              onPressed: _create,
-              child: const Text('新建发布'),
-            ),
-          ),
-        ),
-        Expanded(
-          child: AsyncView<List<GhRelease>>(
-            controller: _releasesC(),
-            emptyIcon: Icons.new_releases_outlined,
-            emptyText: '还没有发布',
-            builder: (BuildContext context, List<GhRelease> releases) =>
-                RefreshIndicator(
-              onRefresh: () => _releasesC().load(),
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: releases.length,
-                separatorBuilder: (BuildContext context, int index) =>
-                    const Divider(height: 1),
-                itemBuilder: (BuildContext context, int index) {
-                  final GhRelease release = releases[index];
-                  final List<String> marks = <String>[
-                    if (release.isDraft) '草稿',
-                    if (release.isPrerelease) '预发布',
-                  ];
-                  return OgLReveal(
-                    delay: OgLAnim.stagger(context, index),
-                    child: ListTile(
-                      leading: const Icon(Icons.new_releases_outlined),
-                      title: Text(
-                        release.tagName +
-                            (release.name == null || release.name!.isEmpty
-                                ? ''
-                                : ' · ${release.name}'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        <String>[
-                          if (release.publishedAt != null)
-                            '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
-                          if (marks.isNotEmpty) marks.join(' / '),
-                          '${release.assets.length} 个附件',
-                        ].join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: '删除',
-                        onPressed: () => _delete(release),
-                      ),
-                      onTap: () => unawaited(_openDetail(release)),
-                    ),
-                  );
-                },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _create,
+        icon: const Icon(Icons.new_releases_outlined),
+        label: const Text('新建发布'),
+      ),
+      body: ListenableBuilder(
+        listenable: _paged,
+        builder: (BuildContext context, Widget? _) => _pagedBody<GhRelease>(
+          context,
+          _paged,
+          (BuildContext context, GhRelease release, int index) {
+            final List<String> marks = <String>[
+              if (release.isDraft) '草稿',
+              if (release.isPrerelease) '预发布',
+            ];
+            return ListTile(
+              leading: const Icon(Icons.new_releases_outlined),
+              title: Text(
+                release.tagName +
+                    (release.name == null || release.name!.isEmpty
+                        ? ''
+                        : ' · ${release.name}'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
+              subtitle: Text(
+                <String>[
+                  if (release.publishedAt != null)
+                    '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
+                  if (marks.isNotEmpty) marks.join(' / '),
+                  '${release.assets.length} 个附件',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => unawaited(_openDetail(release)),
+            );
+          },
+          emptyIcon: Icons.new_releases_outlined,
+          emptyText: '还没有发布',
+          emptyAction: FilledButton.tonal(
+            onPressed: _create,
+            child: const Text('新建发布'),
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 分支标签
+// 分支
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BranchesTab extends StatefulWidget {
@@ -1708,47 +1769,38 @@ class _BranchesTab extends StatefulWidget {
     required this.surface,
     required this.fullName,
     required this.defaultBranch,
+    required this.onBranchChanged,
   });
 
   final SurfaceBridge surface;
   final String fullName;
   final String defaultBranch;
+  final VoidCallback onBranchChanged;
 
   @override
   State<_BranchesTab> createState() => _BranchesTabState();
 }
 
 class _BranchesTabState extends State<_BranchesTab> {
-  AsyncController<List<GhBranch>>? _branches;
+  late final _Paged<GhBranch> _paged = _Paged<GhBranch>(
+    loader: (int page) => widget.surface.domain.api
+        .branches(widget.fullName, perPage: _kPageSize, page: page),
+  );
   final TextEditingController _createName = TextEditingController();
   final TextEditingController _renameName = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _branchesC().loadIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
   @override
   void dispose() {
-    _branches?.dispose();
+    _paged.dispose();
     _createName.dispose();
     _renameName.dispose();
     super.dispose();
-  }
-
-  AsyncController<List<GhBranch>> _branchesC() {
-    final existing = _branches;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = AsyncController<List<GhBranch>>(
-      label: '分支',
-      isEmpty: (List<GhBranch> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.branches(widget.fullName),
-    );
-    _branches = controller;
-    return controller;
   }
 
   Future<void> _create() async {
@@ -1788,7 +1840,8 @@ class _BranchesTabState extends State<_BranchesTab> {
         fromBranch: widget.defaultBranch,
       );
       OgLAppLog.instance.result('分支', '已创建', trimmed);
-      await _branchesC().load();
+      await _paged.refresh();
+      widget.onBranchChanged();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1829,7 +1882,7 @@ class _BranchesTabState extends State<_BranchesTab> {
       await widget.surface.domain.api
           .renameBranch(widget.fullName, branch.name, trimmed);
       OgLAppLog.instance.result('分支', '已重命名', '${branch.name} → $trimmed');
-      await _branchesC().load();
+      await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1864,10 +1917,9 @@ class _BranchesTabState extends State<_BranchesTab> {
       return;
     }
     try {
-      await widget.surface.domain.api
-          .deleteBranch(widget.fullName, branch.name);
+      await widget.surface.domain.api.deleteBranch(widget.fullName, branch.name);
       OgLAppLog.instance.result('分支', '已删除', branch.name);
-      await _branchesC().load();
+      await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1879,244 +1931,187 @@ class _BranchesTabState extends State<_BranchesTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.tonal(
-              onPressed: _create,
-              child: const Text('新建分支'),
-            ),
-          ),
-        ),
-        Expanded(
-          child: AsyncView<List<GhBranch>>(
-            controller: _branchesC(),
-            emptyIcon: Icons.account_tree_outlined,
-            emptyText: '还没有分支',
-            builder: (BuildContext context, List<GhBranch> branches) =>
-                RefreshIndicator(
-              onRefresh: () => _branchesC().load(),
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: branches.length,
-                separatorBuilder: (BuildContext context, int index) =>
-                    const Divider(height: 1),
-                itemBuilder: (BuildContext context, int index) {
-                  final GhBranch branch = branches[index];
-                  final bool isDefault = branch.name == widget.defaultBranch;
-                  return OgLReveal(
-                    delay: OgLAnim.stagger(context, index),
-                    child: ListTile(
-                      leading: Icon(
-                        branch.isProtected
-                            ? Icons.lock_outline
-                            : Icons.account_tree_outlined,
-                      ),
-                      title: Text(
-                        branch.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${ghShortSha(branch.sha)}'
-                        '${isDefault ? ' · 默认分支' : ''}'
-                        '${branch.isProtected ? ' · 受保护' : ''}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            tooltip: '重命名',
-                            onPressed: isDefault ? null : () => _rename(branch),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: '删除',
-                            onPressed: isDefault ? null : () => _delete(branch),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _create,
+        icon: const Icon(Icons.alt_route),
+        label: const Text('新建分支'),
+      ),
+      body: ListenableBuilder(
+        listenable: _paged,
+        builder: (BuildContext context, Widget? _) => _pagedBody<GhBranch>(
+          context,
+          _paged,
+          (BuildContext context, GhBranch branch, int index) {
+            final bool isDefault = branch.name == widget.defaultBranch;
+            return ListTile(
+              leading: Icon(
+                branch.isProtected
+                    ? Icons.lock_outline
+                    : Icons.account_tree_outlined,
               ),
-            ),
+              title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                '${ghShortSha(branch.sha)}'
+                '${isDefault ? ' · 默认分支' : ''}'
+                '${branch.isProtected ? ' · 受保护' : ''}',
+              ),
+              trailing: PopupMenuButton<String>(
+                onSelected: (String value) {
+                  if (value == 'rename') {
+                    unawaited(_rename(branch));
+                  } else if (value == 'delete') {
+                    unawaited(_delete(branch));
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'rename',
+                    enabled: !isDefault,
+                    child: const Text('重命名'),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    enabled: !isDefault,
+                    child: const Text('删除'),
+                  ),
+                ],
+              ),
+            );
+          },
+          emptyIcon: Icons.account_tree_outlined,
+          emptyText: '还没有分支',
+          emptyAction: FilledButton.tonal(
+            onPressed: _create,
+            child: const Text('新建分支'),
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 提交标签
+// 提交
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CommitsTab extends StatefulWidget {
   const _CommitsTab({
     required this.surface,
     required this.fullName,
-    required this.defaultBranch,
+    required this.branch,
+    super.key,
   });
 
   final SurfaceBridge surface;
   final String fullName;
-  final String defaultBranch;
+  final String branch;
 
   @override
   State<_CommitsTab> createState() => _CommitsTabState();
 }
 
 class _CommitsTabState extends State<_CommitsTab> {
-  AsyncController<List<GhCommit>>? _commits;
+  late final _Paged<GhCommit> _paged = _Paged<GhCommit>(
+    loader: (int page) => widget.surface.domain.api.commits(
+      widget.fullName,
+      branch: widget.branch,
+      perPage: _kPageSize,
+      page: page,
+    ),
+  );
 
   @override
   void initState() {
     super.initState();
-    _commitsC().loadIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
   @override
   void dispose() {
-    _commits?.dispose();
+    _paged.dispose();
     super.dispose();
-  }
-
-  AsyncController<List<GhCommit>> _commitsC() {
-    final existing = _commits;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = AsyncController<List<GhCommit>>(
-      label: '提交',
-      isEmpty: (List<GhCommit> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.commits(
-        widget.fullName,
-        branch: widget.defaultBranch,
-      ),
-    );
-    _commits = controller;
-    return controller;
-  }
-
-  void _openCommit(GhCommit commit) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => CommitPage(
-          surface: widget.surface,
-          fullName: widget.fullName,
-          commit: commit,
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AsyncView<List<GhCommit>>(
-      controller: _commitsC(),
-      emptyIcon: Icons.history,
-      emptyText: '还没有提交',
-      builder: (BuildContext context, List<GhCommit> commits) =>
-          RefreshIndicator(
-        onRefresh: () => _commitsC().load(),
-        child: ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: commits.length,
-          separatorBuilder: (BuildContext context, int index) =>
-              const Divider(height: 1),
-          itemBuilder: (BuildContext context, int index) {
-            final GhCommit commit = commits[index];
-            return OgLReveal(
-              delay: OgLAnim.stagger(context, index),
-              child: ListTile(
-                leading: const Icon(Icons.history),
-                title: Text(
-                  commit.subject,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  '${ghCommitAuthor(commit)} · '
-                  '${commit.date?.toIso8601String().split('T').first ?? ''} · '
-                  '${ghShortSha(commit.sha)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _openCommit(commit),
+    return ListenableBuilder(
+      listenable: _paged,
+      builder: (BuildContext context, Widget? _) => _pagedBody<GhCommit>(
+        context,
+        _paged,
+        (BuildContext context, GhCommit commit, int index) => ListTile(
+          leading: const Icon(Icons.history),
+          title: Text(commit.subject, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+            '${ghCommitAuthor(commit)} · '
+            '${commit.date?.toIso8601String().split('T').first ?? ''} · '
+            '${ghShortSha(commit.sha)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (BuildContext context) => CommitPage(
+                surface: widget.surface,
+                fullName: widget.fullName,
+                commit: commit,
               ),
-            );
-          },
+            ),
+          ),
         ),
+        emptyIcon: Icons.history,
+        emptyText: '还没有提交',
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Actions 标签
+// Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ActionsTab extends StatefulWidget {
   const _ActionsTab({
     required this.surface,
     required this.fullName,
-    required this.defaultBranch,
+    required this.branch,
+    super.key,
   });
 
   final SurfaceBridge surface;
   final String fullName;
-  final String defaultBranch;
+  final String branch;
 
   @override
   State<_ActionsTab> createState() => _ActionsTabState();
 }
 
 class _ActionsTabState extends State<_ActionsTab> {
-  AsyncController<List<Map<String, dynamic>>>? _runs;
   String _filter = 'all';
+  late final _Paged<Map<String, dynamic>> _paged =
+      _Paged<Map<String, dynamic>>(loader: _load);
+
+  Future<List<Map<String, dynamic>>> _load(int page) =>
+      widget.surface.domain.api.workflowRuns(
+        widget.fullName,
+        branch: widget.branch,
+        perPage: _kPageSize,
+        page: page,
+      );
 
   @override
   void initState() {
     super.initState();
-    _runsC().loadIfNeeded();
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_paged.refresh()));
   }
 
   @override
   void dispose() {
-    _runs?.dispose();
+    _paged.dispose();
     super.dispose();
-  }
-
-  AsyncController<List<Map<String, dynamic>>> _runsC() {
-    final existing = _runs;
-    if (existing != null) {
-      return existing;
-    }
-    final controller = AsyncController<List<Map<String, dynamic>>>(
-      label: 'Actions',
-      isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
-      loader: () => widget.surface.domain.api.workflowRuns(widget.fullName),
-    );
-    _runs = controller;
-    return controller;
-  }
-
-  void _openRun(Map<String, dynamic> run) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => ActionRunPage(
-          surface: widget.surface,
-          fullName: widget.fullName,
-          run: run,
-        ),
-      ),
-    );
   }
 
   Future<void> _dispatch() async {
@@ -2125,7 +2120,7 @@ class _ActionsTabState extends State<_ActionsTab> {
         builder: (BuildContext context) => WorkflowDispatchPage(
           surface: widget.surface,
           fullName: widget.fullName,
-          defaultBranch: widget.defaultBranch,
+          defaultBranch: widget.branch,
         ),
       ),
     );
@@ -2133,7 +2128,7 @@ class _ActionsTabState extends State<_ActionsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已触发工作流')),
       );
-      await _runsC().load();
+      await _paged.refresh();
     }
   }
 
@@ -2175,109 +2170,105 @@ class _ActionsTabState extends State<_ActionsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return AsyncView<List<Map<String, dynamic>>>(
-      controller: _runsC(),
-      emptyIcon: Icons.play_circle_outline,
-      emptyText: '没有工作流运行记录（该仓库还没跑过 Actions，或令牌缺少权限）',
-      builder: (
-        BuildContext context,
-        List<Map<String, dynamic>> runs,
-      ) {
+    return ListenableBuilder(
+      listenable: _paged,
+      builder: (BuildContext context, Widget? _) {
         final List<Map<String, dynamic>> shown =
-            runs.where(_matches).toList();
+            _paged.items.where(_matches).toList();
         return Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.tonalIcon(
-                  onPressed: _dispatch,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('手动触发工作流'),
-                ),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Wrap(
-                spacing: 8,
+              child: Row(
                 children: <Widget>[
-                  for (final MapEntry<String, String> entry
-                      in const <String, String>{
-                    'all': '全部',
-                    'running': '进行中',
-                    'success': '成功',
-                    'failure': '失败',
-                  }.entries)
-                    ChoiceChip(
-                      label: Text(entry.value),
-                      selected: _filter == entry.key,
-                      onSelected: (bool on) {
-                        if (on) {
-                          setState(() => _filter = entry.key);
-                        }
-                      },
+                  FilledButton.tonalIcon(
+                    onPressed: _dispatch,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('手动触发'),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: <Widget>[
+                          for (final MapEntry<String, String> entry
+                              in const <String, String>{
+                            'all': '全部',
+                            'running': '进行中',
+                            'success': '成功',
+                            'failure': '失败',
+                          }.entries)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(entry.value),
+                                selected: _filter == entry.key,
+                                onSelected: (bool on) {
+                                  if (on) {
+                                    setState(() => _filter = entry.key);
+                                  }
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
                 ],
               ),
             ),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: () => _runsC().load(),
-                child: shown.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: const <Widget>[
-                          Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Center(child: Text('没有符合筛选条件的运行')),
+              child: shown.isEmpty && _paged.items.isNotEmpty
+                  ? const _MessagePane(
+                      icon: Icons.filter_alt_off_outlined,
+                      message: '没有符合筛选条件的运行',
+                    )
+                  : _pagedBody<Map<String, dynamic>>(
+                      context,
+                      _paged,
+                      (BuildContext context, Map<String, dynamic> run, int index) {
+                        final String status = ghStr(run, 'status');
+                        final String conclusion = ghStr(run, 'conclusion');
+                        return ListTile(
+                          leading: Icon(
+                            _iconFor(status, conclusion),
+                            color: conclusion == 'success'
+                                ? const Color(0xFF1A7F37)
+                                : conclusion == 'failure' ||
+                                        conclusion == 'timed_out'
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.outline,
                           ),
-                        ],
-                      )
-                    : ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: shown.length,
-                        separatorBuilder: (BuildContext context, int index) =>
-                            const Divider(height: 1),
-                        itemBuilder: (BuildContext context, int index) {
-                          final Map<String, dynamic> run = shown[index];
-                          final String status = ghStr(run, 'status');
-                          final String conclusion = ghStr(run, 'conclusion');
-                          return OgLReveal(
-                            delay: OgLAnim.stagger(context, index),
-                            child: ListTile(
-                              leading: Icon(
-                                _iconFor(status, conclusion),
-                                color: conclusion == 'success'
-                                    ? const Color(0xFF1A7F37)
-                                    : conclusion == 'failure' ||
-                                            conclusion == 'timed_out'
-                                        ? Theme.of(context).colorScheme.error
-                                        : Theme.of(context).colorScheme.outline,
+                          title: Text(
+                            ghStr(run, 'display_title').isEmpty
+                                ? ghStr(run, 'name')
+                                : ghStr(run, 'display_title'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
+                            '${status.isEmpty ? '—' : status}'
+                            '${conclusion.isEmpty ? '' : ' / $conclusion'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (BuildContext context) => ActionRunPage(
+                                surface: widget.surface,
+                                fullName: widget.fullName,
+                                run: run,
                               ),
-                              title: Text(
-                                ghStr(run, 'display_title').isEmpty
-                                    ? ghStr(run, 'name')
-                                    : ghStr(run, 'display_title'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
-                                '${ghStr(run, 'head_branch')} · '
-                                '${status.isEmpty ? '—' : status}'
-                                '${conclusion.isEmpty ? '' : ' / $conclusion'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => _openRun(run),
                             ),
-                          );
-                        },
-                      ),
-              ),
+                          ),
+                        );
+                      },
+                      emptyIcon: Icons.play_circle_outline,
+                      emptyText: '没有工作流运行记录',
+                    ),
             ),
           ],
         );
@@ -2287,7 +2278,7 @@ class _ActionsTabState extends State<_ActionsTab> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 设置标签
+// 仓库设置
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RepoSettingsTab extends StatefulWidget {
@@ -2342,12 +2333,11 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
   Future<void> _loadCname() async {
     try {
       final String? cname = await widget.surface.domain.api.readCname(_full);
-      if (!mounted || cname == null) {
-        return;
+      if (mounted && cname != null) {
+        setState(() => _cname.text = cname);
       }
-      setState(() => _cname.text = cname);
     } catch (_) {
-      // CNAME 读不到不是错误（大多数仓库没有自定义域名）。
+      // 大多数仓库没有自定义域名。
     }
   }
 
@@ -2363,13 +2353,12 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         description: _description.text.trim(),
       );
       OgLAppLog.instance.result('仓库', '基本信息已更新', _full);
-      if (!mounted) {
-        return;
+      if (mounted) {
+        widget.onRepoChanged(updated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已保存')),
+        );
       }
-      widget.onRepoChanged(updated);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已保存')),
-      );
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2396,13 +2385,9 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     }
     setState(() => _busy = true);
     try {
-      final GhContent? existing = await widget.surface.domain.api.content(
-        _full,
-        'CNAME',
-        branch: widget.repo.defaultBranch,
-      );
+      final GhContent? existing = await widget.surface.domain.api
+          .content(_full, 'CNAME', branch: widget.repo.defaultBranch);
       if (existing == null) {
-        // 新建 CNAME：远端没有基线可锁定，走裸写（服务端仍是原子创建）。
         await widget.surface.domain.api.putContent(
           _full,
           'CNAME',
@@ -2411,8 +2396,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           branch: widget.repo.defaultBranch,
         );
       } else {
-        // 更新 CNAME：走加锁写（D1–D7），基线过期时拒绝覆盖并如实提示。
-        final result = await widget.surface.domain.api.putContentLocked(
+        final GhWriteResult result = await widget.surface.domain.api
+            .putContentLocked(
           _full,
           'CNAME',
           content: '$domain\n',
@@ -2421,11 +2406,6 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           branch: widget.repo.defaultBranch,
         );
         if (!result.ok) {
-          OgLAppLog.instance.add(
-            '仓库',
-            'CNAME 保存被拒绝（${result.conflict.name}）：${result.detail ?? ''}',
-            severity: OgLNoticeSeverity.warning,
-          );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -2461,10 +2441,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     }
     setState(() => _busy = true);
     try {
-      await widget.surface.domain.api.enablePages(
-        _full,
-        branch: widget.repo.defaultBranch,
-      );
+      await widget.surface.domain.api
+          .enablePages(_full, branch: widget.repo.defaultBranch);
       OgLAppLog.instance.result('仓库', 'Pages 已启用', _full);
       if (mounted) {
         setState(() => _pagesFuture = _loadPages());
@@ -2538,7 +2516,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     }
     try {
       await widget.surface.domain.api.deleteRepo(_full);
-      OgLAppLog.instance.add('仓库', '已删除仓库 $_full', severity: OgLNoticeSeverity.warning);
+      OgLAppLog.instance.add('仓库', '已删除仓库 $_full',
+          severity: OgLNoticeSeverity.warning);
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -2588,10 +2567,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         const SizedBox(height: 8),
         FutureBuilder<Map<String, dynamic>?>(
           future: _pagesFuture,
-          builder: (
-            BuildContext context,
-            AsyncSnapshot<Map<String, dynamic>?> snapshot,
-          ) {
+          builder: (BuildContext context, AsyncSnapshot<Map<String, dynamic>?> snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const Text('读取中…');
             }
@@ -2608,13 +2584,13 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           },
         ),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
           children: <Widget>[
             FilledButton.tonal(
               onPressed: _busy ? null : _enablePages,
               child: const Text('启用（默认分支）'),
             ),
-            const SizedBox(width: 8),
             OutlinedButton(
               onPressed: _busy ? null : _disablePages,
               child: const Text('停用'),
@@ -2641,9 +2617,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         const Divider(height: 32),
         Text(
           '危险区',
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: theme.colorScheme.error,
-          ),
+          style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.error),
         ),
         const SizedBox(height: 8),
         Card(
@@ -2667,6 +2641,40 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         ),
         const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 通用
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 简单消息面板（图标 + 文案 + 可选动作）。
+class _MessagePane extends StatelessWidget {
+  const _MessagePane({required this.icon, required this.message, this.action});
+
+  final IconData icon;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            if (action != null) ...<Widget>[
+              const SizedBox(height: 16),
+              action!,
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
