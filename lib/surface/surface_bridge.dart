@@ -25,6 +25,7 @@ import '../base/net/net_bridge.dart';
 import '../domain/domain_bridge.dart';
 import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
+import 'app/error_surface.dart';
 import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
 import 'theme.dart';

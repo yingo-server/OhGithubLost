@@ -187,7 +187,7 @@ class IxDownloadManager extends ChangeNotifier {
   }
 
   final FileDownloader _downloader;
-  KernelDiagnostics? _diagnostics;
+  final KernelDiagnostics? _diagnostics;
   StreamSubscription<TaskUpdate>? _subscription;
 
   final Map<String, IxDownloadTask> _snapshots = <String, IxDownloadTask>{};

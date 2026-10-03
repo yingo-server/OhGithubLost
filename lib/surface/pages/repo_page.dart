@@ -2381,6 +2381,7 @@ class _ActionsTabState extends State<_ActionsTab> {
                       emptyIcon: Icons.play_circle_outline,
                       emptyText: '没有工作流运行记录',
                       items: shown,
+                  ),
             ),
           ],
         );
