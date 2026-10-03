@@ -186,6 +186,50 @@ class OgLAppLog extends ChangeNotifier {
   void step(String area, String what) {
     add(area, '▶ $what');
   }
+
+  // ───────────────────────── 已读状态（通知中心）─────────────────────────
+
+  /// 已读条目的稳定标识集合。
+  final Set<String> _readIds = <String>{};
+
+  /// 条目稳定标识（时间戳 + 区域 + 正文）。
+  static String _idOf(OgLAppLogEntry entry) =>
+      '${entry.at.microsecondsSinceEpoch}|${entry.area}|${entry.message}';
+
+  /// 是否已读。
+  bool isRead(OgLAppLogEntry entry) => _readIds.contains(_idOf(entry));
+
+  /// 未读条数（通知中心角标 / 标题用）。
+  int get unreadCount =>
+      _entries.where((OgLAppLogEntry e) => !_readIds.contains(_idOf(e))).length;
+
+  /// 标记单条已读。
+  void markRead(OgLAppLogEntry entry) {
+    if (_readIds.add(_idOf(entry))) {
+      notifyListeners();
+    }
+  }
+
+  /// 全部标记已读。
+  void markAllRead() {
+    var changed = false;
+    for (final OgLAppLogEntry entry in _entries) {
+      changed = _readIds.add(_idOf(entry)) || changed;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  /// 清空全部条目与已读状态（"重置通知中心"；磁盘日志不受影响）。
+  void clear() {
+    if (_entries.isEmpty && _readIds.isEmpty) {
+      return;
+    }
+    _entries.clear();
+    _readIds.clear();
+    notifyListeners();
+  }
 }
 
 /// 一条应用日志。

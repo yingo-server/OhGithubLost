@@ -1,7 +1,13 @@
 /// L3 展示级 · 通知中心（运行事件与错误）。
 ///
 /// 汇总应用运行期的事件：成功结果、告警与错误。
-/// 数据来自 [OgLAppLog]（同时落盘），可复制单条用于反馈。
+/// 数据来自 [OgLAppLog]（同时落盘），可展开看**完整详情**、标记已读、复制单条。
+///
+/// R1 修复：此前条目只能看到一行被截断的摘要，也没有"已读"概念。
+/// 现在：
+/// - 点击条目 → 展开完整详情（时间 / 区域 / 正文）；
+/// - 未读条目标题加粗，行尾提供"标记已读"；
+/// - 顶栏提供"全部已读"与"重置通知中心"（清空内存条目，不动磁盘日志）。
 library;
 
 import 'dart:async';
@@ -25,6 +31,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
   /// 过滤：0 全部 / 1 告警 / 2 错误。
   int _filter = 0;
 
+  /// 已展开详情的条目（按标识去重）。
+  final Set<String> _expanded = <String>{};
+
+  static String _idOf(OgLAppLogEntry entry) =>
+      '${entry.at.microsecondsSinceEpoch}|${entry.area}|${entry.message}';
+
   static String _fmt(DateTime time) {
     final DateTime t = time.toLocal();
     String two(int n) => n.toString().padLeft(2, '0');
@@ -43,11 +55,51 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<void> _confirmReset() async {
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('重置通知中心'),
+        content: const Text('将清空当前内存中的全部事件（磁盘日志保留）。'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('重置'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      OgLAppLog.instance.clear();
+      if (mounted) {
+        setState(_expanded.clear);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('通知中心')),
+      appBar: AppBar(
+        title: const Text('通知中心'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: '全部已读',
+            icon: const Icon(Icons.done_all),
+            onPressed: OgLAppLog.instance.markAllRead,
+          ),
+          IconButton(
+            tooltip: '重置通知中心',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: () => unawaited(_confirmReset()),
+          ),
+        ],
+      ),
       body: Column(
         children: <Widget>[
           Padding(
@@ -84,35 +136,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {
                     final OgLAppLogEntry entry = entries[index];
+                    final String id = _idOf(entry);
+                    final bool read = OgLAppLog.instance.isRead(entry);
+                    final bool expanded = _expanded.contains(id);
                     return OgLReveal(
                       delay: OgLAnim.stagger(context, index),
-                      child: ListTile(
-                      dense: true,
-                      leading: Icon(
-                        _iconOf(entry.severity),
+                      child: _NotificationTile(
+                        entry: entry,
+                        read: read,
+                        expanded: expanded,
+                        timeText: _fmt(entry.at),
+                        icon: _iconOf(entry.severity),
                         color: _colorOf(theme, entry.severity),
-                        size: 20,
+                        onToggle: () => setState(() {
+                          if (expanded) {
+                            _expanded.remove(id);
+                          } else {
+                            _expanded.add(id);
+                            OgLAppLog.instance.markRead(entry);
+                          }
+                        }),
+                        onMarkRead: () => OgLAppLog.instance.markRead(entry),
                       ),
-                      title: Text(
-                        entry.message,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text('${entry.area} · ${_fmt(entry.at)}'),
-                      trailing: IconButton(
-                        tooltip: '复制',
-                        icon: const Icon(Icons.content_copy, size: 18),
-                        onPressed: () {
-                          unawaited(Clipboard.setData(
-                            ClipboardData(text: entry.toDisplay()),
-                          ));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已复制该条事件')),
-                          );
-                        },
-                      ),
-                    ),
-                  );
+                    );
                   },
                 );
               },
@@ -135,4 +181,115 @@ class _NotificationsPageState extends State<NotificationsPage> {
         OgLNoticeSeverity.warning => theme.colorScheme.tertiary,
         OgLNoticeSeverity.info => theme.colorScheme.primary,
       };
+}
+
+/// 单条通知（可展开详情）。
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({
+    required this.entry,
+    required this.read,
+    required this.expanded,
+    required this.timeText,
+    required this.icon,
+    required this.color,
+    required this.onToggle,
+    required this.onMarkRead,
+  });
+
+  final OgLAppLogEntry entry;
+  final bool read;
+  final bool expanded;
+  final String timeText;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onToggle;
+  final VoidCallback onMarkRead;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return InkWell(
+      onTap: onToggle,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    entry.message,
+                    maxLines: expanded ? null : 3,
+                    overflow: expanded ? null : TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: read ? FontWeight.normal : FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${entry.area} · $timeText'
+                    '${read ? '' : ' · 未读'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: read
+                          ? theme.colorScheme.outline
+                          : theme.colorScheme.primary,
+                    ),
+                  ),
+                  if (expanded) ...<Widget>[
+                    const SizedBox(height: 8),
+                    // 完整详情：不截断，可选中复制。
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(
+                        entry.toDisplay(),
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: <Widget>[
+                        TextButton.icon(
+                          onPressed: () {
+                            unawaited(Clipboard.setData(
+                              ClipboardData(text: entry.toDisplay()),
+                            ));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('已复制该条事件')),
+                            );
+                          },
+                          icon: const Icon(Icons.content_copy, size: 16),
+                          label: const Text('复制'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (!read)
+              IconButton(
+                tooltip: '标记已读',
+                icon: const Icon(Icons.done, size: 18),
+                onPressed: onMarkRead,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

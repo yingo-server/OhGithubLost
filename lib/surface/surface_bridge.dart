@@ -98,6 +98,9 @@ class SurfaceBridge {
   Future<int> clearAllCaches() async {
     final int removed = await clearRepositoryCache();
     try {
+      // 只读端点缓存（releases / branches / issues …）同样按账号隔离，
+      // 切号必须一并清空，否则会出现"用 B 账号看到 A 账号缓存"的串台。
+      await domain.api.invalidateReadCache();
       net?.dns?.cache.clear();
     } catch (error) {
       // 不允许静默：清不掉也要留痕（通知中心可见）。

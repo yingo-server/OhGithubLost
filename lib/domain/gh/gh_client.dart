@@ -21,6 +21,7 @@ import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
 import 'gh_auth.dart';
 import 'gh_models.dart';
+import 'gh_read_cache.dart';
 
 /// 限流额度快照。
 class GhRateLimit {
@@ -232,6 +233,7 @@ class GhRequest {
     this.label,
     this.headers = const <String, String>{},
     this.conflictsAsRemoteConflict = false,
+    this.cacheBypass = false,
   });
 
   /// 路径（`/repos/...`）或完整 URL。
@@ -258,6 +260,9 @@ class GhRequest {
 
   /// 409/422 是否翻译成 [RemoteConflictException]（内容读写场景需要）。
   final bool conflictsAsRemoteConflict;
+
+  /// 本次请求是否**绕过只读缓存**（下拉刷新 / 写后重读时置真）。
+  final bool cacheBypass;
 
   /// 拼出完整 URL。
   String toUrl(String base) {
@@ -403,6 +408,68 @@ class GhClient {
   final _Semaphore _semaphore;
   KernelDiagnostics? _diagnostics;
 
+  /// 只读端点缓存（装配期由 `domain_bridge` 注入；未注入则不缓存）。
+  GhReadCache? _readCache;
+
+  /// 绑定只读端点缓存。
+  void attachReadCache(GhReadCache cache) {
+    _readCache = cache;
+  }
+
+  /// 让只读缓存整体失效（切换账号 / 用户手动清缓存）。
+  Future<void> invalidateReadCache() async {
+    await _readCache?.clear();
+  }
+
+  /// 按路径给出只读缓存 TTL；`null` 表示**不缓存**。
+  ///
+  /// 原则：只缓存"变化慢、可容忍短暂陈旧"的只读列表 / 详情；
+  /// 内容端点（含 `/contents`）交给底座 [RepositoryCache]，搜索与
+  /// 用户 / 限流端点**不缓存**（必须新鲜）。
+  static Duration? ttlForPath(String path) {
+    if (path.startsWith('http')) {
+      return null;
+    }
+    if (path.startsWith('/search/')) {
+      return null;
+    }
+    if (path.contains('/rate_limit')) {
+      return null;
+    }
+    // 内容读写由底座一致性缓存负责，这里不重复缓存。
+    if (path.contains('/contents')) {
+      return null;
+    }
+    // 仅放行明确的只读端点前缀。
+    if (path.startsWith('/user/repos') || path.startsWith('/user/starred')) {
+      return const Duration(seconds: 30);
+    }
+    if (path.startsWith('/user')) {
+      return null;
+    }
+    if (RegExp(r'^/(users|orgs)/[^/]+/repos$').hasMatch(path)) {
+      return const Duration(seconds: 60);
+    }
+    if (path.contains('/actions/runs')) {
+      return const Duration(seconds: 30);
+    }
+    if (path.contains('/releases') ||
+        path.contains('/branches') ||
+        path.contains('/commits') ||
+        path.contains('/issues') ||
+        path.contains('/pulls') ||
+        path.contains('/readme') ||
+        path.contains('/labels') ||
+        path.contains('/actions/workflows')) {
+      return const Duration(seconds: 60);
+    }
+    // 仓库详情：`/repos/{owner}/{repo}`（恰好两段）。
+    if (RegExp(r'^/repos/[^/]+/[^/]+$').hasMatch(path)) {
+      return const Duration(seconds: 60);
+    }
+    return null;
+  }
+
   GhRateLimit? _lastRateLimit;
 
   /// 按资源类别维护的最近额度（`core` / `search` / `graphql`…）。
@@ -442,6 +509,29 @@ class GhClient {
   /// 抛：[GhAuthException] / [GhRateLimitException] / [GhNotFoundException] /
   /// [RemoteConflictException]（按需）。
   Future<GhResponse> send(GhRequest request) async {
+    // ── 只读缓存（R4）：命中即返回，不打网络、不占额度 ──────────────────
+    // 仅对白名单内的 GET 生效；被显式 bypass（下拉刷新 / 写后重读）时跳过。
+    final Duration? cacheTtl =
+        (request.method == NetMethod.get && !request.cacheBypass)
+            ? ttlForPath(request.path)
+            : null;
+    if (cacheTtl != null) {
+      final String? cached =
+          await _readCache?.get(request.path, request.query, cacheTtl);
+      if (cached != null) {
+        _diagnostics?.debug(
+          'CACHE',
+          '${request.method.verb} ${request.path} → 只读缓存命中',
+          data: <String, Object?>{'ttlSeconds': cacheTtl.inSeconds},
+        );
+        return GhResponse(
+          statusCode: 200,
+          body: cached,
+          headers: const <String, String>{},
+        );
+      }
+    }
+
     // 限流避让：**按资源类别**判断已知耗尽，省下一次注定 403 的往返；
     // search 的额度耗尽**不会**阻塞 core 请求（各自独立计数）。
     final resource = resourceOfPath(request.path);
@@ -504,6 +594,16 @@ class GhClient {
             '${rateLimit == null ? '' : ' / 余量 ${rateLimit.remaining}'}'
             '${netResponse.fromMirrorId == null ? '' : ' / 镜像 ${netResponse.fromMirrorId}'}）',
       );
+      // ── 只读缓存回填 / 失效（R4）──────────────────────────────────────
+      if (response.isSuccess) {
+        if (request.method == NetMethod.get && cacheTtl != null) {
+          await _readCache?.put(request.path, request.query, response.body);
+        }
+      }
+      if (request.method != NetMethod.get && response.isSuccess) {
+        // 写操作让只读缓存整体失效：陈旧列表 = 错误信息。
+        await _readCache?.clear();
+      }
       try {
         _throwIfFailed(response, request);
         return response;

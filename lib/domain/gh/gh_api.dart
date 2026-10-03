@@ -113,6 +113,9 @@ class GhApi implements CacheRemote {
     return key.isWellFormed ? key : null;
   }
 
+  /// 让**只读端点缓存**整体失效（下拉刷新 / 写后重读 / 切换账号时调用）。
+  Future<void> invalidateReadCache() => client.invalidateReadCache();
+
   // ───────────────────────── 认证 ─────────────────────────
 
   /// 当前用户。

@@ -242,6 +242,131 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     }
   }
 
+  /// R5：附件详情（点击触发）。展示文件名 / 大小 / 类型 / 下载次数 / 直链，
+  /// 并提供「下载」「复制链接」两个动作——**不再点一下就下载**。
+  Future<void> _showAssetDetail(GhAsset asset) async {
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                asset.name,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+              _assetKeyRow('大小', ghSizeText(asset.size)),
+              _assetKeyRow('下载次数', '${asset.downloadCount}'),
+              if (asset.contentType != null && asset.contentType!.isNotEmpty)
+                _assetKeyRow('类型', asset.contentType!),
+              if (asset.downloadUrl != null && asset.downloadUrl!.isNotEmpty)
+                _assetKeyRow('直链', asset.downloadUrl!),
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        unawaited(_download(asset));
+                      },
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('下载'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        unawaited(_copyAssetLink(asset));
+                      },
+                      icon: const Icon(Icons.link),
+                      label: const Text('复制链接'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// R5：长按附件的快捷操作（下载 / 复制链接 / 查看详情）。
+  Future<void> _showAssetActions(GhAsset asset) async {
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('下载'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_download(asset));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('复制下载链接'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_copyAssetLink(asset));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('查看文件详情'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_showAssetDetail(asset));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 复制附件的下载直链（**不**经加速通道，避免把通道地址暴露给用户）。
+  Future<void> _copyAssetLink(GhAsset asset) async {
+    final String? url = asset.downloadUrl;
+    if (url == null || url.isEmpty) {
+      _toast('该附件没有下载地址');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: url));
+    _toast('已复制下载链接');
+  }
+
+  Widget _assetKeyRow(String key, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            SizedBox(width: 72, child: Text(key)),
+            Expanded(child: SelectableText(value)),
+          ],
+        ),
+      );
+
   Future<void> _copyNotes() async {
     final String text = _release.body ?? '';
     await Clipboard.setData(ClipboardData(text: text));
@@ -336,7 +461,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
               for (final GhAsset asset in _release.assets)
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.download_outlined),
+                    leading: const Icon(Icons.inventory_2_outlined),
                     title: Text(
                       asset.name,
                       maxLines: 1,
@@ -345,8 +470,10 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                     subtitle: Text(
                       '${ghSizeText(asset.size)} · ${asset.downloadCount} 次下载',
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => unawaited(_download(asset)),
+                    trailing: const Icon(Icons.info_outline),
+                    // R5：点击**先看详情**（不再直接触发下载）；长按弹出快捷操作。
+                    onTap: () => unawaited(_showAssetDetail(asset)),
+                    onLongPress: () => unawaited(_showAssetActions(asset)),
                   ),
                 ),
             const SizedBox(height: 24),

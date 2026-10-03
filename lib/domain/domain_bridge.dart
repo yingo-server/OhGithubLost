@@ -20,6 +20,7 @@ import '../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';
+import 'gh/gh_read_cache.dart';
 import 'ix/ix_action_logs.dart';
 import 'ix/ix_download.dart';
 import 'ix/ix_notify.dart';
@@ -147,6 +148,15 @@ class GhModule extends OgLModule {
       base.disk.cache,
       accountId: () async => (await auth.activeAccountId()) ?? 'guest',
     );
+
+    // ★ R4：只读端点缓存（releases / branches / commits / issues / pulls /
+    //   Actions / 仓库详情 …）。与底座一致性缓存互补：前者面向文件内容，
+    //   这里面向"可容忍短暂陈旧的只读列表 / 详情"，账号维度隔离，切号即清。
+    client.attachReadCache(GhReadCache(
+      store: base.disk.kv,
+      accountId: () async => (await auth.activeAccountId()) ?? 'guest',
+      diagnostics: context.diagnostics,
+    ));
 
     // ★ 失败写入重放（D8）：把上次中断的写入在启动后补做。
     // 只依赖磁盘上的提交日志，失败不阻断启动（记录后照常进入界面）。

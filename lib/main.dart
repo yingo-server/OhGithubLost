@@ -36,7 +36,7 @@ import 'surface/surface_bridge.dart';
 /// 应用版本（零外部资源：不读 pubspec，直接内联常量）。
 ///
 /// 与 `pubspec.yaml` 的 `version:` 保持一致，发布流程会做一致性校验。
-const String kOgLAppVersion = '4.4.0';
+const String kOgLAppVersion = '4.5.0';
 
 /// 发布构建注入的引导清单 JSON（由 `--dart-define-from-file` 提供；调试构建为空）。
 ///
@@ -104,6 +104,30 @@ void main() async {
   //   这样"任何一层"的告警都能触达用户，而不是只躺在日志里。
   diagnostics.addSink(const OgLDiagnosticsNoticeSink());
   warnings.addSink(const OgLTrustNoticeSink());
+
+  // ★ R11：系统「减少动效 / 开发者选项 → 动画缩放」被关闭时，应用内的过渡与
+  //   反馈动画会**静默消失**（此前应用不给任何提示，用户会以为"应用没做好"）。
+  //   这里在启动时检测一次并提交通知中心（告警级 → 横幅），绝不静默。
+  try {
+    final features =
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures;
+    if (features.disableAnimations) {
+      OgLNoticeCenter.instance.report(
+        title: '系统已关闭动画',
+        detail: '检测到系统已关闭动画（常见于「开发者选项 → 动画程序时长缩放」'
+            '或「无障碍 → 移除动画」）。应用内的页面切换与控件反馈动画将不可见，'
+            '但功能不受影响。如需动画，请在系统设置中重新开启。',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
+  } catch (error) {
+    // 读取无障碍设置失败也要留痕（不允许静默降级）。
+    OgLAppLog.instance.add(
+      '启动',
+      '读取系统无障碍设置失败（无法判断动画是否被关闭）：$error',
+      severity: OgLNoticeSeverity.warning,
+    );
+  }
 
   // ★ 零外部资源的关键一步：
   // 引导文件系统完全在内存里，仓库不含任何 assets 文件。

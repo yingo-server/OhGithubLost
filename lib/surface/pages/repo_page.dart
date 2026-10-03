@@ -477,10 +477,14 @@ const Duration _kPageCacheTtl = Duration(seconds: 6);
 
 /// 通用分页数据源（首屏 + 加载更多 + 下拉刷新）。
 class _Paged<T> extends ChangeNotifier {
-  _Paged({required this.loader, this.pageSize = _kPageSize, this.cacheKey});
+  _Paged({required this.loader, this.pageSize = _kPageSize, this.cacheKey, this.onManualRefresh});
 
   final Future<List<T>> Function(int page) loader;
   final int pageSize;
+
+  /// 用户在"下拉刷新 / 写后重载"（`force` 为真）时回调：
+  /// 用于让**只读端点缓存**失效，确保刷新一定回源（R4）。
+  final Future<void> Function()? onManualRefresh;
 
   /// 快照键：同一目标（仓库 / 分支 / 目录 / 滤器）共用一个键。
   ///
@@ -528,6 +532,11 @@ class _Paged<T> extends ChangeNotifier {
       }
     }
     if (reset) {
+      // 用户显式刷新 → 让只读端点缓存失效，保证真的回源（R4）。
+      // GhReadCache.clear 自身不抛异常，这里无需再包 try。
+      if (force && onManualRefresh != null) {
+        await onManualRefresh!();
+      }
       items.clear();
       _page = 1;
       done = false;
@@ -651,6 +660,7 @@ class _CodeTabState extends State<_CodeTab> {
   late final _Paged<GhContent> _entries = _Paged<GhContent>(
     loader: _loadPage,
     cacheKey: _keyFor(''),
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
   );
   final TextEditingController _filter = TextEditingController();
   final TextEditingController _newPath = TextEditingController();
@@ -1471,8 +1481,10 @@ class _IssuesTab extends StatefulWidget {
 class _IssuesTabState extends State<_IssuesTab> {
   String _state = 'open';
   late final _Paged<Map<String, dynamic>> _paged =
-      _Paged<Map<String, dynamic>>(loader: _load);
-
+      _Paged<Map<String, dynamic>>(
+    loader: _load,
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
+  );
   Future<List<Map<String, dynamic>>> _load(int page) =>
       widget.surface.domain.api.issues(
         widget.fullName,
@@ -1645,8 +1657,10 @@ class _PullsTab extends StatefulWidget {
 class _PullsTabState extends State<_PullsTab> {
   String _state = 'open';
   late final _Paged<Map<String, dynamic>> _paged =
-      _Paged<Map<String, dynamic>>(loader: _load);
-
+      _Paged<Map<String, dynamic>>(
+    loader: _load,
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
+  );
   Future<List<Map<String, dynamic>>> _load(int page) =>
       widget.surface.domain.api.pulls(
         widget.fullName,
@@ -1762,6 +1776,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
       page: page,
     ),
     cacheKey: 'releases:${widget.fullName}',
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
   );
 
   @override
@@ -1893,6 +1908,7 @@ class _BranchesTabState extends State<_BranchesTab> {
       page: page,
     ),
     cacheKey: 'branches:${widget.fullName}',
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
   );
   final TextEditingController _createName = TextEditingController();
   final TextEditingController _renameName = TextEditingController();
@@ -2129,6 +2145,7 @@ class _CommitsTabState extends State<_CommitsTab> {
       page: page,
     ),
     cacheKey: 'commits:${widget.fullName}:${widget.branch}',
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
   );
 
   @override
@@ -2204,6 +2221,7 @@ class _ActionsTabState extends State<_ActionsTab> {
       _Paged<Map<String, dynamic>>(
     loader: _load,
     cacheKey: 'actions:${widget.fullName}:${widget.branch}',
+    onManualRefresh: () => widget.surface.domain.api.invalidateReadCache(),
   );
 
   Future<List<Map<String, dynamic>>> _load(int page) =>
