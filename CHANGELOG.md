@@ -2,49 +2,83 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v3.3.0（2026-10-03）
+## v4.0.0（2026-10-03）
+
+可靠性重构版：自底向上逐层修复，并将多个自研模块替换为成熟库。
+
+验证状态
+
+- CI 质量门通过：`flutter analyze --fatal-infos --fatal-warnings` + 全量单元/渲染测试；
+- 全平台构建矩阵通过：13 个目标全部成功（Android ×5：arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB；
+  Windows ×2；Linux ×2；macOS ×2；iOS ×2）。
+
+依赖变更
+
+- 新增 `permission_handler ^13.0.2`（运行时权限）、`background_downloader ^9.6.3`（下载）、`archive ^3.6.1`（日志解压）；
+- 新增 `dependency_overrides: connectivity_plus: 6.1.4`：`background_downloader` 依赖 `connectivity_plus '>=6.1.3 <8.0.0'`，
+  其 7.x 的 macOS / iOS Swift 使用了构建环境 SDK 尚未提供的 `NWPath.isUltraConstrained`，导致 iOS / macOS 构建失败；
+  固定到 6.1.4（仍满足上游约束）后恢复；
+- 未引入 `highlight` / `flutter_highlight` / `flutter_code_editor`：其 SDK 约束为 Dart < 3，与当前 Dart 3.13 不兼容。
 
 权限
 
-- 权限申请改用成熟库 `permission_handler`：Android / iOS / macOS **真正调起系统权限弹窗**
-  （修复旧版"只探测、不请求、且打开系统设置的 URI 在 Android 上无效"导致权限申请基本无效的问题）；
-- Android 11+ 的「所有文件访问」走 `manageExternalStorage` 特殊设置页；
-- 打开系统设置改用各平台正确入口（不再使用 iOS 专用的 `app-settings:` URI）；
-- Android 13+（API 33+）注入并在运行时请求 `POST_NOTIFICATIONS`；
-- 构建期新增 `tool/inject_android_gradle.py`：幂等提升宿主 `compileSdk`
-  （平台目录由 CI 现场生成，故在构建期注入）；
-- 构建期新增 `tool/inject_windows_cmake.py`：注入 MSVC 兼容宏，修复
-  `permission_handler_windows` 在新工具链下的编译错误。
+- 权限申请由纯 Dart 网关改为 `permission_handler`：Android / iOS / macOS 会真正调起系统权限弹窗；
+  此前实现只执行"写入探针 + 打开设置"，且使用 iOS 专用的 `app-settings:` URI（在 Android 上无效）；
+- Android 11+ 的「所有文件访问」使用 `manageExternalStorage`；Android 13+ 运行时请求 `POST_NOTIFICATIONS`；
+- 构建期新增 `tool/inject_android_gradle.py`：幂等提升宿主 `compileSdk`（平台目录由 CI 现场生成）；
+- 构建期新增 `tool/inject_windows_cmake.py`：为 `permission_handler_windows` 注入 MSVC 兼容宏
+  `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`。
 
-通知与认证
+通知
 
-- 通知系统贯穿全局：内核诊断的 error 与引导层信任告警统一转发到通知中心，任何一层的告警都能触达用户；
-- 通知中心新增历史记录（通知中心页可回看）；
-- 认证改为**可观察状态机**（登录 / 失效 / 切号 / 登出自动联动）；401 成为全局唯一出口，令牌失效自动回到登录门。
+- 统一通知入口：`KernelDiagnostics` 的 error 与引导层信任告警经 sink 转发到 `OgLNoticeCenter`，
+  各层（含无 `BuildContext` 的底座 / 中枢）的告警均可触达界面；
+- 通知中心新增历史记录列表。
 
-草稿与编辑器
+认证
 
-- 草稿变更可观察：编辑保存 / 提交清稿后草稿箱与角标实时刷新；
-- 编辑器改为「高亮图层 + 透明输入层」叠加，**编辑时即可见语法高亮**；
-- 撤销 / 重做改用 Flutter 内建 `UndoHistoryController`（修复旧版撤销不灵敏）。
+- `GhAuthService` 改为 `ChangeNotifier` 并引入 `GhAuthState`（unknown / signedOut / signingIn / signedIn / expired / guest）；
+- HTTP 401 作为唯一出口触发失效标记；外壳订阅认证状态，令牌失效后自动回到登录门；切号 / 登出会通知订阅方。
+
+草稿
+
+- `DraftStore` 改为 `ChangeNotifier`，并通过 `GhApi.draftsChanged` 暴露；
+  草稿箱与「我的」页订阅后实时刷新（此前为一次性查询）。
+
+编辑器
+
+- 编辑区改为「高亮图层 + 透明输入层」叠加，编辑过程中可见语法高亮（复用项目既有词法器；未引入 `highlight` 系库的原因见上）；
+- 撤销 / 重做改用 Flutter 内建 `UndoHistoryController`（替换自研防抖快照栈）。
 
 下载
 
-- 下载器改用成熟库 `background_downloader`（断点续传 / 队列 / 暂停继续），对外契约不变。
+- 下载实现由自研分块下载器改为 `background_downloader`（断点续传 / 队列 / 暂停 / 继续 / 取消）；
+- 保持 `IxDownloadManager` / `IxDownloadTask` / `IxDownloadCategory` / `IxDownloadStatus` 对外契约不变，相关页面未改动；
+- 落盘位置随库能力调整为「应用文档目录 / ogl / download / <分类>」（该库仅支持其 `BaseDirectory` 枚举，不支持任意绝对路径）。
 
 Actions
 
-- 新增运行日志页：带令牌下载日志 zip 并经 `archive` 解压，按 job 展示与搜索；
+- 新增运行日志：带令牌下载日志 zip 并经 `archive` 解压，按 job 展示与搜索
+  （`ix_action_logs.dart` + `action_log_page.dart`）；
 - 新增产物（artifacts）列表与下载地址端点。
 
 动效
 
-- 搜索等页面补齐入场动效（统一走 `OgLReveal` 与动效档位）。
+- 列表入场动效统一走 `OgLReveal` 与动效档位；本次覆盖搜索等页面。
 
 其他
 
-- 依赖许可清单补充 `permission_handler` / `background_downloader` / `archive`；
-- 发布护栏的 Android 权限断言加入 `POST_NOTIFICATIONS`。
+- 关于页依赖许可清单补充 `permission_handler` / `background_downloader` / `archive`；
+- Android 发布护栏新增 `POST_NOTIFICATIONS` 断言；
+- Windows 上的构建期 Python 脚本改为 ASCII 输出，并设置 `PYTHONIOENCODING=utf-8`
+  （此前在 Windows 默认码页下打印非 ASCII 会抛 `UnicodeEncodeError` 并使该构建目标失败）。
+
+已知限制
+
+- `background_downloader 9.6.3` 的 `flutter.plugin.platforms` 仅声明 android / ios；桌面端（Windows / Linux / macOS）
+  不注册该插件，桌面端下载功能不可用；
+- 编辑器高亮为图层叠加实现，长文件下的滚动同步与自动换行场景尚未逐一验证；
+- 动效为逐页补齐，尚未覆盖全部页面。
 
 ## v3.2.0（2026-10-03）
 
