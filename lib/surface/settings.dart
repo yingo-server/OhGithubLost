@@ -156,7 +156,7 @@ class OgLSettings {
   static bool _asBool(Object? value, {required bool fallback}) =>
       value is bool ? value : fallback;
 
-  /// 代码主题预设白名单（与展示层 `code_view.dart` 保持一致）。
+  /// 代码主题预设白名单（与展示层 `code_editor_field.dart` 保持一致）。
   static const List<String> codeThemePresetIds = <String>[
     'theme',
     'high_contrast',

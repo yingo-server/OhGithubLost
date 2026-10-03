@@ -14,7 +14,7 @@ import '../app/error_surface.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
-import '../widgets/code_view.dart';
+import '../widgets/code_editor_field.dart';
 
 /// 一个 Gist 文件（内容已解析）。
 class _GistFile {
@@ -357,11 +357,10 @@ class _GistDetailPageState extends State<GistDetailPage> {
                         child: Text('（内容为空或无法读取，可在浏览器查看）'),
                       )
                     else
-                      CodeView(
+                      OgLCodeViewer(
                         code: file.content,
-                        language: file.language.isEmpty
-                            ? ogLDetectLanguage(file.name)
-                            : file.language,
+                        path: file.name,
+                        language: file.language,
                         showLineNumbers: false,
                       ),
                   ],

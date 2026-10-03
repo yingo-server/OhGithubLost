@@ -73,6 +73,8 @@ const List<OgLDependencyLicense> kOgLDependencyLicenses =
   OgLDependencyLicense('cryptography', 'Apache-2.0', '引导清单签名校验'),
   OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', 'Markdown 渲染'),
   OgLDependencyLicense('url_launcher', 'BSD-3-Clause', '外链打开'),
+  OgLDependencyLicense('re_editor', 'MIT', '代码编辑器内核（行号 / 查找替换 / 撤销重做 / 折叠）'),
+  OgLDependencyLicense('re_highlight', 'MIT', '语法高亮（highlight.js 的 Dart 移植）'),
   OgLDependencyLicense('permission_handler', 'MIT', '运行时权限请求与系统设置入口'),
   OgLDependencyLicense('background_downloader', 'MIT', '多平台后台下载（断点续传 / 队列）'),
   OgLDependencyLicense('archive', 'MIT', 'Actions 日志 zip 解压'),

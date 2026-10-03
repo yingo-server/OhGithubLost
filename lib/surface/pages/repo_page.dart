@@ -27,7 +27,7 @@ import '../surface_bridge.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
-import '../widgets/code_view.dart';
+import '../widgets/code_editor_field.dart';
 import '../widgets/readme_view.dart';
 import 'action_run_page.dart';
 import 'code_editor_page.dart';
@@ -1281,17 +1281,14 @@ class _CodeTabState extends State<_CodeTab> {
         ),
       );
     }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: CodeView(
+      // 交给库渲染（自带双向滚动 / 行号 / 高亮），不再自建滚动包裹层。
+      return OgLCodeViewer(
         code: text,
-        language: ogLDetectLanguage(file.path),
+        path: file.path,
         fontSize: codeStyle.fontSize ?? 13,
-        wrap: false,
         highlight: true,
         codeTheme: theme,
-      ),
-    );
+      );
   }
 
   @override

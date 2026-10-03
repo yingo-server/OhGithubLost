@@ -98,7 +98,6 @@ class IxDownloadTask {
     required this.bytesPerSecond,
     required this.createdAt,
     this.error,
-    this.threadsActive = 0,
   });
 
   /// 任务 id。
@@ -134,9 +133,6 @@ class IxDownloadTask {
   /// 失败原因。
   final String? error;
 
-  /// 当前活跃分块数。
-  final int threadsActive;
-
   /// 进度（0–1；总长未知时为 0）。
   double get progress =>
       total <= 0 ? 0 : (received / total).clamp(0, 1).toDouble();
@@ -158,7 +154,6 @@ class IxDownloadTask {
     int? total,
     double? bytesPerSecond,
     String? error,
-    int? threadsActive,
     String? savePath,
   }) =>
       IxDownloadTask(
@@ -173,7 +168,6 @@ class IxDownloadTask {
         bytesPerSecond: bytesPerSecond ?? this.bytesPerSecond,
         createdAt: createdAt,
         error: error ?? this.error,
-        threadsActive: threadsActive ?? this.threadsActive,
       );
 }
 
@@ -190,6 +184,10 @@ class IxDownloadManager extends ChangeNotifier {
 
   final Map<String, IxDownloadTask> _snapshots = <String, IxDownloadTask>{};
   final Map<String, DownloadTask> _tasks = <String, DownloadTask>{};
+
+  /// 上次进度采样（用于估算速率；库本身只给进度、不给速度）。
+  final Map<String, ({DateTime at, int received})> _lastSample =
+      <String, ({DateTime at, int received})>{};
 
   DateTime _lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -301,6 +299,7 @@ class IxDownloadManager extends ChangeNotifier {
     await _downloader.cancelTaskWithId(id);
     _tasks.remove(id);
     _snapshots.remove(id);
+    _lastSample.remove(id);
     notifyListeners();
   }
 
@@ -341,16 +340,30 @@ class IxDownloadManager extends ChangeNotifier {
       return;
     }
     if (update is TaskProgressUpdate) {
-      final IxDownloadTask? snap = _snapshots[update.task.taskId];
+      final String id = update.task.taskId;
+      final IxDownloadTask? snap = _snapshots[id];
       if (snap == null) {
         return;
       }
       final int total =
           update.expectedFileSize > 0 ? update.expectedFileSize : snap.total;
       final int received = total > 0 ? (update.progress * total).round() : 0;
-      _snapshots[update.task.taskId] = snap.copyWith(
+      // 库只给进度，不给速度：用两次采样的差分估算。
+      final DateTime now = DateTime.now();
+      final ({DateTime at, int received})? last = _lastSample[id];
+      double speed = snap.bytesPerSecond;
+      if (last != null) {
+        final int ms = now.difference(last.at).inMilliseconds;
+        final int delta = received - last.received;
+        if (ms > 0 && delta >= 0) {
+          speed = delta * 1000 / ms;
+        }
+      }
+      _lastSample[id] = (at: now, received: received);
+      _snapshots[id] = snap.copyWith(
         received: received,
         total: total,
+        bytesPerSecond: speed,
         status: IxDownloadStatus.running,
       );
       _notifyThrottled();

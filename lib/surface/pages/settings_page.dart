@@ -31,7 +31,7 @@ import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../theme.dart';
-import '../widgets/code_view.dart';
+import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
 import 'onboarding_page.dart';
 

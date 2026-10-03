@@ -1,23 +1,22 @@
-/// L3 展示级 · 全屏代码编辑器（**编辑态语法高亮 + 内建撤销/重做**）。
+/// L3 展示级 · 全屏代码编辑器（**库实现**：`re_editor`）。
 ///
-/// 相对旧版的两处关键改进：
-/// 1. **高亮**：编辑区改为「高亮图层 + 透明输入层」叠加，编辑时即可见语法高亮
-///    （`highlight` 系库要求 Dart < 3，故复用项目既有词法器 `CodeView`）；
-/// 2. **撤销/重做**：改用 Flutter 内建的 [UndoHistoryController]，
-///    语义与输入法一致，不再依赖自研防抖快照栈（旧版"撤销不灵敏"）。
-///
-/// 其余能力保留：查找/替换、换行/字号、未保存拦截、草稿防抖落盘、
-/// 加锁保存（走 D1–D7，基线过期弹冲突对话框）。
+/// ## 相对旧自研版
+/// - **编辑与高亮同层**：不再用"高亮图层 + 透明输入层"叠加，光标 / 换行 / 滚动
+///   不会错位；
+/// - **语法高亮 / 行号 / 查找替换 / 撤销重做 / 折叠 / 快捷键**全部由库提供；
+/// - 本项目只保留业务语义：草稿防抖落盘、未保存拦截、加锁保存（D1–D7，基线过期
+///   弹冲突对话框），以及来自设置的字号 / 换行 / 配色。
 library;
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:re_editor/re_editor.dart';
 
 import '../../domain/gh/gh_client.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
-import '../widgets/code_view.dart';
+import '../widgets/code_editor_field.dart';
 
 /// 全屏代码编辑器页。
 class CodeEditorPage extends StatefulWidget {
@@ -55,27 +54,27 @@ class CodeEditorPage extends StatefulWidget {
 }
 
 class _CodeEditorPageState extends State<CodeEditorPage> {
-  final TextEditingController _text = TextEditingController();
-  final TextEditingController _find = TextEditingController();
-  final TextEditingController _replace = TextEditingController();
+  /// 编辑器内核（库）。
+  late final CodeLineEditingController _controller =
+      CodeLineEditingController.fromText(widget.initialText);
 
-  /// Flutter 内建撤销/重做历史。
-  final UndoHistoryController _undoHistory = UndoHistoryController();
-
-  bool _showFind = false;
-  bool _wrap = false;
-  double _fontSize = 13;
-  bool _saving = false;
-  bool _saved = false;
+  /// 查找 / 替换（库）。
+  late final CodeFindController _find = CodeFindController(_controller);
 
   /// 草稿自动保存（防抖）。
   Timer? _draftTimer;
 
+  bool _saving = false;
+  bool _saved = false;
+  bool _wrap = false;
+  double _fontSize = 13;
+
+  bool get _dirty => _controller.text != widget.initialText;
+
   @override
   void initState() {
     super.initState();
-    _text.text = widget.initialText;
-    _undoHistory.addListener(_onHistoryChanged);
+    _controller.addListener(_onEdit);
     unawaited(_restoreDraft());
   }
 
@@ -83,15 +82,16 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   void dispose() {
     _draftTimer?.cancel();
     unawaited(_persistDraft());
-    _undoHistory.removeListener(_onHistoryChanged);
-    _undoHistory.dispose();
-    _text.dispose();
+    _controller.removeListener(_onEdit);
     _find.dispose();
-    _replace.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  void _onHistoryChanged() {
+  /// 内容变化：草稿落盘防抖 + 重建（撤销 / 重做可用态与"未保存"标记）。
+  void _onEdit() {
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 900), _persistDraft);
     if (mounted) {
       setState(() {});
     }
@@ -116,9 +116,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         );
         return;
       }
-      setState(() {
-        _text.text = draft;
-      });
+      _controller.text = draft;
       _toast('已恢复上次未提交的草稿');
     } catch (_) {
       // 草稿读取失败不影响编辑。
@@ -128,7 +126,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   /// 把当前文本写入草稿（与远端一致则清掉草稿）。
   Future<void> _persistDraft() async {
     try {
-      if (_text.text == widget.initialText) {
+      if (_controller.text == widget.initialText) {
         await widget.surface.domain.api.discardDraft(
           widget.fullName,
           widget.path,
@@ -139,7 +137,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       await widget.surface.domain.api.saveDraft(
         widget.fullName,
         widget.path,
-        _text.text,
+        _controller.text,
         branch: widget.branch,
         baseSha: widget.baseSha,
       );
@@ -148,86 +146,9 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
     }
   }
 
-  bool get _dirty => _text.text != widget.initialText;
-
-  void _onChanged() {
-    // 草稿落盘防抖：停顿后再写，避免高频写盘。
-    _draftTimer?.cancel();
-    _draftTimer = Timer(const Duration(milliseconds: 900), _persistDraft);
-    setState(() {});
-  }
-
-  void _toggleWrap() => setState(() => _wrap = !_wrap);
-
   void _changeFont(double delta) {
     setState(() => _fontSize = (_fontSize + delta).clamp(10.0, 24.0).toDouble());
   }
-
-  // ───────────────────────── 查找 / 替换 ─────────────────────────
-
-  void _findNext() {
-    final String needle = _find.text;
-    if (needle.isEmpty) {
-      return;
-    }
-    final String haystack = _text.text;
-    final TextSelection sel = _text.selection;
-    int from = sel.isValid ? sel.end : 0;
-    if (from < 0 || from > haystack.length) {
-      from = 0;
-    }
-    int index = haystack.indexOf(needle, from);
-    if (index < 0) {
-      index = haystack.indexOf(needle); // 回绕到开头再试一次。
-    }
-    if (index < 0) {
-      _toast('未找到：$needle');
-      return;
-    }
-    _text.selection = TextSelection(
-      baseOffset: index,
-      extentOffset: index + needle.length,
-    );
-  }
-
-  void _replaceCurrent() {
-    final String needle = _find.text;
-    if (needle.isEmpty) {
-      return;
-    }
-    final TextSelection sel = _text.selection;
-    final bool selectedMatches = sel.isValid &&
-        sel.start >= 0 &&
-        sel.end <= _text.text.length &&
-        _text.text.substring(sel.start, sel.end) == needle;
-    if (selectedMatches) {
-      final String next = _text.text.replaceRange(sel.start, sel.end, _replace.text);
-      _text.value = TextEditingValue(
-        text: next,
-        selection: TextSelection.collapsed(offset: sel.start + _replace.text.length),
-      );
-      _onChanged();
-    } else {
-      _findNext();
-    }
-  }
-
-  void _replaceAll() {
-    final String needle = _find.text;
-    if (needle.isEmpty) {
-      return;
-    }
-    final int count = needle.allMatches(_text.text).length;
-    if (count == 0) {
-      _toast('未找到：$needle');
-      return;
-    }
-    _text.text = _text.text.replaceAll(needle, _replace.text);
-    _onChanged();
-    _toast('已替换 $count 处');
-  }
-
-  // ───────────────────────── 保存 ─────────────────────────
 
   Future<void> _save() async {
     if (_saving) {
@@ -235,10 +156,11 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
     }
     setState(() => _saving = true);
     try {
+      final String text = _controller.text;
       GhWriteResult result = await widget.surface.domain.api.putContentLocked(
         widget.fullName,
         widget.path,
-        content: _text.text,
+        content: text,
         message: 'docs: update ${widget.path}',
         baseSha: widget.baseSha,
         branch: widget.branch,
@@ -252,7 +174,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         result = await widget.surface.domain.api.putContentLocked(
           widget.fullName,
           widget.path,
-          content: _text.text,
+          content: text,
           message: 'docs: update ${widget.path}',
           baseSha: widget.baseSha,
           branch: widget.branch,
@@ -385,17 +307,43 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   static String _preview(String text) =>
       text.length <= 4000 ? text : '${text.substring(0, 4000)}\n…（已截断预览）';
 
+  /// 只读预览（弹层）：与编辑器同一套库渲染，便于核对排版与高亮。
+  void _previewSheet() {
+    final _EditorPrefs settings = _EditorPrefs(widget.surface);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SizedBox(
+        height: MediaQuery.of(sheetContext).size.height * 0.8,
+        child: OgLCodeViewer(
+          code: _controller.text,
+          path: widget.path,
+          fontSize: settings.fontSize,
+          wrap: _wrap,
+          highlight: settings.highlight,
+          codeTheme: settings.theme(sheetContext),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBar(ThemeData theme) => Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+          child: Text(
+            '${_controller.lineCount} 行 · ${_controller.text.length} 字符'
+            '${_dirty ? ' · 未保存' : ''}',
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final _EditorPrefs prefs = _EditorPrefs(widget.surface);
-    final TextStyle codeStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontSize: _fontSize,
-      height: 1.5,
-      color: Colors.transparent, // 文字透明：可见颜色来自下层高亮图层
-    );
-    final int lines = '\n'.allMatches(_text.text).length + 1;
     return PopScope(
       canPop: !_dirty || _saved,
       onPopInvokedWithResult: (bool didPop, Object? result) async {
@@ -419,17 +367,41 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
             IconButton(
               icon: const Icon(Icons.undo),
               tooltip: '撤销',
-              onPressed: _undoHistory.undo,
+              onPressed: _controller.canUndo ? _controller.undo : null,
             ),
             IconButton(
               icon: const Icon(Icons.redo),
               tooltip: '重做',
-              onPressed: _undoHistory.redo,
+              onPressed: _controller.canRedo ? _controller.redo : null,
+            ),
+            ValueListenableBuilder<CodeFindValue?>(
+              valueListenable: _find,
+              builder: (BuildContext context, CodeFindValue? value, Widget? _) =>
+                  IconButton(
+                icon: Icon(value == null ? Icons.search : Icons.search_off),
+                tooltip: '查找 / 替换',
+                onPressed: () => value == null ? _find.findMode() : _find.close(),
+              ),
             ),
             IconButton(
-              icon: Icon(_showFind ? Icons.search_off : Icons.search),
-              tooltip: '查找 / 替换',
-              onPressed: () => setState(() => _showFind = !_showFind),
+              icon: Icon(_wrap ? Icons.wrap_text : Icons.notes),
+              tooltip: _wrap ? '关闭自动换行' : '开启自动换行',
+              onPressed: () => setState(() => _wrap = !_wrap),
+            ),
+            IconButton(
+              icon: const Icon(Icons.remove),
+              tooltip: '减小字号',
+              onPressed: () => _changeFont(-1),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: '增大字号',
+              onPressed: () => _changeFont(1),
+            ),
+            IconButton(
+              icon: const Icon(Icons.visibility_outlined),
+              tooltip: '预览（只读）',
+              onPressed: _previewSheet,
             ),
             IconButton(
               icon: const Icon(Icons.save_outlined),
@@ -440,166 +412,19 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         ),
         body: Column(
           children: <Widget>[
-            if (_showFind) _findBar(theme),
-            Expanded(child: _editorBody(prefs, codeStyle)),
-            _statusBar(theme, lines),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 编辑区：高亮图层（不可交互）+ 透明输入层，两层同字号同边距以对齐。
-  Widget _editorBody(_EditorPrefs prefs, TextStyle codeStyle) {
-    return Stack(
-      children: <Widget>[
-        Positioned.fill(
-          child: IgnorePointer(
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: CodeView(
-                code: _text.text.isEmpty ? ' ' : _text.text,
-                language: ogLDetectLanguage(widget.path),
+            Expanded(
+              child: OgLCodeField(
+                controller: _controller,
+                path: widget.path,
                 fontSize: _fontSize,
-                wrap: true,
+                wrap: _wrap,
                 highlight: prefs.highlight,
-                showLineNumbers: false,
+                findController: _find,
                 codeTheme: prefs.theme(context),
               ),
             ),
-          ),
-        ),
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _text,
-              undoController: _undoHistory,
-              onChanged: (_) => _onChanged(),
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-              style: codeStyle,
-              cursorColor: Theme.of(context).colorScheme.primary,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isCollapsed: true,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _findBar(ThemeData theme) => Material(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Column(
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: _find,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        hintText: '查找',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    tooltip: '查找下一个',
-                    onPressed: _findNext,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: _replace,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        hintText: '替换为',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(onPressed: _replaceCurrent, child: const Text('替换')),
-                  TextButton(onPressed: _replaceAll, child: const Text('全部')),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-
-  Widget _statusBar(ThemeData theme, int lines) => Material(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  '$lines 行 · ${_text.text.length} 字符'
-                  '${_dirty ? ' · 未保存' : ''}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(_wrap ? Icons.wrap_text : Icons.notes),
-                tooltip: _wrap ? '关闭自动换行' : '开启自动换行',
-                onPressed: _toggleWrap,
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.remove),
-                tooltip: '减小字号',
-                onPressed: () => _changeFont(-1),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.add),
-                tooltip: '增大字号',
-                onPressed: () => _changeFont(1),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.visibility_outlined),
-                tooltip: '预览（只读高亮）',
-                onPressed: _previewSheet,
-              ),
-            ],
-          ),
-        ),
-      );
-
-  void _previewSheet() {
-    final _EditorPrefs settings = _EditorPrefs(widget.surface);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (BuildContext sheetContext) => SizedBox(
-        height: MediaQuery.of(sheetContext).size.height * 0.8,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: CodeView(
-            code: _text.text,
-            language: ogLDetectLanguage(widget.path),
-            fontSize: settings.fontSize,
-            wrap: _wrap,
-            highlight: settings.highlight,
-            codeTheme: settings.theme(sheetContext),
-          ),
+            _statusBar(theme),
+          ],
         ),
       ),
     );
