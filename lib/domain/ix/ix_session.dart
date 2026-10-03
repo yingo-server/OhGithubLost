@@ -11,7 +11,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../base/disk/disk_store.dart';
+import '../../kernel/contract/disk_store.dart';
 import '../../kernel/diagnostics.dart';
 import '../gh/gh_auth.dart';
 import '../gh/gh_models.dart';

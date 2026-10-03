@@ -37,20 +37,15 @@ ALLOW = {
 
 IMPORT_RE = re.compile(r"^\s*import\s+'([^']+)'", re.M)
 
-# 已知的、待收敛项（5.0 结构收口清单；修完就从这里删掉）。
+# 已知的、待收敛项（下一批：为这两个**实现类**引入启动层契约接口）。
+#
+# 为什么还留着：`RepositoryCache`（D1–D7 一致性引擎）与 `NetBridge` 都是
+# 硬件层的**实现**，逻辑层目前直接依赖它们的具体类型。正解是在
+# `kernel/contract/` 定义 `ConsistencyCache` / `NetClient` 抽象，
+# 由硬件层实现、逻辑层只依赖抽象。属独立批次，避免与 4.9 的结构改动混在一起。
 KNOWN = {
-    # domain 直接依赖 base 的内部类型（应收敛为 kernel 契约抽象）。
-    'domain/gh/gh_api.dart': {'../../base/disk/disk_cache.dart',
-                              '../../base/disk/disk_types.dart',
-                              '../../base/net/net_types.dart'},
-    'domain/gh/gh_auth.dart': {'../../base/disk/disk_store.dart'},
-    'domain/gh/gh_client.dart': {'../../base/disk/disk_types.dart',
-                                 '../../base/net/net_bridge.dart',
-                                 '../../base/net/net_types.dart'},
-    'domain/gh/gh_read_cache.dart': {'../../base/disk/disk_store.dart'},
-    'domain/ix/ix_conflict.dart': {'../../base/disk/disk_types.dart'},
-    'domain/ix/ix_session.dart': {'../../base/disk/disk_store.dart'},
-    'domain/sys/sys_access.dart': {'../../base/disk/disk_store.dart'},
+    'domain/gh/gh_api.dart': {'../../base/disk/disk_cache.dart'},
+    'domain/gh/gh_client.dart': {'../../base/net/net_bridge.dart'},
 }
 
 

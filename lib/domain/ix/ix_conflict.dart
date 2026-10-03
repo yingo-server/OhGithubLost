@@ -7,7 +7,7 @@
 /// 基线过期（`staleSha`）时**必须**先给"查看差异"，不得只给"覆盖"。
 library;
 
-import '../../base/disk/disk_types.dart';
+import '../../kernel/contract/disk_types.dart';
 
 /// 冲突提示里的一个可选项。
 class IxConflictOption {

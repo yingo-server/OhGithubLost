@@ -42,8 +42,11 @@
 - **下载能力上桥**：`SurfaceBridge` 提供 `downloadTasks / downloadsListenable /
   pauseDownload / resumeDownload / retryDownload / cancelDownload /
   removeDownload / clearFinishedDownloads`，下载页不再接触管理器实现。
-- 新增 `tool/layer_audit.py`（四层审计）：**当前违规 0**；domain 直接依赖 base
-  内部类型的 11 处已登记为"待收敛"清单，后续批次逐步消掉。
+- 新增 `tool/layer_audit.py`（四层审计）：**当前违规 0**。
+- **共享抽象上提到启动层契约**：`disk_store.dart` / `disk_types.dart` /
+  `net_types.dart` 移入 `kernel/contract/`（原路径保留**转发导出**，硬件层内部零改动），
+  逻辑层改依赖契约 → 待收敛项由 11 处降至 **2 处**（仅剩 `RepositoryCache` /
+  `NetBridge` 两个**实现类**，下一批以契约接口收敛）。
 
 ### 多语言（工程侧）
 - i18n 内核 `t(page, key, {args})` 支持 `{name}` 占位符（缺参保留原样，不抛异常），

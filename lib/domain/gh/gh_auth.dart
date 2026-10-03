@@ -21,7 +21,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../base/disk/disk_store.dart';
+import '../../kernel/contract/disk_store.dart';
 import '../../kernel/diagnostics.dart';
 
 /// 认证状态（**全局单一真相**）。
