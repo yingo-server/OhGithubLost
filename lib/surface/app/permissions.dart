@@ -82,6 +82,14 @@ class OgLPermissionInfo {
   bool get ready =>
       status == OgLPermissionStatus.granted ||
       status == OgLPermissionStatus.notRequired;
+
+  /// 复制并覆盖状态。
+  OgLPermissionInfo withStatus(OgLPermissionStatus next) => OgLPermissionInfo(
+        permission: permission,
+        title: title,
+        rationale: rationale,
+        status: next,
+      );
 }
 
 /// 权限网关接口（各平台实现）。
