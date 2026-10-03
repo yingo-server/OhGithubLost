@@ -329,11 +329,11 @@ class IxDownloadManager extends ChangeNotifier {
   /// 把库的更新映射成对外快照（进度节流）。
   void _onUpdate(TaskUpdate update) {
     if (update is TaskStatusUpdate) {
-      final IxDownloadTask? snap = _snapshots[update.taskId];
+      final IxDownloadTask? snap = _snapshots[update.task.taskId];
       if (snap == null) {
         return;
       }
-      _snapshots[update.taskId] = snap.copyWith(
+      _snapshots[update.task.taskId] = snap.copyWith(
         status: _mapStatus(update.status),
         error: update.exception?.description,
       );
@@ -341,14 +341,14 @@ class IxDownloadManager extends ChangeNotifier {
       return;
     }
     if (update is TaskProgressUpdate) {
-      final IxDownloadTask? snap = _snapshots[update.taskId];
+      final IxDownloadTask? snap = _snapshots[update.task.taskId];
       if (snap == null) {
         return;
       }
       final int total =
           update.expectedFileSize > 0 ? update.expectedFileSize : snap.total;
       final int received = total > 0 ? (update.progress * total).round() : 0;
-      _snapshots[update.taskId] = snap.copyWith(
+      _snapshots[update.task.taskId] = snap.copyWith(
         received: received,
         total: total,
         status: IxDownloadStatus.running,

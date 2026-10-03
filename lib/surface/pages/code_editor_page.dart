@@ -419,12 +419,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
             IconButton(
               icon: const Icon(Icons.undo),
               tooltip: '撤销',
-              onPressed: _undoHistory.canUndo ? _undoHistory.undo : null,
+              onPressed: _undoHistory.undo,
             ),
             IconButton(
               icon: const Icon(Icons.redo),
               tooltip: '重做',
-              onPressed: _undoHistory.canRedo ? _undoHistory.redo : null,
+              onPressed: _undoHistory.redo,
             ),
             IconButton(
               icon: Icon(_showFind ? Icons.search_off : Icons.search),
