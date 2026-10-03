@@ -27,6 +27,7 @@ import '../surface_bridge.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+import '../util/path_rules.dart';
 import '../widgets/code_editor_field.dart';
 import '../widgets/readme_view.dart';
 import 'action_run_page.dart';
@@ -84,6 +85,34 @@ class _RepoPageState extends State<RepoPage> {
   void initState() {
     super.initState();
     unawaited(_loadStarred());
+    unawaited(_loadRepoPermissions());
+  }
+
+  /// 拉取**单仓库详情**（`GET /repos/{owner}/{repo}`）。
+  ///
+  /// 为什么必须做：`permissions`（写权限）**只有该接口会返回**——
+  /// 收藏 / 搜索 / 列表接口都不带它。若只用 `widget.repo`，则 `canPush` 恒为
+  /// null → 连自己的仓库也会被判定为"不可写"，写入口全部消失。
+  Future<void> _loadRepoPermissions() async {
+    try {
+      final GhRepo fresh = await widget.surface.domain.api.repo(_full);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _repo = fresh;
+        if (_branch.isEmpty) {
+          _branch = fresh.defaultBranch;
+        }
+      });
+    } catch (error) {
+      // 拿不到详情**不静默**：留痕（通知中心可见）；此时按"不可写"处理。
+      OgLAppLog.instance.add(
+        '仓库',
+        '读取仓库详情失败（写权限暂不可用）：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
   }
 
   Future<void> _loadStarred() async {
@@ -212,8 +241,65 @@ class _RepoPageState extends State<RepoPage> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final String branchKey = _branch.isEmpty ? 'default' : _branch;
+    // R3：只有对自己有 push 权限的仓库才暴露"写入类"入口（新建文件 / 仓库设置）。
+    // 判据唯一：`repo.permissions.push`（缺失 = 不可写，不做降级猜测）。
+    final bool canWrite = _repo.isWritable;
+    final List<Tab> tabs = <Tab>[
+      Tab(text: OgLI18n.instance.t('repo', 'code')),
+      Tab(text: OgLI18n.instance.t('repo', 'issues')),
+      Tab(text: OgLI18n.instance.t('repo', 'pulls')),
+      Tab(text: OgLI18n.instance.t('repo', 'releases')),
+      Tab(text: OgLI18n.instance.t('repo', 'branches')),
+      Tab(text: OgLI18n.instance.t('repo', 'commits')),
+      Tab(text: OgLI18n.instance.t('repo', 'actions')),
+      if (canWrite) Tab(text: OgLI18n.instance.t('repo', 'repoSettings')),
+    ];
+    final List<Widget> tabViews = <Widget>[
+      _CodeTab(
+        key: ValueKey<String>('code-$branchKey'),
+        surface: widget.surface,
+        fullName: _full,
+        branch: _branch,
+        canWrite: canWrite,
+        initialPath: widget.initialPath,
+      ),
+      _IssuesTab(surface: widget.surface, fullName: _full),
+      _PullsTab(surface: widget.surface, fullName: _full),
+      _ReleasesTab(
+        key: ValueKey<String>('rel-$branchKey'),
+        surface: widget.surface,
+        fullName: _full,
+        branch: _branch,
+        canWrite: canWrite,
+      ),
+      _BranchesTab(
+        surface: widget.surface,
+        fullName: _full,
+        defaultBranch: _repo.defaultBranch,
+        onBranchChanged: () => setState(() {}),
+        canWrite: canWrite,
+      ),
+      _CommitsTab(
+        key: ValueKey<String>('cmt-$branchKey'),
+        surface: widget.surface,
+        fullName: _full,
+        branch: _branch,
+      ),
+      _ActionsTab(
+        key: ValueKey<String>('act-$branchKey'),
+        surface: widget.surface,
+        fullName: _full,
+        branch: _branch,
+      ),
+      if (canWrite)
+        _RepoSettingsTab(
+          surface: widget.surface,
+          repo: _repo,
+          onRepoChanged: (GhRepo fresh) => setState(() => _repo = fresh),
+        ),
+    ];
     return DefaultTabController(
-      length: 8,
+      length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: Text(_repo.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -274,63 +360,13 @@ class _RepoPageState extends State<RepoPage> {
                 _branchBar(theme),
                 TabBar(
                   isScrollable: true,
-                  tabs: <Tab>[
-                    Tab(text: OgLI18n.instance.t('repo', 'code')),
-                    Tab(text: OgLI18n.instance.t('repo', 'issues')),
-                    Tab(text: OgLI18n.instance.t('repo', 'pulls')),
-                    Tab(text: OgLI18n.instance.t('repo', 'releases')),
-                    Tab(text: OgLI18n.instance.t('repo', 'branches')),
-                    Tab(text: OgLI18n.instance.t('repo', 'commits')),
-                    Tab(text: OgLI18n.instance.t('repo', 'actions')),
-                    Tab(text: OgLI18n.instance.t('repo', 'repoSettings')),
-                  ],
+                  tabs: tabs,
                 ),
               ],
             ),
           ),
         ),
-        body: TabBarView(
-          children: <Widget>[
-            _CodeTab(
-              key: ValueKey<String>('code-$branchKey'),
-              surface: widget.surface,
-              fullName: _full,
-              branch: _branch,
-              initialPath: widget.initialPath,
-            ),
-            _IssuesTab(surface: widget.surface, fullName: _full),
-            _PullsTab(surface: widget.surface, fullName: _full),
-            _ReleasesTab(
-              key: ValueKey<String>('rel-$branchKey'),
-              surface: widget.surface,
-              fullName: _full,
-              branch: _branch,
-            ),
-            _BranchesTab(
-              surface: widget.surface,
-              fullName: _full,
-              defaultBranch: _repo.defaultBranch,
-              onBranchChanged: () => setState(() {}),
-            ),
-            _CommitsTab(
-              key: ValueKey<String>('cmt-$branchKey'),
-              surface: widget.surface,
-              fullName: _full,
-              branch: _branch,
-            ),
-            _ActionsTab(
-              key: ValueKey<String>('act-$branchKey'),
-              surface: widget.surface,
-              fullName: _full,
-              branch: _branch,
-            ),
-            _RepoSettingsTab(
-              surface: widget.surface,
-              repo: _repo,
-              onRepoChanged: (GhRepo fresh) => setState(() => _repo = fresh),
-            ),
-          ],
-        ),
+        body: TabBarView(children: tabViews),
       ),
     );
   }
@@ -642,6 +678,7 @@ class _CodeTab extends StatefulWidget {
     required this.surface,
     required this.fullName,
     required this.branch,
+    required this.canWrite,
     this.initialPath,
     super.key,
   });
@@ -649,6 +686,10 @@ class _CodeTab extends StatefulWidget {
   final SurfaceBridge surface;
   final String fullName;
   final String branch;
+
+  /// 当前用户是否对该仓库有写权限（`permissions.push`，不允许降级猜测）。
+  final bool canWrite;
+
   final String? initialPath;
 
   @override
@@ -857,59 +898,106 @@ class _CodeTabState extends State<_CodeTab> {
     }
   }
 
-  /// 新建文件（Material 对话框：路径 + 内容）。
+  /// 新建条目（文件 / 目录）。**单一 "+" 入口**。
+  ///
+  /// - 路径以 `/` 结尾 → **建目录**（用 `.gitkeep` 占位；Git 不跟踪空目录）；
+  /// - 否则 → **建文件**，内容**必填**（禁止空文件）；
+  /// - 路径禁止中文 / 全角 / 特殊字符（见 `util/path_rules.dart`）。
   Future<void> _createFile() async {
+    if (!widget.canWrite) {
+      _toast('你没有该仓库的写权限');
+      return;
+    }
     _newPath.text = _path.isEmpty ? '' : '$_path/';
     final TextEditingController content = TextEditingController();
     final bool? ok = await showDialog<bool>(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('新建文件'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                controller: _newPath,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '文件路径',
-                  hintText: 'src/hello.dart',
-                  border: OutlineInputBorder(),
-                ),
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setLocal) {
+          final bool directory = _newPath.text.trim().endsWith('/');
+          return AlertDialog(
+            title: Text(directory ? '新建目录' : '新建文件'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  TextField(
+                    controller: _newPath,
+                    autofocus: true,
+                    onChanged: (String _) => setLocal(() {}),
+                    decoration: const InputDecoration(
+                      labelText: '路径',
+                      hintText: 'src/hello.dart 或 docs/api/',
+                      helperText: '以 / 结尾表示建目录（用 .gitkeep 占位）',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (directory)
+                    const Text('将创建目录占位文件 .gitkeep（内容可留空）')
+                  else
+                    TextField(
+                      controller: content,
+                      minLines: 4,
+                      maxLines: 8,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: '内容（必填）',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '路径仅允许英文字母、数字与 . _ -，禁止中文、空格与特殊字符。',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: content,
-                minLines: 4,
-                maxLines: 8,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: '内容（可留空后编辑）',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('创建'),
               ),
             ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('创建'),
-          ),
-        ],
+          );
+        },
       ),
     );
     if (ok != true || !mounted) {
+      content.dispose();
       return;
     }
-    final String path = _newPath.text.trim();
-    if (path.isEmpty) {
-      _toast('请填写文件路径');
+    final String raw = _newPath.text.trim();
+    final bool directory = raw.endsWith('/');
+    final String? pathError =
+        ogLValidateRepoEntryPath(raw, directory: directory);
+    if (pathError != null) {
+      content.dispose();
+      _toast(pathError);
+      return;
+    }
+    final String path = directory ? ogLGitKeepPathFor(raw) : raw;
+    final String? contentError = ogLValidateFileContent(path, content.text);
+    if (contentError != null) {
+      content.dispose();
+      _toast(contentError);
+      return;
+    }
+    // 同名条目已存在 → 先拦下（GitHub 同名 PUT 会 422，这里给清晰原因）。
+    final bool exists =
+        _entries.items.any((GhContent e) => e.path == path);
+    if (exists) {
+      content.dispose();
+      _toast('已存在同名条目：$path');
       return;
     }
     try {
@@ -917,12 +1005,16 @@ class _CodeTabState extends State<_CodeTab> {
         widget.fullName,
         path,
         content: content.text,
-        message: 'chore: add $path',
+        message: directory ? 'chore: add directory $raw' : 'chore: add $path',
         branch: widget.branch,
       );
-      OgLAppLog.instance.result('仓库', '已新建文件', path);
+      OgLAppLog.instance.result(
+        '仓库',
+        directory ? '已新建目录' : '已新建文件',
+        path,
+      );
       content.dispose();
-      _toast('已创建：$path');
+      _toast(directory ? '已创建目录：$raw' : '已创建：$path');
       await _reload();
     } catch (error) {
       content.dispose();
@@ -1103,7 +1195,7 @@ class _CodeTabState extends State<_CodeTab> {
                 _showEntryDetails(entry);
               },
             ),
-            if (!entry.isDirectory)
+            if (!entry.isDirectory && widget.canWrite)
               ListTile(
                 leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
                 title: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
@@ -1180,7 +1272,7 @@ class _CodeTabState extends State<_CodeTab> {
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
-          if (!file.isTooLarge)
+          if (!file.isTooLarge && widget.canWrite)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: '编辑',
@@ -1197,10 +1289,21 @@ class _CodeTabState extends State<_CodeTab> {
                   unawaited(_copyPath(file.path));
               }
             },
-            itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(value: 'copy', child: Text('复制路径')),
-              PopupMenuItem<String>(value: 'browser', child: Text('用浏览器打开')),
-              PopupMenuItem<String>(value: 'delete', child: Text('删除文件')),
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'copy',
+                child: Text('复制路径'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'browser',
+                child: Text('用浏览器打开'),
+              ),
+              // 删除属写操作：仅在有 push 权限时出现（R3）。
+              if (widget.canWrite)
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('删除文件'),
+                ),
             ],
           ),
         ],
@@ -1335,11 +1438,13 @@ class _CodeTabState extends State<_CodeTab> {
     }
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createFile,
-        icon: const Icon(Icons.note_add_outlined),
-        label: const Text('新建文件'),
-      ),
+      floatingActionButton: widget.canWrite
+          ? FloatingActionButton(
+              tooltip: '新建文件 / 目录',
+              onPressed: _createFile,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         children: <Widget>[
           if (_path.isNotEmpty) _breadcrumb(context),
@@ -1393,10 +1498,12 @@ class _CodeTabState extends State<_CodeTab> {
                   return _MessagePane(
                     icon: Icons.folder_open,
                     message: '这个目录是空的',
-                    action: FilledButton.tonal(
-                      onPressed: _createFile,
-                      child: const Text('新建文件'),
-                    ),
+                    action: widget.canWrite
+                        ? FilledButton.tonal(
+                            onPressed: _createFile,
+                            child: const Text('新建文件'),
+                          )
+                        : null,
                   );
                 }
                 return RefreshIndicator(
@@ -1757,13 +1864,15 @@ class _ReleasesTab extends StatefulWidget {
     required this.surface,
     required this.fullName,
     required this.branch,
+    required this.canWrite,
     super.key,
   });
-
   final SurfaceBridge surface;
   final String fullName;
   final String branch;
 
+  /// 是否有写权限（R3：无 push 权限则不给"新建发布"入口）。
+  final bool canWrite;
   @override
   State<_ReleasesTab> createState() => _ReleasesTabState();
 }
@@ -1828,11 +1937,13 @@ class _ReleasesTabState extends State<_ReleasesTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.new_releases_outlined),
-        label: const Text('新建发布'),
-      ),
+      floatingActionButton: widget.canWrite
+          ? FloatingActionButton.extended(
+              onPressed: _create,
+              icon: const Icon(Icons.new_releases_outlined),
+              label: const Text('新建发布'),
+            )
+          : null,
       body: ListenableBuilder(
         listenable: _paged,
         builder: (BuildContext context, Widget? _) => _pagedBody<GhRelease>(
@@ -1869,10 +1980,12 @@ class _ReleasesTabState extends State<_ReleasesTab> {
           },
           emptyIcon: Icons.new_releases_outlined,
           emptyText: '还没有发布',
-          emptyAction: FilledButton.tonal(
-            onPressed: _create,
-            child: const Text('新建发布'),
-          ),
+          emptyAction: widget.canWrite
+              ? FilledButton.tonal(
+                  onPressed: _create,
+                  child: const Text('新建发布'),
+                )
+              : null,
         ),
       ),
     );
@@ -1889,13 +2002,15 @@ class _BranchesTab extends StatefulWidget {
     required this.fullName,
     required this.defaultBranch,
     required this.onBranchChanged,
+    required this.canWrite,
   });
-
   final SurfaceBridge surface;
   final String fullName;
   final String defaultBranch;
   final VoidCallback onBranchChanged;
 
+  /// 是否有写权限（R3：无 push 权限则不给"新建 / 重命名 / 删除分支"入口）。
+  final bool canWrite;
   @override
   State<_BranchesTab> createState() => _BranchesTabState();
 }
@@ -2057,11 +2172,13 @@ class _BranchesTabState extends State<_BranchesTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.alt_route),
-        label: const Text('新建分支'),
-      ),
+      floatingActionButton: widget.canWrite
+          ? FloatingActionButton.extended(
+              onPressed: _create,
+              icon: const Icon(Icons.alt_route),
+              label: const Text('新建分支'),
+            )
+          : null,
       body: ListenableBuilder(
         listenable: _paged,
         builder: (BuildContext context, Widget? _) => _pagedBody<GhBranch>(

@@ -34,6 +34,23 @@ enum OgLNoticeSeverity {
   critical,
 }
 
+/// 通知的**投递方式**（用户要求：用参数决定走哪些通道）。
+///
+/// - [auto]：按严重级别自动决定（critical → 弹窗；其余 → 横幅）；
+/// - [inAppOnly]：**只在应用内**提示（前台横幅 / 弹窗），不尝试系统通知；
+/// - [allChannels]：**三种方式全用** —— 前台弹窗/横幅 + 同时投系统通知，
+///   保证用户切到后台也能看到（如"下载完成""长时间任务结束"）。
+enum OgLNoticeDelivery {
+  /// 按级别自动。
+  auto,
+
+  /// 仅应用内。
+  inAppOnly,
+
+  /// 全部通道（应用内 + 系统通知）。
+  allChannels,
+}
+
 /// 一条用户可见的通知。
 class OgLNotice {
   /// 创建通知。
@@ -41,6 +58,7 @@ class OgLNotice {
     required this.title,
     this.detail,
     this.severity = OgLNoticeSeverity.warning,
+    this.delivery = OgLNoticeDelivery.auto,
   });
 
   /// 标题（一行说清发生了什么）。
@@ -51,6 +69,9 @@ class OgLNotice {
 
   /// 严重级别。
   final OgLNoticeSeverity severity;
+
+  /// 投递方式。
+  final OgLNoticeDelivery delivery;
 }
 
 /// 全局通知中心（单例）。
@@ -85,6 +106,7 @@ class OgLNoticeCenter extends ChangeNotifier {
     required String title,
     String? detail,
     OgLNoticeSeverity severity = OgLNoticeSeverity.warning,
+    OgLNoticeDelivery delivery = OgLNoticeDelivery.auto,
   }) {
     // 先落盘：通知可能因为"正在弹窗"而延后展示，但**绝不允许**丢失。
     OgLLogFile.line(
@@ -107,7 +129,12 @@ class OgLNoticeCenter extends ChangeNotifier {
       );
       _pending.removeAt(dropIndex == -1 ? 0 : dropIndex);
     }
-    final notice = OgLNotice(title: title, detail: detail, severity: severity);
+    final notice = OgLNotice(
+      title: title,
+      detail: detail,
+      severity: severity,
+      delivery: delivery,
+    );
     _pending.add(notice);
     _history.insert(0, notice);
     while (_history.length > 200) {
@@ -122,6 +149,13 @@ class OgLNoticeCenter extends ChangeNotifier {
       return null;
     }
     return _pending.removeAt(0);
+  }
+
+  /// 放回**队首**（后台暂存，回到前台时按原顺序补发）。
+  ///
+  /// 有意**不**触发 `notifyListeners`：否则会在宿主的 drain 里形成回环。
+  void requeueFront(OgLNotice notice) {
+    _pending.insert(0, notice);
   }
 }
 
@@ -286,20 +320,41 @@ class OgLNoticeHost extends StatefulWidget {
   State<OgLNoticeHost> createState() => _OgLNoticeHostState();
 }
 
-class _OgLNoticeHostState extends State<OgLNoticeHost> {
+class _OgLNoticeHostState extends State<OgLNoticeHost>
+    with WidgetsBindingObserver {
   bool _showing = false;
+
+  /// 应用是否在前台（后台时**不弹应用内提示**——它们会丢失或异常）。
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     OgLNoticeCenter.instance.addListener(_drain);
     WidgetsBinding.instance.addPostFrameCallback((_) => _drain());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     OgLNoticeCenter.instance.removeListener(_drain);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final bool nowForeground = state == AppLifecycleState.resumed;
+    if (nowForeground == _foreground) {
+      return;
+    }
+    _foreground = nowForeground;
+    // 回到前台：把后台期间积压的通知补发出来（绝不静默丢弃）。
+    if (nowForeground) {
+      _drain();
+    }
   }
 
   void _drain() {
@@ -310,12 +365,52 @@ class _OgLNoticeHostState extends State<OgLNoticeHost> {
     if (notice == null) {
       return;
     }
+    if (!_foreground) {
+      // 后台：应用内弹窗/横幅无法呈现。走**系统通道**（`allChannels` 必须；
+      // `auto` 的 critical 也不能丢，因此同样投系统通知），其余保持排队，
+      // 等回前台补发。
+      if (notice.delivery == OgLNoticeDelivery.allChannels ||
+          notice.severity == OgLNoticeSeverity.critical) {
+        _emitSystemNotice(notice);
+      } else {
+        // 放回队首，回前台再展示（保持顺序）。
+        OgLNoticeCenter.instance.requeueFront(notice);
+      }
+      return;
+    }
+    if (notice.delivery == OgLNoticeDelivery.allChannels) {
+      // 前台也要求"三通道全用"：应用内提示的同时补一条系统通知。
+      _emitSystemNotice(notice);
+    }
     _showing = true;
     if (notice.severity == OgLNoticeSeverity.critical) {
       _presentCritical(notice);
     } else {
       _presentAmbient(notice);
     }
+  }
+
+  /// 系统通知通道（后台 / `allChannels` 时使用）。
+  ///
+  /// **现状（不静默）**：下载完成这类系统通知由 `background_downloader` 自己投递；
+  /// 其余后台通知在没有平台插件前，这里**落盘 + 记入应用日志**，并在用户回到
+  /// 前台时由 [_drain] 补发横幅，因此消息不会丢。接入平台插件（如
+  /// `flutter_local_notifications`）时，只需替换此方法体。
+  void _emitSystemNotice(OgLNotice notice) {
+    final String text =
+        notice.detail == null || notice.detail!.isEmpty
+            ? notice.title
+            : '${notice.title}：${notice.detail}';
+    OgLLogFile.line(
+      '通知',
+      '[系统通道] $text',
+      level: notice.severity == OgLNoticeSeverity.critical ? 'ERR' : 'WARN',
+    );
+    OgLAppLog.instance.add(
+      '通知',
+      '[系统通道] $text',
+      severity: notice.severity,
+    );
   }
 
   /// 严重：弹窗（必须被阅读）。

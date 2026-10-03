@@ -513,6 +513,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     label: Text(ogLSeedColorLabel(entry.key)),
                     selected: value.seedColorId == entry.key,
+                    // 明环境下若沿用 M3 默认的 secondaryContainer，
+                    // 勾号（onSecondaryContainer）在浅色芯片上对比度偏低。
+                    // 这里改为**确定的 primary / onPrimary 组合**，深浅两态都有足够对比；
+                    // 并关掉勾号、保留色点（色点本身就是最强的选中线索）。
+                    showCheckmark: false,
+                    selectedColor: theme.colorScheme.primary,
+                    labelStyle: TextStyle(
+                      color: value.seedColorId == entry.key
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
                     onSelected: (bool on) {
                       if (on) {
                         _settings.setSeedColor(entry.key);
@@ -649,6 +660,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   ChoiceChip(
                     label: Text(entry.value),
                     selected: value.codeThemePreset == entry.key,
+                    // 同款修正：选中态用 primary 底 + onPrimary 字/勾，确保明环境下的对比度。
+                    selectedColor: theme.colorScheme.primary,
+                    checkmarkColor: theme.colorScheme.onPrimary,
+                    labelStyle: TextStyle(
+                      color: value.codeThemePreset == entry.key
+                          ? theme.colorScheme.onPrimary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
                     onSelected: (bool on) {
                       if (on) {
                         _settings.setCodeThemePreset(entry.key);

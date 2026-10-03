@@ -212,6 +212,8 @@ class GhRepo extends GhRecord {
     this.isArchived = false,
     this.htmlUrl,
     this.hasPages = false,
+    this.canPush,
+    this.canAdmin,
     this.raw = const <String, dynamic>{},
   });
 
@@ -221,6 +223,17 @@ class GhRepo extends GhRecord {
     final owner = ownerJson is Map<Object?, Object?>
         ? Map<String, dynamic>.from(ownerJson)
         : const <String, dynamic>{};
+    // `permissions` 仅在"已认证 + 对该仓库有权限"时才由 GitHub 返回。
+    // 缺失（游客 / 列表接口）⇒ 两个字段保持 null，调用方按**不可写**处理。
+    final Object? permissionsJson = json['permissions'];
+    final Map<String, dynamic> permissions =
+        permissionsJson is Map<Object?, Object?>
+            ? Map<String, dynamic>.from(permissionsJson)
+            : const <String, dynamic>{};
+    final bool? canPush =
+        permissions.isEmpty ? null : GhJson.boolean(permissions, 'push');
+    final bool? canAdmin =
+        permissions.isEmpty ? null : GhJson.boolean(permissions, 'admin');
     return GhRepo(
       fullName: GhJson.str(json, 'full_name'),
       owner: GhUser.fromJson(owner),
@@ -241,6 +254,8 @@ class GhRepo extends GhRecord {
       isArchived: GhJson.boolean(json, 'archived'),
       htmlUrl: GhJson.strOrNull(json, 'html_url'),
       hasPages: GhJson.boolean(json, 'has_pages'),
+      canPush: canPush,
+      canAdmin: canAdmin,
       raw: json,
     );
   }
@@ -296,6 +311,17 @@ class GhRepo extends GhRecord {
   /// 是否启用了 Pages。
   final bool hasPages;
 
+  /// 当前登录用户对该仓库是否有 **push（写）** 权限。
+  ///
+  /// `null` = GitHub 未返回 `permissions`（游客 / 列表接口）⇒ 按不可写处理。
+  final bool? canPush;
+
+  /// 当前登录用户对该仓库是否有 **admin** 权限。
+  final bool? canAdmin;
+
+  /// 是否可写（[canPush] 为真的**唯一**判据；不做任何降级猜测）。
+  bool get isWritable => canPush == true;
+
   @override
   final Map<String, dynamic> raw;
 
@@ -325,6 +351,8 @@ class GhRepo extends GhRecord {
         'isArchived': isArchived,
         if (htmlUrl != null) 'htmlUrl': htmlUrl,
         'hasPages': hasPages,
+        if (canPush != null) 'canPush': canPush,
+        if (canAdmin != null) 'canAdmin': canAdmin,
       };
 
   @override
