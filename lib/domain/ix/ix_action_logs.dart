@@ -37,8 +37,7 @@ class IxActionLogs {
 
   static HttpClient _defaultClient() {
     final HttpClient client = HttpClient();
-    // 不用连接复用（与底座传输保持同一策略）。
-    client.persistentConnection = false;
+    // 空闲连接存活时间压短（是否复用由每个请求的 persistentConnection 决定）。
     client.idleTimeout = const Duration(seconds: 3);
     client.connectionTimeout = _connectTimeout;
     client.userAgent = 'OhGithubLost';
@@ -57,6 +56,8 @@ class IxActionLogs {
           await client.getUrl(uri).timeout(_connectTimeout);
       request.followRedirects = true;
       request.maxRedirects = 5;
+      // 不用连接复用（与底座传输保持同一策略）。
+      request.persistentConnection = false;
       request.headers.set('accept', 'application/vnd.github+json');
       if (token != null) {
         request.headers.set('authorization', 'Bearer $token');

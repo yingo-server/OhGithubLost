@@ -58,9 +58,9 @@ class IoNetTransport implements NetTransport {
 
   /// 应用连接策略（幂等，可重复调用）。
   void _applyPolicy(HttpClient client) {
-    // 核心：禁用 keep-alive 复用。对端（或中间设备）空闲后关闭连接时，
-    // 复用只会得到 "Connection closed before full header"；不复用则不会。
-    client.persistentConnection = false;
+    // 空闲连接存活时间压短（防御性）。
+    // 注意：**是否复用连接**由每个请求的 `request.persistentConnection = false`
+    // 决定（该开关在 HttpClientRequest 上，不在 HttpClient 上）。
     client.idleTimeout = const Duration(seconds: 3);
     client.connectionTimeout = connectTimeout;
     client.userAgent = 'OhGithubLost';
@@ -129,6 +129,9 @@ class IoNetTransport implements NetTransport {
       request.headers.forEach((String key, String value) {
         req.headers.set(key, value);
       });
+      // 核心：**禁用 keep-alive 复用**。复用已被对端（或中间设备）关闭的连接，
+      // 只会得到 "Connection closed before full header"；不复用则不会。
+      req.persistentConnection = false;
       final Object? body = request.body;
       if (body != null) {
         final bool hasContentType = request.headers.keys
@@ -240,7 +243,6 @@ class IoNetTransport implements NetTransport {
 class IoDnsHttpClient implements DnsHttpClient {
   /// 创建客户端。
   IoDnsHttpClient({HttpClient? client}) : _client = client ?? HttpClient() {
-    _client.persistentConnection = false;
     _client.idleTimeout = const Duration(seconds: 3);
     _client.connectionTimeout = const Duration(seconds: 8);
     _client.userAgent = 'OhGithubLost';
@@ -260,6 +262,7 @@ class IoDnsHttpClient implements DnsHttpClient {
     headers.forEach((String key, String value) {
       req.headers.set(key, value);
     });
+    req.persistentConnection = false;
     final HttpClientResponse response = await req.close().timeout(_timeout);
     final String text =
         await response.transform(utf8.decoder).join().timeout(_timeout);

@@ -5,7 +5,7 @@
 /// **是否复用 keep-alive 连接**。
 ///
 /// 本测试用一个"宣称 `keep-alive`、响应后立即关闭"的极简服务器复现该环境：
-/// - 连接策略断言：传输层必须禁用复用（`persistentConnection == false`）；
+/// - 连接策略断言：每个请求必须声明 `connection: close`（不复用）；
 /// - 端到端 PoC：连续多次请求必须全部成功。
 library;
 
@@ -30,6 +30,9 @@ class _ClosingHttpServer {
   /// 已服务的请求数。
   int served = 0;
 
+  /// 最近一次收到的请求原文（用于断言连接策略）。
+  String lastRequest = '';
+
   /// 请求地址。
   String get url => 'http://127.0.0.1:${_server.port}/zen';
 
@@ -49,9 +52,11 @@ class _ClosingHttpServer {
       sub = client.listen(
         (Uint8List chunk) {
           buffer.addAll(chunk);
-          if (!String.fromCharCodes(buffer).contains('\r\n\r\n')) {
+          final String text = String.fromCharCodes(buffer);
+          if (!text.contains('\r\n\r\n')) {
             return;
           }
+          lastRequest = text;
           sub.cancel();
           unawaited(_respond(client));
         },
@@ -91,12 +96,21 @@ class _ClosingHttpServer {
 }
 
 void main() {
-  test('连接策略：必须禁用 keep-alive 复用（防复用已死连接）', () {
+  test('连接策略：每个请求都必须声明 connection: close（禁用 keep-alive 复用）',
+      () async {
+    final _ClosingHttpServer server = await _ClosingHttpServer.start();
+    addTearDown(server.close);
+
     final IoNetTransport transport = IoNetTransport();
     addTearDown(() => transport.client.close(force: true));
+
+    await transport.send(NetRequest(method: NetMethod.get, url: server.url));
+
+    final String normalized =
+        server.lastRequest.toLowerCase().replaceAll(' ', '');
     expect(
-      transport.client.persistentConnection,
-      isFalse,
+      normalized,
+      contains('connection:close'),
       reason: '复用已被对端关闭的连接会导致 '
           '"Connection closed before full header was received"',
     );
