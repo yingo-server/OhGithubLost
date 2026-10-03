@@ -11,10 +11,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../types.dart';
 import '../app/animations.dart';
 import '../app/async.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 
 /// 草稿箱页。
 class DraftsPage extends StatefulWidget {

@@ -7,9 +7,9 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 
 /// 新建仓库页。
 class NewRepoPage extends StatefulWidget {

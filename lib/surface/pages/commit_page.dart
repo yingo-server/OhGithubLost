@@ -7,9 +7,9 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/async.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../util/gh_format.dart';
 
 /// 提交详情页。

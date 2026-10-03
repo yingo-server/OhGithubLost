@@ -17,11 +17,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../types.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';

@@ -7,9 +7,9 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 
 /// 新建发布页。
 class NewReleasePage extends StatefulWidget {

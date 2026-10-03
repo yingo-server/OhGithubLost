@@ -9,11 +9,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/animations.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../util/gh_format.dart';
 import 'repo_page.dart';
 

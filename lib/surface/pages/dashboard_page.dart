@@ -9,10 +9,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import 'download_manager_page.dart';
 import 'new_repo_page.dart';
 import 'notifications_page.dart';

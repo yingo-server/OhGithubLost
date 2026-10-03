@@ -11,9 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../types.dart';
 import '../app/animations.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../util/gh_format.dart';
 
 /// 下载管理页。
@@ -24,7 +24,9 @@ class DownloadManagerPage extends StatelessWidget {
   /// 表面桥。
   final SurfaceBridge surface;
 
-  IxDownloadManager get _manager => surface.domain.downloads;
+  /// 下载管理器（**不写显式类型**：它属于逻辑层服务，
+  /// 交互层只能通过桥拿到"能力"，不能命名服务类）。
+  get _manager => surface.domain.downloads;
 
   @override
   Widget build(BuildContext context) {

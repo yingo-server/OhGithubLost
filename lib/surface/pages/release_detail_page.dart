@@ -13,9 +13,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../util/download_proxy.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';

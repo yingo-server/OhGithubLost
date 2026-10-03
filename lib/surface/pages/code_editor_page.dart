@@ -13,9 +13,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
-import '../types.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import '../widgets/code_editor_field.dart';
 
 /// 全屏代码编辑器页。

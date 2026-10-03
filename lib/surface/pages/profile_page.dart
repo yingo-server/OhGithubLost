@@ -8,10 +8,10 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../types.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../surface_bridge.dart';
+import '../types.dart';
 import 'drafts_page.dart';
 import 'gists_page.dart';
 import 'login_page.dart';

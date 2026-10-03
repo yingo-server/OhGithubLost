@@ -24,7 +24,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../types.dart';
 import '../../kernel/kernel.dart';
 import '../../kernel/log/og_l_log_file.dart';
 import '../app/error_surface.dart';
@@ -33,6 +32,7 @@ import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import '../theme.dart';
+import '../types.dart';
 import '../util/accel.dart';
 import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
