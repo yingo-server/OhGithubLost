@@ -1,0 +1,130 @@
+/// L3 展示级 · 系统级通知（Android / Windows / Linux / macOS / iOS）。
+///
+/// ## 用途
+/// 应用在**后台**时，应用内弹窗/横幅无法呈现，必须改成系统通知：
+/// 下载完成、长时间任务结束、严重错误等。
+///
+/// ## 设计
+/// - **懒初始化**：第一次真的要发通知时才初始化插件，不拖慢启动；
+/// - **不静默**：任何平台异常都写进应用日志（关于页/通知中心可见）；
+/// - **平台守卫**：不支持的平台直接跳过并留痕，绝不外抛。
+library;
+
+import 'dart:io';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import 'error_surface.dart';
+
+/// 系统通知发送器（单例）。
+class OgLSystemNotifier {
+  OgLSystemNotifier._();
+
+  /// 单例。
+  static final OgLSystemNotifier instance = OgLSystemNotifier._();
+
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+
+  bool _initialized = false;
+  bool _unavailable = false;
+  String? _unavailableReason;
+  int _nextId = 1;
+
+  /// 是否可用（初始化成功且平台支持）。
+  bool get available => _initialized && !_unavailable;
+
+  /// 不可用原因（可用时为 `null`）。
+  String? get unavailableReason => _unavailableReason;
+
+  /// Windows 用的是 AppUserModelID + GUID（固定值即可，需全局唯一）。
+  static const String _kWindowsAppUserModelId = 'com.ohgithublost.ogl';
+  static const String _kWindowsGuid = 'b6e7c1a2-3f45-4a9b-8c21-9d5e6f7a8b90';
+
+  InitializationSettings _initializationSettings() {
+    if (Platform.isAndroid) {
+      return const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      );
+    }
+    if (Platform.isIOS) {
+      return const InitializationSettings(iOS: DarwinInitializationSettings());
+    }
+    if (Platform.isMacOS) {
+      return const InitializationSettings(
+        macOS: DarwinInitializationSettings(),
+      );
+    }
+    if (Platform.isLinux) {
+      return const InitializationSettings(
+        linux: LinuxInitializationSettings(defaultActionName: '打开'),
+      );
+    }
+    if (Platform.isWindows) {
+      return const InitializationSettings(
+        windows: WindowsInitializationSettings(
+          appName: 'OhGithubLost',
+          appUserModelId: _kWindowsAppUserModelId,
+          guid: _kWindowsGuid,
+        ),
+      );
+    }
+    throw UnsupportedError('平台不支持系统通知：${Platform.operatingSystem}');
+  }
+
+  Future<bool> _ensureInit() async {
+    if (_initialized) {
+      return !_unavailable;
+    }
+    _initialized = true;
+    try {
+      final InitializationSettings settings = _initializationSettings();
+      final bool? ok = await _plugin.initialize(settings);
+      if (ok == false) {
+        _unavailable = true;
+        _unavailableReason = '插件初始化返回 false';
+        OgLAppLog.instance.add(
+          '通知',
+          '系统通知初始化失败：插件返回 false',
+          severity: OgLNoticeSeverity.warning,
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      _unavailable = true;
+      _unavailableReason = '$error';
+      OgLAppLog.instance.add(
+        '通知',
+        '系统通知不可用（后台提示将只落盘）：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+      return false;
+    }
+  }
+
+  /// 发送一条系统通知。失败只留痕，不抛。
+  Future<void> show({required String title, String? body}) async {
+    try {
+      if (!await _ensureInit()) {
+        return;
+      }
+      const NotificationDetails details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          'ogl_events',
+          '应用通知',
+          channelDescription: '下载完成、任务结束与重要错误提醒',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+      );
+      await _plugin.show(_nextId++, title, body, details);
+    } catch (error) {
+      OgLAppLog.instance.add(
+        '通知',
+        '发送系统通知失败：$error',
+        severity: OgLNoticeSeverity.warning,
+      );
+    }
+  }
+}

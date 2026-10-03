@@ -17,10 +17,13 @@
 /// 普通告警用 `SnackBar`（不打断操作）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../kernel/boot/trust_warnings.dart';
 import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
+import 'system_notifier.dart';
 
 /// 通知严重级别。
 enum OgLNoticeSeverity {
@@ -392,10 +395,9 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
 
   /// 系统通知通道（后台 / `allChannels` 时使用）。
   ///
-  /// **现状（不静默）**：下载完成这类系统通知由 `background_downloader` 自己投递；
-  /// 其余后台通知在没有平台插件前，这里**落盘 + 记入应用日志**，并在用户回到
-  /// 前台时由 [_drain] 补发横幅，因此消息不会丢。接入平台插件（如
-  /// `flutter_local_notifications`）时，只需替换此方法体。
+  /// - 真正投递：`OgLSystemNotifier`（Android / Windows / Linux / macOS / iOS）；
+  /// - 同时**落盘 + 记入应用日志**，即便系统通道不可用也不会丢消息；
+  /// - 回到前台后，[_drain] 仍会把排队中的应用内提示补发出来。
   void _emitSystemNotice(OgLNotice notice) {
     final String text =
         notice.detail == null || notice.detail!.isEmpty
@@ -411,6 +413,10 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
       '[系统通道] $text',
       severity: notice.severity,
     );
+    unawaited(OgLSystemNotifier.instance.show(
+      title: notice.title,
+      body: notice.detail,
+    ));
   }
 
   /// 严重：弹窗（必须被阅读）。

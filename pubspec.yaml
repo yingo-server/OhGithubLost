@@ -67,6 +67,11 @@ dependencies:
   # ── 中枢层 · 下载与二进制 ───────────────────────────────────────────
   background_downloader: ^9.6.3     # 多平台后台下载（断点续传 / 队列 / 通知）
   archive: ^3.6.1                   # Actions 日志 zip 解压
+  # ── 展示层 · 系统级通知 ─────────────────────────────────────────────
+  # 后台时的"系统通知"通道（下载完成 / 任务结束 / 严重错误）。
+  # 注：Android 需要 core library desugaring，构建期由
+  #     tool/inject_android_gradle.py 幂等注入（见 build.yml）。
+  flutter_local_notifications: ^22.3.1
   # ── 中枢层 · 工作流参数解析 ─────────────────────────────────────────
   # 手动触发工作流前，从 `.github/workflows/*.yml` 解析 `on.workflow_dispatch.inputs`
   # （必选参数 / 默认值 / 选项），据此生成表单。纯 Dart，无平台依赖。

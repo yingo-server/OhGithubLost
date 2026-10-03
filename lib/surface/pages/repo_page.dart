@@ -1023,6 +1023,14 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   Future<void> _deleteEntry(GhContent entry) async {
+    if (!widget.canWrite) {
+      _toast('你没有该仓库的写权限');
+      return;
+    }
+    if (entry.isDirectory) {
+      await _deleteDirectory(entry);
+      return;
+    }
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
@@ -1068,6 +1076,168 @@ class _CodeTabState extends State<_CodeTab> {
       await _reload();
     } catch (error) {
       _toast('删除失败：$error');
+    }
+  }
+
+  /// 删除**目录**（含其下全部文件，一次原子提交）。
+  ///
+  /// 为什么单列：Git 不跟踪空目录，目录本身只是一组文件路径的前缀，
+  /// 因此"删目录"= 删掉该前缀下的**全部 blob**，必须走 `commitFiles`
+  /// 的批量删除才能保证"要么全成、要么全不成"。
+  Future<void> _deleteDirectory(GhContent entry) async {
+    final String prefix = '${entry.path}/';
+    final List<String> paths = <String>[];
+    try {
+      final GhTree tree = await widget.surface.domain.api.tree(
+        widget.fullName,
+        branch: widget.branch,
+      );
+      if (tree.truncated) {
+        _toast('目录过大（GitHub 结果被截断），为安全起见请分批删除');
+        return;
+      }
+      for (final GhTreeEntry node in tree.entries) {
+        if (node.isFile && node.path.startsWith(prefix)) {
+          paths.add(node.path);
+        }
+      }
+    } catch (error) {
+      _toast('读取目录内容失败：$error');
+      return;
+    }
+    if (paths.isEmpty) {
+      _toast('该目录下没有可删除的文件（Git 不跟踪空目录）');
+      return;
+    }
+    const int maxBatch = 200;
+    if (paths.length > maxBatch) {
+      _toast('该目录含 ${paths.length} 个文件，超过单次上限 $maxBatch，请分批删除');
+      return;
+    }
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('删除目录'),
+        content: Text(
+          '将删除目录 ${entry.path} 下的 **${paths.length}** 个文件，'
+          '并在一次提交中完成。该操作不易撤销。',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await widget.surface.domain.api.commitFiles(
+        widget.fullName,
+        branch: widget.branch,
+        upserts: const <String, String>{},
+        deletions: paths,
+        message: 'chore: delete directory ${entry.path}',
+      );
+      OgLAppLog.instance.result('仓库', '已删除目录', '${entry.path}（${paths.length} 个文件）');
+      _toast('已删除目录：${entry.path}');
+      await _reload();
+    } catch (error) {
+      _toast('删除目录失败：$error');
+    }
+  }
+
+  /// 重命名**文件**（内容不变，一次原子提交：新增新路径 + 删除旧路径）。
+  ///
+  /// 目录重命名不在此支持：它需要逐个文件搬运内容，代价与风险都高，
+  /// 会明确提示用户（不静默失败）。
+  Future<void> _renameEntry(GhContent entry) async {
+    if (!widget.canWrite) {
+      _toast('你没有该仓库的写权限');
+      return;
+    }
+    if (entry.isDirectory) {
+      _toast('暂不支持目录重命名（请逐个文件处理）');
+      return;
+    }
+    final TextEditingController target =
+        TextEditingController(text: entry.path);
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('重命名文件'),
+        content: TextField(
+          controller: target,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '新路径',
+            helperText: '路径仅允许英文字母、数字与 . _ -',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('重命名'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      target.dispose();
+      return;
+    }
+    final String next = target.text.trim();
+    target.dispose();
+    if (next == entry.path) {
+      return;
+    }
+    final String? pathError =
+        ogLValidateRepoEntryPath(next, directory: false);
+    if (pathError != null) {
+      _toast(pathError);
+      return;
+    }
+    if (ogLIsGitKeep(next)) {
+      _toast('.gitkeep 是目录占位文件，不能重命名');
+      return;
+    }
+    try {
+      final GhContent? current = await widget.surface.domain.api.content(
+        widget.fullName,
+        entry.path,
+        branch: widget.branch,
+      );
+      final String? text = current?.text;
+      if (text == null) {
+        _toast('该文件不是文本（或读取失败），无法安全重命名');
+        return;
+      }
+      await widget.surface.domain.api.commitFiles(
+        widget.fullName,
+        branch: widget.branch,
+        upserts: <String, String>{next: text},
+        deletions: <String>[entry.path],
+        message: 'chore: rename ${entry.path} -> $next',
+      );
+      OgLAppLog.instance.result('仓库', '已重命名', '${entry.path} → $next');
+      _toast('已重命名为：$next');
+      await _reload();
+    } catch (error) {
+      _toast('重命名失败：$error');
     }
   }
 
@@ -1195,10 +1365,22 @@ class _CodeTabState extends State<_CodeTab> {
                 _showEntryDetails(entry);
               },
             ),
-            if (!entry.isDirectory && widget.canWrite)
+            if (widget.canWrite && !entry.isDirectory)
+              ListTile(
+                leading: const Icon(Icons.drive_file_rename_outline),
+                title: const Text('重命名'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_renameEntry(entry));
+                },
+              ),
+            if (widget.canWrite)
               ListTile(
                 leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                title: Text('删除', style: TextStyle(color: theme.colorScheme.error)),
+                title: Text(
+                  entry.isDirectory ? '删除目录' : '删除文件',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_deleteEntry(entry));

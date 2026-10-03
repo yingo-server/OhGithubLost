@@ -19,6 +19,7 @@ import '../../kernel/kernel.dart';
 import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
+import 'animations.dart';
 import 'client_shell.dart';
 import 'error_surface.dart';
 import 'keyboard_guard.dart';
@@ -65,6 +66,11 @@ class OgLApp extends StatelessWidget {
             ],
             // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
             scrollBehavior: const OgLScrollBehavior(),
+            // R7：主题切换也带动画（设置里换明暗/主题色时不再"硬切"）。
+            themeAnimationDuration: OgLAnim.enabled(context)
+                ? const Duration(milliseconds: 260)
+                : Duration.zero,
+            themeAnimationCurve: Curves.easeOut,
             theme: surface
                 .themeFor(MediaQuery.platformBrightnessOf(context))
                 .copyWith(
