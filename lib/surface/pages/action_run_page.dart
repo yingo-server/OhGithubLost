@@ -269,143 +269,161 @@ class _ActionRunPageState extends State<ActionRunPage> {
           final bool running = status != 'completed';
           return RefreshIndicator(
             onRefresh: () => _detailC().load(),
-            child: ListView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      _statusIcon(status, conclusion),
-                      color: _statusColor(theme, status, conclusion),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        ghStr(run, 'display_title').isEmpty
-                            ? ghStr(run, 'name')
-                            : ghStr(run, 'display_title'),
-                        style: theme.textTheme.titleMedium,
+              slivers: <Widget>[
+                // 头部（常量级）：状态 / 操作按钮 /「作业」标题 /（空态提示）。
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        _statusIcon(status, conclusion),
+                        color: _statusColor(theme, status, conclusion),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
-                  '${ghStr(run, 'head_branch')} · ${ghShortSha(ghStr(run, 'head_sha'))}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_t('status', {'status': status})}'
-                  '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
-                  '${ghDate(run, 'created_at')}',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    if (!running)
-                      FilledButton.tonalIcon(
-                        onPressed: _busy ? null : _rerun,
-                        icon: const Icon(Icons.refresh),
-                        label:  Text(_t('rerun')),
-                      ),
-                    if (running)
-                      OutlinedButton.icon(
-                        onPressed: _busy ? null : _cancel,
-                        icon: const Icon(Icons.cancel_outlined),
-                        label:  Text(_t('cancelRun')),
-                      ),
-                    if (htmlUrl.isNotEmpty)
-                      TextButton.icon(
-                        onPressed: () {
-                          unawaited(openLinkOrCopy(context, htmlUrl, tag: 'Actions'));
-                        },
-                        icon: const Icon(Icons.open_in_new),
-                        label:  Text(_t('openInBrowser')),
-                      ),
-                  ],
-                ),
-                const Divider(height: 32),
-                Text(_t('jobs'), style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                if (detail.jobs.isEmpty)
-                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text(_t('noJobs')),
-                  )
-                else
-                  for (final Map<String, dynamic> job in detail.jobs)
-                    Card(
-                      child: ExpansionTile(
-                        leading: Icon(
-                          _statusIcon(
-                            ghStr(job, 'status'),
-                            ghStr(job, 'conclusion'),
-                          ),
-                          color: _statusColor(
-                            theme,
-                            ghStr(job, 'status'),
-                            ghStr(job, 'conclusion'),
-                          ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          ghStr(run, 'display_title').isEmpty
+                              ? ghStr(run, 'name')
+                              : ghStr(run, 'display_title'),
+                          style: theme.textTheme.titleMedium,
                         ),
-                        title: Text(
-                          ghStr(job, 'name'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '${ghStr(job, 'status')} · '
-                          '${ghStr(job, 'conclusion').isEmpty ? '—' : ghStr(job, 'conclusion')}',
-                        ),
-                        childrenPadding:
-                            const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        children: <Widget>[
-                          for (final Object? rawStep in (job['steps'] is List
-                              ? job['steps'] as List<Object?>
-                              : const <Object?>[]))
-                            if (rawStep is Map<Object?, Object?>)
-                              Builder(builder: (BuildContext context) {
-                                final Map<String, dynamic> step =
-                                    Map<String, dynamic>.from(rawStep);
-                                return ListTile(
-                                  dense: true,
-                                  leading: Icon(
-                                    _statusIcon(
-                                      ghStr(step, 'status'),
-                                      ghStr(step, 'conclusion'),
-                                    ),
-                                    size: 18,
-                                    color: _statusColor(
-                                      theme,
-                                      ghStr(step, 'status'),
-                                      ghStr(step, 'conclusion'),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    '${ghInt(step, 'number')}. ${ghStr(step, 'name')}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    <String>[
-                                      ghStr(step, 'status'),
-                                      if (ghStr(step, 'conclusion').isNotEmpty)
-                                        ghStr(step, 'conclusion'),
-                                      if (_durationText(step).isNotEmpty)
-                                        _durationText(step),
-                                    ].join(' · '),
-                                  ),
-                                );
-                              }),
-                        ],
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${ghStr(run, 'name')} · ${ghStr(run, 'event')} · '
+                    '${ghStr(run, 'head_branch')} · ${ghShortSha(ghStr(run, 'head_sha'))}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_t('status', {'status': status})}'
+                    '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
+                    '${ghDate(run, 'created_at')}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      if (!running)
+                        FilledButton.tonalIcon(
+                          onPressed: _busy ? null : _rerun,
+                          icon: const Icon(Icons.refresh),
+                          label:  Text(_t('rerun')),
+                        ),
+                      if (running)
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _cancel,
+                          icon: const Icon(Icons.cancel_outlined),
+                          label:  Text(_t('cancelRun')),
+                        ),
+                      if (htmlUrl.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            unawaited(openLinkOrCopy(context, htmlUrl, tag: 'Actions'));
+                          },
+                          icon: const Icon(Icons.open_in_new),
+                          label:  Text(_t('openInBrowser')),
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 32),
+                  Text(_t('jobs'), style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  if (detail.jobs.isEmpty)
+                     Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(_t('noJobs')),
+                    )
+                      ],
                     ),
-                const SizedBox(height: 24),
+                  ),
+                ),
+                // 作业：按需构建（作业/步骤可以很多）。
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList.builder(
+                    itemCount: detail.jobs.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final Map<String, dynamic> job = detail.jobs[index];
+                      return Card(
+                                                  child: ExpansionTile(
+                                                    leading: Icon(
+                                                      _statusIcon(
+                                                        ghStr(job, 'status'),
+                                                        ghStr(job, 'conclusion'),
+                                                      ),
+                                                      color: _statusColor(
+                                                        theme,
+                                                        ghStr(job, 'status'),
+                                                        ghStr(job, 'conclusion'),
+                                                      ),
+                                                    ),
+                                                    title: Text(
+                                                      ghStr(job, 'name'),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    subtitle: Text(
+                                                      '${ghStr(job, 'status')} · '
+                                                      '${ghStr(job, 'conclusion').isEmpty ? '—' : ghStr(job, 'conclusion')}',
+                                                    ),
+                                                    childrenPadding:
+                                                        const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                                    children: <Widget>[
+                                                      for (final Object? rawStep in (job['steps'] is List
+                                                          ? job['steps'] as List<Object?>
+                                                          : const <Object?>[]))
+                                                        if (rawStep is Map<Object?, Object?>)
+                                                          Builder(builder: (BuildContext context) {
+                                                            final Map<String, dynamic> step =
+                                                                Map<String, dynamic>.from(rawStep);
+                                                            return ListTile(
+                                                              dense: true,
+                                                              leading: Icon(
+                                                                _statusIcon(
+                                                                  ghStr(step, 'status'),
+                                                                  ghStr(step, 'conclusion'),
+                                                                ),
+                                                                size: 18,
+                                                                color: _statusColor(
+                                                                  theme,
+                                                                  ghStr(step, 'status'),
+                                                                  ghStr(step, 'conclusion'),
+                                                                ),
+                                                              ),
+                                                              title: Text(
+                                                                '${ghInt(step, 'number')}. ${ghStr(step, 'name')}',
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                              subtitle: Text(
+                                                                <String>[
+                                                                  ghStr(step, 'status'),
+                                                                  if (ghStr(step, 'conclusion').isNotEmpty)
+                                                                    ghStr(step, 'conclusion'),
+                                                                  if (_durationText(step).isNotEmpty)
+                                                                    _durationText(step),
+                                                                ].join(' · '),
+                                                              ),
+                                                            );
+                                                          }),
+                                                    ],
+                                                  ),
+                                                );
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
               ],
             ),
           );

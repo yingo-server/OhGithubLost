@@ -1697,57 +1697,69 @@ class _CodeTabState extends State<_CodeTab> {
                 }
                 return RefreshIndicator(
                   onRefresh: () => _reload(),
-                  child: ListView(
+                  child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: <Widget>[
-                      if (_path.isNotEmpty)
-                        ListTile(
-                          leading: const Icon(Icons.arrow_upward),
-                          title:  Text(_t('parentDir')),
-                          onTap: () {
-                            final int cut = _path.lastIndexOf('/');
-                            unawaited(_goTo(cut <= 0 ? '' : _path.substring(0, cut)));
-                          },
-                        ),
-                      if (_path.isEmpty) _readmeTile(),
-                      if (shown.isEmpty)
-                         Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: Text(_t('noMatchingEntries'))),
-                        ),
-                      for (int i = 0; i < shown.length; i++)
-                        OgLReveal(
-                          delay: OgLAnim.staggerOf(context, i),
-                          child: ListTile(
-                            leading: Icon(
-                              ogLFileVisualFor(shown[i].path,
-                                      isDirectory: shown[i].isDirectory)
-                                  .icon,
-                              color: ogLFileVisualFor(shown[i].path,
-                                      isDirectory: shown[i].isDirectory)
-                                  .color,
+                    slivers: <Widget>[
+                      // 头部（常量级）：父目录 / README / 空态提示。
+                      SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                          if (_path.isNotEmpty)
+                            ListTile(
+                              leading: const Icon(Icons.arrow_upward),
+                              title:  Text(_t('parentDir')),
+                              onTap: () {
+                                final int cut = _path.lastIndexOf('/');
+                                unawaited(_goTo(cut <= 0 ? '' : _path.substring(0, cut)));
+                              },
                             ),
-                            title: Text(
-                              ghPathName(shown[i].path),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: shown[i].isDirectory
-                                ? null
-                                : Text(ghSizeText(shown[i].size)),
-                            trailing: shown[i].isDirectory
-                                ? const Icon(Icons.chevron_right)
-                                : null,
-                            onTap: () {
-                              if (shown[i].isDirectory) {
-                                unawaited(_goTo(shown[i].path));
-                              } else {
-                                unawaited(_openFile(shown[i]));
-                              }
-                            },
-                            onLongPress: () => unawaited(_showEntryMenu(shown[i])),
-                          ),
+                          if (_path.isEmpty) _readmeTile(),
+                          if (shown.isEmpty)
+                             Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: Text(_t('noMatchingEntries'))),
+                            )
+                          ],
                         ),
+                      ),
+                      // 数据行：按需构建（长目录不再一次性构建）。
+                      SliverList.builder(
+                        itemCount: shown.length,
+                        itemBuilder: (BuildContext context, int index) =>
+                              OgLReveal(
+                                delay: OgLAnim.staggerOf(context, index),
+                                child: ListTile(
+                                  leading: Icon(
+                                    ogLFileVisualFor(shown[index].path,
+                                            isDirectory: shown[index].isDirectory)
+                                        .icon,
+                                    color: ogLFileVisualFor(shown[index].path,
+                                            isDirectory: shown[index].isDirectory)
+                                        .color,
+                                  ),
+                                  title: Text(
+                                    ghPathName(shown[index].path),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: shown[index].isDirectory
+                                      ? null
+                                      : Text(ghSizeText(shown[index].size)),
+                                  trailing: shown[index].isDirectory
+                                      ? const Icon(Icons.chevron_right)
+                                      : null,
+                                  onTap: () {
+                                    if (shown[index].isDirectory) {
+                                      unawaited(_goTo(shown[index].path));
+                                    } else {
+                                      unawaited(_openFile(shown[index]));
+                                    }
+                                  },
+                                  onLongPress: () => unawaited(_showEntryMenu(shown[index])),
+                                ),
+                              ),
+                      ),
                     ],
                   ),
                 );

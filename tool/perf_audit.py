@@ -42,6 +42,18 @@ ALLOW = {
 }
 
 # 行级规则（简单、无歧义）
+# 「已评估：数量有界，保持急加载」——不是漏改，是在这里写明理由。
+# 急加载对这些页面**更划算**（数据量小、一次性构建省掉懒加载的每帧判断），
+# 登记之后报告里就不再"看起来像待办"。
+REVIEWED_BOUNDED = {
+    'lib/surface/pages/about_page.dart': '静态清单（依赖/许可，常量条数）',
+    'lib/surface/pages/profile_page.dart': '本地账号（通常 ≤ 10）',
+    'lib/surface/pages/gist_detail_page.dart': 'Gist 文件（通常 < 20）',
+    'lib/surface/pages/release_detail_page.dart': 'Release 附件（通常 < 30）',
+    'lib/surface/pages/workflow_dispatch_page.dart': '工作流 inputs（表单，条数少）',
+    'lib/surface/pages/repo_page.dart': '分支选择弹层（打开即用，通常几十条）',
+}
+
 RULES = [
     ('shrinkWrap', re.compile(r'shrinkWrap:\s*true')),
     ('宽 MediaQuery.of', re.compile(r'MediaQuery\.of\(context\)')),
@@ -115,7 +127,12 @@ def main():
         rows = by_rule[label]
         print('\n## %s（%d）' % (label, len(rows)))
         for rel, line, text in rows:
-            mark = '（已登记例外）' if rel in ALLOW else ''
+            if rel in ALLOW:
+                mark = '（已登记例外）'
+            elif rel in REVIEWED_BOUNDED:
+                mark = '（已评估·数量有界：%s）' % REVIEWED_BOUNDED[rel]
+            else:
+                mark = ''
             print('  %s:%d%s %s' % (rel, line, mark, text))
 
     # 门禁只看"未登记例外"的急加载列表与 shrinkWrap：这两条修起来确定、无争议

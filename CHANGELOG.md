@@ -69,6 +69,18 @@
   （数据仍逐条立即入表，只是通知延后——不改变任何可见内容），
   避免通知中心整表反复重建。
 
+- **更多长列表改懒加载 · More lists made lazy**
+  - **仓库文件列表**（`repo_page`）：`ListView(children:[…])` → `CustomScrollView` +
+    `SliverList.builder`——目录动辄上百个文件，此前一次性构建全部行；
+  - **议题评论**（`issue_page`）→ `OgLAsyncSliver`；
+  - **Actions 作业列表**（`action_run_page`）→ `SliverList.builder`（作业 + 步骤）。
+  手法统一：**行内容原样保留**，只是移进 `itemBuilder` 闭包并用 `index` 取当前行
+  （不抽方法、不改视觉），减少回归面。
+- **已评估、数量有界、刻意保持急加载 · Reviewed, bounded, kept eager**：
+  「关于」清单、本地账号、Gist 文件、Release 附件、工作流 inputs、分支选择弹层
+  （常量级或几十条以内）。这些已在 `perf_audit.py` 的 `REVIEWED_BOUNDED` 里逐条登记
+  理由，避免"看起来像待办"。
+
 **门禁**：`tool/perf_audit.py --fatal` 已接入 CI，拦截 `shrinkWrap: true`
 与过宽的 `MediaQuery.of(context)`（必要例外逐个登记并写明理由）；
 新增 `test/surface/async_sliver_test.dart`（500 行只构建视口附近的行）。
