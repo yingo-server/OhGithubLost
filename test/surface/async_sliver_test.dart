@@ -6,8 +6,6 @@
 /// 交给 `SliverList.builder` **按需构建**——这里把"只构建视口附近"钉成测试。
 library;
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/app/async.dart';
@@ -16,6 +14,7 @@ void main() {
   testWidgets('OgLAsyncSliver：500 行只构建视口附近的少数行', (WidgetTester tester) async {
     final AsyncController<List<int>> controller = AsyncController<List<int>>(
       label: '测试',
+      isEmpty: (List<int> rows) => rows.isEmpty,
       loader: () async => List<int>.generate(500, (int i) => i),
     );
     await controller.load();

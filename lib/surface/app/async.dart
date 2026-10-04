@@ -302,7 +302,13 @@ class OgLAsyncErrorPane extends StatelessWidget {
 
 /// 空态面板：图标 + 一句话 + 可选动作。
 class OgLAsyncEmptyPane extends StatelessWidget {
-  const _EmptyPane({required this.icon, required this.text, this.action});
+  /// 创建。
+  const OgLAsyncEmptyPane({
+    required this.icon,
+    required this.text,
+    this.action,
+    super.key,
+  });
 
   final IconData icon;
   final String text;
@@ -333,7 +339,12 @@ class OgLAsyncEmptyPane extends StatelessWidget {
 
 /// 软错误条：刷新失败时保留旧数据，只在上方提示。
 class OgLAsyncSoftErrorBar extends StatelessWidget {
-  const _SoftErrorBar({required this.message, required this.onDismiss});
+  /// 创建。
+  const OgLAsyncSoftErrorBar({
+    required this.message,
+    required this.onDismiss,
+    super.key,
+  });
 
   final String message;
   final VoidCallback onDismiss;
