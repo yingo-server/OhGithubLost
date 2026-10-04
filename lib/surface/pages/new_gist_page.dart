@@ -12,8 +12,9 @@ import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 
 /// 取 `new_gist_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('new_gist_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('new_gist_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 新建 Gist 页。
 class NewGistPage extends StatefulWidget {
@@ -74,12 +75,12 @@ class _NewGistPageState extends State<NewGistPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('createFailed', <String, String>{'error': error}),
+        _t('createFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('createFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('createFailed', {'error': error}))),
         );
       }
     } finally {

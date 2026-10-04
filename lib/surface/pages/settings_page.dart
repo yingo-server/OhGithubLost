@@ -208,7 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('logout')),
         content: Text(
-          _t('logoutDesc', <String, String>{'login': account.login}) +
+          _t('logoutDesc', {'login': account.login}) +
           _t('logoutDesc2'),
         ),
         actions: <Widget>[
@@ -239,7 +239,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('logoutFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('logoutFailed', {'error': error}))),
         );
       }
     }
@@ -352,8 +352,8 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('donateHeart')),
         content: Text(
-          _t('donateDesc1', <String, String>{'login': account.login}) +
-          _t('donateDesc2', <String, String>{'repo': OgLProjectInfo.repoFullName}) +
+          _t('donateDesc1', {'login': account.login}) +
+          _t('donateDesc2', {'repo': OgLProjectInfo.repoFullName}) +
           _t('donateDesc3'),
         ),
         actions: <Widget>[
@@ -392,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('actionFailed', {'error': error}))),
         );
       }
     }
@@ -405,7 +405,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('copiedLogLines', <String, String>{'count': lines.length}))),
+      SnackBar(content: Text(_t('copiedLogLines', {'count': lines.length}))),
     );
   }
 
@@ -462,7 +462,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: ListTile(
                   leading: Icon(Icons.favorite, color: theme.colorScheme.error),
                   title:  Text(_t('donateHeart')),
-                  subtitle: Text(_t('donateTileDesc', <String, String>{'repo': OgLProjectInfo.repoFullName})),
+                  subtitle: Text(_t('donateTileDesc', {'repo': OgLProjectInfo.repoFullName})),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _donateStar,
                 ),
@@ -674,7 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 for (final MapEntry<String, String> entry
                     in kOgLCodePresetLabels.entries)
                   ChoiceChip(
-                    label: Text(entry.value),
+                    label: Text(ogLCodePresetLabel(entry.key)),
                     selected: value.codeThemePreset == entry.key,
                     // 同款修正：选中态用 primary 底 + onPrimary 字/勾，确保明环境下的对比度。
                     selectedColor: theme.colorScheme.primary,
@@ -852,10 +852,10 @@ const Divider(height: 1),
         subtitle: Text(
           value.accelConsentCurrent
               ? (value.releaseProxyConsentAt == null
-                  ? _t('consented', <String, String>{
+                  ? _t('consented', {
                       'version': '${value.releaseProxyConsentVersion}',
                     })
-                  : _t('consentedAt', <String, String>{
+                  : _t('consentedAt', {
                       'version': '${value.releaseProxyConsentVersion}',
                       'at': '${value.releaseProxyConsentAt}',
                     }))
@@ -1000,7 +1000,7 @@ const Divider(height: 1),
     name.dispose();
     url.dispose();
     if (mounted) {
-      _toast(_t('channelAdded', <String, String>{'label': label}));
+      _toast(_t('channelAdded', {'label': label}));
     }
   }
 
@@ -1033,7 +1033,7 @@ const Divider(height: 1),
               return ListTile(
                 leading: const Icon(Icons.key),
                 title: Text('@${account.login}'),
-                subtitle: Text(_t('accountId', <String, String>{'id': account.id})),
+                subtitle: Text(_t('accountId', {'id': account.id})),
                 trailing: OutlinedButton(
                   onPressed: () => _logout(account),
                   child: Text(_t('logout')),
@@ -1074,7 +1074,7 @@ const Divider(height: 1),
         children: <Widget>[
           ListTile(
             leading: const Icon(Icons.gavel_outlined),
-            title: Text(_t('licenseSelf', <String, String>{'name': OgLProjectInfo.name})),
+            title: Text(_t('licenseSelf', {'name': OgLProjectInfo.name})),
             subtitle: Text(
               '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
             ),
@@ -1083,7 +1083,7 @@ const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.inventory_2_outlined),
             title:  Text(_t('thirdPartyDeps')),
-            subtitle: Text(_t('depsCount', <String, String>{'count': kOgLDependencyLicenses.length})),
+            subtitle: Text(_t('depsCount', {'count': kOgLDependencyLicenses.length})),
           ),
           for (final OgLDependencyLicense dep in kOgLDependencyLicenses)
             ListTile(
@@ -1219,7 +1219,7 @@ const Divider(height: 1),
             const Icon(Icons.chevron_right),
           ],
         ),
-        onTap: () => _pickCodeColor(field, argb, _t('chooseColor', <String, String>{'label': label})),
+        onTap: () => _pickCodeColor(field, argb, _t('chooseColor', {'label': label})),
       );
 
   Widget _sliderTile(

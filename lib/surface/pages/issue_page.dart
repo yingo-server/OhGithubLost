@@ -20,8 +20,9 @@ import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
 
 /// 取 `issue_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('issue_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('issue_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 评论文本上限（字符数）。
 ///
@@ -99,7 +100,7 @@ class _IssuePageState extends State<IssuePage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(closing ? _t('closeIssue', <String, String>{'number': _number}) : _t('reopenIssue', <String, String>{'number': _number})),
+        title: Text(closing ? _t('closeIssue', {'number': _number}) : _t('reopenIssue', {'number': _number})),
         content: Text(closing ? _t('closeHint') : _t('reopenHint')),
         actions: <Widget>[
           TextButton(
@@ -135,12 +136,12 @@ class _IssuePageState extends State<IssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        _t('toggleFailed', <String, String>{'error': error}),
+        _t('toggleFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('actionFailed', {'error': error}))),
         );
       }
     } finally {
@@ -163,7 +164,7 @@ class _IssuePageState extends State<IssuePage> {
     if (body.length > _kMaxCommentChars) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_t('commentTooLong', <String, String>{'length': body.length, 'max': _kMaxCommentChars})),
+          content: Text(_t('commentTooLong', {'length': body.length, 'max': _kMaxCommentChars})),
         ),
       );
       return;
@@ -192,12 +193,12 @@ class _IssuePageState extends State<IssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        _t('commentPostFailed', <String, String>{'error': error}),
+        _t('commentPostFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('commentFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('commentFailed', {'error': error}))),
         );
       }
     } finally {

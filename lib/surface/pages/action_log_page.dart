@@ -12,8 +12,9 @@ import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 
 /// 取 `action_log_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('action_log_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('action_log_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// Actions 日志页。
 class ActionLogPage extends StatefulWidget {

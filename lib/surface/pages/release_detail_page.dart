@@ -28,8 +28,9 @@ import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
 
 /// 取 `release_detail_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('release_detail_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('release_detail_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 发布详情页。
 class ReleaseDetailPage extends StatefulWidget {
@@ -166,11 +167,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('publish'),
-        _t('updateFailed', <String, String>{'error': error}),
+        _t('updateFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('saveFailed', <String, String>{'error': error}));
+        _toast(_t('saveFailed', {'error': error}));
       }
     } finally {
       if (mounted) {
@@ -184,7 +185,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteTitle')),
-        content: Text(_t('deleteDesc', <String, String>{'tag': _release.tagName})),
+        content: Text(_t('deleteDesc', {'tag': _release.tagName})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -213,11 +214,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('publish'),
-        _t('deleteFailed', <String, String>{'error': error}),
+        _t('deleteFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('deleteFailed', <String, String>{'error': error}));
+        _toast(_t('deleteFailed', {'error': error}));
       }
     } finally {
       if (mounted) {
@@ -242,11 +243,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         category: IxDownloadCategory.release,
       );
       if (mounted) {
-        _toast(_t('addedToDownload', <String, String>{'name': asset.name}));
+        _toast(_t('addedToDownload', {'name': asset.name}));
       }
     } catch (error) {
       if (mounted) {
-        _toast(_t('addDownloadFailed', <String, String>{'error': error}));
+        _toast(_t('addDownloadFailed', {'error': error}));
       }
     }
   }
@@ -438,14 +439,14 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
             Text(
               <String>[
                 if (_release.publishedAt != null)
-                  _t('publishedAt', <String, String>{
+                  _t('publishedAt', {
                     'date': _release.publishedAt!
                         .toIso8601String()
                         .split('T')
                         .first,
                   }),
                 if (marks.isNotEmpty) marks.join(' / '),
-                _t('assetsCount', <String, String>{'count': _release.assets.length}),
+                _t('assetsCount', {'count': _release.assets.length}),
               ].join(' · '),
               style: theme.textTheme.bodySmall,
             ),
@@ -482,7 +483,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      _t('assetMeta', <String, String>{'size': ghSizeText(asset.size), 'count': asset.downloadCount}),
+                      _t('assetMeta', {'size': ghSizeText(asset.size), 'count': asset.downloadCount}),
                     ),
                     trailing: const Icon(Icons.info_outline),
                     // R5：点击**先看详情**（不再直接触发下载）；长按弹出快捷操作。

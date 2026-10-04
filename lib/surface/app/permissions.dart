@@ -32,8 +32,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `shell` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('shell', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 权限种类（与业务相关的最小集合）。
 enum OgLPermission {

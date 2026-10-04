@@ -63,8 +63,9 @@ import 'package:re_highlight/re_highlight.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `common` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('common', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('common', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 高亮语言注册的上限（超过即跳过高亮，避免超大文件拖垮渲染）。
 const int kOgLHighlightMaxChars = 400 * 1024;
@@ -85,13 +86,17 @@ const String kOgLCodePresetSoft = 'soft';
 /// 预设：自定义（用户自选每个 token 的颜色）。
 const String kOgLCodePresetCustom = 'custom';
 
-/// 全部预设（id → 展示名）。
+/// 全部预设（id → `common` 分片键）。
 const Map<String, String> kOgLCodePresetLabels = <String, String>{
-  kOgLCodePresetTheme: _t('codePresetTheme'),
-  kOgLCodePresetHighContrast: _t('codePresetHighContrast'),
-  kOgLCodePresetSoft: _t('codePresetSoft'),
-  kOgLCodePresetCustom: _t('codePresetCustom'),
+  kOgLCodePresetTheme: 'codePresetTheme',
+  kOgLCodePresetHighContrast: 'codePresetHighContrast',
+  kOgLCodePresetSoft: 'codePresetSoft',
+  kOgLCodePresetCustom: 'codePresetCustom',
 };
+
+/// 预设展示名（`common` 分片）。
+String ogLCodePresetLabel(String id) =>
+    OgLI18n.instance.t('common', kOgLCodePresetLabels[id] ?? id);
 
 /// 代码配色方案。
 @immutable

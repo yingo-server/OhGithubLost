@@ -23,8 +23,9 @@ import '../types.dart';
 import '../widgets/code_editor_field.dart';
 
 /// 取 `code_editor_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('code_editor_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('code_editor_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 全屏代码编辑器页。
 class CodeEditorPage extends StatefulWidget {
@@ -197,7 +198,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
           severity: OgLNoticeSeverity.critical,
         );
         if (mounted) {
-          _toast(_t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name}));
+          _toast(_t('commitFailedDetail', {'detail': result.detail ?? result.conflict.name}));
         }
         return;
       }
@@ -209,17 +210,17 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       );
       _saved = true;
       if (mounted) {
-        _toast(_t('committedPath', <String, String>{'path': widget.path}));
+        _toast(_t('committedPath', {'path': widget.path}));
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
         _t('editTitle'),
-        _t('commitFailedDetail', <String, String>{'detail': error}),
+        _t('commitFailedDetail', {'detail': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('commitFailedDetail', <String, String>{'detail': error}));
+        _toast(_t('commitFailedDetail', {'detail': error}));
       }
     } finally {
       if (mounted) {
@@ -237,8 +238,8 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text(_t('baseline', <String, String>{'sha': _short(result.baseSha)})),
-                Text(_t('remoteLatest', <String, String>{'sha': _short(result.sha)})),
+                Text(_t('baseline', {'sha': _short(result.baseSha)})),
+                Text(_t('remoteLatest', {'sha': _short(result.sha)})),
                 const SizedBox(height: 8),
                  Text(_t('overwriteWarning')),
                 if (result.remoteContent != null) ...<Widget>[
@@ -313,7 +314,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       sha == null || sha.isEmpty ? '—' : (sha.length <= 8 ? sha : sha.substring(0, 8));
 
   static String _preview(String text) =>
-      text.length <= 4000 ? text : _t('previewTruncated', <String, String>{'text': text.substring(0, 4000)});
+      text.length <= 4000 ? text : _t('previewTruncated', {'text': text.substring(0, 4000)});
 
   /// 只读预览（弹层）：与编辑器同一套库渲染，便于核对排版与高亮。
   void _previewSheet() {
@@ -341,7 +342,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Text(
-            _t('stats', <String, String>{'lines': _controller.lineCount, 'chars': _controller.text.length})
+            _t('stats', {'lines': _controller.lineCount, 'chars': _controller.text.length})
             '${_dirty ? ' · 未保存' : ''}',
             style: theme.textTheme.bodySmall,
           ),

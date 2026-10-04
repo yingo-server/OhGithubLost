@@ -21,8 +21,9 @@ import 'gist_detail_page.dart';
 import 'new_gist_page.dart';
 
 /// 取 `gists_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('gists_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('gists_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// Gist 列表页。
 class GistsPage extends StatefulWidget {
@@ -168,7 +169,7 @@ class _GistsPageState extends State<GistsPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  _t('fileCount', <String, String>{'count': _fileCountOf(gist)})
+                  _t('fileCount', {'count': _fileCountOf(gist)})
                   '${isPublic ? '公开' : _t('private')} · '
                   '${ghDate(gist, 'updated_at')}',
                   maxLines: 1,

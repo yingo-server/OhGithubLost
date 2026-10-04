@@ -30,8 +30,9 @@ import '../i18n/og_l_i18n.dart';
 import 'system_notifier.dart';
 
 /// 取 `shell` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('shell', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 通知严重级别。
 enum OgLNoticeSeverity {
@@ -413,12 +414,12 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
             : '${notice.title}：${notice.detail}';
     OgLLogFile.line(
       _t('notification'),
-      _t('systemChannel', <String, String>{'text': text}),
+      _t('systemChannel', {'text': text}),
       level: notice.severity == OgLNoticeSeverity.critical ? 'ERR' : 'WARN',
     );
     OgLAppLog.instance.add(
       _t('notification'),
-      _t('systemChannel', <String, String>{'text': text}),
+      _t('systemChannel', {'text': text}),
       severity: notice.severity,
     );
     unawaited(OgLSystemNotifier.instance.show(

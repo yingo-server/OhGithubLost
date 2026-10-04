@@ -19,8 +19,9 @@ import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
 
 /// 取 `pull_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('pull_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('pull_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// PR 详情页。
 class PullPage extends StatefulWidget {

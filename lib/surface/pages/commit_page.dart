@@ -16,8 +16,9 @@ import '../types.dart';
 import '../util/gh_format.dart';
 
 /// 取 `commit_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('commit_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('commit_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 提交详情页。
 class CommitPage extends StatefulWidget {

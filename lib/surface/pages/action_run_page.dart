@@ -20,8 +20,9 @@ import '../util/link_opener.dart';
 import 'action_log_page.dart';
 
 /// 取 `action_run_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('action_run_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('action_run_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 一次运行 + 它的作业列表。
 class _RunDetail {
@@ -117,12 +118,12 @@ class _ActionRunPageState extends State<ActionRunPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('rerunFailed', <String, String>{'error': error}),
+        _t('rerunFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('rerunFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('rerunFailed', {'error': error}))),
         );
       }
     } finally {
@@ -165,12 +166,12 @@ class _ActionRunPageState extends State<ActionRunPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('cancelFailed', <String, String>{'error': error}),
+        _t('cancelFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('cancelFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('cancelFailed', {'error': error}))),
         );
       }
     } finally {
@@ -225,9 +226,9 @@ class _ActionRunPageState extends State<ActionRunPage> {
       return '';
     }
     if (d.inSeconds < 60) {
-      return _t('durationSecs', <String, String>{'secs': d.inSeconds});
+      return _t('durationSecs', {'secs': d.inSeconds});
     }
-    return _t('durationMinSecs', <String, String>{'mins': d.inMinutes, 'secs': d.inSeconds % 60});
+    return _t('durationMinSecs', {'mins': d.inMinutes, 'secs': d.inSeconds % 60});
   }
 
   @override
@@ -236,7 +237,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _t('runNumber', <String, String>{
+          _t('runNumber', {
             'number': '${ghInt(widget.run, 'run_number')}',
           }),
           maxLines: 1,
@@ -300,7 +301,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _t('status', <String, String>{'status': status})
+                  _t('status', {'status': status})
                   '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
                   '${ghDate(run, 'created_at')}',
                   style: theme.textTheme.bodySmall,

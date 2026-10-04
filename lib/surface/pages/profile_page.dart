@@ -23,8 +23,9 @@ import 'login_page.dart';
 import 'repo_page.dart';
 
 /// 取 `profile_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('profile_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('profile_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 我的页。
 class ProfilePage extends StatefulWidget {
@@ -104,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_t('noTokenSwitch', <String, String>{'login': account.login})),
+            content: Text(_t('noTokenSwitch', {'login': account.login})),
           ),
         );
         return;
@@ -118,12 +119,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('accounts'),
-        _t('switchFailed', <String, String>{'error': error}),
+        _t('switchFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('switchFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('switchFailed', {'error': error}))),
         );
       }
     }
@@ -135,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('removeTitle')),
         content: Text(
-          _t('removeDesc', <String, String>{'login': account.login}) +
+          _t('removeDesc', {'login': account.login}) +
           _t('removeDesc2'),
         ),
         actions: <Widget>[
@@ -161,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
       } catch (error) {
         OgLAppLog.instance.add(
           _t('accounts'),
-          _t('clearCacheFailed', <String, String>{'error': error}),
+          _t('clearCacheFailed', {'error': error}),
           severity: OgLNoticeSeverity.warning,
         );
       }
@@ -169,12 +170,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('accounts'),
-        _t('removeFailed', <String, String>{'error': error}),
+        _t('removeFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('removeFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('removeFailed', {'error': error}))),
         );
       }
     }
@@ -284,7 +285,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     builder:
                         (BuildContext context, AsyncSnapshot<int> snapshot) {
                       final int count = snapshot.data ?? 0;
-                      return Text(count == 0 ? _t('noDrafts') : _t('draftCount', <String, String>{'count': count}));
+                      return Text(count == 0 ? _t('noDrafts') : _t('draftCount', {'count': count}));
                     },
                   ),
                 ),

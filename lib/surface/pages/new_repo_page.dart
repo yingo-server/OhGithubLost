@@ -15,8 +15,9 @@ import '../surface_bridge.dart';
 import '../types.dart';
 
 /// 取 `new_repo_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('new_repo_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('new_repo_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 新建仓库页。
 class NewRepoPage extends StatefulWidget {
@@ -72,13 +73,13 @@ class _NewRepoPageState extends State<NewRepoPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('createFailed', <String, String>{'error': error}),
+        _t('createFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = _t('createFailed', <String, String>{'error': error});
+          _error = _t('createFailed', {'error': error});
         });
       }
     }

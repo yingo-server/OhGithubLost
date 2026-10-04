@@ -50,8 +50,9 @@ import 'release_detail_page.dart';
 import 'workflow_dispatch_page.dart';
 
 /// 取 `repo` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('repo', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('repo', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 每页条数（统一）。
 const int _kPageSize = 30;
@@ -122,7 +123,7 @@ class _RepoPageState extends State<RepoPage> {
       // 拿不到详情**不静默**：留痕（通知中心可见）；此时按"不可写"处理。
       OgLAppLog.instance.add(
         '仓库',
-        _t('readFailedWritePerm', <String, String>{'error': error}),
+        _t('readFailedWritePerm', {'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
     }
@@ -160,7 +161,7 @@ class _RepoPageState extends State<RepoPage> {
         _toast(target ? _t('starred') : _t('unstarred'));
       }
     } catch (error) {
-      _toast(_t('actionFailed', <String, String>{'error': error}));
+      _toast(_t('actionFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _starBusy = false);
@@ -176,7 +177,7 @@ class _RepoPageState extends State<RepoPage> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('forkTitle')),
-        content: Text(_t('forkDesc', <String, String>{'full': _full})),
+        content: Text(_t('forkDesc', {'full': _full})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -196,9 +197,9 @@ class _RepoPageState extends State<RepoPage> {
     try {
       final GhRepo forked = await widget.surface.domain.api.fork(_full);
       OgLAppLog.instance.result('仓库', _t('forked'), forked.fullName);
-      _toast(_t('forkedAs', <String, String>{'name': forked.fullName}));
+      _toast(_t('forkedAs', {'name': forked.fullName}));
     } catch (error) {
-      _toast(_t('forkFailed', <String, String>{'error': error}));
+      _toast(_t('forkFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _forkBusy = false);
@@ -223,7 +224,7 @@ class _RepoPageState extends State<RepoPage> {
       branches = await widget.surface.domain.api
           .branches(_full, perPage: 100);
     } catch (error) {
-      _toast(_t('branchesFailed', <String, String>{'error': error}));
+      _toast(_t('branchesFailed', {'error': error}));
       return;
     }
     if (!mounted) {
@@ -668,7 +669,7 @@ Widget _pagedBody<T>(
                   ? const CircularProgressIndicator()
                   : OutlinedButton(
                       onPressed: paged.loadMore,
-                      child: Text(_t('loadMore', <String, String>{'count': paged.items.length})),
+                      child: Text(_t('loadMore', {'count': paged.items.length})),
                     ),
             ),
           );
@@ -829,7 +830,7 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content == null) {
-        _toast(_t('pathNotFound', <String, String>{'path': path}));
+        _toast(_t('pathNotFound', {'path': path}));
         return;
       }
       if (content.isDirectory) {
@@ -838,7 +839,7 @@ class _CodeTabState extends State<_CodeTab> {
         setState(() => _file = content);
       }
     } catch (error) {
-      _toast(_t('readFailed', <String, String>{'error': error}));
+      _toast(_t('readFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -867,7 +868,7 @@ class _CodeTabState extends State<_CodeTab> {
       }
       setState(() => _file = content);
     } catch (error) {
-      _toast(_t('readFailed', <String, String>{'error': error}));
+      _toast(_t('readFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -1010,7 +1011,7 @@ class _CodeTabState extends State<_CodeTab> {
         _entries.items.any((GhContent e) => e.path == path);
     if (exists) {
       content.dispose();
-      _toast(_t('alreadyExists', <String, String>{'path': path}));
+      _toast(_t('alreadyExists', {'path': path}));
       return;
     }
     try {
@@ -1027,11 +1028,11 @@ class _CodeTabState extends State<_CodeTab> {
         path,
       );
       content.dispose();
-      _toast(directory ? _t('createdDir', <String, String>{'path': raw}) : _t('createdPath', <String, String>{'path': path}));
+      _toast(directory ? _t('createdDir', {'path': raw}) : _t('createdPath', {'path': path}));
       await _reload();
     } catch (error) {
       content.dispose();
-      _toast(_t('branchCreateFailed', <String, String>{'error': error}));
+      _toast(_t('branchCreateFailed', {'error': error}));
     }
   }
 
@@ -1048,7 +1049,7 @@ class _CodeTabState extends State<_CodeTab> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteFileAction')),
-        content: Text(_t('deleteFileDesc', <String, String>{'path': entry.path})),
+        content: Text(_t('deleteFileDesc', {'path': entry.path})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -1078,17 +1079,17 @@ class _CodeTabState extends State<_CodeTab> {
         confirmed: true,
       );
       if (!result.ok) {
-        _toast(_t('branchDeleteFailed', <String, String>{'error': result.detail ?? result.conflict.name}));
+        _toast(_t('branchDeleteFailed', {'error': result.detail ?? result.conflict.name}));
         return;
       }
       OgLAppLog.instance.result('仓库', _t('branchDeleted'), entry.path);
       if (_file?.path == entry.path) {
         setState(() => _file = null);
       }
-      _toast(_t('deletedPath', <String, String>{'path': entry.path}));
+      _toast(_t('deletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast(_t('branchDeleteFailed', <String, String>{'error': error}));
+      _toast(_t('branchDeleteFailed', {'error': error}));
     }
   }
 
@@ -1115,7 +1116,7 @@ class _CodeTabState extends State<_CodeTab> {
         }
       }
     } catch (error) {
-      _toast(_t('readDirFailed', <String, String>{'error': error}));
+      _toast(_t('readDirFailed', {'error': error}));
       return;
     }
     if (paths.isEmpty) {
@@ -1124,7 +1125,7 @@ class _CodeTabState extends State<_CodeTab> {
     }
     const int maxBatch = 200;
     if (paths.length > maxBatch) {
-      _toast(_t('dirExceedsBatch', <String, String>{'count': paths.length, 'max': maxBatch}));
+      _toast(_t('dirExceedsBatch', {'count': paths.length, 'max': maxBatch}));
       return;
     }
     if (!mounted) {
@@ -1135,7 +1136,7 @@ class _CodeTabState extends State<_CodeTab> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteDirAction')),
         content: Text(
-          _t('deleteDirDesc', <String, String>{'path': entry.path, 'count': paths.length}) +
+          _t('deleteDirDesc', {'path': entry.path, 'count': paths.length}) +
           _t('deleteDirDesc2'),
         ),
         actions: <Widget>[
@@ -1164,11 +1165,11 @@ class _CodeTabState extends State<_CodeTab> {
         deletions: paths,
         message: 'chore: delete directory ${entry.path}',
       );
-      OgLAppLog.instance.result('仓库', _t('dirDeleted'), _t('dirDeletedMeta', <String, String>{'path': entry.path, 'count': paths.length}));
-      _toast(_t('dirDeletedPath', <String, String>{'path': entry.path}));
+      OgLAppLog.instance.result('仓库', _t('dirDeleted'), _t('dirDeletedMeta', {'path': entry.path, 'count': paths.length}));
+      _toast(_t('dirDeletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast(_t('deleteDirFailed', <String, String>{'error': error}));
+      _toast(_t('deleteDirFailed', {'error': error}));
     }
   }
 
@@ -1250,10 +1251,10 @@ class _CodeTabState extends State<_CodeTab> {
         message: 'chore: rename ${entry.path} -> $next',
       );
       OgLAppLog.instance.result('仓库', _t('branchRenamed'), '${entry.path} → $next');
-      _toast(_t('renamedTo', <String, String>{'path': next}));
+      _toast(_t('renamedTo', {'path': next}));
       await _reload();
     } catch (error) {
-      _toast(_t('branchRenameFailed', <String, String>{'error': error}));
+      _toast(_t('branchRenameFailed', {'error': error}));
     }
   }
 
@@ -1284,9 +1285,9 @@ class _CodeTabState extends State<_CodeTab> {
         fileName: ghPathName(entry.path),
         category: IxDownloadCategory.repo,
       );
-      _toast(_t('addedToDownload', <String, String>{'name': ghPathName(entry.path)}));
+      _toast(_t('addedToDownload', {'name': ghPathName(entry.path)}));
     } catch (error) {
-      _toast(_t('addDownloadFailed', <String, String>{'error': error}));
+      _toast(_t('addDownloadFailed', {'error': error}));
     }
   }
 
@@ -1831,7 +1832,7 @@ class _IssuesTabState extends State<_IssuesTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(_t('closeIssue', <String, String>{'number': number})),
+        title: Text(_t('closeIssue', {'number': number})),
         content:  Text(_t('closeIssueHint')),
         actions: <Widget>[
           TextButton(
@@ -1856,7 +1857,7 @@ class _IssuesTabState extends State<_IssuesTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('closeFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('closeFailed', {'error': error}))),
         );
       }
     }
@@ -2110,7 +2111,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
     );
     if (created != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_t('releaseCreated', <String, String>{'tag': created.tagName}))),
+        SnackBar(content: Text(_t('releaseCreated', {'tag': created.tagName}))),
       );
       await _paged.refresh();
     }
@@ -2165,14 +2166,14 @@ class _ReleasesTabState extends State<_ReleasesTab> {
               subtitle: Text(
                 <String>[
                   if (release.publishedAt != null)
-                    _t('releasePublishedAt', <String, String>{
+                    _t('releasePublishedAt', {
                       'date': release.publishedAt!
                           .toIso8601String()
                           .split('T')
                           .first,
                     }),
                   if (marks.isNotEmpty) marks.join(' / '),
-                  _t('releaseAssetsCount', <String, String>{'count': release.assets.length}),
+                  _t('releaseAssetsCount', {'count': release.assets.length}),
                 ].join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -2287,7 +2288,7 @@ class _BranchesTabState extends State<_BranchesTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('branchCreateFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('branchCreateFailed', {'error': error}))),
         );
       }
     }
@@ -2328,7 +2329,7 @@ class _BranchesTabState extends State<_BranchesTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('branchRenameFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('branchRenameFailed', {'error': error}))),
         );
       }
     }
@@ -2339,7 +2340,7 @@ class _BranchesTabState extends State<_BranchesTab> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteBranchTitle')),
-        content: Text(_t('deleteBranchDesc', <String, String>{'name': branch.name})),
+        content: Text(_t('deleteBranchDesc', {'name': branch.name})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -2365,7 +2366,7 @@ class _BranchesTabState extends State<_BranchesTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('branchDeleteFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('branchDeleteFailed', {'error': error}))),
         );
       }
     }
@@ -2813,7 +2814,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('saveFailed', {'error': error}))),
         );
       }
     } finally {
@@ -2860,7 +2861,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(_t('cnameSaveFailed', <String, String>{'error': result.detail ?? result.conflict.name})),
+                content: Text(_t('cnameSaveFailed', {'error': result.detail ?? result.conflict.name})),
               ),
             );
           }
@@ -2876,7 +2877,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('cnameSaveFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('cnameSaveFailed', {'error': error}))),
         );
       }
     } finally {
@@ -2904,7 +2905,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('enableFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('enableFailed', {'error': error}))),
         );
       }
     } finally {
@@ -2931,7 +2932,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('disableFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('disableFailed', {'error': error}))),
         );
       }
     } finally {
@@ -2946,7 +2947,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteRepo')),
-        content: Text(_t('deleteRepoDesc', <String, String>{'full': _full})),
+        content: Text(_t('deleteRepoDesc', {'full': _full})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -2967,7 +2968,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     }
     try {
       await widget.surface.domain.api.deleteRepo(_full);
-      OgLAppLog.instance.add('仓库', _t('repoDeleted', <String, String>{'full': _full}),
+      OgLAppLog.instance.add('仓库', _t('repoDeleted', {'full': _full}),
           severity: OgLNoticeSeverity.warning);
       if (mounted) {
         Navigator.of(context).pop();
@@ -2975,7 +2976,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('branchDeleteFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('branchDeleteFailed', {'error': error}))),
         );
       }
     }
@@ -3031,8 +3032,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
             final String statusPart = status.isEmpty ? _t('enabled') : status;
             final String urlPart = url.isEmpty
                 ? ''
-                : '\n${_t('address', <String, String>{'url': url})}';
-            return Text(_t('statusLabel', <String, String>{
+                : '\n${_t('address', {'url': url})}';
+            return Text(_t('statusLabel', {
               'status': '$statusPart$urlPart',
             }));
           },

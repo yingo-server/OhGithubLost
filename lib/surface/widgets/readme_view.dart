@@ -18,8 +18,9 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `common` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('common', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('common', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 徽章行：`[![alt](图片)](链接)`（可重复；装饰用，整行删除）。
 final RegExp _badgeRow = RegExp(r'^(\s*\[!\[[^\)]*\)\]\([^)]*\)\s*)+$');
@@ -73,7 +74,7 @@ String simplifyReadme(String source, {int maxChars = 24000}) {
 
     final String swapped = noComment.replaceAllMapped(_image, (Match m) {
       final String alt = m.group(1)?.trim() ?? '';
-      return alt.isEmpty ? _t('readmeImageOmitted') : _t('readmeImageAlt', <String, String>{'alt': alt});
+      return alt.isEmpty ? _t('readmeImageOmitted') : _t('readmeImageAlt', {'alt': alt});
     });
     kept.add(swapped.replaceAll(_htmlTag, '').trimRight());
   }

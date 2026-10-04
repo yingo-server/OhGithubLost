@@ -18,8 +18,9 @@ import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `common` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('common', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('common', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 用系统浏览器打开外链。
 ///
@@ -72,7 +73,7 @@ Future<void> openLinkOrCopy(BuildContext context, String href, {String tag = '�
   await Clipboard.setData(ClipboardData(text: href));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('linkOpenFailedCopy', <String, String>{'url': href}))),
+      SnackBar(content: Text(_t('linkOpenFailedCopy', {'url': href}))),
     );
   }
 }

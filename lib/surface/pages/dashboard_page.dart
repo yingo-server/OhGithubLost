@@ -24,8 +24,9 @@ import 'notifications_page.dart';
 import 'repo_page.dart';
 
 /// 取 `dashboard_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('dashboard_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('dashboard_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 每页条数。
 const int _kPageSize = 30;
@@ -107,7 +108,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     OgLAppLog.instance.result(_t('home'), _t('repoCreated'), created.fullName);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('repoCreatedName', <String, String>{'name': created.fullName}))),
+      SnackBar(content: Text(_t('repoCreatedName', {'name': created.fullName}))),
     );
     await _mine.refresh();
     if (mounted) {
@@ -226,7 +227,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ? const CircularProgressIndicator()
                                 : OutlinedButton(
                                     onPressed: p.loadMore,
-                                    child: Text(_t('loadMore', <String, String>{'count': p.items.length})),
+                                    child: Text(_t('loadMore', {'count': p.items.length})),
                                   ),
                           ),
                         );

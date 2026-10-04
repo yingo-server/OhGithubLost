@@ -31,8 +31,9 @@ import 'keyboard_guard.dart';
 import 'motion.dart';
 
 /// 取 `shell` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('shell', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 应用根。
 class OgLApp extends StatelessWidget {

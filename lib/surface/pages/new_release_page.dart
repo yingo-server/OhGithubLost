@@ -15,8 +15,9 @@ import '../surface_bridge.dart';
 import '../types.dart';
 
 /// 取 `new_release_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('new_release_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('new_release_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 新建发布页。
 class NewReleasePage extends StatefulWidget {
@@ -90,13 +91,13 @@ class _NewReleasePageState extends State<NewReleasePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '发布',
-        _t('createFailed', <String, String>{'error': error}),
+        _t('createFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = _t('createFailed', <String, String>{'error': error});
+          _error = _t('createFailed', {'error': error});
         });
       }
     }

@@ -24,8 +24,9 @@ import 'animations.dart';
 import 'error_surface.dart';
 
 /// 取 `shell` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('shell', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 通用异步控制器：加载 / 刷新 / 重试，并发抑制、失败保留旧数据。
 class AsyncController<T> extends ChangeNotifier {
@@ -94,7 +95,7 @@ class AsyncController<T> extends ChangeNotifier {
       _data = value;
       _empty = isEmpty(value);
       _error = null;
-      OgLAppLog.instance.result(_t('loading'), _t('done', <String, String>{'label': label}), _summarize(value));
+      OgLAppLog.instance.result(_t('loading'), _t('done', {'label': label}), _summarize(value));
     } catch (error) {
       _error = _describe(error);
       OgLAppLog.instance.add(
@@ -138,13 +139,13 @@ class AsyncController<T> extends ChangeNotifier {
       return _t('empty');
     }
     if (value is List<Object?>) {
-      return _t('countItems', <String, String>{'count': value.length});
+      return _t('countItems', {'count': value.length});
     }
     if (value is String) {
-      return _t('countChars', <String, String>{'count': value.length});
+      return _t('countChars', {'count': value.length});
     }
     if (value is Map<Object?, Object?>) {
-      return _t('countKeys', <String, String>{'count': value.length});
+      return _t('countKeys', {'count': value.length});
     }
     return value.runtimeType.toString();
   }
@@ -153,9 +154,9 @@ class AsyncController<T> extends ChangeNotifier {
   String _describe(Object error) {
     final String text = error.toString();
     if (text.startsWith('Exception: ')) {
-      return _t('failedWith', <String, String>{'label': label, 'text': text.substring(11)});
+      return _t('failedWith', {'label': label, 'text': text.substring(11)});
     }
-    return _t('failedParen', <String, String>{'label': label, 'text': text});
+    return _t('failedParen', {'label': label, 'text': text});
   }
 }
 

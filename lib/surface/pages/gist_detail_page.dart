@@ -22,8 +22,9 @@ import '../util/link_opener.dart';
 import '../widgets/code_editor_field.dart';
 
 /// 取 `gist_detail_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('gist_detail_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('gist_detail_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 一个 Gist 文件（内容已解析）。
 class _GistFile {
@@ -151,7 +152,7 @@ class _GistDetailPageState extends State<GistDetailPage> {
     final String? updated = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(_t('editFileName', <String, String>{'name': file.name})),
+        title: Text(_t('editFileName', {'name': file.name})),
         content: SizedBox(
           width: 480,
           child: TextField(
@@ -195,12 +196,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('updateFailed', <String, String>{'error': error}),
+        _t('updateFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('saveFailed', {'error': error}))),
         );
       }
     } finally {
@@ -244,12 +245,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('deleteFailed', <String, String>{'error': error}),
+        _t('deleteFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('deleteFailed', <String, String>{'error': error}))),
+          SnackBar(content: Text(_t('deleteFailed', {'error': error}))),
         );
       }
     } finally {
@@ -263,7 +264,7 @@ class _GistDetailPageState extends State<GistDetailPage> {
     await Clipboard.setData(ClipboardData(text: file.content));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_t('copiedFile', <String, String>{'name': file.name}))),
+        SnackBar(content: Text(_t('copiedFile', {'name': file.name}))),
       );
     }
   }

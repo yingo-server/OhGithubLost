@@ -1,8 +1,9 @@
 
 
 /// 取 `common` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('common', key, args: args);/// L3 展示级 · Release 下载加速通道（模型 / 内置通道 / 法律声明）。
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('common', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));/// L3 展示级 · Release 下载加速通道（模型 / 内置通道 / 法律声明）。
 ///
 /// ## 能力
 /// - **一个总开关**：`releaseProxyEnabled`——关掉即全部走直连；
@@ -16,6 +17,8 @@ String _t(String key, [Map<String, String>? args]) =>
 /// 两个协议的**文本与版本号**都收敛在本文件；用户同意后会记录
 /// 版本号与时间（[kOgLAccelConsentVersion]），文本升版必须重新同意。
 library;
+
+import '../i18n/og_l_i18n.dart';
 
 /// 同意协议的版本号：**文本任何实质修改都必须 +1**，以便重新征求同意。
 const int kOgLAccelConsentVersion = 1;

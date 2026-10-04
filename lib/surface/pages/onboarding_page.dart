@@ -22,8 +22,9 @@ import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 
 /// 取 `onboarding` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('onboarding', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('onboarding', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 首次引导页。
 class OnboardingPage extends StatefulWidget {
@@ -82,7 +83,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('permissionListFailed', <String, String>{'error': error}),
+        _t('permissionListFailed', {'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
       if (mounted) {
@@ -98,7 +99,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     setState(() => _busyPermission = info.permission);
     OgLAppLog.instance.add(
       _t('title'),
-      _t('requestingPermission', <String, String>{'title': info.title, 'platform': _gateway.platformLabel}),
+      _t('requestingPermission', {'title': info.title, 'platform': _gateway.platformLabel}),
     );
     OgLPermissionStatus status;
     try {
@@ -106,7 +107,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('permissionRequestFailed', <String, String>{'error': error}),
+        _t('permissionRequestFailed', {'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
       status = OgLPermissionStatus.needsUserAction;
@@ -130,12 +131,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     switch (status) {
       case OgLPermissionStatus.granted:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('ready', <String, String>{'title': info.title}))),
+          SnackBar(content: Text(_t('ready', {'title': info.title}))),
         );
         return;
       case OgLPermissionStatus.notRequired:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('noAuthNeeded', <String, String>{'title': info.title}))),
+          SnackBar(content: Text(_t('noAuthNeeded', {'title': info.title}))),
         );
         return;
       case OgLPermissionStatus.needsUserAction:
@@ -146,8 +147,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             title: Text(info.title),
             content: Text(
               status == OgLPermissionStatus.unsupported
-                  ? _t('cannotInApp', <String, String>{'rationale': info.rationale})
-                  : _t('enableInSettings', <String, String>{'rationale': info.rationale}),
+                  ? _t('cannotInApp', {'rationale': info.rationale})
+                  : _t('enableInSettings', {'rationale': info.rationale}),
             ),
             actions: <Widget>[
               TextButton(
@@ -296,7 +297,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.phone_android),
-              title: Text(_t('currentPlatform', <String, String>{'platform': _gateway.platformLabel})),
+              title: Text(_t('currentPlatform', {'platform': _gateway.platformLabel})),
               subtitle:  Text(_t('platformNote')),
             ),
           ),

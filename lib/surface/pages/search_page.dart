@@ -23,8 +23,9 @@ import '../util/gh_format.dart';
 import 'repo_page.dart';
 
 /// 取 `search_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('search_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('search_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 一条搜索命中（把两种结果形态收敛成同一种展示）。
 class _SearchHit {
@@ -83,7 +84,7 @@ class _SearchPageState extends State<SearchPage> {
         loader: () async {
           final List<GhRepo> repos =
               await widget.surface.domain.api.searchRepos(q, perPage: 30);
-          OgLAppLog.instance.add(_t('search'), _t('repoResults', <String, String>{'q': q, 'count': repos.length}));
+          OgLAppLog.instance.add(_t('search'), _t('repoResults', {'q': q, 'count': repos.length}));
           return repos
               .map(
                 (GhRepo repo) => _SearchHit(
@@ -102,7 +103,7 @@ class _SearchPageState extends State<SearchPage> {
         loader: () async {
           final List<Map<String, dynamic>> items =
               await widget.surface.domain.api.searchCode(q, perPage: 30);
-          OgLAppLog.instance.add(_t('search'), _t('codeResults', <String, String>{'q': q, 'count': items.length}));
+          OgLAppLog.instance.add(_t('search'), _t('codeResults', {'q': q, 'count': items.length}));
           return items.map(_hitFromCode).toList();
         },
       );
@@ -241,7 +242,7 @@ class _SearchPageState extends State<SearchPage> {
                 : AsyncView<List<_SearchHit>>(
                     controller: controller,
                     emptyIcon: Icons.search_off,
-                    emptyText: _t('noResults', <String, String>{'query': _query}),
+                    emptyText: _t('noResults', {'query': _query}),
                     builder: (
                       BuildContext context,
                       List<_SearchHit> hits,

@@ -19,8 +19,9 @@ import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `about_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('about_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('about_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 关于页。
 class AboutPage extends StatelessWidget {
@@ -38,7 +39,7 @@ class AboutPage extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('copied', <String, String>{'label': label}))),
+      SnackBar(content: Text(_t('copied', {'label': label}))),
     );
   }
 
@@ -60,7 +61,7 @@ class AboutPage extends StatelessWidget {
                     '${OgLProjectInfo.name}（${OgLProjectInfo.abbreviation}）',
                     style: theme.textTheme.titleMedium,
                   ),
-                  subtitle: Text(_t('version', <String, String>{
+                  subtitle: Text(_t('version', {
                     'version': snapshot?.appVersion ??
                         OgLI18n.instance.t('common', 'unknown'),
                   })),
@@ -137,7 +138,7 @@ class AboutPage extends StatelessWidget {
                 ),
                 _KeyValueRow(
                   label: _t('services'),
-                  value: _t('servicesCount', <String, String>{'count': snapshot.services.length}),
+                  value: _t('servicesCount', {'count': snapshot.services.length}),
                 ),
               ],
             ),
@@ -145,7 +146,7 @@ class AboutPage extends StatelessWidget {
               title: _t('trustWarnings'),
               subtitle: snapshot.trustWarnings.isEmpty
                   ? _t('trustOk')
-                  : _t('trustCount', <String, String>{'count': snapshot.trustWarnings.length}),
+                  : _t('trustCount', {'count': snapshot.trustWarnings.length}),
               children: <Widget>[
                 if (snapshot.trustWarnings.isEmpty)
                    ListTile(
@@ -175,7 +176,7 @@ class AboutPage extends StatelessWidget {
             ),
             _diagnosticTile(
               title: _t('bootStages'),
-              subtitle: _t('stagesCount', <String, String>{'count': snapshot.stages.length}),
+              subtitle: _t('stagesCount', {'count': snapshot.stages.length}),
               children: <Widget>[
                 for (final Object stage in snapshot.stages)
                   SelectableText(

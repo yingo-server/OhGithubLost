@@ -21,8 +21,9 @@ import '../surface_bridge.dart';
 import '../types.dart';
 
 /// 取 `drafts_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('drafts_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('drafts_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 草稿箱页。
 class DraftsPage extends StatefulWidget {

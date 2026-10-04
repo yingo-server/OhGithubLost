@@ -22,8 +22,9 @@ import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `notifications_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('notifications_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('notifications_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 通知中心页。
 class NotificationsPage extends StatefulWidget {

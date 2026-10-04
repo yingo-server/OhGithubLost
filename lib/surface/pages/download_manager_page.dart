@@ -21,8 +21,9 @@ import '../types.dart';
 import '../util/gh_format.dart';
 
 /// 取 `download_manager_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('download_manager_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('download_manager_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 下载管理页。
 class DownloadManagerPage extends StatelessWidget {

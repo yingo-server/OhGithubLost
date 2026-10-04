@@ -21,8 +21,9 @@ import '../surface_bridge.dart';
 import '../util/gh_format.dart';
 
 /// 取 `workflow_dispatch_page` 分片文案。
-String _t(String key, [Map<String, String>? args]) =>
-    OgLI18n.instance.t('workflow_dispatch_page', key, args: args);
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('workflow_dispatch_page', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 一个 `workflow_dispatch` 参数声明。
 class _WfInput {
@@ -185,7 +186,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       if (text == null) {
         setState(() {
           _loadingForm = false;
-          _formError = _t('readFileFailed', <String, String>{'path': path});
+          _formError = _t('readFileFailed', {'path': path});
         });
         return;
       }
@@ -211,7 +212,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       }
       setState(() {
         _loadingForm = false;
-        _formError = _t('parseFailed', <String, String>{'error': error});
+        _formError = _t('parseFailed', {'error': error});
       });
     }
   }
@@ -251,7 +252,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     }
     if (missing.isNotEmpty) {
       throw FormatException(
-          _t('missingRequired', <String, String>{'names': missing.join('、')}));
+          _t('missingRequired', {'names': missing.join('、')}));
     }
     return result;
   }
@@ -326,11 +327,11 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('triggerFailed', <String, String>{'error': error}),
+        _t('triggerFailed', {'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('triggerFailedNoDispatch', <String, String>{'error': error}));
+        _toast(_t('triggerFailedNoDispatch', {'error': error}));
       }
     } finally {
       if (mounted) {
