@@ -135,7 +135,7 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('removeTitle')),
         content: Text(
-          _t('removeDesc', <String, String>{'login': account.login})
+          _t('removeDesc', <String, String>{'login': account.login}) +
           _t('removeDesc2'),
         ),
         actions: <Widget>[

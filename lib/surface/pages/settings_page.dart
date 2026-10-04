@@ -208,7 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('logout')),
         content: Text(
-          _t('logoutDesc', <String, String>{'login': account.login})
+          _t('logoutDesc', <String, String>{'login': account.login}) +
           _t('logoutDesc2'),
         ),
         actions: <Widget>[
@@ -352,8 +352,8 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('donateHeart')),
         content: Text(
-          _t('donateDesc1', <String, String>{'login': account.login})
-          _t('donateDesc2', <String, String>{'repo': OgLProjectInfo.repoFullName})
+          _t('donateDesc1', <String, String>{'login': account.login}) +
+          _t('donateDesc2', <String, String>{'repo': OgLProjectInfo.repoFullName}) +
           _t('donateDesc3'),
         ),
         actions: <Widget>[

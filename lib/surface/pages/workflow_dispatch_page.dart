@@ -452,7 +452,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                _t('dispatchHint')
+                _t('dispatchHint') +
                 _t('dispatchHint2'),
                 style: theme.textTheme.bodySmall,
               ),

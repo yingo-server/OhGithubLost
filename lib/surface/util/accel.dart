@@ -85,7 +85,7 @@ const String kOgLAccelBuiltinBaseUrl = 'https://server.344977.xyz:9999/';
 /// 内置通道。
 const OgLAccelChannel kOgLAccelBuiltinChannel = OgLAccelChannel(
   id: kOgLAccelBuiltinId,
-  name: _t('accelBuiltin'),
+  name: '内置通道',
   baseUrl: kOgLAccelBuiltinBaseUrl,
   builtin: true,
 );

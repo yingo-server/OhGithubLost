@@ -287,7 +287,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            _t('welcomeDesc')
+            _t('welcomeDesc') +
             _t('welcomeDesc2'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
@@ -381,7 +381,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _t('tokenVault')
+                      _t('tokenVault') +
                       _t('tokenVault2'),
                       style: TextStyle(
                         color: theme.colorScheme.onSecondaryContainer,

@@ -1135,7 +1135,7 @@ class _CodeTabState extends State<_CodeTab> {
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('deleteDirAction')),
         content: Text(
-          _t('deleteDirDesc', <String, String>{'path': entry.path, 'count': paths.length})
+          _t('deleteDirDesc', <String, String>{'path': entry.path, 'count': paths.length}) +
           _t('deleteDirDesc2'),
         ),
         actions: <Widget>[

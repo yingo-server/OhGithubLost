@@ -216,7 +216,7 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
         title: _t('storageAccess'),
         rationale: storage.isEmpty
             ? _t('storageSandbox')
-            : _t('storageGrantDesc1')
+            : _t('storageGrantDesc1') +
                 _t('storageGrantDesc2'),
         status: storage.isEmpty
             ? OgLPermissionStatus.notRequired
