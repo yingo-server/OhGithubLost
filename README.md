@@ -1,111 +1,96 @@
 # OhGithubLost（OGL）
 
-GitHub 仓库管理客户端，手机、平板与桌面可用。仓库地址与项目同名。
+**一个 GitHub 仓库管理客户端** —— 手机 / 平板 / 桌面可用。
+用它浏览与编辑仓库、处理 Issues 与 Pull Requests、查看 Releases 与 Actions、管理 Gist，不必打开浏览器。
 
-## 平台与测试状态
+> 名称由来：GitHub 官方没有适合移动端的仓库管理客户端，OGL 就是要"把丢失的 GitHub 找回来"。
 
-| 平台 | 构建产物 | 测试情况 | 说明 |
-| --- | --- | --- | --- |
-| Android | APK（arm64-v8a / armeabi-v7a / x86_64 / universal）、AAB | 经过测试 | **当前主要目标**；应用名为 **OGL** |
-| Windows | x64、arm64 | 有限测试 | 基本流程可用，细节仍在核对 |
-| Linux | x64、arm64 | 未测试 | 未在设备上验证 |
-| ~~macOS~~ | — | — | **自 5.6.0 起弃用**，最后支持版本 **v5.3.0** |
-| ~~iOS~~ | — | — | **自 5.6.0 起弃用**，最后支持版本 **v5.3.0** |
+## 功能特性 / Features
 
-说明：
+- **仓库浏览**：目录树、文件预览、README 渲染（图片经 Contents API 加载，避开 DNS 污染）
+- **编辑**：在线编辑 / 新建 / 删除文件，提交与冲突处理（七道防线 D1–D7 + 持久化 D8–D10）
+- **协作**：Issues / Pull Requests / Releases / Actions / Gist
+- **多账号**：自由切换，Token 安全存储
+- **下载**：多连接分片下载 + 断点续传 + 加速通道（默认关闭，可显式开启）
+- **网络韧性**：内置 DoH、镜像降级、重试与限流避让；加速通道失败静默降级
+- **动效分级**：静默 / 保守 / 标准 / 拉满四档，降档降开销、不删效果
+- **15 种语言**：界面文案零硬编码，CI 强制校验
+- **桌面自绘窗口**：自研标题栏（拖拽 / 双击最大化 / 最小化·最大化·关闭），可在设置菜单回退系统窗口管理器
 
-- **自 5.6.0 起不再构建 / 发布 macOS 与 iOS**；需要这两个平台请使用
-  **[v5.3.0](https://github.com/yingo-server/OhGithubLost/releases/tag/v5.3.0)**
-  （其产物为未签名构建，需自备证书与描述文件，或自行重建）。
-- **自 5.6.0 起，Release 只提供压缩包**：每个平台产物同时给出 **`.zip` 与 `.7z`**，
-  且都用**极限压缩**（`zip -9` / `7z -mx=9`），不再直传裸 APK / AAB / 平台目录。
-- **32 位**：桌面端（Windows / Linux）上游 Flutter **不提供 32 位目标**，因此只有
-  Android 有 32 位产物（`armeabi-v7a`）。
-- 上表的「构建产物」由 CI 生成；「测试情况」指手工使用记录。
+## 平台支持 / Platform support
 
-## 平台最低要求（请先读，能省下大量时间）
-
-| 平台 | 最低要求 | 说明 |
+| 平台 | 状态 | 说明 |
 | --- | --- | --- |
-| Android | Android 6.0（API 23）+ | 32 位（`armeabi-v7a`）仅此平台提供 |
-| Windows | **Windows 10 1809 或更高** | Flutter 桌面自身的要求；**7 / 8.1 无法运行** |
-- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
+| Android | ✅ 支持 | 4 架构 APK + AAB；arm64-v8a / armeabi-v7a / x86_64 / universal |
+| Windows | ✅ 支持 | x64 / arm64；建议开启长路径支持（非必须，超限有收纳回退） |
+| Linux | ✅ 支持 | x64 / arm64；deb / rpm / AppImage；**glibc ≥ 2.31**（Ubuntu 20.04 一代及以上） |
+| macOS / iOS | ❌ 弃用 | 最后支持版本 v5.3.0 |
 
-### ⚠️ 不要做无用尝试
+**不要做无用尝试**：桌面 32 位、musl-libc、Windows 7 / 8.1 均不支持。
 
-以下组合**明确不支持**，试了也不会成功（不是配置问题，是上游限制）：
+## 安装 / Install
 
-- **Linux · musl 系（Alpine 等）**：Flutter 的 Linux 引擎依赖 glibc，musl 下不保证可运行；
-- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
-- **Windows 7 / 8.1**：Flutter 桌面要求 Windows 10 1809+；
-- **桌面 32 位（x86）**：Flutter 桌面只提供 x64 / arm64，**没有 ia32 引擎**。
+每个版本在 **Releases** 发布，产物仅压缩包（zip + 7z 极限压缩），Linux 额外裸放 deb / rpm / AppImage。
 
-### 可选要求
+| 平台 | 产物 |
+| --- | --- |
+| Android | `OGL-<version>-android-arm64-v8a.apk.zip` / `-armeabi-v7a` / `-x86_64` / `-universal` / `-aab.zip` |
+| Windows | `OGL-<version>-windows-x64.zip` / `-arm64.zip` |
+| Linux | `OGL-<version>-linux-x64.deb` / `.rpm` / `.AppImage`（arm64 同理） |
 
-- **Windows 长路径支持**（建议开启）：路径接近 260 字符时，
-  Windows 会拒绝创建文件。程序已做三层兜底（`\\?\` 前缀 → 超长部分收纳为
-  `TooLongRoad_<8位编号>.zip` → 根目录索引可还原），但**开启系统长路径支持后
-  体验最好**（组策略 / `LongPathsEnabled`）。
+解压后：
+- **Android**：直接安装 APK；
+- **Windows**：运行解压目录下的 `oghl.exe`（`ohgithublost.exe`）；
+- **Linux**：`sudo dpkg -i *.deb` 或 `sudo rpm -i *.rpm`，或直接运行 `.AppImage`（已内置 `--appimage-extract-and-run`，无需 FUSE）。
 
-## 快速开始
+## 从源码构建 / Build from source
 
-1. 在 Releases 页面下载对应平台的安装包。
-2. 打开应用，用 GitHub 个人访问令牌登录，或以游客身份浏览公开内容。
+要求：Flutter **3.47.5**（Dart 3.13.4），Android / Windows / Linux 相应工具链。
 
-详细步骤与各项功能用法，见 **[使用说明](docs/USAGE.md)**。
+```bash
+flutter pub get
+flutter run              # 开发
+flutter build apk        # Android
+flutter build windows    # Windows
+flutter build linux      # Linux（产物 glibc 下限由构建容器锁定，见 CI）
+```
 
-## 主要功能
+## 目录结构 / Repository layout
 
-- 仓库浏览与文件操作：目录优先排序、按类型显示图标、下载 / 详情 / 删除、在线编辑与提交。
-- 代码编辑器：撤销 / 重做、查找 / 替换、换行与字号、未保存提醒、冲突提示。
-- Issues 与 Pull Requests：列表、详情、评论、关闭 / 重开、变更文件与补丁查看。
-- Releases：列表、详情、附件下载、新建 / 编辑 / 删除。
-- Actions：运行列表与详情（作业与步骤）、重新运行 / 取消、手动触发工作流。
-- Gist：列表、详情、新建、编辑、删除。
-- 搜索：仓库搜索与代码搜索，代码结果可直达文件。
-- 多账号、15 种界面语言、主题与动效档位、DNS 与 DoH、日志与开源许可。
+```
+.github/workflows/   CI：质量门（5 项审计 + analyze + test）、构建矩阵（9 条腿）、发布
+assets/              资源：icon（唯一事实来源 SVG）/ i18n（15 语言）/ boot / mods / theme_packs
+docs/                文档：使用说明 USAGE.md、多语言维护手册 I18N.md
+lib/                 源码（四层架构）
+  kernel/            启动层：引导清单 / 签名 / 信任根
+  base/              硬件层：网络（DoH / 镜像 / 重试）+ 磁盘（原子写 / 长路径 / 缓存）
+  domain/            逻辑层：GitHub API、本地深层信息
+  surface/           交互层：UI、设置、i18n
+release_notes/       发布说明（每版本一个 .md，中英对照）
+test/                测试（base / domain / kernel / surface / screenshots）
+tool/                工具（图标光栅化 / 桌面壳注入 / Linux 打包 / 审计门禁）
+```
 
-## 文档
+## 架构纪律 / Architecture
 
-- [使用说明](docs/USAGE.md)
-- [多语言维护手册](docs/I18N.md)
-- [Release 说明规范](docs/RELEASE_NOTES.md)
-- [更新日志](CHANGELOG.md)
+依赖只能向下：`surface → domain → base → kernel`；装配根与类型门面为白名单例外。
+CI 用 `tool/layer_audit.py --fatal` 强制。
 
-## 星标与提交历史 · Stars & commits
+## 文档索引 / Docs
 
-**星标数量 · Stars（蓝线 / blue）**
+| 文档 | 内容 |
+| --- | --- |
+| `docs/USAGE.md` | 使用说明（安装 / 登录 / 主要功能） |
+| `docs/I18N.md` | 多语言维护手册（新增文案 / 翻译流程） |
+| `release_notes/v6.0.0.md` | 本版本发布说明（中英对照） |
+| `CHANGELOG.md` | 完整版本历史（含未发布 / 跳过版本的事实标注） |
 
-![星标数量曲线：纵轴为「个」、从 0 起；横轴为 UTC 时间](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/star-history.png)
+## 发布节奏 / Release cadence
 
-**提交数量 · Commits（绿线 / green）**
+- 版本号语义：`vX.Y.Z`，跳过即标注（如 `v5.7.0（未发布 · 跳过）`）；
+- 未单独发版的开发迭代会**并入下一个正式版**并标注来源版本号；
+- 发布说明规范：**中英逐条对照**，含 新增 / 变更 / 修复 / 已知限制 / 产物，不写空话。
 
-![提交数量曲线：纵轴为「个」、从 0 起；横轴为 UTC 时间](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/commit-history.png)
+## 许可证 / License
 
-### 怎么读这两张图 · How to read
-
-- **纵轴 / Y axis**：从 **0** 起（不截断），单位是**个（count）**；上限取"整齐"刻度
-  （1 / 2 / 2.5 / 5 × 10ⁿ），并画出 5 条刻度线与数值。
-  *Starts at 0, unit = count, "nice" upper bound with 5 labelled gridlines.*
-- **横轴 / X axis**：**真实 UTC 时间**（`MM-DD HH:MM`），不是"第几个采样点"——
-  采样间隔不均时不会被拉伸或压缩。*A true time axis in UTC, so uneven sampling
-  intervals are shown honestly.*
-- **两图不可直接比高度**：星标与提交各自独立纵轴，请**看纵轴数值**而不是线条高低。
-  *The two charts have independent Y axes — compare values, not visual heights.*
-- 图上标题行给出「最新值 / 数据点数 / 数据来源」，最新点用方块标出。
-  *The header row shows last value, point count and source; the latest point is boxed.*
-
-### 更新与产物 · Updates & files
-
-- 由 GitHub Actions 每 10 分钟更新一次（`.github/workflows/stats.yml`）。
-- 数据点：`stats/history.json`（`{ "t": ISO-8601 UTC, "stars": 整数, "commits": 整数 }`）；
-  图表：`stats/star-history.png`、`stats/commit-history.png`；三份文件都位于 `stats` 分支。
-- 数据来源：仓库接口的 `stargazers_count`，以及提交接口 `Link` 头 `rel="last"` 的页码（总数）。
-- 历史最多保留 **2000** 点；绘图时按像素密度**等距降采样**（保留首尾），避免折线糊成一片。
-- 生成器 `tool/stats_chart.py` **零第三方依赖**（zlib 手写 PNG + 内置 5×7 点阵字体），
-  并提供 `--selftest` 在 CI 中核对刻度 / 时间轴 / 降采样数学。
-- 折线按各自的极值缩放，量级差异下两条线仍可辨认。
-
-## 许可
-
-本仓库使用 GNU Affero General Public License v3.0（AGPL-3.0）。条款见 `LICENSE`。
+**AGPL-3.0**（见 `LICENSE`）。第三方依赖许可见应用内「许可」页面。
