@@ -6,13 +6,32 @@
 /// 3. 刷新失败**不丢旧数据**（softError 提示，内容仍在）；
 /// 4. 并发抑制：上一次没回来之前不重复发请求。
 library;
-
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/app/async.dart';
+import 'package:ohgithublost/surface/i18n/og_l_i18n.dart';
+
+/// 把 zh 分片注入 i18n 内核（测试环境读不到 assets）。
+void _loadZh() {
+  final Map<String, Map<String, String>> pages =
+      <String, Map<String, String>>{};
+  for (final String page in <String>['shell', 'common']) {
+    final Object? decoded =
+        jsonDecode(File('assets/i18n/zh/$page.json').readAsStringSync());
+    pages[page] = <String, String>{
+      for (final MapEntry<Object?, Object?> e
+          in (decoded as Map<Object?, Object?>).entries)
+        '${e.key}': '${e.value}',
+    };
+  }
+  OgLI18n.instance.debugInject('zh', pages);
+}
 
 void main() {
+  setUpAll(_loadZh);
   test('成功：数据落定、非空、无错误', () async {
     final AsyncController<List<int>> c = AsyncController<List<int>>(
       label: '测试',

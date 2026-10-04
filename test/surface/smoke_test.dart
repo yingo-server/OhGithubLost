@@ -1,14 +1,35 @@
 /// 展示层冒烟测试：关键渲染路径不崩、关键三态可见。
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/app/async.dart';
 import 'package:ohgithublost/surface/app/og_l_app.dart';
+import 'package:ohgithublost/surface/i18n/og_l_i18n.dart';
 import 'package:ohgithublost/surface/widgets/readme_view.dart';
 
+/// 把 zh 分片注入 i18n 内核（测试环境读不到 assets）。
+void _loadZh() {
+  final Map<String, Map<String, String>> pages =
+      <String, Map<String, String>>{};
+  for (final String page in <String>['shell', 'common']) {
+    final Object? decoded =
+        jsonDecode(File('assets/i18n/zh/$page.json').readAsStringSync());
+    pages[page] = <String, String>{
+      for (final MapEntry<Object?, Object?> e
+          in (decoded as Map<Object?, Object?>).entries)
+        '${e.key}': '${e.value}',
+    };
+  }
+  OgLI18n.instance.debugInject('zh', pages);
+}
+
 void main() {
+  setUpAll(_loadZh);
   testWidgets('启动失败页：原因原样呈现（不静默降级）', (WidgetTester tester) async {
     await tester.pumpWidget(
       const OgLBootFailureApp(message: '引导清单签名校验失败'),
