@@ -226,7 +226,7 @@ class OgLKernel {
       warnings.report(
         code: BootWarningCodes.manifestModuleNotProvided,
         subject: 'module:$missing',
-        severity: TrustSeverity.warning,
+        severity: TrustSeverity.warn,
         message: '引导清单声明了 $missing，但运行期未提供该模块（装配缺失）。',
         data: <String, Object?>{
           'module': missing,
