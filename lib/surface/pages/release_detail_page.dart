@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/error_surface.dart';
+import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
@@ -255,7 +256,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     if (!mounted) {
       return;
     }
-    await showModalBottomSheet<void>(
+    await ogLShowSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -315,7 +316,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     if (!mounted) {
       return;
     }
-    await showModalBottomSheet<void>(
+    await ogLShowSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (BuildContext sheetContext) => SafeArea(

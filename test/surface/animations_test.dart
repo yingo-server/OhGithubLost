@@ -123,9 +123,38 @@ void main() {
       expect(q2.transitionOffset < q3.transitionOffset, isTrue);
     });
 
-    test('缩放与模糊只出现在拉满档', () {
-      expect(OgLOAnimQuality.of(1).hasScale, isFalse);
-      expect(OgLOAnimQuality.of(2).hasScale, isFalse);
+    test('大体积动画：时长逐档增加，但都**比 5.2 更快**', () {
+      final OgLOAnimQuality q1 = OgLOAnimQuality.of(1);
+      final OgLOAnimQuality q2 = OgLOAnimQuality.of(2);
+      final OgLOAnimQuality q3 = OgLOAnimQuality.of(3);
+      // 逐档更重（1 < 2 < 3）
+      expect(q1.shellDuration < q2.shellDuration, isTrue);
+      expect(q2.shellDuration < q3.shellDuration, isTrue);
+      expect(q1.stateSwapDuration < q2.stateSwapDuration, isTrue);
+      expect(q2.stateSwapDuration < q3.stateSwapDuration, isTrue);
+      expect(q1.pageViewDuration < q2.pageViewDuration, isTrue);
+      expect(q2.pageViewDuration < q3.pageViewDuration, isTrue);
+      expect(q1.sheetDuration < q2.sheetDuration, isTrue);
+      expect(q2.sheetDuration < q3.sheetDuration, isTrue);
+      // 手感目标：全页 / 半页动画都在 250ms 以内（原先路由默认 300ms 起）
+      for (final OgLOAnimQuality q in <OgLOAnimQuality>[q1, q2, q3]) {
+        expect(q.shellDuration.inMilliseconds, lessThanOrEqualTo(200));
+        expect(q.stateSwapDuration.inMilliseconds, lessThanOrEqualTo(200));
+        expect(q.pageViewDuration.inMilliseconds, lessThanOrEqualTo(280));
+        expect(q.sheetDuration.inMilliseconds, lessThanOrEqualTo(220));
+      }
+      // 静默档：全部为零（面板/翻页/memo 都"直接出现"）
+      final OgLOAnimQuality q0 = OgLOAnimQuality.of(0);
+      expect(q0.shellDuration, Duration.zero);
+      expect(q0.stateSwapDuration, Duration.zero);
+      expect(q0.pageViewDuration, Duration.zero);
+      expect(q0.sheetDuration, Duration.zero);
+      expect(q0.transitionWindow, 0);
+    });
+
+    test('缩放最保守档不做、模糊只在拉满档', () {
+      expect(OgLOAnimQuality.of(1).hasScale, isFalse, reason: '档位 1 不缩放');
+      expect(OgLOAnimQuality.of(2).hasScale, isTrue, reason: '档位 2 起给极轻缩放');
       expect(OgLOAnimQuality.of(3).hasScale, isTrue);
       expect(OgLOAnimQuality.of(1).hasBlur, isFalse);
       expect(OgLOAnimQuality.of(2).hasBlur, isFalse);

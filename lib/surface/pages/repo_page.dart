@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
 import '../app/error_surface.dart';
+import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
@@ -219,7 +220,7 @@ class _RepoPageState extends State<RepoPage> {
     if (!mounted) {
       return;
     }
-    final String? picked = await showModalBottomSheet<String>(
+    final String? picked = await ogLShowSheet<String>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -1338,7 +1339,7 @@ class _CodeTabState extends State<_CodeTab> {
 
   Future<void> _showEntryMenu(GhContent entry) async {
     final ThemeData theme = Theme.of(context);
-    await showModalBottomSheet<void>(
+    await ogLShowSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (BuildContext sheetContext) => SafeArea(

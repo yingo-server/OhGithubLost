@@ -6,7 +6,21 @@
 
 **主题**：仓库统计曲线（星标 / 提交）**全面重构** —— 有坐标系、有单位、时间轴如实。
 *Repository stat charts rebuilt: real axes, real units, honest time axis.*
-
+### 变更 · Changed（大体积动画：更快 / 更灵动 · Large-surface motion）
+- **全页过渡改为「视觉窗口」压缩 · Page transitions compressed via a visual window**
+  页面级过渡**不改路由时长**（保留系统返回手势语义），而是把「实际运动」压进
+  路线时间线的前一段（档位 1/2/3 = 42% / 55% / 70%），落位后即保持——观感明显更快。
+- **全局提速 · Faster across the board**
+  快/中/慢三档整体下调（如标准档 150/220/300 → 120/170/230 ms）；新增的
+  「大体积动画」时长同样逐档增加但都 ≤ 200ms：外壳切换 110/150/190ms、
+  整页状态切换 110/140/180ms、引导翻页 160/200/260ms、底部弹层 130/160/200ms
+  （均快于 Flutter 底部弹层默认 250ms）。
+- **新增组件与入口 · New component and entry point**
+  `OgLSurfaceSwitch`：大体积内容切换（快速淡入 + 极轻缩放，低档只淡入）；
+  `ogLShowSheet<T>()`：底部弹层统一定速入口（`overlays.dart`），
+  5 处 `showModalBottomSheet` 已改用它。
+- **缩放分级 · Scale tiering**
+  最保守档位 1 **不做任何缩放**；档位 2/3 才给 ≤1% 的极轻缩放；模糊仍只在拉满档。
 ### 修复 · Fixed（读图会被误导的三处）
 
 - **纵轴不再按极值拉伸 · No more per-series stretching**

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
 import '../app/error_surface.dart';
+import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
@@ -316,7 +317,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   /// 只读预览（弹层）：与编辑器同一套库渲染，便于核对排版与高亮。
   void _previewSheet() {
     final _EditorPrefs settings = _EditorPrefs(widget.surface);
-    showModalBottomSheet<void>(
+    ogLShowSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

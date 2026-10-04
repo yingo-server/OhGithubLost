@@ -176,8 +176,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       return;
     }
     await _page.nextPage(
-      duration: OgLAnim.medium(context),
-      curve: OgLAnim.curve(context),
+      duration: OgLAnim.pageViewDuration(context),
+      curve: OgLAnim.largeCurve(context),
     );
   }
 
@@ -186,8 +186,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       return;
     }
     await _page.previousPage(
-      duration: OgLAnim.medium(context),
-      curve: OgLAnim.curve(context),
+      duration: OgLAnim.pageViewDuration(context),
+      curve: OgLAnim.largeCurve(context),
     );
   }
 

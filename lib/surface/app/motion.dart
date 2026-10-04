@@ -39,6 +39,14 @@ class OgLOAnimQuality {
     required this.transitionScaleFrom,
     required this.blurSigma,
     required this.curve,
+    required this.largeCurve,
+    required this.transitionWindow,
+    required this.transitionScaleFrom,
+    required this.shellDuration,
+    required this.shellOffset,
+    required this.stateSwapDuration,
+    required this.pageViewDuration,
+    required this.sheetDuration,
   });
 
   /// 档位（0–3）。
@@ -77,6 +85,35 @@ class OgLOAnimQuality {
   /// 统一缓动（更保守的档位用更"直接"的曲线）。
   final Curve curve;
 
+  /// **大体积动画**（整页 / 半页）统一用的"快速起步"曲线：
+  /// 起步快、收尾柔，观感更灵动。
+  final Curve largeCurve;
+
+  /// 全页过渡的**视觉窗口**：实际运动只占用路线时间线的前这么一小段
+  /// （0.42 = 300ms 的路由里，真正"动"的只有约 126ms）。
+  ///
+  /// 这样**不必改动任何路由创建点**，也不会破坏系统的返回手势语义，
+  /// 但肉眼观感快一倍以上。
+  final double transitionWindow;
+
+  /// 全页过渡起始缩放（1 = 不缩放；仅中/高档给一点点）。
+  final double transitionScaleFrom;
+
+  /// 切 tab 的滑动时长。
+  final Duration shellDuration;
+
+  /// 切 tab 的位移比例。
+  final double shellOffset;
+
+  /// 整页 / 半页内容切换（loading → data）时长。
+  final Duration stateSwapDuration;
+
+  /// 整页翻页（引导页）时长。
+  final Duration pageViewDuration;
+
+  /// 半页弹层（底部面板）时长。
+  final Duration sheetDuration;
+
   /// 是否允许动画。
   bool get animates => level > 0;
 
@@ -99,7 +136,13 @@ class OgLOAnimQuality {
       revealScaleFrom >= other.revealScaleFrom &&
       transitionOffset <= other.transitionOffset &&
       transitionScaleFrom >= other.transitionScaleFrom &&
-      blurSigma <= other.blurSigma;
+      blurSigma <= other.blurSigma &&
+      transitionWindow <= other.transitionWindow &&
+      shellDuration <= other.shellDuration &&
+      shellOffset <= other.shellOffset &&
+      stateSwapDuration <= other.stateSwapDuration &&
+      pageViewDuration <= other.pageViewDuration &&
+      sheetDuration <= other.sheetDuration;
 
   /// 档位 → 质量表（**唯一事实来源**）。
   static OgLOAnimQuality of(int level) {
@@ -107,10 +150,10 @@ class OgLOAnimQuality {
       case 1:
         return const OgLOAnimQuality(
           level: 1,
-          fast: Duration(milliseconds: 110),
-          medium: Duration(milliseconds: 150),
-          slow: Duration(milliseconds: 190),
-          staggerStep: Duration(milliseconds: 14),
+          fast: Duration(milliseconds: 90),
+          medium: Duration(milliseconds: 120),
+          slow: Duration(milliseconds: 160),
+          staggerStep: Duration(milliseconds: 12),
           staggerMaxIndex: 3,
           revealOffset: 0,
           revealScaleFrom: 1,
@@ -118,36 +161,57 @@ class OgLOAnimQuality {
           transitionScaleFrom: 1,
           blurSigma: 0,
           curve: Curves.linear,
+          largeCurve: Curves.easeOut,
+          transitionWindow: 0.42,
+          shellDuration: Duration(milliseconds: 110),
+          shellOffset: 0.02,
+          stateSwapDuration: Duration(milliseconds: 110),
+          pageViewDuration: Duration(milliseconds: 160),
+          sheetDuration: Duration(milliseconds: 130),
         );
       case 2:
         return const OgLOAnimQuality(
           level: 2,
-          fast: Duration(milliseconds: 170),
-          medium: Duration(milliseconds: 220),
-          slow: Duration(milliseconds: 280),
-          staggerStep: Duration(milliseconds: 30),
+          fast: Duration(milliseconds: 130),
+          medium: Duration(milliseconds: 170),
+          slow: Duration(milliseconds: 220),
+          staggerStep: Duration(milliseconds: 24),
           staggerMaxIndex: 8,
-          revealOffset: 0.02,
+          revealOffset: 0.015,
           revealScaleFrom: 1,
-          transitionOffset: 0.035,
-          transitionScaleFrom: 1,
+          transitionOffset: 0.03,
+          transitionScaleFrom: 0.99,
           blurSigma: 0,
           curve: Curves.easeOut,
+          largeCurve: Curves.easeOutCubic,
+          transitionWindow: 0.55,
+          shellDuration: Duration(milliseconds: 150),
+          shellOffset: 0.035,
+          stateSwapDuration: Duration(milliseconds: 140),
+          pageViewDuration: Duration(milliseconds: 200),
+          sheetDuration: Duration(milliseconds: 160),
         );
       case 3:
         return const OgLOAnimQuality(
           level: 3,
-          fast: Duration(milliseconds: 220),
-          medium: Duration(milliseconds: 300),
-          slow: Duration(milliseconds: 380),
-          staggerStep: Duration(milliseconds: 46),
+          fast: Duration(milliseconds: 170),
+          medium: Duration(milliseconds: 230),
+          slow: Duration(milliseconds: 290),
+          staggerStep: Duration(milliseconds: 36),
           staggerMaxIndex: 16,
-          revealOffset: 0.05,
+          revealOffset: 0.04,
           revealScaleFrom: 0.985,
-          transitionOffset: 0.06,
-          transitionScaleFrom: 0.99,
+          transitionOffset: 0.05,
+          transitionScaleFrom: 0.975,
           blurSigma: 6,
           curve: Curves.easeOutCubic,
+          largeCurve: Curves.easeOutQuint,
+          transitionWindow: 0.7,
+          shellDuration: Duration(milliseconds: 190),
+          shellOffset: 0.05,
+          stateSwapDuration: Duration(milliseconds: 180),
+          pageViewDuration: Duration(milliseconds: 260),
+          sheetDuration: Duration(milliseconds: 200),
         );
       case 0:
       default:
@@ -164,6 +228,14 @@ class OgLOAnimQuality {
           transitionScaleFrom: 1,
           blurSigma: 0,
           curve: Curves.linear,
+          largeCurve: Curves.linear,
+          transitionWindow: 0,
+          transitionScaleFrom: 1,
+          shellDuration: Duration.zero,
+          shellOffset: 0,
+          stateSwapDuration: Duration.zero,
+          pageViewDuration: Duration.zero,
+          sheetDuration: Duration.zero,
         );
     }
   }
@@ -199,7 +271,8 @@ abstract final class OgLMotion {
         : _OgLSlideFadeTransitionsBuilder(
             offset: quality.transitionOffset,
             scaleFrom: quality.transitionScaleFrom,
-            curve: quality.curve,
+            curve: quality.largeCurve,
+            window: quality.transitionWindow,
           );
     return PageTransitionsTheme(
       builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -233,6 +306,7 @@ class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
     required this.offset,
     required this.scaleFrom,
     required this.curve,
+    required this.window,
   });
 
   /// 起始垂直位移（占页高比例；0 = 不位移）。
@@ -244,6 +318,9 @@ class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
   /// 缓动。
   final Curve curve;
 
+  /// 视觉窗口（占路线时间线的比例）：运动在 `window` 处就已结束、随后保持。
+  final double window;
+
   @override
   Widget buildTransitions<T>(
     PageRoute<T> route,
@@ -252,23 +329,34 @@ class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final Animation<double> curved = animation.drive(CurveTween(curve: curve));
+    // 把"实际运动"压进路线时间线的前 window 段：观感快、但不改路由时长，
+    // 也不影响系统返回手势的语义。
+    final double end = window <= 0 || window > 1 ? 1.0 : window;
+    final Animation<double> moved = CurvedAnimation(
+      parent: animation,
+      curve: Interval(0.0, end, curve: curve),
+    );
+    // 淡入比落位再早一点结束（"先亮起来、再落定"），观感更灵动。
+    final Animation<double> faded = CurvedAnimation(
+      parent: animation,
+      curve: Interval(0.0, end * 0.8, curve: Curves.easeOut),
+    );
     Widget result = child;
     if (offset > 0) {
       result = SlideTransition(
         position: Tween<Offset>(begin: Offset(0, offset), end: Offset.zero)
-            .animate(curved),
+            .animate(moved),
         child: result,
       );
     }
     if (scaleFrom < 1) {
       result = ScaleTransition(
-        scale: Tween<double>(begin: scaleFrom, end: 1).animate(curved),
+        scale: Tween<double>(begin: scaleFrom, end: 1).animate(moved),
         child: result,
       );
     }
     return RepaintBoundary(
-      child: FadeTransition(opacity: curved, child: result),
+      child: FadeTransition(opacity: faded, child: result),
     );
   }
 }

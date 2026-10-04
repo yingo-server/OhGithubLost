@@ -378,8 +378,10 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
       _controller.value = 1;
       return;
     }
-    _from = widget.index > oldWidget.index ? 0.06 : -0.06;
-    _controller.duration = OgLAnim.medium(context);
+    // 位移距离、时长都按档位（低档更短、更快 —— "更贴"的手感）。
+    final double distance = OgLAnim.shellOffset(context);
+    _from = widget.index > oldWidget.index ? distance : -distance;
+    _controller.duration = OgLAnim.shellDuration(context);
     _controller.forward(from: 0);
   }
 
@@ -394,10 +396,16 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
         animation: _controller,
         // RepaintBoundary：切 tab 时只做图层位移、不重绘整页
         //（此前"整棵页面树每帧重绘"正是切换卡顿的主因）。
+        //
+        // 再叠一层**很轻的淡入**（0.7 → 1）：整页纯位移会显得"生硬"，
+        // 一点点透明度变化就足以让切换"活"起来，成本几乎为零。
         builder: (BuildContext context, Widget? child) => RepaintBoundary(
-          child: FractionalTranslation(
-            translation: Offset(_from * (1 - _controller.value), 0),
-            child: child,
+          child: FadeTransition(
+            opacity: Tween<double>(begin: 0.7, end: 1).animate(_controller),
+            child: FractionalTranslation(
+              translation: Offset(_from * (1 - _controller.value), 0),
+              child: child,
+            ),
           ),
         ),
         child: widget.child,

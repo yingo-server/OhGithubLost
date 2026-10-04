@@ -199,8 +199,9 @@ class AsyncView<T> extends StatelessWidget {
     if (!OgLAnim.enabled(context)) {
       return child;
     }
-    return AnimatedSwitcher(
-      duration: OgLAnim.fast(context),
+    // 整页 / 半页的状态切换属于**大体积动画**：走统一的「快速淡入 + 极轻缩放」，
+    // 时长与曲线都由档位质量表给（低档不缩放、只淡入）。
+    return OgLSurfaceSwitch(
       child: KeyedSubtree(key: ValueKey<String>(state), child: child),
     );
   }
