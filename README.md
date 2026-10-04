@@ -42,19 +42,38 @@ GitHub 仓库管理客户端，手机、平板与桌面可用。仓库地址与�
 - [Release 说明规范](docs/RELEASE_NOTES.md)
 - [更新日志](CHANGELOG.md)
 
-## 星标与提交历史
+## 星标与提交历史 · Stars & commits
 
-星标数量（蓝色折线）：
+**星标数量 · Stars（蓝线 / blue）**
 
-![星标数量折线图](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/star-history.png)
+![星标数量曲线：纵轴为「个」、从 0 起；横轴为 UTC 时间](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/star-history.png)
 
-提交数量（绿色折线）：
+**提交数量 · Commits（绿线 / green）**
 
-![提交数量折线图](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/commit-history.png)
+![提交数量曲线：纵轴为「个」、从 0 起；横轴为 UTC 时间](https://raw.githubusercontent.com/yingo-server/OhGithubLost/stats/stats/commit-history.png)
 
-- 两张图由 GitHub Actions 每 10 分钟更新一次。
-- 数据点写入 `stats/history.json`，折线图写入 `stats/star-history.png` 与 `stats/commit-history.png`，三份文件位于 `stats` 分支。
-- 数据来源：仓库接口的 stargazers_count，以及提交接口分页计数。
+### 怎么读这两张图 · How to read
+
+- **纵轴 / Y axis**：从 **0** 起（不截断），单位是**个（count）**；上限取"整齐"刻度
+  （1 / 2 / 2.5 / 5 × 10ⁿ），并画出 5 条刻度线与数值。
+  *Starts at 0, unit = count, "nice" upper bound with 5 labelled gridlines.*
+- **横轴 / X axis**：**真实 UTC 时间**（`MM-DD HH:MM`），不是"第几个采样点"——
+  采样间隔不均时不会被拉伸或压缩。*A true time axis in UTC, so uneven sampling
+  intervals are shown honestly.*
+- **两图不可直接比高度**：星标与提交各自独立纵轴，请**看纵轴数值**而不是线条高低。
+  *The two charts have independent Y axes — compare values, not visual heights.*
+- 图上标题行给出「最新值 / 数据点数 / 数据来源」，最新点用方块标出。
+  *The header row shows last value, point count and source; the latest point is boxed.*
+
+### 更新与产物 · Updates & files
+
+- 由 GitHub Actions 每 10 分钟更新一次（`.github/workflows/stats.yml`）。
+- 数据点：`stats/history.json`（`{ "t": ISO-8601 UTC, "stars": 整数, "commits": 整数 }`）；
+  图表：`stats/star-history.png`、`stats/commit-history.png`；三份文件都位于 `stats` 分支。
+- 数据来源：仓库接口的 `stargazers_count`，以及提交接口 `Link` 头 `rel="last"` 的页码（总数）。
+- 历史最多保留 **2000** 点；绘图时按像素密度**等距降采样**（保留首尾），避免折线糊成一片。
+- 生成器 `tool/stats_chart.py` **零第三方依赖**（zlib 手写 PNG + 内置 5×7 点阵字体），
+  并提供 `--selftest` 在 CI 中核对刻度 / 时间轴 / 降采样数学。
 - 折线按各自的极值缩放，量级差异下两条线仍可辨认。
 
 ## 许可

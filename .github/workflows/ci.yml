@@ -49,6 +49,9 @@ jobs:
       - name: 性能反模式审计（shrinkWrap / 宽 MediaQuery.of）
         run: python3 tool/perf_audit.py --fatal
 
+      - name: 图表自检（统计曲线的坐标系 / 刻度 / 降采样）
+        run: python3 tool/stats_chart.py --selftest
+
       - name: 静态分析（警告即失败）
         run: flutter analyze --fatal-infos --fatal-warnings
 

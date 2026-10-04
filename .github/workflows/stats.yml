@@ -57,6 +57,9 @@ jobs:
           fi
           mkdir -p stats
 
+      - name: 图表数学自检（不联网）
+        run: python3 tool/stats_chart.py --selftest
+
       - name: 生成数据与折线图
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
