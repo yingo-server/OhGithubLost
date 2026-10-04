@@ -67,7 +67,7 @@ jobs:
       # （真事故：APK 显示 0.1.0，而 App 内部版本来自代码常量，看起来"正常"）。
       # 现在默认值已删除，这里再做一道硬校验，空值/非法值一律拒绝。
       - name: 校验发布参数（手动触发必填）
-        if: github.event_name == 'workflow_dispatch' && matrix.build != 'linux'
+        if: github.event_name == 'workflow_dispatch'
         env:
           VN: ${{ inputs.version_name }}
           VNUM: ${{ inputs.version_number }}
@@ -412,7 +412,7 @@ jobs:
       - name: 构建 ${{ matrix.label }}（发布：全平台注入版本号）
         # ★ 所有平台都灌入 versionName / versionCode（旧版只给 Android，导致
         #   Windows/Linux/macOS/iOS 产物仍停留在 pubspec 版本，跨平台不一致）。
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && matrix.build != 'linux'
         run: >-
           flutter build ${{ matrix.build }} ${{ matrix.args }}
           --build-name=${{ inputs.version_name }}
