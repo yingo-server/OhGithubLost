@@ -36,7 +36,8 @@ void main() {
     expect(OgLAnim.fast(context), Duration.zero);
     expect(OgLAnim.medium(context), Duration.zero);
     expect(OgLAnim.slow(context), Duration.zero);
-    expect(OgLAnim.staggerOf(context, 3), Duration.zero);
+    // 静默档：错峰返回 null（= 该项**不参与**入场动画），而不是"延迟 0"。
+    expect(OgLAnim.staggerOf(context, 3), isNull);
   });
 
   testWidgets('档位 1 / 2 / 3：时长递增', (WidgetTester tester) async {
