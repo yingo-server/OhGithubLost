@@ -202,6 +202,18 @@ def axis_ticks(axis_max, count=5):
     return [axis_max * i / (count - 1) for i in range(count)]
 
 
+def axis_ticks_for(axis_max, integer_series=True, count=5):
+    """按数据性质给刻度。
+
+    **计数类（星标 / 提交）在数值不大时直接用整数刻度**：等分会出现
+    `1.2`、`3.8` 这类读数，而"1.2 个星标"本身就不成立。范围大（> 12）时
+    整数刻度会太密，退回等分刻度。
+    """
+    if integer_series and axis_max <= 12:
+        return [float(i) for i in range(int(round(axis_max)) + 1)]
+    return axis_ticks(axis_max, count)
+
+
 def format_value(value):
     """刻度数值：整数不带小数点，小数最多 1 位。"""
     if abs(value - round(value)) < 1e-9:
@@ -333,7 +345,7 @@ def write_history(path, points):
 
 # ── 渲染 ─────────────────────────────────────────────────────────────────
 def render_chart(points, key, color, path, title, unit, source):
-    """把一串历史点渲染成**带坐标系**的 PNG。"""
+    """把一串历史点渲染成**带坐标系**的 PNG；返回画布（自检用）。"""
     rows = _canvas(WIDTH, HEIGHT, COLOR_BG)
     plot_left = MARGIN_LEFT
     plot_top = MARGIN_TOP
@@ -361,7 +373,7 @@ def render_chart(points, key, color, path, title, unit, source):
           COLOR_MUTED)
 
     # 网格 + 纵轴刻度（数值）
-    for tick in axis_ticks(axis_max):
+    for tick in axis_ticks_for(axis_max):
         y = int(round(y_of(tick)))
         _rect(rows, plot_left, y, plot_left + plot_w, y + 1, COLOR_GRID)
         label = format_value(tick)
@@ -410,9 +422,22 @@ def render_chart(points, key, color, path, title, unit, source):
         _rect(rows, int(x) - 3, int(y) - 3, int(x) + 4, int(y) + 4, color)
 
     _write_png(path, rows)
+    return rows
 
 
 # ── 自检（不联网，供 CI 直接跑）────────────────────────────────────────────
+def _ink(rows, x0, y0, x1, y1):
+    """统计区域内的深色像素数（判断「这里到底有没有画出东西」）。"""
+    width = len(rows[0]) // 3
+    total = 0
+    for y in range(max(0, int(y0)), min(len(rows), int(y1))):
+        row = rows[y]
+        for x in range(max(0, int(x0)), min(width, int(x1))):
+            if sum(row[3 * x:3 * x + 3]) < 560:
+                total += 1
+    return total
+
+
 def selftest():
     failures = []
 
@@ -431,6 +456,16 @@ def selftest():
     check('nice_axis_max(42) == 50', nice_axis_max(42) == 50)
     check('nice_axis_max(1234) == 2000', nice_axis_max(1234) == 2000)
     check('nice_axis_max(0.4) == 0.5', abs(nice_axis_max(0.4) - 0.5) < 1e-9)
+
+    # 计数类：小范围给整数刻度（不该出现 "1.2 个星标"）
+    small = axis_ticks_for(nice_axis_max(3))
+    check('小范围整数刻度 == 0..5', small == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    check('整数刻度不含小数', all(v == int(v) for v in small))
+    check('整数刻度含 0 与上限', small[0] == 0 and small[-1] == 5)
+    check('单点（上限 1）给 0..1', axis_ticks_for(nice_axis_max(0)) == [0.0, 1.0])
+    big = axis_ticks_for(nice_axis_max(1234))
+    check('大范围退回等分刻度（5 条）', len(big) == 5)
+    check('大范围刻度到上限', abs(big[-1] - nice_axis_max(1234)) < 1e-9)
 
     # 刻度：5 条、含 0 与上限、单调
     ticks = axis_ticks(nice_axis_max(42))
@@ -481,6 +516,24 @@ def selftest():
             check('%s.png 是 PNG' % name, head[:8] == b'\x89PNG\r\n\x1a\n')
             check('%s.png 尺寸正确' % name,
                   struct.unpack('>II', head[16:24]) == (WIDTH, HEIGHT))
+            rows = render_chart(data_points, 'stars', COLOR_STAR,
+                                os.path.join(tmp, '%s-2.png' % name),
+                                'STARS (COUNT)', 'COUNT', 'GITHUB API')
+            plot_left = MARGIN_LEFT
+            plot_bottom = HEIGHT - MARGIN_BOTTOM
+            plot_w = WIDTH - MARGIN_LEFT - MARGIN_RIGHT
+            check('%s 纵轴有刻度数字' % name,
+                  _ink(rows, 0, MARGIN_TOP, plot_left - 6, plot_bottom) > 0)
+            check('%s 横轴有时间刻度' % name,
+                  _ink(rows, plot_left, plot_bottom + 4, plot_left + plot_w,
+                       HEIGHT) > 0)
+            check('%s 顶部有标题行' % name,
+                  _ink(rows, plot_left, 0, WIDTH - 40, 36) > 0)
+            check('%s 画出了折线' % name,
+                  _ink(rows, plot_left + 2, MARGIN_TOP, plot_left + plot_w,
+                       plot_bottom) > 0)
+            check('%s 纵轴单位在最左侧' % name,
+                  _ink(rows, 0, MARGIN_TOP - 12, 40, MARGIN_TOP + 2) > 0)
 
     if failures:
         for item in failures:
