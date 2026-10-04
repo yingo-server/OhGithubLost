@@ -37,6 +37,21 @@
     （拉满档用 `easeOutBack`）；透明度插值保持单调，绝不回弹。
   - **共享元素（容器变换）**：新增 `OgLSharedTitle`，把仓库列表的**名称**与
     仓库详情的**标题**连成一次 `Hero` 飞行（"空间连续感"）；标准档及以上启用。
+- **全覆盖动效 + 覆盖面分档 · Full coverage & coverage tiers**
+  - 分档从"效果强弱"扩展为**「覆盖 × 丰富度」**：新增 `revealAll`（覆盖面）。
+    - 档位 1：淡入，**只覆盖主要区域 + 前 3 项**（最保守）；
+    - **档位 2（倒数第二档）：每个控件都动，但用最简动画——纯淡入**
+      （`revealOffset = 0`、不缩放），只保证"每个控件都有动画"；
+    - 档位 3：全覆盖，并叠加位移 / 缩放 / 回弹 / 模糊（拉满）。
+  - `OgLAnim.staggerOf`：超出错峰范围的项在**全覆盖档位**仍参与动画
+    （只是不再错峰），不再是"直接静态渲染"。
+  - **`AsyncView` 数据态加入场**：加载 → 数据不再"硬切"，整片内容淡入
+    （用单子层的 `OgLReveal`，放进 `Expanded` 也不会无界）。
+  - **静态页 / 表单页补齐入场**：`settings` / `about` / `login` / 四个 `new_*`
+    / `code_editor` / `issue` / `pull` / `commit` / `release_detail` 的页面内容
+    统一包一层入场动画；Gist 列表逐项入场。
+  - 新增 `OgLRevealList.of(context, children)`：把一串子控件**逐个**包上入场
+    动画（自动错峰），用于整栏 / 整页覆盖。
 ### 修复 · Fixed（读图会被误导的三处）
 
 - **纵轴不再按极值拉伸 · No more per-series stretching**

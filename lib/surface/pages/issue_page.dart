@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
@@ -220,7 +221,7 @@ class _IssuePageState extends State<IssuePage> {
       appBar: AppBar(
         title: Text('#$_number', maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
-      body: CustomScrollView(
+      body: OgLReveal(delay: Duration.zero, child: CustomScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: <Widget>[
           // 头部（常量级）：标题 / 状态 / 正文 / 操作按钮 /「评论」标题。
@@ -361,7 +362,7 @@ class _IssuePageState extends State<IssuePage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
-      ),
+      )),
     );
 
   }

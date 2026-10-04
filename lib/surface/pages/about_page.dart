@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
+import '../app/animations.dart';
 import '../app/permission_selftest.dart';
 import '../app/permissions.dart';
 import '../app/project_info.dart';
@@ -49,7 +50,7 @@ class AboutPage extends StatelessWidget {
     final KernelReport? snapshot = report;
     return Scaffold(
       appBar: AppBar(title:  Text(_t('title'))),
-      body: ListView(
+      body: OgLReveal(delay: Duration.zero, child: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Card(
@@ -197,7 +198,7 @@ class AboutPage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
         ],
-      ),
+      )),
     );
   }
 

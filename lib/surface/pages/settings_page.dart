@@ -26,6 +26,7 @@ import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
 import '../../kernel/log/og_l_log_file.dart';
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
@@ -411,7 +412,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(_t('title'))),
-      body: ListenableBuilder(
+      body: OgLReveal(delay: Duration.zero, child: ListenableBuilder(
         listenable: _settings,
         builder: (BuildContext context, Widget? _) {
           final OgLSettings value = _settings.settings;
@@ -470,7 +471,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           );
         },
-      ),
+      )),
     );
   }
 

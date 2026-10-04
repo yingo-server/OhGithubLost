@@ -244,19 +244,27 @@ class AsyncView<T> extends StatelessWidget {
           }
           final String? soft = controller.softError;
           if (soft == null) {
-            return builder(context, data);
+            return _enterData(builder(context, data));
           }
           return Column(
             children: <Widget>[
               OgLAsyncSoftErrorBar(message: soft, onDismiss: controller.dismissError),
               if (fill)
-                Expanded(child: builder(context, data))
+                Expanded(child: _enterData(builder(context, data)))
               else
-                builder(context, data),
+                _enterData(builder(context, data)),
             ],
           );
         },
       );
+
+  /// 数据态**入场**：整片内容淡入（档位 0 / 系统"减少动效"时直接返回）。
+  ///
+  /// 用 [OgLReveal] 而不是 `AnimatedSwitcher`：前者是单子层
+  ///（`Opacity` + 位移），放进 `Expanded` 也不会无界；后者内部是 `Stack`，
+  /// 会把 `Expanded` 撑爆。这样「加载态 → 数据态」也有动画。
+  Widget _enterData(Widget child) =>
+      OgLReveal(delay: Duration.zero, child: child);
 }
 
 /// 失败面板：原因 + 重试（错误不许无声消失）。

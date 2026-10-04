@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
@@ -417,7 +418,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
             ),
           ],
         ),
-        body: Column(
+        body: OgLReveal(delay: Duration.zero, child: Column(
           children: <Widget>[
             Expanded(
               child: OgLCodeField(
@@ -432,7 +433,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
             ),
             _statusBar(theme),
           ],
-        ),
+        )),
       ),
     );
   }

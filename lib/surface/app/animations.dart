@@ -109,11 +109,19 @@ abstract final class OgLAnim {
   /// 避免长列表尾部一堆项同时起动画。
   static Duration? staggerOf(BuildContext context, int index) {
     final OgLOAnimQuality q = quality(context);
-    if (!q.animates || index < 0 || index > q.staggerMaxIndex) {
+    if (!q.animates || index < 0) {
       return null;
     }
-    return q.staggerStep * index;
+    if (index <= q.staggerMaxIndex) {
+      return q.staggerStep * index;
+    }
+    // 超出"错峰"范围：全覆盖档位（2 / 3）**仍然参与动画**（只是不再错峰），
+    // 保证"每个控件都有动画"；只有保守档位（1）才让尾部直接静态渲染。
+    return q.revealAll ? Duration.zero : null;
   }
+
+  /// **覆盖面**：是否每个控件都参与入场动画（档位 2 / 3 为真）。
+  static bool revealAll(BuildContext context) => quality(context).revealAll;
 }
 
 /// 物理弹簧驱动器（"厂商级"动效 · 基础版）。
@@ -287,6 +295,29 @@ class OgLSurfaceSwitch extends StatelessWidget {
       },
       child: child,
     );
+  }
+}
+
+/// 把一串子控件逐个包上 [OgLReveal]（**自动错峰**），做"整栏 / 整页全覆盖"。
+///
+/// 它**不改布局、不改滚动**，只是把 `children` 里每个控件包一层入场动画；
+/// 是否真的动、错峰多少，完全由档位决定（见 [OgLAnim.staggerOf] 与
+/// [OgLOAnimQuality.revealAll]）。
+///
+/// 用法：`children: OgLRevealList.of(context, <Widget>[a, b, c])`。
+abstract final class OgLRevealList {
+  /// 返回包好入场动画的子控件列表。
+  static List<Widget> of(BuildContext context, List<Widget> children) {
+    final List<Widget> out = <Widget>[];
+    for (int i = 0; i < children.length; i++) {
+      out.add(
+        OgLReveal(
+          delay: OgLAnim.staggerOf(context, i),
+          child: children[i],
+        ),
+      );
+    }
+    return out;
   }
 }
 

@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
@@ -105,7 +106,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title:  Text(_t('title'))),
-      body: ListView(
+      body: OgLReveal(delay: Duration.zero, child: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           TextField(
@@ -173,7 +174,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
             child: Text(_busy ? _t('publishing') : _t('publish')),
           ),
         ],
-      ),
+      )),
     );
   }
 }

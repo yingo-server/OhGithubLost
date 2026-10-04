@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
@@ -424,7 +425,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
             ),
           ],
         ),
-        body: ListView(
+        body: OgLReveal(delay: Duration.zero, child: ListView(
           padding: const EdgeInsets.all(16),
           children: <Widget>[
             Text(
@@ -491,7 +492,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                 ),
             const SizedBox(height: 24),
           ],
-        ),
+        )),
       ),
     );
   }

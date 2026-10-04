@@ -171,6 +171,18 @@ void main() {
       expect(OgLOAnimQuality.of(0).curve, Curves.linear);
     });
 
+    test('覆盖面：档位 1 只覆盖前几项，档位 2 / 3 覆盖每个控件', () {
+      expect(OgLOAnimQuality.of(1).revealAll, isFalse);
+      expect(OgLOAnimQuality.of(2).revealAll, isTrue);
+      expect(OgLOAnimQuality.of(3).revealAll, isTrue);
+      // 倒数第二档（2）= **最简全覆盖**：只淡入，不带位移 / 缩放。
+      expect(OgLOAnimQuality.of(2).revealOffset, 0);
+      expect(OgLOAnimQuality.of(2).revealScaleFrom, 1);
+      // 拉满档（3）才叠加位移 / 缩放。
+      expect(OgLOAnimQuality.of(3).revealOffset, greaterThan(0));
+      expect(OgLOAnimQuality.of(3).revealScaleFrom, lessThan(1));
+    });
+
     test('物理弹簧按档位分级：1 不振荡、越高越"弹"', () {
       expect(OgLOAnimQuality.of(0).spring, isNull, reason: '静默档没有弹簧');
 
@@ -252,15 +264,21 @@ void main() {
         (WidgetTester tester) async {
       Future<BuildContext> pump(int level) => _pumpAt(tester, level);
 
-      // 档位 1：只让前 3 项动。
+      // 档位 1：只让前 3 项动（覆盖面前 3 项 + 主要区域）。
       final BuildContext c1 = await pump(1);
       expect(OgLAnim.staggerOf(c1, 0), Duration.zero);
       expect(OgLAnim.staggerOf(c1, 3), isNotNull);
       expect(OgLAnim.staggerOf(c1, 4), isNull);
 
+      // 档位 2 / 3：**全覆盖**——超出错峰范围仍然参与动画（只是不再错峰）。
+      final BuildContext c2 = await pump(2);
+      expect(OgLAnim.staggerOf(c2, 8), isNotNull);
+      expect(OgLAnim.staggerOf(c2, 200), Duration.zero,
+          reason: '全覆盖档位：再靠后的项也有动画（不带错峰）');
+
       final BuildContext c3 = await pump(3);
       expect(OgLAnim.staggerOf(c3, 16), isNotNull);
-      expect(OgLAnim.staggerOf(c3, 17), isNull);
+      expect(OgLAnim.staggerOf(c3, 99), Duration.zero);
 
       final BuildContext c0 = await pump(0);
       expect(OgLAnim.staggerOf(c0, 0), isNull, reason: '静默档不参与任何入场动画');

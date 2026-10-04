@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
@@ -158,7 +159,9 @@ class _GistsPageState extends State<GistsPage> {
             itemBuilder: (BuildContext context, int index) {
               final Map<String, dynamic> gist = gists[index];
               final bool isPublic = gist['public'] == true;
-              return ListTile(
+              return OgLReveal(
+                delay: OgLAnim.staggerOf(context, index),
+                child: ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: Text(
                   _titleOf(gist),
@@ -178,6 +181,7 @@ class _GistsPageState extends State<GistsPage> {
                   onPressed: () => unawaited(_openInBrowser(gist)),
                 ),
                 onTap: () => unawaited(_openDetail(gist)),
+                ),
               );
             },
           ),

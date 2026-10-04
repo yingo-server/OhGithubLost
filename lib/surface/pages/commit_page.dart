@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../app/animations.dart';
 import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
@@ -91,7 +92,7 @@ class _CommitPageState extends State<CommitPage> {
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: CustomScrollView(
+      body: OgLReveal(delay: Duration.zero, child: CustomScrollView(
         slivers: <Widget>[
           // 头部：常量级 widget 数量，一次性构建即可；
           // 数据行交给下面的 sliver 懒加载（长列表不再一次性构建）。
@@ -151,7 +152,7 @@ class _CommitPageState extends State<CommitPage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
-      ),
+      )),
     );
   }
 

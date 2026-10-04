@@ -33,6 +33,7 @@ class OgLOAnimQuality {
     required this.slow,
     required this.staggerStep,
     required this.staggerMaxIndex,
+    required this.revealAll,
     required this.revealOffset,
     required this.revealScaleFrom,
     required this.transitionOffset,
@@ -66,8 +67,19 @@ class OgLOAnimQuality {
   /// 列表错峰步长。
   final Duration staggerStep;
 
-  /// 参与入场动画的最大序号（**更保守的档位只让前几项动**）。
+  /// 参与"错峰"的最大序号（超出者不再错峰，见 [revealAll]）。
   final int staggerMaxIndex;
+
+  /// **覆盖面**：是否**每个控件都参与**入场动画。
+  ///
+  /// - `false`（档位 1）：只有主要区域 + 前 [staggerMaxIndex] 项动，
+  ///   更省、更保守；
+  /// - `true`（档位 2 / 3）：**所有控件都有动画**——这正是"倒数第二档
+  ///   （档位 2）用最简单的动画保证每个控件都有"的落点。
+  ///
+  /// 注意它只决定**覆盖面**，不决定效果强弱（效果强弱由
+  /// [revealOffset] / [revealScaleFrom] 等决定）。
+  final bool revealAll;
 
   /// 入场位移（占自身高度比例；0 = 只淡入，不动位置）。
   final double revealOffset;
@@ -154,6 +166,7 @@ class OgLOAnimQuality {
       slow <= other.slow &&
       staggerStep <= other.staggerStep &&
       staggerMaxIndex <= other.staggerMaxIndex &&
+      (!revealAll || other.revealAll) &&
       revealOffset <= other.revealOffset &&
       revealScaleFrom >= other.revealScaleFrom &&
       transitionOffset <= other.transitionOffset &&
@@ -177,6 +190,7 @@ class OgLOAnimQuality {
           slow: Duration(milliseconds: 160),
           staggerStep: Duration(milliseconds: 12),
           staggerMaxIndex: 3,
+          revealAll: false, // 只覆盖主要区域 + 前 3 项（最保守）
           revealOffset: 0,
           revealScaleFrom: 1,
           transitionOffset: 0.012,
@@ -203,7 +217,8 @@ class OgLOAnimQuality {
           slow: Duration(milliseconds: 220),
           staggerStep: Duration(milliseconds: 24),
           staggerMaxIndex: 8,
-          revealOffset: 0.015,
+          revealAll: true, // 每个控件都动（最简：纯淡入）
+          revealOffset: 0,
           revealScaleFrom: 1,
           transitionOffset: 0.03,
           transitionScaleFrom: 0.99,
@@ -228,6 +243,7 @@ class OgLOAnimQuality {
           slow: Duration(milliseconds: 290),
           staggerStep: Duration(milliseconds: 36),
           staggerMaxIndex: 16,
+          revealAll: true, // 每个控件都动（且效果拉满）
           revealOffset: 0.04,
           revealScaleFrom: 0.985,
           transitionOffset: 0.05,
@@ -254,6 +270,7 @@ class OgLOAnimQuality {
           slow: Duration.zero,
           staggerStep: Duration.zero,
           staggerMaxIndex: 0,
+          revealAll: false,
           revealOffset: 0,
           revealScaleFrom: 1,
           transitionOffset: 0,
