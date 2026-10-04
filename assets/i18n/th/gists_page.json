@@ -1,12 +1,13 @@
 {
   "created": "สร้าง Gist แล้ว",
-  "empty": "ยังไม่มี Gist",
-  "fileCount": "มี {count} ไฟล์ · ",
-  "missingId": "ไม่มี id ใน Gist นี้ จึงไม่สามารถเปิดได้",
+  "empty": "ยังไม่มีชิ้นส่วน Gist",
+  "fileCount": "ไฟล์ {count} รายการ · ",
+  "missingId": "Gist รายการนี้ไม่มี id ทำให้เปิดไม่ได้",
   "new": "สร้างใหม่",
-  "noDescription": "(ไม่มีการอธิบาย)",
-  "noOpenLink": "ไม่มีลิงก์เปิดสำหรับ Gist นี้",
+  "noDescription": "(ไม่มีคำอธิบาย)",
+  "noOpenLink": "Gist รายการนี้ไม่มีลิงก์ที่สามารถเปิดได้",
   "openInBrowser": "เปิดในเบราว์เซอร์",
   "private": "ส่วนตัว",
-  "title": "Gist"
+  "public": "สาธารณะ",
+  "title": "ชิ้นส่วน Gist"
 }

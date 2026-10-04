@@ -1,12 +1,13 @@
 {
   "created": "Gist बनाया गया",
-  "empty": "अभी कोई Gist स्निपेट नहीं",
+  "empty": "कोई Gist फ़ाइलें नहीं हैं",
   "fileCount": "{count} फ़ाइलें · ",
-  "missingId": "इस Gist में id नहीं है, नहीं खुला जा सकता",
-  "new": "नया",
+  "missingId": "इस Gist में id नहीं है, इसलिए इसे खोला नहीं जा सकता",
+  "new": "नया बनाएं",
   "noDescription": "(कोई विवरण नहीं)",
-  "noOpenLink": "इस Gist का कोई खुलने योग्य लिंक नहीं है",
+  "noOpenLink": "इस Gist का कोई खुलने वाला लिंक नहीं है",
   "openInBrowser": "ब्राउज़र में खोलें",
   "private": "निजी",
-  "title": "Gist स्निपेट"
+  "public": "सार्वजनिक",
+  "title": "Gist फ़ाइलें"
 }

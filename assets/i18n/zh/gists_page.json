@@ -8,5 +8,6 @@
   "noOpenLink": "这条 Gist 没有可打开的链接",
   "openInBrowser": "在浏览器打开",
   "private": "私密",
+  "public": "公开",
   "title": "Gist 片段"
 }

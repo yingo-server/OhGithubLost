@@ -1,6 +1,6 @@
 {
   "created": "Đã tạo Gist",
-  "empty": "Chưa có đoạn Gist",
+  "empty": "Chưa có Gist nào",
   "fileCount": "{count} tệp · ",
   "missingId": "Gist này thiếu id, không thể mở",
   "new": "Tạo mới",
@@ -8,5 +8,6 @@
   "noOpenLink": "Gist này không có liên kết nào để mở",
   "openInBrowser": "Mở trong trình duyệt",
   "private": "Riêng tư",
-  "title": "Đoạn Gist"
+  "public": "Công khai",
+  "title": "Gist"
 }

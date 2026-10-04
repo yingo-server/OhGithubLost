@@ -163,7 +163,7 @@ class AsyncController<T> extends ChangeNotifier {
 /// 把 [AsyncController] 的四态渲染成 Material 组件（页面不再自己判状态）。
 class AsyncView<T> extends StatelessWidget {
   /// 创建视图。
-   AsyncView({
+  const AsyncView({
     required this.controller,
     required this.builder,
     this.emptyIcon = Icons.inbox_outlined,

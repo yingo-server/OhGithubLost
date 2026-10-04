@@ -27,6 +27,7 @@
   "save": "保存",
   "stats": "{lines} 行 · {chars} 字符",
   "undo": "撤销",
+  "unsaved": " ·未保存",
   "wrapOff": "关闭自动换行",
   "wrapOn": "开启自动换行"
 }
