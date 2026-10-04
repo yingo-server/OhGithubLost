@@ -200,6 +200,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // ignore: unused_element
+  
   Future<void> _logout(GhAccount account) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -1232,14 +1234,11 @@ const Divider(height: 1),
                   subtitle: Text(_t('notLoggedInHint')),
                 );
               }
+              // 危险区（退出登录）已迁到「用户页」，这里只展示身份。
               return ListTile(
                 leading: const Icon(Icons.key),
                 title: Text('@${account.login}'),
                 subtitle: Text(_t('accountId', {'id': account.id})),
-                trailing: OutlinedButton(
-                  onPressed: () => _logout(account),
-                  child: Text(_t('logout')),
-                ),
               );
             },
           ),
