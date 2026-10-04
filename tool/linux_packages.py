@@ -8,7 +8,7 @@ deb / rpm / AppImage **本身就是深度压缩格式**：再套一层 zip/7z �
 
 ## 三种格式
 - `.deb`：手写 `DEBIAN/control` + 目录布局，`dpkg-deb -Zxz`（xz 极限）；
-- `.rpm`：`rpmbuild -bb`，`%_binary_payload w9.xzdio`；
+- `.rpm`：`rpmbuild -bb`，`%_binary_payload w9.xzdio`（xz 压缩级别上限 9）；
 - `.AppImage`：AppDir + `AppRun` + `.desktop` + 图标（2048 母版），
   用 `appimagetool --appimage-extract-and-run`（**CI 无 FUSE** 的经典坑）。
 
