@@ -2,7 +2,53 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v5.0.0（开发中 · 未发布）
+## v5.1.0（2026-10-04 · 正式版）
+
+**主题**：5.x 的第一个正式版 —— 5.0 的交互打磨**全部内容** + 一次被探针发现的内核一致性硬化。
+*First stable of the 5.x line: everything from 5.0 plus a kernel-consistency hardening found by an adversarial probe.*
+
+### 与 5.0.0-beta 的关系 · Relationship
+
+- 本版 = `v5.0.0-beta` 的全部内容（多连接分片下载 / 页面过渡修复 / 长日志虚拟化 /
+  通知中心去符号 / 返回键统一 / 权限每次启动自检）+ **内核「清单 ↔ 运行期模块」交叉校验**。
+- 也就是说：**升级到 5.1.0 即可，无需先装 5.0.0-beta**。
+  *Upgrading straight to 5.1.0 is enough; 5.0.0-beta is superseded.*
+
+### 新增 · Added
+
+- **内核一致性硬化：清单 ↔ 运行期模块交叉校验 · Manifest coverage cross-check**
+  由一次性对抗性探针（独立分支 CI）发现：**清单里声明了某模块、装配时却没有提供它**，
+  此前既不拒绝也不留痕（应用"看起来正常"，实际少了一整层能力）。
+  现在 boot 封存总线后会逐一比对，缺失项记为 `OGL-BOOT-108`
+  （诊断 warn + 引导信任告警）——**能启动，但一定留痕**，不误伤可用性。
+  *Found by a throwaway adversarial probe running on its own CI branch: a module declared
+  in the boot manifest but never assembled was previously accepted silently. The kernel now
+  cross-checks manifest against runtime modules and records `OGL-BOOT-108` (warn-level
+  diagnostic + boot trust warning) — boot still succeeds, but never silently.*
+- 该行为带**回归用例**（`test/kernel/kernel_test.dart`：清单声明但未提供 → 必须出现
+  `OGL-BOOT-108`）。*Covered by a regression test.*
+
+### 5.0 内容（本版包含）· 5.0 contents included
+
+- **多连接分片下载**：`Range` 并发拉取 + 顺序合并；每片独立临时文件（规避共用句柄错位），
+  任一分片失败即清理全部分片（不交付半成品）；不支持 `Range` 自动回退单连接。
+  新增「下载并发连接数」设置（1/2/4/8，默认 4）与进度/速度动画。
+- **页面过渡卡顿修复**：去掉整页缩放（`ZoomPageTransitionsBuilder` 的整页重光栅化正是根因），
+  改为单层淡入 + 轻位移并强制 `RepaintBoundary`。
+- **Actions 长日志虚拟化**：按行分块 + `ListView.builder` 按需渲染，显示「共 N 行」。
+- **通知中心**：去掉 `✔ / ▶ / ✗ / ★` 等 emoji 风格符号（改由图标与 `level` 承载），
+  详情展开带动画。
+- **安卓返回键统一**：二级页 / 弹窗 → 抽屉 → 回首页 tab → 双击退出（一次误按不退出）。
+- **权限自检（每次启动）**：实测存储（真实写入探针）与通知权限，缺失时带事件码
+  （`OGL-PERM-001/002/000`）上报通知中心。
+
+### 已知限制 · Known limitations
+
+- 分片下载的**暂停 = 重新开始**（不假装续传）；单连接库任务的断点续传不受影响。
+- 桌面端仍使用库下载（分片引擎按 `Range` 能力判定，不支持则回退）。
+- `v5.0.0-beta` 的产物构建于内核硬化之前；如需完整修复请使用本版。
+
+## v5.0.0（2026-10-04 · beta 预发布）
 
 **主题**：交互与体验打磨（不加新功能面）。用户明确的 5.0 范围**已全部实现**，见下。
 
