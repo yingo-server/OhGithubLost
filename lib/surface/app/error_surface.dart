@@ -191,6 +191,13 @@ class OgLAppLog extends ChangeNotifier {
 
   final List<OgLAppLogEntry> _entries = <OgLAppLogEntry>[];
 
+  /// 通知合并：批量写日志时不要逐条 notify（那会让通知中心整表重建）。
+  ///
+  /// 只合并"通知"，**数据仍然逐条立即入表**，所以不改变任何可见内容；
+  /// 最坏情况是 UI 晚 200ms 看到新条目。
+  static const Duration _notifyThrottle = Duration(milliseconds: 200);
+  Timer? _notifyTimer;
+
   /// 全部条目（**最新在前**，方便直接看）。
   List<OgLAppLogEntry> get entries =>
       List<OgLAppLogEntry>.unmodifiable(_entries.reversed.toList());
@@ -214,7 +221,7 @@ class OgLAppLog extends ChangeNotifier {
     while (_entries.length > maxEntries) {
       _entries.removeAt(0);
     }
-    notifyListeners();
+    _notifyCoalesced();
     OgLLogFile.line(
       area,
       message,
@@ -226,6 +233,20 @@ class OgLAppLog extends ChangeNotifier {
                   : 'INFO'),
     );
   }
+
+  /// 合并后的通知（最多 200ms 一次）。
+  void _notifyCoalesced() {
+    if (_notifyTimer != null) {
+      return;
+    }
+    _notifyTimer = Timer(_notifyThrottle, () {
+      _notifyTimer = null;
+      notifyListeners();
+    });
+  }
+
+  /// 立即通知（已读状态等"用户刚点过"的操作，不该延迟）。
+  void notifyNow() => notifyListeners();
 
   /// 记录**成功的结果**（用户明确要求：不要只记错误）。
   ///

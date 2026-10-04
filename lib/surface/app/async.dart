@@ -216,7 +216,7 @@ class AsyncView<T> extends StatelessWidget {
               return _animatedState(
                 context,
                 'error',
-                _ErrorPane(message: failure, onRetry: controller.load),
+                OgLAsyncErrorPane(message: failure, onRetry: controller.load),
               );
             }
             return _animatedState(
@@ -234,7 +234,7 @@ class AsyncView<T> extends StatelessWidget {
             return _animatedState(
               context,
               'empty',
-              _EmptyPane(
+              OgLAsyncEmptyPane(
                 icon: emptyIcon,
                 text: emptyText ?? _t('noContent'),
                 action: emptyAction,
@@ -247,7 +247,7 @@ class AsyncView<T> extends StatelessWidget {
           }
           return Column(
             children: <Widget>[
-              _SoftErrorBar(message: soft, onDismiss: controller.dismissError),
+              OgLAsyncSoftErrorBar(message: soft, onDismiss: controller.dismissError),
               if (fill)
                 Expanded(child: builder(context, data))
               else
@@ -259,8 +259,15 @@ class AsyncView<T> extends StatelessWidget {
 }
 
 /// 失败面板：原因 + 重试（错误不许无声消失）。
-class _ErrorPane extends StatelessWidget {
-  const _ErrorPane({required this.message, required this.onRetry});
+///
+/// 公开是为了让 [OgLAsyncSliver] 复用同一套视觉与文案。
+class OgLAsyncErrorPane extends StatelessWidget {
+  /// 创建。
+  const OgLAsyncErrorPane({
+    required this.message,
+    required this.onRetry,
+    super.key,
+  });
 
   final String message;
   final Future<void> Function() onRetry;
@@ -294,7 +301,7 @@ class _ErrorPane extends StatelessWidget {
 }
 
 /// 空态面板：图标 + 一句话 + 可选动作。
-class _EmptyPane extends StatelessWidget {
+class OgLAsyncEmptyPane extends StatelessWidget {
   const _EmptyPane({required this.icon, required this.text, this.action});
 
   final IconData icon;
@@ -325,7 +332,7 @@ class _EmptyPane extends StatelessWidget {
 }
 
 /// 软错误条：刷新失败时保留旧数据，只在上方提示。
-class _SoftErrorBar extends StatelessWidget {
+class OgLAsyncSoftErrorBar extends StatelessWidget {
   const _SoftErrorBar({required this.message, required this.onDismiss});
 
   final String message;
@@ -358,4 +365,99 @@ class _SoftErrorBar extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// 异步数据的 **Sliver 形态**：与 [AsyncView] 同语义（加载 / 空 / 错 / 软错），
+/// 但以 **sliver** 输出，于是"静态头部 + 长数据行"可以共用一个 `CustomScrollView`：
+///
+/// ```dart
+/// body: CustomScrollView(slivers: <Widget>[
+///   SliverToBoxAdapter(child: Column(children: header)),
+///   OgLAsyncSliver<List<Map<String, dynamic>>>(
+///     controller: _filesC(),
+///     itemCountOf: (List<Map<String, dynamic>> files) => files.length,
+///     itemBuilder: (BuildContext c, List<Map<String, dynamic>> files, int i) =>
+///         _fileTile(files[i]),
+///     emptyIcon: Icons.description_outlined,
+///     emptyText: _t('noChangedFiles'),
+///   ),
+/// ]),
+/// ```
+///
+/// ## 为什么需要它（性能）
+/// 之前这些页面是 `ListView(children: [...])` 里塞一个
+/// `AsyncView(builder: (c, data) => Column(children: [for …]))`：
+/// **一次 PR 改 300 个文件就一次性构建 300 个 ExpansionTile**，首帧与滚动都被拖住。
+/// 换成 sliver 后交给 `SliverList.builder` **按需构建** —— 只构建视口附近的几行，
+/// 行数再多也不影响首帧。这是"简单、稳定、不特判"的通用做法（Flutter 原生机制）。
+class OgLAsyncSliver<T> extends StatelessWidget {
+  /// 创建。
+  const OgLAsyncSliver({
+    required this.controller,
+    required this.itemCountOf,
+    required this.itemBuilder,
+    required this.emptyIcon,
+    this.emptyText,
+    this.padding = EdgeInsets.zero,
+    super.key,
+  });
+
+  /// 数据控制器（与 [AsyncView] 共用）。
+  final AsyncController<T> controller;
+
+  /// 数据 → 行数。
+  final int Function(T data) itemCountOf;
+
+  /// 行构建器（index 由 sliver 按需回调）。
+  final Widget Function(BuildContext context, T data, int index) itemBuilder;
+
+  /// 空态图标。
+  final IconData emptyIcon;
+
+  /// 空态文案（缺省用 `noContent`）。
+  final String? emptyText;
+
+  /// 行内边距。
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: controller,
+        builder: (BuildContext context, Widget? _) {
+          final T? data = controller.data;
+          if (data != null && !controller.isEmptyResult) {
+            return SliverPadding(
+              padding: padding,
+              sliver: SliverList.builder(
+                itemCount: itemCountOf(data),
+                itemBuilder: (BuildContext context, int index) =>
+                    itemBuilder(context, data, index),
+              ),
+            );
+          }
+          if (controller.isEmptyResult) {
+            return SliverToBoxAdapter(
+              child: OgLAsyncEmptyPane(
+                icon: emptyIcon,
+                text: emptyText ?? _t('noContent'),
+              ),
+            );
+          }
+          final String? failure = controller.error;
+          if (failure != null && !controller.isLoading) {
+            return SliverToBoxAdapter(
+              child: OgLAsyncErrorPane(message: failure, onRetry: controller.load),
+            );
+          }
+          return const SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        },
+      );
 }

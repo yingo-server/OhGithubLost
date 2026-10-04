@@ -218,13 +218,44 @@ class SurfaceBridge {
       };
 
   /// 按当前设置编译主题（全应用唯一的一次编译）。
-  ThemeData themeFor(Brightness systemBrightness) {
+  /// 主题缓存键（三者任一变化才重算）。
+  Brightness? _themeCacheBrightness;
+  String? _themeCacheSeed;
+  String? _themeCacheDensity;
+  int? _themeCacheMotion;
+  ThemeData? _themeCache;
+
+  /// 当前主题（**带缓存**）。
+  ///
+  /// `ThemeData` 构造不便宜，而每次设置 / 语言 / 通知变化都会走到这里；
+  /// 键不变就复用同一实例——顺带让 `AnimatedTheme` 不再把"等价主题"当成变化。
+  /// [motionLevel] 参与缓存键，因为过渡主题随档位变化。
+  ThemeData themeFor(Brightness systemBrightness, {int motionLevel = 1}) {
     final OgLSettings current = settings.settings;
-    return buildOgLTheme(
-      brightnessFor(systemBrightness),
-      seedColor: ogLSeedColorOf(current.seedColorId),
-      density: ogLDensityOf(current.density),
+    final Brightness brightness = brightnessFor(systemBrightness);
+    final String seed = current.seedColorId;
+    final String density = current.density;
+    final ThemeData? cached = _themeCache;
+    if (cached != null &&
+        _themeCacheBrightness == brightness &&
+        _themeCacheSeed == seed &&
+        _themeCacheDensity == density &&
+        _themeCacheMotion == motionLevel) {
+      return cached;
+    }
+    final ThemeData built = buildOgLTheme(
+      brightness,
+      seedColor: ogLSeedColorOf(seed),
+      density: ogLDensityOf(density),
+    ).copyWith(
+      pageTransitionsTheme: OgLMotion.pageTransitions(motionLevel),
     );
+    _themeCache = built;
+    _themeCacheBrightness = brightness;
+    _themeCacheSeed = seed;
+    _themeCacheDensity = density;
+    _themeCacheMotion = motionLevel;
+    return built;
   }
 
   @override

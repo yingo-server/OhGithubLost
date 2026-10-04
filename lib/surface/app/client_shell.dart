@@ -237,9 +237,16 @@ class _OgLClientShellState extends State<OgLClientShell> {
       );
     }
 
+    // 隐藏页**停表**：`TickerMode(enabled: false)` 让不可见页面的动画不再推进
+    //（下载进度条、入场动画等），避免"看不见的页面在偷偷烧帧"。
     final List<Widget> pages = <Widget>[
       for (final OgLShellTab tab in OgLShellTab.values)
-        _visited.contains(tab) ? _pageFor(tab) : const SizedBox.shrink(),
+        _visited.contains(tab)
+            ? TickerMode(
+                enabled: tab == _tab,
+                child: _pageFor(tab),
+              )
+            : const SizedBox.shrink(),
     ];
     final int index = OgLShellTab.values.indexOf(_tab);
     // R7：页面切换加**左右滑动**入场动画（保留 IndexedStack 的状态与懒挂载）。

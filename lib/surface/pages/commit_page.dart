@@ -91,55 +91,65 @@ class _CommitPageState extends State<CommitPage> {
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+      body: CustomScrollView(
+        slivers: <Widget>[
+          // 头部：常量级 widget 数量，一次性构建即可；
+          // 数据行交给下面的 sliver 懒加载（长列表不再一次性构建）。
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  SelectableText(
-                    commit.sha,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
+
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      SelectableText(
+                        commit.sha,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${ghCommitAuthor(commit)} · '
+                        '${commit.date?.toIso8601String().split('T').first ?? ''}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      SelectableText(commit.message),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${ghCommitAuthor(commit)} · '
-                    '${commit.date?.toIso8601String().split('T').first ?? ''}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  SelectableText(commit.message),
+                ),
+              ),
+              const Divider(height: 32),
+              Text(_t('changedFiles'), style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8)
                 ],
               ),
             ),
           ),
-          const Divider(height: 32),
-          Text(_t('changedFiles'), style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          AsyncView<List<Map<String, dynamic>>>(
+          OgLAsyncSliver<List<Map<String, dynamic>>>(
             controller: _diffC(),
-            fill: false,
-            emptyIcon: Icons.history,
-            emptyText: widget.commit.parentShas.isEmpty
-                ? _t('initialCommit')
-                : _t('noChanges'),
-            builder: (
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCountOf: (List<Map<String, dynamic>> files) => files.length,
+            itemBuilder: (
               BuildContext context,
               List<Map<String, dynamic>> files,
+              int index,
             ) =>
-                Column(
-              children: <Widget>[
-                for (final Map<String, dynamic> file in files) _fileTile(file),
-              ],
-            ),
+                _fileTile(files[index]),
+            emptyIcon: Icons.history,
+            emptyText: (widget.commit.parentShas.isEmpty
+                ? _t('initialCommit')
+                : _t('noChanges')),
           ),
-          const SizedBox(height: 24),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
     );

@@ -25,8 +25,11 @@ abstract final class OgLAnim {
   static int level(BuildContext context) => OgLMotionScope.levelOf(context);
 
   /// 当前是否允许动画（档位 0 或系统「减少动效」时为否）。
+  ///
+  /// **窄选择器**：只订阅 `disableAnimations`，不再因为键盘 insets / 旋转等
+  /// 与自己无关的 MediaQuery 变化而重建（列表项里调用尤其重要）。
   static bool enabled(BuildContext context) =>
-      level(context) > 0 && !MediaQuery.of(context).disableAnimations;
+      level(context) > 0 && !MediaQuery.disableAnimationsOf(context);
 
   /// 当前档位的质量表。
   static OgLOAnimQuality quality(BuildContext context) {

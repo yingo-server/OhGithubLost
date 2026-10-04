@@ -75,12 +75,11 @@ class OgLApp extends StatelessWidget {
             // 档位质量表：主题切换影响面大 → 用「慢」档；低档位自动更短、0 档为 0。
             themeAnimationDuration: OgLAnim.slow(context),
             themeAnimationCurve: Curves.easeOut,
-            theme: surface
-                .themeFor(MediaQuery.platformBrightnessOf(context))
-                .copyWith(
-                  pageTransitionsTheme:
-                      OgLMotion.pageTransitions(current.motionLevel),
-                ),
+            // 主题由桥缓存（含动效档位）；这里只读，不再每次 build 重新 copyWith。
+            theme: surface.themeFor(
+              MediaQuery.platformBrightnessOf(context),
+              motionLevel: current.motionLevel,
+            ),
             // ⚠️ 文字缩放必须在 `builder` 里覆盖：
             // 该层位于 `WidgetsApp` 自建的 MediaQuery **之内**，
             // 若在外层包 MediaQuery，会被 WidgetsApp 的 MediaQuery 覆盖掉。

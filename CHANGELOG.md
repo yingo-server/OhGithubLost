@@ -40,6 +40,39 @@
   `BackdropFilter/ImageFilter.blur`（档位表与工具箱白名单除外；
   节流 / 缓存 TTL / 草稿防抖 / 双击退出窗口等**等待类**时长可豁免）。
 
+### 性能深挖（简单、稳定，不做特判）· Performance pass
+
+扫描出 5 类反模式（`tool/perf_audit.py`），按"确定性收益"排序处理：
+
+- **长列表懒加载 · Lazy long lists**
+  新增 `OgLAsyncSliver`（`AsyncView` 的 sliver 版）：静态头部留在
+  `SliverToBoxAdapter`，**数据行交给 `SliverList.builder` 按需构建**。
+  此前 `ListView(children:[…])` 里套
+  `AsyncView(builder: (c, files) => Column(children: [for …]))` ——
+  一次 PR 改 300 个文件就是**一次性构建 300 个 ExpansionTile**；
+  PR 页与提交页已改用它（其余数据驱动列表按同一模式推进）。
+  *`ListView(children:)` + `for` 的写法只报告不拦截（循环长度是语义问题，
+  硬拦会逼出无意义白名单），门禁只保留客观项。*
+- **窄 MediaQuery 选择器 · Narrow selectors**
+  `OgLAnim.enabled` 由 `MediaQuery.of(context)` 改为
+  `MediaQuery.disableAnimationsOf(context)`：列表项不再因为**键盘弹出 / 旋转 /
+  insets 变化**而整列重建（长列表里这条最明显）。
+- **隐藏页停表 · Stop offscreen tickers**
+  切 tab 时给被隐藏的页面套 `TickerMode(enabled: false)`：不可见页面不再推进动画
+  （下载进度、入场动画等），避免"看不见的页面在偷偷烧帧"。
+- **主题缓存 · Theme cache**
+  `SurfaceBridge.themeFor(brightness, motionLevel:)` 按
+  （亮度 + 种子色 + 密度 + 动效档位）缓存 `ThemeData`；键不变就复用同一实例，
+  顺带让 `AnimatedTheme` 不再把"等价主题"当成变化（每次 setState 都重建主题是隐性开销）。
+- **日志通知合并 · Coalesced notifications**
+  `OgLAppLog.add` 批量写日志时把 `notifyListeners` 合并为**最多 200ms 一次**
+  （数据仍逐条立即入表，只是通知延后——不改变任何可见内容），
+  避免通知中心整表反复重建。
+
+**门禁**：`tool/perf_audit.py --fatal` 已接入 CI，拦截 `shrinkWrap: true`
+与过宽的 `MediaQuery.of(context)`（必要例外逐个登记并写明理由）；
+新增 `test/surface/async_sliver_test.dart`（500 行只构建视口附近的行）。
+
 ### 修复 · Fixed
 
 - 修掉主题切换动画（固定 260ms）、切 tab 滑动（固定 220ms）、下载进度补间（固定 220ms）、
