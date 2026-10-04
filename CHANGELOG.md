@@ -2,7 +2,7 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v5.2.0（开发中 · 未发布）
+## v5.2.0（2026-10-04 · 正式版）
 
 **主题**：动效**严格按档位分级** —— 降档 = **降质量**，而不是在各处写死或直接砍掉效果。
 *Animations are strictly tiered: lowering the tier now **reduces quality** instead of hard-coding or cutting effects.*
