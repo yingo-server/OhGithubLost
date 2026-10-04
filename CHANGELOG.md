@@ -2,7 +2,7 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## 6.0.0（正式版）
+## v6.0.0（2026-10-05 · 正式版）
 
 - **README 链接可用了**：相对链接（`LICENSE`、`docs/x.md`、`#锚点`、裸域名）先按仓库基址解析成绝对地址再交给系统浏览器；解析不了会明确提示，不再"点了没反应"。
 - **README 图片可以显示了**：图片经 **GitHub Contents API** 取字节后用 `Image.memory` 渲染，不经过 `raw.githubusercontent.com`，避开 DNS 污染；`<img src=…>` 也会渲染成图；单次上限 40 张，超出或失败退化为 alt 文本（不静默丢图）。
@@ -32,6 +32,20 @@
 - Windows 需 **10 1809+**；7 / 8.1 无法运行。
 - 桌面**无 32 位**产物（上游 Flutter 不提供 ia32 引擎）。
 
+
+## v5.8.0（未发布 · 跳过 / skipped）
+
+> 未发布。5.7 → 5.8 之间没有独立变更面，直接进入 **v5.9.0**。
+> *Not released. No independent scope between 5.7 and 5.8; the line moved straight to v5.9.0.*
+
+---
+
+## v5.7.0（未发布 · 跳过 / skipped）
+
+> 未发布。版本号被保留但未投入使用（当时正在做跨平台差异面硬化，准备合并成一个大版本）。
+> *Not released. The number was reserved but never used — the cross-platform hardening was being prepared as one bigger release.*
+
+---
 
 ## v5.6.0（2026-10-04 · 正式版）
 **主题**：**存储三档（公共目录 → SAF → 内部）** + 网络独立成页 + 引导页重做（语言/外观前置）+ 加速通道内置优先链。
@@ -102,6 +116,52 @@
 - 新增断言：内置优先链（344977 优先 / felicity 降级）、加速前缀链（内置多前缀、
   自定义单前缀）、候选地址（按优先级 + 直连垫底 + 不二次加前缀）；
   以及**落盘位置分级**（`Android/data` / 内部存储一律**不算**"用户可见"）。
+
+## v5.5.0（内部开发版 · 未单独发布 / internal）
+
+**主题 · Theme** — 权限网关与 SAF 三档存储的开发迭代：**未单独发版**，内容全部并入 **v5.6.0**。
+*Development iteration for the permission gateway and the three-tier SAF storage. Never released on its own; all of it shipped in v5.6.0.*
+
+### 新增 · Added
+- **存储三档 · Three storage tiers**
+  公共目录 / SAF 目录 / 应用内部，三级方案由**探针**实测后裁决；设置页新增「存储位置」区块。
+  *Public directory / SAF directory / app-internal, decided by a real write probe; a Storage section was added to Settings.*
+- **SAF 目录直存 · Paste straight into a SAF tree**
+  用户授权目录后可把本地文件**粘贴进 SAF 目录**（`pasteLocalFile`），下载完成自动导出——不必重写下载引擎。
+  *After the user grants a directory, local files can be pasted into the SAF tree and downloads are exported automatically.*
+
+### 修复 · Fixed
+- **权限探针探错对象 · Probe checked the wrong target**
+  原先探的是"已回退后的目录"（内部存储永远可写 → 永远显示"已授权"）；改为探测**用户可见性**。
+  *The probe used to test the fallback directory (app-internal is always writable, so it always said "granted"); it now tests user visibility.*
+- **根目录结果被进程级缓存 · Root resolution cached process-wide**
+  授权成功后不重新解析，导致权限状态"永久过期"；现在授权后会作废并重新解析。
+  *After a grant the root was not re-resolved, leaving a permanently stale permission state; it is now invalidated and re-resolved.*
+
+---
+
+## v5.4.0（内部开发版 · 未单独发布 / internal）
+
+**主题 · Theme** — 网络与下载通道改造：**未单独发版**，内容并入 **v5.6.0**。
+*Network and download-channel rework. Never released on its own; shipped in v5.6.0.*
+
+### 新增 · Added
+- **内置加速通道（优先 + 降级）· Built-in accelerator with fallback**
+  `gh.344977.xyz` 优先、`gh.felicity.ac.cn` 降级；**内置通道用户不可调整**，失败时静默降级，不打断浏览。
+  *`gh.344977.xyz` first, `gh.felicity.ac.cn` as fallback. Built-in channels are not user-editable and degrade silently on failure.*
+- **网络模式独立成页 · Network as its own page**
+  网络设置从设置根级拆出，成为独立页面。
+  *Network settings were split out of the settings root into a dedicated page.*
+
+### 变更 · Changed
+- **加速通道默认关闭 · Accelerator off by default**
+  默认走直连，用户显式开启加速才启用通道。
+  *Direct connection by default; the accelerator is opt-in.*
+- **许可条目合并 · Licences merged**
+  两条许可合并为一条，并改为弹窗展示。
+  *Two licence entries were merged into one shown in a dialog.*
+
+---
 
 ## v5.3.0（2026-10-04 · 正式版）
 **主题**：**动效全面升级**（自然减速 + 物理弹簧 + 全覆盖）与**仓库统计曲线重构**。
@@ -263,6 +323,47 @@
 
 - 修掉主题切换动画（固定 260ms）、切 tab 滑动（固定 220ms）、下载进度补间（固定 220ms）、
   引导页翻页（固定 250ms）**绕开档位**的问题——现在全部读档位质量表。
+
+## v5.2.0（2026-10-04 · 正式版）
+
+**主题 · Theme** — 动画**严格按档位分级**（降档 = 降质量、不删效果）、一轮性能优化，以及一次被对抗性探针发现的内核一致性硬化。
+*Strictly tiered animations (lowering a tier reduces cost, never removes effects), a performance pass, and a kernel-consistency hardening found by an adversarial probe.*
+
+### 变更 · Changed
+- **动效改成「按档位给质量」· Animation tiers now mean quality**
+  每档都保留完整动效，只是开销逐级降低；档位 `0` 静默但**内容依旧完整呈现**：
+
+  | 档位 | 快/中/慢 | 入场效果 | 错峰项数 | 过渡位移 | 缩放 | 模糊 |
+  |---|---|---|---|---|---|---|
+  | 0 静默 | 0 / 0 / 0 | 无 | 0 | 0 | 无 | 无 |
+  | 1 保守（默认） | 110 / 150 / 190 ms | 只淡入 | 前 4 项 | 0.012 | 无 | 无 |
+  | 2 标准 | 170 / 220 / 280 ms | 淡入 + 轻位移 | 前 9 项 | 0.035 | 无 | 无 |
+  | 3 拉满 | 220 / 300 / 380 ms | 淡入 + 位移 + 轻微缩放 | 前 17 项 | 0.06 | 0.99 / 0.985 | ≤ 6 |
+
+  设置项文案随之改为 **静默 / 保守 / 标准 / 拉满**（15 种语言同步）。
+  *Every tier keeps the full vocabulary; only cost drops. Tier 0 is silent but shows all content.*
+- **入场动画按档位限项 · Bounded entrance animation**
+  `OgLAnim.staggerOf()` 对超出档位上限的序号返回 `null`，`OgLReveal` 见到 `null` 直接静态渲染——长列表不再"越靠后越晚"。
+- **长列表懒加载 · Lazy long lists**
+  5 处数据驱动长列表改用懒加载（其余保持急加载的已在审计里登记理由）：仓库文件列表 / PR 文件 / 提交文件 / 议题评论 / Actions 作业。
+- **窄 `MediaQuery` 选择器 · Narrow selectors**
+  `OgLAnim.enabled` 改用 `MediaQuery.disableAnimationsOf`：列表项不再因为键盘 / 旋转 / insets 变化整列重建。
+- **隐藏页停表 · Offscreen pages stop ticking**
+  切 tab 时给隐藏页套 `TickerMode(enabled: false)`。
+- **主题缓存 · Theme cache**
+  主题按（亮度 + 种子色 + 密度 + 动效档位）缓存，避免每次重建 `ThemeData`。
+- **日志通知合并 · Coalesced log notifications**
+  批量写日志时把通知合并为同一事件循环一次（微任务，不引入计时器；数据仍逐条入表）。
+
+### 新增 · Added
+- **内核一致性硬化：清单 ↔ 运行期模块交叉校验 · Manifest coverage cross-check**
+  引导清单声明了某模块、装配时却没提供它，此前既不拒绝也不留痕；现在记为 `OGL-BOOT-108`（warn 级诊断 + 引导信任告警）——**仍可启动，但一定留痕**。附回归用例。
+- **CI 门禁扩到四个维度 · Four CI gates**
+  `layer_audit`（依赖只能向下）、`i18n_scan`（界面文案 0 遗漏）、`motion_audit`（动画必须走档位）、`perf_audit`（反模式）。
+- **对抗性探针分支 · Adversarial probe branch**
+  独立 CI 分支上跑一次性探针脚本，专门找"看起来正常但少了整层能力"的静默缺陷。
+
+---
 
 ## v5.1.0（2026-10-04 · 正式版）
 
