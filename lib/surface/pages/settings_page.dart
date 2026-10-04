@@ -202,6 +202,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // ignore: unused_element
   
+  // ignore: unused_element
   Future<void> _logout(GhAccount account) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -345,6 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
   /// 已 star 时不重复操作，直接给出提示（幂等，不制造"操作了但没变化"的疑惑）。
   // ignore: unused_element
   
+  // ignore: unused_element
   Future<void> _donateStar() async {
     final GhAccount? account = await widget.surface.domain.auth.activeAccount();
     if (!mounted) {
@@ -1422,7 +1424,6 @@ const Divider(height: 1),
               ),
               ...children,
             ],
-          ),
           ),
         ),
       );
