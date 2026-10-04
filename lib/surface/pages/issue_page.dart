@@ -326,6 +326,39 @@ class _IssuePageState extends State<IssuePage> {
                                        );
             },
           ),
+          // 发表评论（尾部）：输入框 + 提交按钮。
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Divider(height: 32),
+                  Text(_t('postComment'), style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _comment,
+                    minLines: 3,
+                    maxLines: 8,
+                    enabled: !_posting,
+                    decoration:  InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: _t('commentHint'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _posting ? null : _postComment,
+                      icon: const Icon(Icons.send),
+                      label: Text(_posting ? _t('posting') : _t('postComment')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
