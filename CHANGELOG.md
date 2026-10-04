@@ -936,3 +936,48 @@ Actions
 ## v1.0.0（2026-10-01）
 
 - 首个版本，提供 Android / Windows / Linux / macOS / iOS 构建。
+
+## v0.2.0-beta（预发布）
+
+**主题 · Theme** — 第二阶段（W0–W8）：界面与功能重写。
+*Stage two (W0–W8): a rewrite of both the interface and the feature set.*
+
+### 新增 · Added（界面 · Interface）
+- 统一页面骨架（页头 + 小节 + 箱体行），**12 个页面全部重写**：设置 / 首页 / 搜索 / 我的 / 议题 / PR / 提交 / Gists / 登录向导 / 新建仓库·议题·发布 / 仓库页 / 关于页，全部对齐设计文档。
+- 主壳导航（手机底栏 / 平板导航轨 / 窄窗抽屉 + 页头）**全部自绘**，图标为 **47 个手写矢量**（零外部资源、纯直线、24 网格）。
+- 行控件统一为 `OgLActionRow`（含自绘开关），清掉所有 Material `ListTile` / `SwitchListTile` / `ChoiceChip`。
+
+### 新增 · Added（功能 · Features）
+- **README 渲染**：仓库页代码标签下显示，**离线安全**（徽章剔除 / 图片占位 / 超长截断告知）。
+- **代码搜索直达文件**：命中文件直接打开并显示上下文。
+- **议题 Markdown**：正文与评论按 Markdown 渲染。
+- 提交详情**分色补丁**预览（+ 绿 / − 红），超长截断。
+- Gists 整行可点用浏览器打开；登录向导四步进度（暂存 → 验证 → 转正 → 保险库回读）。
+
+### 可靠性 · Reliability
+- 空结果不再被当"加载中"（零议题 / 零发布显示空态而非转圈）。
+- 404 / 409 / 422 一律当"没有"；不再猜默认分支。
+- 危险操作全部二次确认；失败一定可见。
+- 新增**页面纪律护栏测试**（12 页必须走统一骨架）。
+
+### 已知限制 · Known limitations
+- 预发布：UI 自绘体系，1.0.0 起改为 Material 3 直出。
+- 产物 19 个（Android 5 + Windows 2 + Linux 2 + macOS 2 + iOS 2 + 其它）。
+
+## v0.1.0（预发布）
+
+**主题 · Theme** — 首个公开发布：Linux 内核式分层架构的 GitHub 第三方客户端（Flutter 全平台）。
+*The first public release: a GitHub client with a Linux-kernel-style layered architecture, built with Flutter for every platform.*
+
+### 新增 · Added（核心能力 · Core capabilities）
+- **登录**：个人访问令牌向导 + 游客模式。
+- **首页**：我的仓库 / 星标仓库 / 新建仓库。
+- **搜索**：仓库与代码双通道。
+- **仓库全功能**：文件浏览与编辑提交；议题（新建 / 评论 / 关闭）；PR（列表 / 文件）；发布（新建 / 删除）；分支（增 / 删 / 改）；提交历史与对比；仓库设置（Pages / CNAME / 危险区）。
+- **附加**：Gist 列表、账户管理、网络与 DNS 设置、应用日志。
+
+### 安装注意 · Installation note
+> **签名**：自本版起使用**固定证书**；由旧随机证书构建的安装包请**先卸载再安装**。
+
+### 产物 · Artifacts
+- Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）、Windows、Linux、macOS、iOS —— 共 **18** 个文件。
