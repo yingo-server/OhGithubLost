@@ -232,7 +232,7 @@ class _IssuePageState extends State<IssuePage> {
           Text(
             'by ${ghLogin(widget.issue)} · '
             '${ghDate(widget.issue, 'created_at')} · '
-            '${open ? '打开中' : _t('closed')}',
+            '${open ? _t('openNow') : _t('closed')}',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 12),

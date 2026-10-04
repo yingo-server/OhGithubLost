@@ -14,6 +14,7 @@
   "commentTooLong": "评论过长（{length}/{max} 字符），请精简后重试",
   "comments": "评论",
   "noComments": "还没有评论",
+  "openNow": "打开中",
   "postComment": "发表评论",
   "posting": "发布中…",
   "publish": "发表评论",

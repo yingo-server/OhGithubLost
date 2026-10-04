@@ -14,6 +14,7 @@
   "commentTooLong": "留言過長（{length}/{max} 字元），請精簡後重試",
   "comments": "留言",
   "noComments": "還沒有留言",
+  "openNow": "開啟中",
   "postComment": "發表留言",
   "posting": "發布中…",
   "publish": "發表留言",

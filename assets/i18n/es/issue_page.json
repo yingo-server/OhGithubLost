@@ -14,6 +14,7 @@
   "commentTooLong": "El comentario es demasiado largo ({length}/{max} caracteres), hazlo más corto e inténtalo de nuevo",
   "comments": "Comentarios",
   "noComments": "Aún no hay comentarios",
+  "openNow": "Abierto",
   "postComment": "Publicar comentario",
   "posting": "Publicando…",
   "publish": "Publicar comentario",

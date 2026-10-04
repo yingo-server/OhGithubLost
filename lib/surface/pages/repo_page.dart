@@ -482,8 +482,8 @@ class _BranchSheetState extends State<_BranchSheet> {
                         title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: Text(
                           '${ghShortSha(branch.sha)}'
-                          '${isDefault ? ' · 默认分支' : ''}'
-                          '${branch.isProtected ? ' · 受保护' : ''}',
+                          '${isDefault ? _t('defaultBranchTag') : ''}'
+                          '${branch.isProtected ? _t('protectedTag') : ''}',
                         ),
                         trailing: isCurrent
                             ? Icon(Icons.check, color: theme.colorScheme.primary)
@@ -2399,8 +2399,8 @@ class _BranchesTabState extends State<_BranchesTab> {
               title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(
                 '${ghShortSha(branch.sha)}'
-                '${isDefault ? ' · 默认分支' : ''}'
-                '${branch.isProtected ? ' · 受保护' : ''}',
+                '${isDefault ? _t('defaultBranchTag') : ''}'
+                '${branch.isProtected ? _t('protectedTag') : ''}',
               ),
               trailing: PopupMenuButton<String>(
                 onSelected: (String value) {

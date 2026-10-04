@@ -14,6 +14,7 @@
   "commentTooLong": "Kommentar zu lang ({length}/{max} Zeichen), bitte kürzen und erneut versuchen",
   "comments": "Kommentare",
   "noComments": "Noch keine Kommentare",
+  "openNow": "Offen",
   "postComment": "Kommentar abgeben",
   "posting": "Wird gepostet…",
   "publish": "Kommentar abgeben",

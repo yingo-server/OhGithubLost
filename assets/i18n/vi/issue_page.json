@@ -14,6 +14,7 @@
   "commentTooLong": "Bình luận quá dài ({length}/{max} ký tự), vui lòng rút gọn rồi thử lại",
   "comments": "Bình luận",
   "noComments": "Chưa có bình luận nào",
+  "openNow": "Mở ngay",
   "postComment": "Đăng bình luận",
   "posting": "Đang đăng…",
   "publish": "Đăng bình luận",

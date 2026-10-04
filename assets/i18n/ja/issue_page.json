@@ -14,6 +14,7 @@
   "commentTooLong": "コメントが長すぎます（{length}/{max} 文字）。簡潔にして再試行してください",
   "comments": "コメント",
   "noComments": "まだコメントがありません",
+  "openNow": "開いています",
   "postComment": "コメントを投稿",
   "posting": "投稿中…",
   "publish": "コメントを投稿",

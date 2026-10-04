@@ -14,6 +14,7 @@
   "commentTooLong": "댓글이 너무 깁니다 ({length}/{max}자). 단축하여 다시 시도하세요",
   "comments": "댓글",
   "noComments": "댓글이 없습니다",
+  "openNow": "열려 있는 중",
   "postComment": "댓글 작성",
   "posting": "게시 중…",
   "publish": "댓글 작성",

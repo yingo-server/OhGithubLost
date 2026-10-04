@@ -11,8 +11,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/util/accel.dart';
 import 'package:ohgithublost/surface/util/download_proxy.dart';
 import 'package:ohgithublost/surface/util/path_rules.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:ohgithublost/surface/i18n/og_l_i18n.dart';
+
+/// 把 zh 分片注入 i18n 内核（测试环境读不到 assets）。
+void _loadZh() {
+  final Map<String, Map<String, String>> pages =
+      <String, Map<String, String>>{};
+  for (final String page in <String>['common']) {
+    final Object? decoded =
+        jsonDecode(File('assets/i18n/zh/$page.json').readAsStringSync());
+    pages[page] = <String, String>{
+      for (final MapEntry<Object?, Object?> e
+          in (decoded as Map<Object?, Object?>).entries)
+        '${e.key}': '${e.value}',
+    };
+  }
+  OgLI18n.instance.debugInject('zh', pages);
+}
 
 void main() {
+  setUpAll(_loadZh);
   group('仓库路径规则', () {
     test('合法路径通过', () {
       expect(ogLValidateRepoEntryPath('src/main.dart', directory: false), isNull);

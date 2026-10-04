@@ -89,7 +89,7 @@ class SurfaceBridge {
     try {
       return await OgLAppDirs.root();
     } catch (_) {
-      return '(未知)';
+      return OgLI18n.instance.t('common', 'unknown');
     }
   }
 
@@ -127,7 +127,7 @@ class SurfaceBridge {
       net?.dnsServerChoices ?? const <String, String>{};
 
   /// 当前 DNS 策略摘要（UI 必须向用户展示，不得让用户猜）。
-  String get dnsSummary => net?.dnsSummary ?? '系统解析';
+  String get dnsSummary => net?.dnsSummary ?? OgLI18n.instance.t('common', 'systemResolve');
 
   /// 把当前设置里的 DNS 选择应用到网络底座（策略对象可变 → 即时生效）。
   void applyDns() {

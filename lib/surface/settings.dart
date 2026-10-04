@@ -20,6 +20,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'i18n/og_l_i18n.dart';
+
 import 'util/accel.dart';
 
 /// 明暗模式偏好。
@@ -539,7 +541,8 @@ class OgLSettingsController extends ChangeNotifier {
       _lastError = null;
     } catch (error) {
       _settings = OgLSettings.defaults;
-      _lastError = '设置读取失败，已回落默认：$error';
+      _lastError = OgLI18n.instance.t('settings', 'errorLoad',
+          args: <String, String>{'error': '$error'});
     } finally {
       _loaded = true;
       notifyListeners();
@@ -554,7 +557,8 @@ class OgLSettingsController extends ChangeNotifier {
       await _persistence.write(next.encode());
       _lastError = null;
     } catch (error) {
-      _lastError = '设置保存失败（本次改动仍然生效，但重启后会丢失）：$error';
+      _lastError = OgLI18n.instance.t('settings', 'errorSave',
+          args: <String, String>{'error': '$error'});
     }
   }
 
@@ -725,7 +729,8 @@ class OgLSettingsController extends ChangeNotifier {
     try {
       await _persistence.clear();
     } catch (error) {
-      _lastError = '重置失败：$error';
+      _lastError = OgLI18n.instance.t('settings', 'errorReset',
+          args: <String, String>{'error': '$error'});
     }
   }
 }

@@ -76,6 +76,7 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
       final double insetsBottom = view.viewInsets.bottom;
       final double padTop = view.padding.top;
       final double padBottom = view.padding.bottom;
+      // i18n-allow: 这段只是「窗口指标」日志载荷（随后由 OgLLogFile 落盘），非界面文案。
       final String line = '$phase：窗口 ${logical.width.toStringAsFixed(0)}×'
           '${logical.height.toStringAsFixed(0)} @${dpr.toStringAsFixed(2)}x '
           'insets.b=${(insetsBottom / dpr).toStringAsFixed(1)} '

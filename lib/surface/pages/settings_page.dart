@@ -820,7 +820,7 @@ const Divider(height: 1),
           leading: Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           ),
-          title: Text(channel.name),
+          title: Text(channel.builtin ? _t('accelBuiltinName') : channel.name),
           subtitle: Text(
             channel.builtin ? _t('accelBuiltinDesc') : channel.baseUrl,
             maxLines: 1,

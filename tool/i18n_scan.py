@@ -32,6 +32,25 @@ CJK = re.compile(r'[\u4e00-\u9fff]')
 # 单/双引号字符串（含转义），以及 raw 字符串前缀。
 STRING = re.compile(r"(?<![\w])(r?)('(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\")")
 LINE_COMMENT = re.compile(r'//[^\n]*')
+# 「日志上下文」：这些行里的中文按**开发者日志**处理（不本地化，按设计保留）。
+LOG_CONTEXT = re.compile(
+    r'(debugPrint|print\(|log\w*\(|Logger|OgLAppLog|OgLLogFile|OgLTrace|'
+    r'OgLNoticeSeverity|diagnostics\.|assert\(|throw\b|UnsupportedError|'
+    r'StateError|ArgumentError|FormatException|tag:|tag ?=|description:|'
+    r'announce\(|unavailableReason)')
+
+# 有意保留中文的文件（不参与 --check 失败判定）：
+# - i18n 内核里的语言自称（「简体中文」「繁體中文」在**任何**语言下都该显示原文）。
+ALLOW_FILES = {
+    'lib/surface/i18n/og_l_i18n.dart',
+}
+
+# 有意保留中文的**具体条目**（file, 文案）。
+# - 内置通道的兜底展示名：UI 一律用 `_t('accelBuiltinName')` 渲染，
+#   这里保留中文只为「万一有代码路径直接读 name」时不至于显示英文 id。
+ALLOW_ITEMS = {
+    ('lib/surface/util/accel.dart', '内置通道'),
+}
 
 # 文件 → 页面分片 的映射（新增页面时在这里补一条）。
 PAGE_BY_PREFIX = [
@@ -62,20 +81,38 @@ def strip_comments(text):
 
 
 def scan_file(path):
-    """返回 [(line_no, text)]。"""
+    """返回 [(line_no, text, kind)]，kind ∈ {'ui', 'log'}。
+
+    `kind` 判定：日志调用常常**跨多行**（函数名在前面、字符串在后面，或先拼
+    成变量再落盘），因此判断上下文时**向前回看 6 行、向后看 4 行**，
+    命中日志/异常关键字才算 log。宁可把日志判成 log（本地化清单只少不多）。
+    """
     found = []
     with open(path, encoding='utf-8') as handle:
         raw = handle.read()
-    for index, line in enumerate(raw.split('\n'), start=1):
-        code = strip_comments(line)
+    raw_lines = raw.split('\n')
+    lines = [strip_comments(line) for line in raw_lines]
+    for index, code in enumerate(lines, start=1):
+        span = ' '.join(lines[max(0, index - 7):index + 4])
+        # 显式豁免：命中行上方 3 行内出现 `i18n-allow` 注释（用于「确定只是日志
+        # 载荷、但日志调用离得很远」的少数情况，例如先拼字符串再落盘）。
+        waive = 'i18n-allow' in '\n'.join(raw_lines[max(0, index - 4):index])
         for match in STRING.finditer(code):
             value = match.group(2)
             value = value[1:-1]
             if value.startswith("'") or value.startswith('"'):
                 continue
             if CJK.search(value):
-                found.append((index, value))
+                kind = 'log' if waive or LOG_CONTEXT.search(span) else 'ui'
+                found.append((index, value, kind))
     return found
+
+
+# 非交互层（kernel / base / domain）没有面向用户的文案：全部按开发者日志处理。
+def layer_kind(rel, kind):
+    if not rel.startswith('lib/surface/'):
+        return 'log'
+    return kind
 
 
 def collect(root):
@@ -86,12 +123,13 @@ def collect(root):
                 continue
             full = os.path.join(dirpath, name)
             rel = os.path.relpath(full, os.path.dirname(root))
-            for line, text in scan_file(full):
+            for line, text, kind in scan_file(full):
                 items.append({
                     'file': rel,
                     'line': line,
                     'page': page_of(rel),
                     'text': text,
+                    'kind': layer_kind(rel, kind),
                 })
     return items
 
@@ -113,55 +151,79 @@ def main():
     args = parser.parse_args()
 
     items = collect(args.lib)
+    ui_items = [item for item in items if item['kind'] == 'ui'
+                and item['file'] not in ALLOW_FILES
+                and (item['file'], item['text']) not in ALLOW_ITEMS]
+    log_items = [item for item in items if item not in ui_items]
     by_page = {}
-    for item in items:
+    for item in ui_items:
         by_page.setdefault(item['page'], []).append(item)
 
-    print('中文字面量（待本地化）：%d 处，分布在 %d 个页面分片'
-          % (len(items), len(by_page)))
+    print('中文字面量：共 %d 处（待本地化 **%d** 处 / 开发者日志·有意保留 %d 处）'
+          % (len(items), len(ui_items), len(log_items)))
     for page in sorted(by_page):
         print('  %-14s %d 处' % (page, len(by_page[page])))
 
+    shard_problems = []
     # 与现有分片对齐：列出各语言缺哪些 page。
     if os.path.isdir(args.i18n):
         locales = sorted(
             d for d in os.listdir(args.i18n)
             if os.path.isdir(os.path.join(args.i18n, d)))
-        print('\n语言目录：%s' % '、'.join(locales))
-        zh_keys = {}
-        for page in sorted(by_page):
-            shard = load_shard(os.path.join(args.i18n, 'zh'), page)
-            zh_keys[page] = set(shard.keys()) if shard else set()
-        print('\n分片覆盖（zh 为基准）:')
-        for page in sorted(by_page):
-            have = len(zh_keys.get(page, ()))
-            print('  %-14s zh key=%d / 源码中文=%d'
-                  % (page, have, len(by_page[page])))
-        missing = []
+        print('\n语言目录（%d）：%s' % (len(locales), '、'.join(locales)))
+        # 键集合对齐以 zh 全量为基准（不只扫描到的页面）。
+        zh_dir = os.path.join(args.i18n, 'zh')
+        all_pages = sorted(name[:-5] for name in os.listdir(zh_dir)
+                           if name.endswith('.json'))
+        zh_all = {page: set((load_shard(zh_dir, page) or {}).keys())
+                  for page in all_pages}
         for locale in locales:
-            for page in sorted(by_page):
+            for page in all_pages:
                 shard = load_shard(os.path.join(args.i18n, locale), page)
                 if shard is None:
-                    missing.append('%s/%s 缺失' % (locale, page))
+                    shard_problems.append('%s/%s 缺失' % (locale, page))
                     continue
-                extra = set(shard.keys()) - zh_keys.get(page, set())
+                keys = set(shard.keys())
+                missing = zh_all[page] - keys
+                extra = keys - zh_all[page]
+                if missing:
+                    shard_problems.append('%s/%s 缺 key：%s'
+                                          % (locale, page,
+                                             '、'.join(sorted(missing)[:6])))
                 if extra:
-                    missing.append('%s/%s 多出 key：%s'
-                                   % (locale, page, '、'.join(sorted(extra))))
-        if missing:
-            print('\n分片差异：')
-            for row in missing[:40]:
+                    shard_problems.append('%s/%s 多出 key：%s'
+                                          % (locale, page,
+                                             '、'.join(sorted(extra)[:6])))
+        if shard_problems:
+            print('\n分片差异（%d）：' % len(shard_problems))
+            for row in shard_problems[:40]:
                 print('  ' + row)
+        else:
+            print('分片校验：%d 语言 × %d 页面，键集合与 zh 完全一致'
+                  % (len(locales), len(all_pages)))
 
     if args.json_out:
         with open(args.json_out, 'w', encoding='utf-8') as handle:
             json.dump(items, handle, ensure_ascii=False, indent=2)
         print('\n已导出：%s' % args.json_out)
 
-    if args.check and items:
-        print('\n[check] 仍有 %d 处中文字面量未本地化'
-              % len(items), file=sys.stderr)
-        return 1
+    if args.check:
+        failed = False
+        if ui_items:
+            failed = True
+            print('\n[check] 仍有 %d 处 **界面文案** 未本地化：' % len(ui_items),
+                  file=sys.stderr)
+            for item in ui_items[:40]:
+                print('  %s:%d %s' % (item['file'], item['line'], item['text']),
+                      file=sys.stderr)
+        if shard_problems:
+            failed = True
+            print('\n[check] 分片键集合不一致：%d 处' % len(shard_problems),
+                  file=sys.stderr)
+        if failed:
+            return 1
+        print('\n[check] 通过：界面文案 0 处未本地化；分片键集合一致；'
+              '（日志/有意保留 %d 处不计）' % len(log_items))
     return 0
 
 

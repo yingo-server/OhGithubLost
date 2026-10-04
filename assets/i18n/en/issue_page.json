@@ -14,6 +14,7 @@
   "commentTooLong": "Comment too long ({length}/{max} chars), please shorten and retry",
   "comments": "Comments",
   "noComments": "No comments yet",
+  "openNow": "Opening…",
   "postComment": "Post Comment",
   "posting": "Posting…",
   "publish": "Post Comment",

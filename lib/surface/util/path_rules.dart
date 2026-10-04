@@ -101,7 +101,7 @@ String? _validateSegment(String segment, {required bool directory}) {
     return _t('pathDotSegment');
   }
   if (segment.length > 100) {
-    return '单级名称不能超过 100 个字符（当前 ${segment.length}）';
+    return _t('pathTooLong', {'length': segment.length});
   }
   if (segment.endsWith('.') || segment.endsWith(' ')) {
     return _t('pathSegTrailing');

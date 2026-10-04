@@ -35,6 +35,14 @@ jobs:
       - name: 获取依赖
         run: flutter pub get
 
+      # 结构与多语言审计：把「四层依赖方向」「界面文案是否全部本地化」
+      # 变成**可执行的门禁**（违反即失败），而不是只写在文档里靠人记。
+      - name: 分层审计（依赖只能向下）
+        run: python3 tool/layer_audit.py --fatal
+
+      - name: i18n 审计（界面文案 0 遗漏 / 分片键集合一致）
+        run: python3 tool/i18n_scan.py --check
+
       - name: 静态分析（警告即失败）
         run: flutter analyze --fatal-infos --fatal-warnings
 

@@ -103,7 +103,7 @@ String simplifyReadme(String source, {int maxChars = 24000}) {
     cut = maxChars;
   }
   md = md.substring(0, cut).trimRight();
-  return '$md\n\n---\n\n_README 过长，已截断（原文更完整）。_';
+  return '$md\n\n---\n\n${_t('readmeTruncated')}';
 }
 
 /// Markdown 视图：净化 + 主题排版 + 链接回调（由调用方决定怎么打开）。
