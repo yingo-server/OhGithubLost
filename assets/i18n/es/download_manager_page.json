@@ -5,7 +5,7 @@
   "copyPath": "Copiar ruta",
   "empty": "Aún no hay tareas de descarga",
   "emptyHint": "Toca «Descargar» en un adjunto de Release o un archivo del repositorio para añadirlo",
-  "multiConnection": "Varias conexiones",
+  "multiConnection": "Conexión múltiple",
   "noAppForFile": "No hay ninguna app que pueda procesar este archivo",
   "open": "Abrir",
   "pathCopied": "Se copió la ruta del archivo",

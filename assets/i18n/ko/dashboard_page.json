@@ -12,5 +12,5 @@
   "repoCreatedName": "{name} 생성 완료",
   "retry": "다시 시도",
   "starred": "스타드",
-  "starsCount": "스타 {count}개"
+  "starsCount": "{count} 스타"
 }

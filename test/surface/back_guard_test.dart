@@ -69,13 +69,23 @@ void main() {
     expect(guard.armed, isFalse);
   });
 
-  test('自定义窗口生效（0 秒 = 永不双击退出）', () {
+  test('窗口边界：同一时刻（间隔 0）= 仍在窗口内 → 退出', () {
     final OgLBackGuard guard = OgLBackGuard(exitWindow: Duration.zero);
     expect(guard.decide(atHome: true, now: t0), OgLBackAction.armExit);
     expect(
       guard.decide(atHome: true, now: t0),
-      OgLBackAction.armExit,
-      reason: '窗口为 0 时第二次按也不退出',
+      OgLBackAction.exit,
+      reason: '窗口判定是 <=（含边界）',
+    );
+  });
+
+  test('窗口可配：1 秒窗口内第二次按退出、超时则重新提示', () {
+    final OgLBackGuard guard =
+        OgLBackGuard(exitWindow: const Duration(seconds: 1));
+    expect(guard.decide(atHome: true, now: t0), OgLBackAction.armExit);
+    expect(
+      guard.decide(atHome: true, now: t0.add(const Duration(milliseconds: 400))),
+      OgLBackAction.exit,
     );
   });
 }
