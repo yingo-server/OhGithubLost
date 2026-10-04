@@ -2,10 +2,9 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v5.3.0（开发中 · 未发布）
-
-**主题**：仓库统计曲线（星标 / 提交）**全面重构** —— 有坐标系、有单位、时间轴如实。
-*Repository stat charts rebuilt: real axes, real units, honest time axis.*
+## v5.3.0（2026-10-04 · 正式版）
+**主题**：**动效全面升级**（自然减速 + 物理弹簧 + 全覆盖）与**仓库统计曲线重构**。
+*Motion overhaul (natural deceleration + physics springs + full coverage) and rebuilt repository stat charts.*
 ### 变更 · Changed（大体积动画：更快 / 更灵动 · Large-surface motion）
 - **全页过渡改为「视觉窗口」压缩 · Page transitions compressed via a visual window**
   页面级过渡**不改路由时长**（保留系统返回手势语义），而是把「实际运动」压进
