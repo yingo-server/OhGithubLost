@@ -51,9 +51,6 @@ String ogLSeedColorLabel(String id) => OgLI18n.instance.t(
 /// 按 id 取主题色（未知 id 回落品牌色）。
 Color ogLSeedColorOf(String id) => kOgLSeedColors[id] ?? kOgLSeedColor;
 
-/// 按 id 取主题色名（未知 id 回落首个）。
-String ogLSeedColorLabel(String id) =>
-    kOgLSeedColorLabels[id] ?? kOgLSeedColorLabels.values.first;
 
 /// 界面密度（`compact` → 更紧凑）。
 VisualDensity ogLDensityOf(String id) => id == 'compact'

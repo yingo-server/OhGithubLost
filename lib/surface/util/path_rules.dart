@@ -1,9 +1,4 @@
-
-
-/// 取 `common` 分片文案。
-String _t(String key, [Map<String, Object?>? args]) =>
-    OgLI18n.instance.t('common', key,
-        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));/// L3 展示级 · 仓库条目路径规则（新建 / 重命名共用）。
+/// L3 展示级 · 仓库条目路径规则（新建 / 重命名共用）。
 ///
 /// ## 用户规则（必须严格遵守）
 /// - **禁止中文与全角字符**：GitHub 路径本身接受，但本应用后续若要落盘 /
@@ -16,6 +11,11 @@ String _t(String key, [Map<String, Object?>? args]) =>
 library;
 
 import '../i18n/og_l_i18n.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('common', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// `.gitkeep` 文件名（目录占位）。
 const String kOgLGitKeepName = '.gitkeep';

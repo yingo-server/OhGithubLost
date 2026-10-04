@@ -1,9 +1,6 @@
 
 
-/// 取 `shell` 分片文案。
-String _t(String key, [Map<String, Object?>? args]) =>
-    OgLI18n.instance.t('shell', key,
-        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));/// L3 展示级 · 项目元数据（名称 / 主要开发者 / 仓库坐标 / 许可）。
+/// L3 展示级 · 项目元数据（名称 / 主要开发者 / 仓库坐标 / 许可）。
 ///
 /// ## 为什么单独成文件
 /// 关于页、捐赠 star、开源许可三处都要用到同一组事实（项目名、仓库坐标、许可）。
@@ -15,6 +12,11 @@ String _t(String key, [Map<String, Object?>? args]) =>
 library;
 
 import '../i18n/og_l_i18n.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 项目元数据。
 abstract final class OgLProjectInfo {

@@ -276,7 +276,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// 设置页文案取用（统一 `settings` 分片）。
-  String _t(String key) => OgLI18n.instance.t('settings', key);
+  String _t(String key, [Map<String, Object?>? args]) =>
+      OgLI18n.instance.t('settings', key,
+          args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
   Future<void> _pickLanguage() async {
     final String current = _settings.settings.languageCode;
