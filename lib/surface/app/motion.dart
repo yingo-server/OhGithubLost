@@ -29,46 +29,28 @@ abstract final class OgLMotion {
   }
 
   /// 页面过渡主题（按档位选择构建器）。
+  ///
+  /// ## 5.0：为什么换掉默认过渡（“页面过渡卡顿、其它动画不卡”的根因）
+  /// Flutter 在 Android 上的默认过渡是**整页缩放 + 位移 + 淡入**（`ZoomPageTransitionsBuilder`）
+  /// ——缩放会让**整页**在过渡期间反复重新光栅化，页面越重越卡；
+  /// 而小控件动画只影响自己的小区域，所以"只有页面过渡卡"。
+  ///
+  /// 现在统一用**单层**过渡：淡入 + 轻微上移（无缩放），并强制包
+  /// `RepaintBoundary`——过渡期间每帧只需重新合成图层，不必重绘页面内容。
+  /// 档位只调整**位移距离**（0 关；1 最小；2 中等；3 最明显），不再叠加缩放。
   static PageTransitionsTheme pageTransitions(int level) {
-    switch (level) {
-      case 0:
-        return const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: _OgLInstantTransitionsBuilder(),
-            TargetPlatform.iOS: _OgLInstantTransitionsBuilder(),
-            TargetPlatform.macOS: _OgLInstantTransitionsBuilder(),
-            TargetPlatform.windows: _OgLInstantTransitionsBuilder(),
-            TargetPlatform.linux: _OgLInstantTransitionsBuilder(),
-            TargetPlatform.fuchsia: _OgLInstantTransitionsBuilder(),
-          },
-        );
-      case 2:
-        return const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: ZoomPageTransitionsBuilder(),
-            TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
-            TargetPlatform.macOS: ZoomPageTransitionsBuilder(),
-            TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-            TargetPlatform.linux: ZoomPageTransitionsBuilder(),
-            TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
-          },
-        );
-      case 3:
-        return const PageTransitionsTheme(
-          builders: <TargetPlatform, PageTransitionsBuilder>{
-            TargetPlatform.android: _OgLEnhancedTransitionsBuilder(),
-            TargetPlatform.iOS: _OgLEnhancedTransitionsBuilder(),
-            TargetPlatform.macOS: _OgLEnhancedTransitionsBuilder(),
-            TargetPlatform.windows: _OgLEnhancedTransitionsBuilder(),
-            TargetPlatform.linux: _OgLEnhancedTransitionsBuilder(),
-            TargetPlatform.fuchsia: _OgLEnhancedTransitionsBuilder(),
-          },
-        );
-      case 1:
-      default:
-        // 显式使用 Flutter 默认过渡，等价于"不做覆盖"。
-        return const PageTransitionsTheme();
-    }
+    final PageTransitionsBuilder slide = switch (level) {
+      0 => const _OgLInstantTransitionsBuilder(),
+      2 => const _OgLSlideFadeTransitionsBuilder(offset: 0.035),
+      3 => const _OgLSlideFadeTransitionsBuilder(offset: 0.06),
+      _ => const _OgLSlideFadeTransitionsBuilder(),
+    };
+    return PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        for (final TargetPlatform platform in TargetPlatform.values)
+          platform: slide,
+      },
+    );
   }
 }
 
@@ -87,9 +69,19 @@ class _OgLInstantTransitionsBuilder extends PageTransitionsBuilder {
       child;
 }
 
-/// 增强过渡：淡入 + 轻微上移 + 轻微放大。
-class _OgLEnhancedTransitionsBuilder extends PageTransitionsBuilder {
-  const _OgLEnhancedTransitionsBuilder();
+/// 5.0 统一页面过渡：淡入 + 轻微上移（**无缩放**），并强制 `RepaintBoundary`。
+///
+/// 为什么不用缩放：缩放要求整页在过渡期间重新光栅化（高 DPI 下代价尤大），
+/// 这正是"页面过渡卡、其它动画不卡"的成因。包上 `RepaintBoundary` 之后，
+/// 过渡期间每帧只需要**重新合成**已缓存图层，不必重绘页面内容。
+class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
+  /// 创建过渡构建器。
+  ///
+  /// [offset] 为起始垂直位移（占页高比例，正=从下方进入）。
+  const _OgLSlideFadeTransitionsBuilder({this.offset = 0.02});
+
+  /// 起始垂直位移（档位越高越明显）。
+  final double offset;
 
   @override
   Widget buildTransitions<T>(
@@ -102,15 +94,14 @@ class _OgLEnhancedTransitionsBuilder extends PageTransitionsBuilder {
     final Animation<double> curved = animation.drive(
       CurveTween(curve: Curves.easeOutCubic),
     );
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.05),
-          end: Offset.zero,
-        ).animate(curved),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+    return RepaintBoundary(
+      child: FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(0, offset),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         ),
       ),

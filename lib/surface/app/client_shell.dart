@@ -320,9 +320,13 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: _controller,
-        builder: (BuildContext context, Widget? child) => FractionalTranslation(
-          translation: Offset(_from * (1 - _controller.value), 0),
-          child: child,
+        // RepaintBoundary：切 tab 时只做图层位移、不重绘整页
+        //（此前"整棵页面树每帧重绘"正是切换卡顿的主因）。
+        builder: (BuildContext context, Widget? child) => RepaintBoundary(
+          child: FractionalTranslation(
+            translation: Offset(_from * (1 - _controller.value), 0),
+            child: child,
+          ),
         ),
         child: widget.child,
       );
