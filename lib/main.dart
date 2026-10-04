@@ -11,6 +11,7 @@
 ///    用户第一次打开就能看见"到底加载了什么"。
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -31,12 +32,13 @@ import 'kernel/kernel.dart';
 import 'kernel/log/og_l_log_file.dart';
 import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
+import 'surface/app/permission_selftest.dart';
 import 'surface/surface_bridge.dart';
 
 /// 应用版本（零外部资源：不读 pubspec，直接内联常量）。
 ///
 /// 与 `pubspec.yaml` 的 `version:` 保持一致，发布流程会做一致性校验。
-const String kOgLAppVersion = '4.9.0';
+const String kOgLAppVersion = '5.0.0';
 
 /// 发布构建注入的引导清单 JSON（由 `--dart-define-from-file` 提供；调试构建为空）。
 ///
@@ -200,6 +202,25 @@ void main() async {
         title: '存储不可用',
         detail: '平台存储初始化失败，登录与设置将无法保存到本机。\n$storageError',
         severity: OgLNoticeSeverity.critical,
+      );
+    }
+    // ★ 5.0：权限网关**每次启动**都实测一遍（不只是首次引导那一次）。
+    //   只复核、不弹窗（重新请求交给引导页 / 设置页）；缺什么、影响什么、
+    //   怎么修 → 诊断日志 + 通知中心（**带事件码** OGL-PERM-00x）。
+    //   加超时兜底：权限查询走平台通道，绝不允许它拖住启动。
+    OgLAppLog.instance.step('启动', '权限自检（每次启动）…');
+    try {
+      await ogLRunPermissionSelfTest(
+        diagnostics: diagnostics,
+        storageProbe: surfaceModule.bridge.ensureStorage,
+      ).timeout(const Duration(seconds: 5));
+    } catch (error) {
+      // 自检超时 / 异常也要留痕，且不阻断启动（宁可漏报，不可不放行）。
+      OgLLogFile.line('权限', '权限自检未完成（超时或异常）：$error', level: 'WARN');
+      OgLAppLog.instance.add(
+        '权限',
+        '权限自检未完成：$error',
+        severity: OgLNoticeSeverity.warning,
       );
     }
     OgLAppLog.instance.result('启动', '进入界面（runApp）', '启动报告已就绪');

@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
+import '../app/permission_selftest.dart';
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
 
@@ -186,6 +187,7 @@ class AboutPage extends StatelessWidget {
                   ),
               ],
             ),
+            _permissionSelfTestTile(theme),
           ],
           const SizedBox(height: 24),
           Text(
@@ -214,6 +216,59 @@ class AboutPage extends StatelessWidget {
           children: children,
         ),
       );
+
+  /// 权限自检折叠组（**每次启动都实测**的结果，见 `OgLPermissionSelfTestReport.last`）。
+  ///
+  /// 在这里摊开是为了让「为什么日志写不进外部目录 / 为什么没有通知」有据可查：
+  /// 用户与排查者看到的是**实测状态 + 事件码**，不是一句“可能没权限”。
+  Widget _permissionSelfTestTile(ThemeData theme) {
+    final OgLPermissionSelfTestReport? last = OgLPermissionSelfTestReport.last;
+    final String subtitle;
+    if (last == null) {
+      subtitle = _t('permSelfTestPending');
+    } else if (last.allReady) {
+      subtitle = _t('permSelfTestAllReady', <String, Object?>{
+        'ready': last.readyCount,
+        'total': last.infos.length,
+        'ms': last.duration.inMilliseconds,
+      });
+    } else {
+      subtitle = _t('permSelfTestProblems', <String, Object?>{
+        'count': last.actionable.length,
+      });
+    }
+    return _diagnosticTile(
+      title: _t('permSelfTest'),
+      subtitle: subtitle,
+      children: <Widget>[
+        if (last == null)
+          ListTile(
+            leading: const Icon(Icons.hourglass_empty),
+            title: Text(_t('permSelfTestPending')),
+          )
+        else ...<Widget>[
+          _KeyValueRow(label: _t('permPlatform'), value: last.platform),
+          for (final OgLPermissionInfo info in last.infos)
+            ListTile(
+              dense: true,
+              leading: Icon(
+                info.actionable
+                    ? Icons.error_outline
+                    : (info.ready
+                        ? Icons.check_circle_outline
+                        : Icons.help_outline),
+                color: info.actionable ? theme.colorScheme.error : null,
+              ),
+              title: Text(info.permission.name),
+              subtitle: Text(info.actionable
+                  ? '${info.status.name} · '
+                      '${OgLPermissionSelfTestReport.codeOf(info.permission)}'
+                  : info.status.name),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 /// 键值一行（左列标签、右列等宽值）。
