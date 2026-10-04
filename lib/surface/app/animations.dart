@@ -16,6 +16,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import 'motion.dart';
 
@@ -60,6 +61,21 @@ abstract final class OgLAnim {
   /// 大体积动画（整页 / 半页）统一曲线：起步快、收尾柔。
   static Curve largeCurve(BuildContext context) => quality(context).largeCurve;
 
+  /// 收尾曲线（"Q弹"）：只有拉满档带轻微回弹，其余档位纯减速。
+  ///
+  /// **只用于位移 / 缩放**，不要用在透明度上（透明度插值不能超过 1）。
+  static Curve settleCurve(BuildContext context) =>
+      quality(context).settleCurve;
+
+  /// 物理弹簧；档位 `0`（无动画）为 `null`。
+  static SpringDescription? spring(BuildContext context) =>
+      quality(context).spring;
+
+  /// 是否启用**共享元素**（容器变换 · 基础版）：只在标准档及以上。
+  ///
+  /// 低档位直接退回普通的页面过渡——"降档 = 降质量"，而不是砍掉导航本身。
+  static bool sharedElement(BuildContext context) => level(context) >= 2;
+
   /// 大体积内容切换（loading → data）时长。
   static Duration stateSwapDuration(BuildContext context) =>
       quality(context).stateSwapDuration;
@@ -97,6 +113,34 @@ abstract final class OgLAnim {
       return null;
     }
     return q.staggerStep * index;
+  }
+}
+
+/// 物理弹簧驱动器（"厂商级"动效 · 基础版）。
+///
+/// 现代系统动效的共同点是**基于物理**：不是"固定时长 + 曲线"，而是由
+/// 刚度 / 阻尼决定运动；因此它能被**随时打断**——再次触发时从当前位置与
+/// 当前速度继续，而不是从头重播。这就是"跟手 / 丝滑"的来源。
+///
+/// 档位分级：`0` 无动画（直接落位）；`1` 过阻尼（不振荡、最快、最保守）；
+/// `2` / `3` 欠阻尼（轻微回弹），档位越高回弹越明显。
+abstract final class OgLSpring {
+  /// 用当前档位的弹簧把 [controller] 从 [from] 驱动到 [to]。
+  ///
+  /// [velocity] 传中断时的当前速度即可**无缝续跑**。
+  static void run(
+    AnimationController controller,
+    BuildContext context, {
+    required double from,
+    double to = 1,
+    double velocity = 0,
+  }) {
+    final SpringDescription? spec = OgLAnim.spring(context);
+    if (spec == null) {
+      controller.value = to;
+      return;
+    }
+    controller.animateWith(SpringSimulation(spec, from, to, velocity));
   }
 }
 
@@ -164,6 +208,9 @@ class _OgLRevealState extends State<OgLReveal> {
     }
     final Duration duration = OgLAnim.medium(context);
     final Curve curve = OgLAnim.curve(context);
+    // 位移 / 缩放走"收尾曲线"：拉满档带**轻微回弹**（"Q弹"基础版）；
+    // 淡入仍用纯减速曲线——透明度插值绝不能超过 1。
+    final Curve settle = OgLAnim.settleCurve(context);
     final double offset = OgLAnim.revealOffset(context);
     final double scaleFrom = OgLAnim.revealScale(context);
 
@@ -173,7 +220,7 @@ class _OgLRevealState extends State<OgLReveal> {
       result = AnimatedScale(
         scale: _shown ? 1 : scaleFrom,
         duration: duration,
-        curve: curve,
+        curve: settle,
         child: result,
       );
     }
@@ -181,7 +228,7 @@ class _OgLRevealState extends State<OgLReveal> {
       result = AnimatedSlide(
         offset: _shown ? Offset.zero : Offset(0, offset),
         duration: duration,
-        curve: curve,
+        curve: settle,
         child: result,
       );
     }
@@ -217,6 +264,8 @@ class OgLSurfaceSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final Duration duration = OgLAnim.stateSwapDuration(context);
     final Curve curve = OgLAnim.largeCurve(context);
+    // 缩放另用"收尾曲线"（拉满档轻微回弹）；**透明度不参与回弹**。
+    final Curve settle = OgLAnim.settleCurve(context);
     final double from = OgLAnim.stateSwapScale(context);
     return AnimatedSwitcher(
       duration: duration,
@@ -230,12 +279,47 @@ class OgLSurfaceSwitch extends StatelessWidget {
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            scale: Tween<double>(begin: from, end: 1).animate(animation),
+            scale: Tween<double>(begin: from, end: 1)
+                .animate(CurvedAnimation(parent: animation, curve: settle)),
             child: current,
           ),
         );
       },
       child: child,
+    );
+  }
+}
+
+/// **共享元素**（容器变换 · 基础版）：把列表里的"名称"与详情页的标题
+/// 连成一次飞行（`Hero`），做出厂商常演示的"空间连续感"。
+///
+/// 为什么只包"名称"而不是整张卡：
+/// - `Hero` 需要源 / 目标各有一个**同 tag** 的挂点，名称是最稳、
+///   最不容易引起布局跳动的锚点；
+/// - 名称天然唯一（仓库 `fullName`），tag 不会撞车。
+///
+/// 档位分级：标准档及以上才启用；低档位 / 系统"减少动效"直接返回 child
+/// （退回普通页面过渡）——"降档 = 降质量"，而不是砍掉导航。
+class OgLSharedTitle extends StatelessWidget {
+  /// 创建。
+  const OgLSharedTitle({required this.tag, required this.child, super.key});
+
+  /// 两侧必须一致的标识（如 `ogl-repo:owner/name`）。
+  final String tag;
+
+  /// 标题内容。
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!OgLAnim.sharedElement(context)) {
+      return child;
+    }
+    return Hero(
+      tag: tag,
+      // 飞行时子控件会被搬进 Overlay：套一层透明 Material，
+      // 飞行途中的文字样式 / 裁剪才正常。
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }

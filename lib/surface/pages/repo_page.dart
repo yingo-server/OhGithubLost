@@ -306,7 +306,10 @@ class _RepoPageState extends State<RepoPage> {
       length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_repo.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: OgLSharedTitle(
+            tag: 'ogl-repo:${_repo.fullName}',
+            child: Text(_repo.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
           actions: <Widget>[
             IconButton(
               icon: Icon(_starred ? Icons.star : Icons.star_border),

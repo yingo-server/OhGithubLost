@@ -235,10 +235,13 @@ class _DashboardPageState extends State<DashboardPage> {
                           leading: Icon(
                             repo.isPrivate ? Icons.lock_outline : Icons.folder_outlined,
                           ),
-                          title: Text(
-                            repo.fullName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          title: OgLSharedTitle(
+                            tag: 'ogl-repo:${repo.fullName}',
+                            child: Text(
+                              repo.fullName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           subtitle: Text(
                             _repoSubtitle(repo),

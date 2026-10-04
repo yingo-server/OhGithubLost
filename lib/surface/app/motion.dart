@@ -17,6 +17,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../settings.dart';
 
@@ -40,6 +41,9 @@ class OgLOAnimQuality {
     required this.blurSigma,
     required this.curve,
     required this.largeCurve,
+    required this.settleCurve,
+    required this.springStiffness,
+    required this.springDamping,
     required this.transitionWindow,
     required this.shellDuration,
     required this.shellOffset,
@@ -88,6 +92,28 @@ class OgLOAnimQuality {
   /// **大体积动画**（整页 / 半页）统一用的"快速起步"曲线：
   /// 起步快、收尾柔，观感更灵动。
   final Curve largeCurve;
+
+  /// **收尾曲线**（"Q弹"基础版）：只有**拉满档**才带轻微回弹
+  /// （`Curves.easeOutBack`），其余档位都是纯减速、不回弹。
+  ///
+  /// 注意：回弹只作用在**位移 / 缩放**上；透明度插值必须单调，绝不回弹。
+  final Curve settleCurve;
+
+  /// 物理弹簧 · 刚度（质量固定为 1）：越大越"紧致"、收得越快。
+  /// 档位 `0` 为 0（无弹簧）。
+  final double springStiffness;
+
+  /// 物理弹簧 · 阻尼：越小越"弹"（回弹 / 振荡越明显）。
+  final double springDamping;
+
+  /// 物理弹簧描述；档位 `0`（无动画）返回 `null`。
+  SpringDescription? get spring => springStiffness <= 0
+      ? null
+      : SpringDescription(
+          mass: 1,
+          stiffness: springStiffness,
+          damping: springDamping,
+        );
 
   /// 全页过渡的**视觉窗口**：实际运动只占用路线时间线的前这么一小段
   /// （0.42 = 300ms 的路由里，真正"动"的只有约 126ms）。
@@ -160,6 +186,9 @@ class OgLOAnimQuality {
           // 自然减速（ease-out 阶梯）：**绝不用匀速**——匀速是"机械/死板"的根源。
           curve: Curves.easeOut,
           largeCurve: Curves.easeOutCubic,
+          settleCurve: Curves.easeOut,
+          springStiffness: 1225,
+          springDamping: 70, // ζ=1.00：临界阻尼，不振荡（最保守）
           transitionWindow: 0.42,
           shellDuration: Duration(milliseconds: 110),
           shellOffset: 0.02,
@@ -182,6 +211,9 @@ class OgLOAnimQuality {
           blurSigma: 0,
           curve: Curves.easeOutCubic,
           largeCurve: Curves.easeOutQuart,
+          settleCurve: Curves.easeOutCubic,
+          springStiffness: 1024,
+          springDamping: 51, // ζ≈0.80：轻微回弹
           transitionWindow: 0.55,
           shellDuration: Duration(milliseconds: 150),
           shellOffset: 0.035,
@@ -204,6 +236,9 @@ class OgLOAnimQuality {
           blurSigma: 6,
           curve: Curves.easeOutQuart,
           largeCurve: Curves.easeOutQuint,
+          settleCurve: Curves.easeOutBack,
+          springStiffness: 784,
+          springDamping: 35, // ζ≈0.63：回弹最明显（拉满档）
           transitionWindow: 0.7,
           shellDuration: Duration(milliseconds: 190),
           shellOffset: 0.05,
@@ -227,6 +262,9 @@ class OgLOAnimQuality {
           blurSigma: 0,
           curve: Curves.linear,
           largeCurve: Curves.linear,
+          settleCurve: Curves.linear,
+          springStiffness: 0,
+          springDamping: 0,
           transitionWindow: 0,
           shellDuration: Duration.zero,
           shellOffset: 0,

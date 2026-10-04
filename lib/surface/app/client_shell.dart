@@ -355,12 +355,16 @@ class _OgLShellSlide extends StatefulWidget {
 
 class _OgLShellSlideState extends State<_OgLShellSlide>
     with SingleTickerProviderStateMixin {
-  /// 初始时长置零：真正的时长在首次切换时按**档位质量表**赋值，
-  /// 避免"先跑一个硬编码时长再被覆盖"。
+  /// 弹簧驱动的进度控制器。
+  ///
+  /// 上下界特意放开到 `[-1, 2]`：欠阻尼弹簧会**轻微过冲**（回弹），
+  /// 若仍锁在 `[0, 1]` 就会把回弹削掉，变成"没有回弹的弹簧"。
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: Duration.zero,
     value: 1,
+    lowerBound: -1,
+    upperBound: 2,
   );
 
   /// 起始水平位移（正=从右进入，负=从左进入）。
@@ -378,11 +382,17 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
       _controller.value = 1;
       return;
     }
-    // 位移距离、时长都按档位（低档更短、更快 —— "更贴"的手感）。
+    // 上一次切换尚未落位：让它跑完，避免位置跳变（弹簧本身就是"可中断"的，
+    // 这里只是不把同一段位移硬生生打断成两段相反方向）。
+    if (_controller.isAnimating) {
+      return;
+    }
+    // 位移距离按档位（低档更短、更快 —— "更贴"的手感）。
     final double distance = OgLAnim.shellOffset(context);
     _from = widget.index > oldWidget.index ? distance : -distance;
-    _controller.duration = OgLAnim.shellDuration(context);
-    _controller.forward(from: 0);
+    // **物理弹簧**驱动（不是固定时长）：更"跟手 / 丝滑"，
+    // 档位越高、回弹越明显（档位 1 临界阻尼，不振荡）。
+    OgLSpring.run(_controller, context, from: 0);
   }
 
   @override
@@ -393,10 +403,8 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
 
   @override
   Widget build(BuildContext context) {
-    // 切 tab 也是"大体积动画"：位移必须走**自然减速曲线**，
-    // 而不是把控制器直接当匀速直线用（匀速 = 机械 / 死板）。
-    // 曲线只改"落位节奏"，时长仍由档位表给 —— 对操作的影响不变。
-    final Curve curve = OgLAnim.largeCurve(context);
+    // 切 tab 也是"大体积动画"，且**基于物理**：进度由弹簧给出
+    //（可能轻微过冲 → 落位前"回弹"一下）。位置 / 透明度直接读弹簧进度。
     return AnimatedBuilder(
       animation: _controller,
       // RepaintBoundary：切 tab 时只做图层位移、不重绘整页
@@ -405,10 +413,10 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
       // 再叠一层**很轻的淡入**（0.7 → 1）：整页纯位移会显得"生硬"，
       // 一点点透明度变化就足以让切换"活"起来，成本几乎为零。
       builder: (BuildContext context, Widget? child) {
-        final double t = curve.transform(_controller.value.clamp(0.0, 1.0));
+        final double t = _controller.value;
         return RepaintBoundary(
           child: Opacity(
-            opacity: 0.7 + 0.3 * t,
+            opacity: (0.7 + 0.3 * t).clamp(0.0, 1.0),
             child: FractionalTranslation(
               translation: Offset(_from * (1 - t), 0),
               child: child,

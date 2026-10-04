@@ -4,6 +4,7 @@
 /// 1. 档位越高，时长越长；
 /// 2. 降到 `0` 时动画完全关闭（时长为零、`OgLReveal` 直接显示）。
 library;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -168,6 +169,64 @@ void main() {
       }
       // 静默档（0）不做任何动画，曲线取值无关紧要。
       expect(OgLOAnimQuality.of(0).curve, Curves.linear);
+    });
+
+    test('物理弹簧按档位分级：1 不振荡、越高越"弹"', () {
+      expect(OgLOAnimQuality.of(0).spring, isNull, reason: '静默档没有弹簧');
+
+      double zeta(int level) {
+        final OgLOAnimQuality q = OgLOAnimQuality.of(level);
+        return q.springDamping / (2 * math.sqrt(q.springStiffness));
+      }
+
+      // 刚度逐档递减：越高档越"从容"（收尾更软）。
+      expect(
+        OgLOAnimQuality.of(1).springStiffness >
+            OgLOAnimQuality.of(2).springStiffness,
+        isTrue,
+      );
+      expect(
+        OgLOAnimQuality.of(2).springStiffness >
+            OgLOAnimQuality.of(3).springStiffness,
+        isTrue,
+      );
+      // 阻尼比逐档递减 = 回弹越来越明显。
+      expect(zeta(1) > zeta(2), isTrue);
+      expect(zeta(2) > zeta(3), isTrue);
+      expect(zeta(1) >= 1.0, isTrue, reason: '最保守档临界阻尼，不振荡 / 不回弹');
+      expect(zeta(3) < 1.0, isTrue, reason: '拉满档欠阻尼，轻微回弹');
+      for (int level = 1; level <= 3; level++) {
+        expect(OgLOAnimQuality.of(level).spring, isNotNull);
+      }
+    });
+
+    test('收尾曲线：只有拉满档回弹（过冲），其余纯减速', () {
+      expect(OgLOAnimQuality.of(1).settleCurve, Curves.easeOut);
+      expect(OgLOAnimQuality.of(2).settleCurve, Curves.easeOutCubic);
+      expect(OgLOAnimQuality.of(3).settleCurve, Curves.easeOutBack);
+      // 回弹 = 中途取值超过 1（过冲）；纯减速曲线永远 ≤ 1。
+      expect(OgLOAnimQuality.of(3).settleCurve.transform(0.8),
+          greaterThan(1.0));
+      expect(OgLOAnimQuality.of(1).settleCurve.transform(0.8),
+          lessThanOrEqualTo(1.0));
+      expect(OgLOAnimQuality.of(2).settleCurve.transform(0.8),
+          lessThanOrEqualTo(1.0));
+    });
+
+    testWidgets('共享元素（容器变换）只在标准档及以上启用', (WidgetTester tester) async {
+      expect(OgLAnim.sharedElement(await _pumpAt(tester, 1)), isFalse);
+      expect(OgLAnim.sharedElement(await _pumpAt(tester, 2)), isTrue);
+      expect(OgLAnim.sharedElement(await _pumpAt(tester, 3)), isTrue);
+    });
+
+    testWidgets('OgLSpring.run：静默档直接落位（不产生动画）',
+        (WidgetTester tester) async {
+      final BuildContext ctx = await _pumpAt(tester, 0);
+      final AnimationController c =
+          AnimationController(vsync: const TestVSync(), value: 0);
+      OgLSpring.run(c, ctx, from: 0);
+      expect(c.value, 1);
+      c.dispose();
     });
 
     test('缩放最保守档不做、模糊只在拉满档', () {
