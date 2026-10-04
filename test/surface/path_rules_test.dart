@@ -156,5 +156,54 @@ void main() {
         )),
       );
     });
+
+    test('内置通道是「优先 + 降级」的固定链（不可由用户调整）', () {
+      expect(kOgLAccelBuiltinBaseUrls.length, 2);
+      // 优先：gh.344977.xyz；降级：gh.felicity.ac.cn。
+      expect(kOgLAccelBuiltinBaseUrls.first, contains('gh.344977.xyz'));
+      expect(kOgLAccelBuiltinBaseUrls.last, contains('gh.felicity.ac.cn'));
+      for (final String base in kOgLAccelBuiltinBaseUrls) {
+        expect(base.startsWith('https://'), isTrue);
+        expect(ogLValidateAccelBaseUrl(base), isNull);
+      }
+      // 主前缀 = 链首。
+      expect(kOgLAccelBuiltinBaseUrl, kOgLAccelBuiltinBaseUrls.first);
+      // 对用户仍是**一个**通道（不可删 / 不可改）。
+      expect(kOgLAccelBuiltinChannel.builtin, isTrue);
+      expect(kOgLAccelBuiltinChannel.baseUrl, kOgLAccelBuiltinBaseUrl);
+    });
+
+    test('加速前缀链：内置是多前缀，自定义是单前缀', () {
+      final List<String> builtin = ogLAccelPrefixChain(kOgLAccelBuiltinChannel);
+      expect(builtin.length, kOgLAccelBuiltinBaseUrls.length);
+      for (final String prefix in builtin) {
+        expect(prefix.endsWith('/'), isTrue);
+      }
+      final List<String> custom = ogLAccelPrefixChain(
+        const OgLAccelChannel(id: 'x', name: 'x', baseUrl: 'https://x.com'),
+      );
+      expect(custom, <String>['https://x.com/']);
+    });
+
+    test('候选地址：按优先级排列，**直连永远垫底**', () {
+      const String target =
+          'https://github.com/o/r/releases/download/v1/a.zip';
+      expect(ogLReleaseDownloadUrls(target, const <String>[]), <String>[target]);
+      expect(
+        ogLReleaseDownloadUrls(target, const <String>['https://a/', 'https://b/']),
+        <String>['https://a/$target', 'https://b/$target', target],
+      );
+      // 已是加速地址 → 不再重复加前缀，直连仍在最后。
+      expect(
+        ogLReleaseDownloadUrls('https://a/$target',
+            const <String>['https://a/', 'https://b/']),
+        <String>['https://b/https://a/$target', 'https://a/$target'],
+      );
+      // 非 http(s) 原样返回。
+      expect(
+        ogLReleaseDownloadUrls('file:///tmp/a.zip', const <String>['https://a/']),
+        <String>['file:///tmp/a.zip'],
+      );
+    });
   });
 }

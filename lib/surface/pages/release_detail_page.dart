@@ -231,11 +231,16 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       return;
     }
     try {
-      // 生效前缀：总开关关闭、或未同意协议时为 null（= 直连）。
-      final String? accelBase =
-          widget.surface.settings.settings.activeAccelPrefix;
+      // 加速前缀链（总开关关闭、或未同意协议时为空 = 直连）。
+      // 内置通道是「优先 + 降级」的固定链，命中不了会自动**静默降级**，
+      // 最后一条永远是直连。
+      final List<String> urls = ogLReleaseDownloadUrls(
+        url,
+        widget.surface.settings.settings.activeAccelPrefixes,
+      );
       await widget.surface.domain.downloads.enqueue(
-        url: ogLReleaseDownloadUrl(url, accelBase: accelBase),
+        url: urls.first,
+        fallbackUrls: urls.skip(1).toList(),
         fileName: asset.name,
         category: IxDownloadCategory.release,
         // 大附件优先多连接：服务端不支持 Range 时中枢层自动回退。

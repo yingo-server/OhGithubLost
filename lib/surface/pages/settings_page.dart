@@ -37,6 +37,7 @@ import '../types.dart';
 import '../util/accel.dart';
 import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
+import 'network_page.dart';
 import 'onboarding_page.dart';
 import 'repo_page.dart';
 
@@ -276,6 +277,11 @@ class _SettingsPageState extends State<SettingsPage> {
       OgLI18n.instance.t('settings', key,
           args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
+  /// `common` 分片文案（加速协议 / 通用按钮等）。
+  String _tc(String key, [Map<String, Object?>? args]) =>
+      OgLI18n.instance.t('common', key,
+          args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
+
   Future<void> _pickLanguage() async {
     final String current = _settings.settings.languageCode;
     final String? picked = await showDialog<String>(
@@ -423,7 +429,18 @@ class _SettingsPageState extends State<SettingsPage> {
               _appearanceSection(theme, value),
               _languageSection(theme),
               _codeSection(theme, value),
-              _networkSection(theme, value),
+              // 网络：**独立子页面**（不再是一个可折叠分组）。
+              Card(
+                clipBehavior: Clip.antiAlias,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const Icon(Icons.wifi_outlined),
+                  title: Text(_t('network')),
+                  subtitle:  Text(_t('dnsMode')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openNetwork,
+                ),
+              ),
               if (saveError != null) ...<Widget>[
                 Card(
                   color: theme.colorScheme.errorContainer,
@@ -746,12 +763,11 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       );
 
-  /// 网络 / DNS。
-  Widget _networkSection(ThemeData theme, OgLSettings value) => _section(
-        theme,
-        title: _t('network'),
-        subtitle: _t('dnsMode'),
-        children: <Widget>[
+  /// 网络 / DNS / 下载并发 / 加速通道。
+  ///
+  /// 这些内容渲染在**独立的网络设置页**里（见 `network_page.dart`），
+  /// 不再是一个"可折叠分组"。
+  List<Widget> _networkTiles(ThemeData theme, OgLSettings value) => <Widget>[
           SwitchListTile(
             title: Text(_t('customDns')),
             subtitle:  Text(_t('dnsModeDesc')),
@@ -781,8 +797,26 @@ class _SettingsPageState extends State<SettingsPage> {
 const Divider(height: 1),
           ..._downloadTiles(theme, value),
           ..._accelTiles(theme, value),
-        ],
-      );
+        ];
+
+  /// 打开**网络设置页**（独立页面；不再是可折叠分组）。
+  ///
+  /// 分节内容仍由本页闭包生成——逻辑与文案只有一份。
+  void _openNetwork() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => NetworkSettingsPage(
+          surface: widget.surface,
+          builder: (BuildContext context, OgLSettings value) => Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: _networkTiles(Theme.of(context), value),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   /// 轻提示。
   void _toast(String message) {
@@ -868,7 +902,7 @@ const Divider(height: 1),
           leading: Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           ),
-          title: Text(channel.builtin ? _t('accelBuiltinName') : channel.name),
+          title: Text(channel.builtin ? _tc('accelBuiltinName') : channel.name),
           subtitle: Text(
             channel.builtin ? _t('accelBuiltinDesc') : channel.baseUrl,
             maxLines: 1,
@@ -1116,33 +1150,68 @@ const Divider(height: 1),
         ],
       );
 
-  /// 开源许可（本项目 + 第三方依赖），默认收起。
-  Widget _licenseSection(ThemeData theme) => _section(
-        theme,
-        title: _t('licenses'),
-        subtitle: _t('licensesDesc'),
-        children: <Widget>[
-          ListTile(
-            leading: const Icon(Icons.gavel_outlined),
-            title: Text(_t('licenseSelf', {'name': OgLProjectInfo.name})),
-            subtitle: Text(
-              '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.inventory_2_outlined),
-            title:  Text(_t('thirdPartyDeps')),
-            subtitle: Text(_t('depsCount', {'count': kOgLDependencyLicenses.length})),
-          ),
-          for (final OgLDependencyLicense dep in kOgLDependencyLicenses)
-            ListTile(
-              dense: true,
-              title: Text(dep.name),
-              subtitle: Text('${dep.license} · ${dep.purpose}'),
-            ),
-        ],
+  /// 开源许可：**合并为一条**，打开时弹窗（本项目 + 第三方依赖）。
+  Widget _licenseSection(ThemeData theme) => Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          leading: const Icon(Icons.gavel_outlined),
+          title: Text(_t('licenses')),
+          subtitle:  Text(_t('licensesDesc')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _showLicenses,
+        ),
       );
+
+  /// 许可弹窗：本项目许可 + 第三方依赖清单（**合并为一个入口**）。
+  Future<void> _showLicenses() async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title:  Text(_t('licenses')),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.gavel_outlined),
+                  title: Text(_t('licenseSelf', {'name': OgLProjectInfo.name})),
+                  subtitle: Text(
+                    '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title:  Text(_t('thirdPartyDeps')),
+                  subtitle: Text(
+                    _t('depsCount', {'count': kOgLDependencyLicenses.length}),
+                  ),
+                ),
+                for (final OgLDependencyLicense dep in kOgLDependencyLicenses)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(dep.name),
+                    subtitle: Text('${dep.license} · ${dep.purpose}'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child:  Text(_tc('close')),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// 日志（应用运行日志），默认收起。
   Widget _logsSection(ThemeData theme) => _section(

@@ -350,6 +350,14 @@ class OgLSettings {
           ? ogLNormalizeAccelBase(activeAccelChannel.baseUrl)
           : null;
 
+  /// **当前生效的加速前缀链（按优先级）**；未启用（或未同意）时为空列表。
+  ///
+  /// 内置通道是多前缀的固定链，下载时按序探测并**静默降级**；
+  /// 自定义通道只有一个前缀。列表首项 = [activeAccelPrefix]。
+  List<String> get activeAccelPrefixes => releaseProxyEnabled && accelConsentCurrent
+      ? ogLAccelPrefixChain(activeAccelChannel)
+      : const <String>[];
+
   /// 仓库浏览器是否**目录优先**。
   final bool foldersFirst;
 

@@ -82,16 +82,38 @@ class OgLAccelChannel {
 /// 内置通道 id。
 const String kOgLAccelBuiltinId = 'builtin';
 
-/// 内置通道前缀（开发者自建，HTTPS）。
-const String kOgLAccelBuiltinBaseUrl = 'https://server.344977.xyz:9999/';
+/// **内置通道的加速链（按优先级，不可由用户调整）**。
+///
+/// 1. `gh.344977.xyz` —— **优先**；
+/// 2. `gh.felicity.ac.cn` —— **降级备选**。
+///
+/// 下载时按序探测，**静默降级**：前一个不可用就直接用下一个，不打扰用户。
+const List<String> kOgLAccelBuiltinBaseUrls = <String>[
+  'https://gh.344977.xyz/',
+  'https://gh.felicity.ac.cn/',
+];
+
+/// 内置通道主前缀（= 链首，供只认单个前缀的旧路径使用）。
+const String kOgLAccelBuiltinBaseUrl = 'https://gh.344977.xyz/';
 
 /// 内置通道。
+///
+/// 对用户是**一个**通道（界面上不出地址、不可删改）；内部按
+/// [kOgLAccelBuiltinBaseUrls] 的顺序静默降级。
 const OgLAccelChannel kOgLAccelBuiltinChannel = OgLAccelChannel(
   id: kOgLAccelBuiltinId,
   name: '内置通道',
   baseUrl: kOgLAccelBuiltinBaseUrl,
   builtin: true,
 );
+
+/// 某个通道对应的**加速前缀链**（内置 = 固定链；自定义 = 单个）。
+List<String> ogLAccelPrefixChain(OgLAccelChannel channel) => channel.builtin
+    ? <String>[
+        for (final String base in kOgLAccelBuiltinBaseUrls)
+          ogLNormalizeAccelBase(base),
+      ]
+    : <String>[ogLNormalizeAccelBase(channel.baseUrl)];
 
 /// 校验自定义通道地址（返回 `null` = 通过）。
 String? ogLValidateAccelBaseUrl(String raw) {

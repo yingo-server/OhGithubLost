@@ -204,6 +204,9 @@ class IxDownloadManager extends ChangeNotifier {
   /// 走分片引擎的任务 → 并发数（重试用同一份参数）。
   final Map<String, int> _rangeConnections = <String, int>{};
 
+  /// 每个任务的**候选地址（按优先级）**：首个是首选，其余用于**静默降级**。
+  final Map<String, List<String>> _urlCandidates = <String, List<String>>{};
+
   /// 已请求「暂停」的分片任务（取消令牌后据此标记 paused 而非 canceled）。
   final Set<String> _pausedIds = <String>{};
 
@@ -245,6 +248,7 @@ class IxDownloadManager extends ChangeNotifier {
     IxDownloadCategory category = IxDownloadCategory.other,
     Map<String, String> headers = const <String, String>{},
     int connections = 1,
+    List<String> fallbackUrls = const <String>[],
   }) async {
     final DownloadTask task = DownloadTask(
       url: url,
@@ -280,6 +284,12 @@ class IxDownloadManager extends ChangeNotifier {
 
     // 5.0：并发 > 1 且装配层给了分片引擎 → 走**多连接分片**；
     // 不支持 Range 时自动回退到库任务（同一 taskId，页面无感）。
+    // 候选地址（按优先级去重）：分片路径会逐个探测，**静默降级**到可用者。
+    _urlCandidates[id] = <String>[
+      url,
+      for (final String alt in fallbackUrls)
+        if (alt.isNotEmpty && alt != url) alt,
+    ];
     if (connections > 1 && _engine != null && savePath.isNotEmpty) {
       _rangeConnections[id] = connections;
       unawaited(_runRanged(id: id, task: task, connections: connections));
@@ -300,28 +310,47 @@ class IxDownloadManager extends ChangeNotifier {
       return;
     }
     final DownloadEngine engine = _engine!;
-    final Uri uri = Uri.parse(task.url);
+    final List<String> candidates = _urlCandidates[id] ?? <String>[task.url];
     final DownloadCancelToken token = engine.newCancelToken();
     _rangeTokens[id] = token;
 
-    DownloadProbe probe;
-    try {
-      probe = await engine.probe(uri, headers: task.headers.isEmpty
-          ? null
-          : task.headers);
-    } catch (error) {
-      probe = const DownloadProbe(supportsRange: false);
+    // 按优先级逐个探测：命中第一个"可并发分片"的地址就停（**静默降级**）。
+    Uri? uri;
+    DownloadProbe probe = const DownloadProbe(supportsRange: false);
+    String? reachable;
+    for (final String candidate in candidates) {
+      final Uri parsed = Uri.parse(candidate);
+      DownloadProbe current;
+      try {
+        current = await engine.probe(
+          parsed,
+          headers: task.headers.isEmpty ? null : task.headers,
+        );
+      } catch (error) {
+        // 该通道不可用 → 静默试下一个（不打扰用户）。
+        continue;
+      }
+      reachable ??= candidate;
+      if (current.supportsRange && current.total != null && current.total! > 0) {
+        uri = parsed;
+        probe = current;
+        break;
+      }
     }
-    if (!probe.supportsRange || probe.total == null || probe.total! <= 0) {
-      // 回退：交给库任务（同一 taskId，页面无感）。
+
+    if (uri == null) {
+      // 没有一个地址可并发分片：回退库任务（优先用最后一个可达地址）。
       _rangeTokens.remove(id);
       _diagnostics?.info(
         'DL',
-        '目标不支持 Range，回退单连接下载：$uri',
+        '无可分片通道，回退单连接下载：${candidates.first}',
         code: 'OGL-DL-201',
         data: probe.toJson(),
       );
-      await _downloader.enqueue(task);
+      final String target = reachable ?? candidates.first;
+      await _downloader.enqueue(
+        target == task.url ? task : _withUrl(task, target),
+      );
       return;
     }
 
@@ -374,6 +403,18 @@ class IxDownloadManager extends ChangeNotifier {
       _pausedIds.remove(id);
     }
   }
+
+  /// 换一个源地址重建任务（**静默降级**时用；其余参数保持不变）。
+  DownloadTask _withUrl(DownloadTask task, String url) => DownloadTask(
+        url: url,
+        filename: task.filename,
+        directory: task.directory,
+        baseDirectory: task.baseDirectory,
+        headers: task.headers,
+        updates: Updates.statusAndProgress,
+        allowPause: true,
+        retries: 2,
+      );
 
   /// 分片进度 → 快照（含速率估算；节流通知与库路径一致）。
   void _applyRangeProgress(String id, int received, int total) {

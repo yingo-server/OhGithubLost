@@ -18,6 +18,34 @@ library;
 ///
 /// [accelBase] 为 `null` / 空表示**走直连**（加速关闭或未同意协议）；
 /// 已是加速地址、或非 http(s) 地址时原样返回（避免二次加前缀）。
+/// 解析 Release 附件的**候选下载地址（按优先级）**。
+///
+/// [accelBases] 是加速前缀链（空 = 直接走直连）。返回列表：
+/// 首项 = 首选地址，其后是**静默降级**用的备选（同一原始 URL 换前缀），
+/// **最后一定带一个直连兜底**。
+List<String> ogLReleaseDownloadUrls(String url, List<String> accelBases) {
+  if (url.isEmpty) {
+    return const <String>[];
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return <String>[url];
+  }
+  final List<String> out = <String>[];
+  for (final String base in accelBases) {
+    if (base.isEmpty || url.startsWith(base)) {
+      continue;
+    }
+    final String candidate = '$base$url';
+    if (!out.contains(candidate)) {
+      out.add(candidate);
+    }
+  }
+  if (!out.contains(url)) {
+    out.add(url); // 直连：永远的最后底线。
+  }
+  return out;
+}
+
 String ogLReleaseDownloadUrl(String url, {String? accelBase}) {
   if (accelBase == null || accelBase.isEmpty || url.isEmpty) {
     return url;
