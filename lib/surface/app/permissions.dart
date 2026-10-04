@@ -120,12 +120,16 @@ abstract class OgLPermissionGateway {
 /// 不传时按"可用"处理（例如桌面端）。
 OgLPermissionGateway ogLPermissionGateway({
   Future<bool> Function()? storageProbe,
+  Future<String> Function()? storageLocation,
 }) {
   if (kIsWeb) {
     return const _WebPermissionGateway();
   }
   if (Platform.isAndroid) {
-    return _AndroidPermissionGateway(storageProbe: storageProbe);
+    return _AndroidPermissionGateway(
+      storageProbe: storageProbe,
+      storageLocation: storageLocation,
+    );
   }
   if (Platform.isIOS) {
     return const _IosPermissionGateway();
@@ -180,7 +184,14 @@ Future<OgLPermissionStatus> _requestOf(Permission permission) async {
 /// 基于 `permission_handler` 的通用网关（Android / iOS / macOS 共用）。
 abstract class _HandlerGateway implements OgLPermissionGateway {
   /// 创建。
-  const _HandlerGateway();
+  const _HandlerGateway({
+    Future<bool> Function()? storageProbe,
+    Future<String> Function()? storageLocation,
+  })  : _probeOverride = storageProbe,
+        _locationProvider = storageLocation;
+
+  final Future<bool> Function()? _probeOverride;
+  final Future<String> Function()? _locationProvider;
 
   @override
   bool get canOpenSettings => true;
@@ -191,8 +202,14 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
   /// 「通知」映射到的系统权限（`null` = 本平台不需要）。
   Permission? notificationPermission();
 
-  /// 本地可写探针（用于把"授权了但实际写不动"如实反映）。
-  Future<bool> Function()? get storageProbe => null;
+  /// 本地可写探针。
+  ///
+  /// **约定**：它必须返回"文件是否落在**用户可见**的位置"，而不是
+  /// "随便找个能写的地方"——否则退回应用私有目录也会被判成"已授权"。
+  Future<bool> Function()? get storageProbe => _probeOverride;
+
+  /// 说明里的**平台差异提示**（默认无；例如 Android 按版本不同）。
+  String storageRationaleExtra() => '';
 
   Future<bool> _storageOk() async {
     final probe = storageProbe;
@@ -206,21 +223,47 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
     }
   }
 
+  /// 当前落盘位置（取不到就返回 `null`）。
+  Future<String?> _locationText() async {
+    final provider = _locationProvider;
+    if (provider == null) {
+      return null;
+    }
+    try {
+      return await provider();
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Future<List<OgLPermissionInfo>> describe() async {
     final List<Permission> storage = storagePermissions();
     final Permission? notify = notificationPermission();
+    final bool sandbox = storage.isEmpty;
+    final bool ok = sandbox ? true : await _storageOk();
+    String rationale = sandbox
+        ? _t('storageSandbox')
+        : _t('storageGrantDesc1') + _t('storageGrantDesc2');
+    if (!sandbox && !ok) {
+      // 未就绪时**如实告诉用户两件事**：为什么（各版本差异）+ 现在落在哪。
+      final String extra = storageRationaleExtra();
+      if (extra.isNotEmpty) {
+        rationale = '$rationale\n$extra';
+      }
+      final String? where = await _locationText();
+      if (where != null && where.isNotEmpty) {
+        rationale = '$rationale\n${_t('storageWhere')}：$where';
+      }
+    }
     return <OgLPermissionInfo>[
       OgLPermissionInfo(
         permission: OgLPermission.storage,
         title: _t('storageAccess'),
-        rationale: storage.isEmpty
-            ? _t('storageSandbox')
-            : _t('storageGrantDesc1') +
-                _t('storageGrantDesc2'),
-        status: storage.isEmpty
+        rationale: rationale,
+        status: sandbox
             ? OgLPermissionStatus.notRequired
-            : (await _storageOk()
+            : (ok
                 ? OgLPermissionStatus.granted
                 : OgLPermissionStatus.needsUserAction),
       ),
@@ -271,16 +314,17 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
 /// Android：存储（运行时 / 所有文件访问）+ 通知（13+）。
 class _AndroidPermissionGateway extends _HandlerGateway {
   /// 创建网关。
-  const _AndroidPermissionGateway({Future<bool> Function()? storageProbe})
-      : _probe = storageProbe;
-
-  final Future<bool> Function()? _probe;
+  const _AndroidPermissionGateway({
+    Future<bool> Function()? storageProbe,
+    Future<String> Function()? storageLocation,
+  }) : super(storageProbe: storageProbe, storageLocation: storageLocation);
 
   @override
   String get platformLabel => 'Android';
 
+  /// 版本差异提示：Android 11+ 需要"所有文件访问"；部分 ROM 只允许逐个授权。
   @override
-  Future<bool> Function()? get storageProbe => _probe;
+  String storageRationaleExtra() => _t('storageHintModern');
 
   @override
   List<Permission> storagePermissions() => const <Permission>[

@@ -212,6 +212,7 @@ void main() async {
       await ogLRunPermissionSelfTest(
         diagnostics: diagnostics,
         storageProbe: surfaceModule.bridge.ensureStorage,
+        storageLocation: surfaceModule.bridge.appStoragePath,
       ).timeout(const Duration(seconds: 5));
     } catch (error) {
       // 自检超时 / 异常也要留痕，且不阻断启动（宁可漏报，不可不放行）。

@@ -101,11 +101,15 @@ class OgLPermissionSelfTestReport {
 Future<OgLPermissionSelfTestReport> ogLRunPermissionSelfTest({
   required KernelDiagnostics diagnostics,
   Future<bool> Function()? storageProbe,
+  Future<String> Function()? storageLocation,
   OgLPermissionGateway? gateway,
 }) async {
   final Stopwatch stopwatch = Stopwatch()..start();
-  final OgLPermissionGateway use =
-      gateway ?? ogLPermissionGateway(storageProbe: storageProbe);
+  final OgLPermissionGateway use = gateway ??
+      ogLPermissionGateway(
+        storageProbe: storageProbe,
+        storageLocation: storageLocation,
+      );
   List<OgLPermissionInfo> infos;
   try {
     infos = await use.describe();

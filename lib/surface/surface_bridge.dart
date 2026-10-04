@@ -87,6 +87,20 @@ class SurfaceBridge {
     }
   }
 
+  /// 当前落盘位置（路径串；供权限说明里如实展示）。
+  Future<String> appStoragePath() async => (await appStorageInfo()).path;
+
+  /// 当前落盘位置摘要：路径 + **是否用户可见**（文件管理器 / 电脑能找到）。
+  Future<({String path, bool visible})> appStorageInfo() async {
+    try {
+      final ({String path, OgLStorageTier tier, bool visible}) info =
+          await OgLAppDirs.location();
+      return (path: info.path, visible: info.visible);
+    } catch (_) {
+      return (path: OgLI18n.instance.t('common', 'unknown'), visible: false);
+    }
+  }
+
   /// 清空本机仓库缓存。
   ///
   /// **多用户安全**：缓存按仓库维度存放，不含账号信息。若切换账号后不清理，
@@ -361,10 +375,22 @@ List<OgLModule> surfaceLayerModules() => <OgLModule>[
       SurfaceLayerModule(),
     ];
 
-/// 真实写入探针：能写删应用根目录下的探针文件即视为可用。
+/// 真实写入探针：**只有落到"用户可见"的公共目录才算通过**。
+///
+/// 两个关键点（此前踩过的坑）：
+/// 1. **先让根目录缓存失效**：权限可能在本次会话里刚变（用户去系统设置授权后
+///    返回），缓存不清就会一直卡在旧位置——"就算给了所有文件权限，也还是
+///    优先用内部存储"。
+/// 2. **探的是"可见性"，不是"能不能写"**：应用私有目录（内部存储 /
+///    `Android/data`）一定写得动，但它们**用户看不到**；以前探"已回退后的
+///    目录"，于是回退成功也会被判成"已授权"，问题被掩盖。
 Future<bool> _probeStorage() async {
+  OgLAppDirs.invalidate();
   try {
     final String root = await OgLAppDirs.root();
+    if (!OgLAppDirs.isUserVisible(root)) {
+      return false; // 用户看不见 → 如实报告"未取得存储权限"。
+    }
     final File probe = File('$root/.ogl_probe_ui');
     await probe.writeAsString('ok', flush: true);
     await probe.delete();

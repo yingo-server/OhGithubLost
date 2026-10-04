@@ -24,10 +24,108 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// 落盘位置分级（决定"用户能不能在文件管理器里看到"）。
+enum OgLStorageTier {
+  /// 系统可见的公共目录（如 `/storage/emulated/0/ogl`）——**用户看得到**。
+  public,
+
+  /// 应用外部目录（`/storage/emulated/0/Android/data/<pkg>/files/...`）：
+  /// 无需权限即可写，但 Android 11+ 起多数文件管理器**看不到**。
+  appExternal,
+
+  /// 应用内部目录（`/data/user/0/<pkg>/...`）——**用户完全看不到**。
+  internal,
+
+  /// 桌面平台（文档目录，用户可见）。
+  desktop,
+
+  /// 无法判定。
+  unknown,
+}
+
 /// 应用目录规划。
 abstract final class OgLAppDirs {
   /// 根目录名。
   static const String folderName = 'ogl';
+
+  /// **期望的公共根目录**（用户可见的那个）；无法确定时返回 `null`。
+  ///
+  /// - Android：`/storage/emulated/0/ogl`（写它需要"所有文件访问"或旧版存储权限）；
+  /// - 桌面：文档目录下的 `ogl`。
+  static Future<String?> publicRoot() async {
+    if (kIsWeb) {
+      return null;
+    }
+    if (Platform.isAndroid) {
+      return '/storage/emulated/0/$folderName';
+    }
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      try {
+        final Directory docs = await getApplicationDocumentsDirectory();
+        return '${docs.path.replaceAll(r'\', '/')}/$folderName';
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// 公共根目录当前是否**真的可写**（真实写入探针）。
+  static Future<bool> publicWritable() async {
+    final String? target = await publicRoot();
+    if (target == null) {
+      return false;
+    }
+    return _writable(target);
+  }
+
+  /// 落盘位置分级。
+  static OgLStorageTier tierOf(String path) {
+    final String p = path.replaceAll(r'\', '/');
+    if (p.contains('/Android/data/') || p.contains('/Android/obb/')) {
+      return OgLStorageTier.appExternal;
+    }
+    if (p.startsWith('/data/') || p.contains('/data/user/')) {
+      return OgLStorageTier.internal;
+    }
+    if (p.startsWith('/storage/emulated/')) {
+      return OgLStorageTier.public;
+    }
+    if (p.startsWith('/storage/')) {
+      // 其它挂载点（可移动存储等）：不经应用私有目录，视为可见。
+      return OgLStorageTier.public;
+    }
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      return OgLStorageTier.desktop;
+    }
+    return OgLStorageTier.unknown;
+  }
+
+  /// 该路径是否**用户可见**（能靠文件管理器 / 电脑找到）。
+  ///
+  /// 注意：应用外部目录（`Android/data/...`）**不算可见**——Android 11+
+  /// 起系统会隐藏它，用户实际上找不到。
+  static bool isUserVisible(String path) {
+    final OgLStorageTier tier = tierOf(path);
+    return tier == OgLStorageTier.public || tier == OgLStorageTier.desktop;
+  }
+
+  /// 当前落盘位置摘要（路径 + 分级 + 是否可见）。
+  static Future<({String path, OgLStorageTier tier, bool visible})>
+      location() async {
+    final String path = await root();
+    final OgLStorageTier tier = tierOf(path);
+    return (
+      path: path,
+      tier: tier,
+      visible: tier == OgLStorageTier.public || tier == OgLStorageTier.desktop,
+    );
+  }
+
+  /// **使根目录缓存失效**（权限变化后必须调用，否则会一直卡在旧位置）。
+  static void invalidate() {
+    _rootCache = null;
+  }
 
   /// 解析应用根目录（结果按进程缓存：一次探测，后续复用）。
   static Future<String> root() async {

@@ -53,6 +53,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   late final OgLPermissionGateway _gateway = ogLPermissionGateway(
     storageProbe: widget.surface.ensureStorage,
+    storageLocation: widget.surface.appStoragePath,
   );
   final PageController _page = PageController();
 
