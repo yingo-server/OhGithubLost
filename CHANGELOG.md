@@ -34,7 +34,8 @@
 
 ### 多语言（R6 · 落地）
 - 支持 **15 种语言**：zh / zh_TW / en / ja / ko / fr / de / es / pt / ru / ar / hi /
-  th / vi / id；设置页可**即时切换**（无需重启），选择落盘、下次启动直接生效。
+  th / vi / id；**首次启动跟随系统语言**（繁体系统 → zh_TW），
+  设置页可**即时切换**（无需重启），选择落盘、下次启动直接生效。
 - 分片结构 `assets/i18n/<locale>/<page>.json`（2 空格缩进 + 键排序）：
   **27 个页面 / 848 条中文文案**由人工按语境撰写；术语（GitHub / Release /
   Actions / Pull request / Token / Pages / Commit…）**不译**，描述不加额外语句。

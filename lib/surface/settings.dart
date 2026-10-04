@@ -533,10 +533,18 @@ class OgLSettingsController extends ChangeNotifier {
   bool get isLoaded => _loaded;
 
   /// 加载（**永不抛**：坏数据回落默认并记录原因）。
+  ///
+  /// **首次启动**（尚无持久化数据）跟随系统语言：系统语言受支持就用它，
+  /// 否则回落 `zh`。已有配置则一律尊重用户选择，不再被系统语言改写。
   Future<void> load() async {
     try {
       final String? raw = await _persistence.read();
-      _settings = OgLSettings.fromJson(raw == null ? null : jsonDecode(raw));
+      if (raw == null) {
+        _settings = OgLSettings.defaults
+            .copyWith(languageCode: ogLDetectDeviceLocale());
+      } else {
+        _settings = OgLSettings.fromJson(jsonDecode(raw));
+      }
       _lastError = null;
     } catch (error) {
       _settings = OgLSettings.defaults;

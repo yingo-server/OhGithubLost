@@ -13,6 +13,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,31 @@ class OgLLocale {
   /// 原生展示名（下拉框里显示）。
   final String label;
 }
+
+/// 系统语言 → 受支持的界面语言代码（**首次启动**用；不认识就回落 `zh`）。
+///
+/// - `zh` 会按区域/字形细分：繁体（Hant / TW / HK / MO）→ `zh_TW`，其余 → `zh`；
+/// - 其它语言只取主语言码（`en_US` → `en`），不在清单内一律回落 `zh`。
+String ogLDetectDeviceLocale() {
+  final Locale device = PlatformDispatcher.instance.locale;
+  final String language = device.languageCode;
+  if (language == 'zh') {
+    final String script = device.scriptCode ?? '';
+    final String region = device.countryCode ?? '';
+    final bool traditional = script == 'Hant' ||
+        region == 'TW' ||
+        region == 'HK' ||
+        region == 'MO';
+    return traditional ? 'zh_TW' : 'zh';
+  }
+  for (final OgLLocale item in OgLI18n.locales) {
+    if (item.code == language) {
+      return language;
+    }
+  }
+  return 'zh';
+}
+
 
 /// i18n 内核（全局单例；仅展示层使用）。
 class OgLI18n extends ChangeNotifier {
