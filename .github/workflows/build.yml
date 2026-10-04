@@ -46,8 +46,10 @@ on:
         type: string
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # 发布构建（workflow_dispatch）与普通 push 构建分不同组：
+  # 新 push 不会取消进行中的正式发布构建。
+  group: build-${{ github.event_name == 'workflow_dispatch' && 'dispatch' || 'push' }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 env:
   FLUTTER_VERSION: '3.47.5'

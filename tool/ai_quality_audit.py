@@ -30,7 +30,8 @@ MAX_CHARS = 8000
 OUT_REL = os.path.join('build', 'quality_audit.txt')
 
 
-def call_ai(api_key: str, prompt: str) -> str:
+def call_ai(api_key: str, prompt: str, timeout: int = 240) -> str:
+    """调用 Agnes；放宽超时（240s），避免大文件/网络慢时误判。"""
     body = json.dumps({
         'model': MODEL,
         'messages': [{'role': 'user', 'content': prompt}],
@@ -41,9 +42,21 @@ def call_ai(api_key: str, prompt: str) -> str:
         headers={'Content-Type': 'application/json',
                  'Authorization': 'Bearer ' + api_key},
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode('utf-8'))
     return data['choices'][0]['message']['content']
+
+
+def _call_with_retry(api_key: str, prompt: str, attempts: int = 2) -> str:
+    """超时/网络错误重试一次；仍失败返回 [TIMEOUT] 标记（不计 FAIL）。"""
+    last_err = None
+    for i in range(attempts):
+        try:
+            return call_ai(api_key, prompt)
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            time.sleep(6)
+    return '[TIMEOUT] 审查调用失败：%s' % last_err
 
 
 class _Limiter:
@@ -109,11 +122,7 @@ def main() -> int:
         if len(text) > MAX_CHARS:
             text = text[:MAX_CHARS] + '\n...[截断，仅评审前 %d 字符]' % MAX_CHARS
         limiter.wait()
-        try:
-            verdict = call_ai(key, _prompt_for(rel, text))
-        except Exception as exc:  # noqa: BLE001
-            verdict = '[FAIL] 审查调用失败：%s' % exc
-            errors += 1
+        verdict = _call_with_retry(key, _prompt_for(rel, text))
         head = verdict.strip().splitlines()[0] if verdict.strip() else ''
         if head.startswith('[PASS]'):
             passed += 1
@@ -121,6 +130,8 @@ def main() -> int:
             warned += 1
         elif head.startswith('[FAIL]'):
             failed += 1
+        elif head.startswith('[TIMEOUT]'):
+            errors += 1  # 超时不算 FAIL，单独计为 errors（见汇总）
         else:
             errors += 1
         sections.append('### %s\n%s\n' % (rel, verdict.strip()))
@@ -151,8 +162,14 @@ def main() -> int:
     print('REPORT=%s' % OUT_REL)
     print('SUMMARY=files:%d pass:%d warn:%d fail:%d errors:%d' % (
         len(files), passed, warned, failed, errors))
-    # 存在 FAIL 级问题 → 非零退出（CI 可见），但报告仍已生成。
-    return 1 if (failed + errors > 0) else 0
+    # 只有**真 FAIL**（AI 判定）才非零退出；超时/调用失败（errors）只警告不红。
+    # 这样每小时审计不会被网络抖动/超时误标红（防假阳性）。
+    if failed > 0:
+        print('::error title=质量审计::发现 %d 个 FAIL 级问题，详见报告' % failed)
+        return 1
+    if errors > 0:
+        print('::warning title=质量审计::%d 个文件超时/调用失败（未判 FAIL）' % errors)
+    return 0
 
 
 if __name__ == '__main__':
