@@ -145,7 +145,7 @@ class _DraftsPageState extends State<DraftsPage> {
             itemBuilder: (BuildContext context, int index) {
               final GhDraft draft = drafts[index];
               return OgLReveal(
-                delay: OgLAnim.stagger(context, index),
+                delay: OgLAnim.staggerOf(context, index),
                 child: ListTile(
                   leading: const Icon(Icons.edit_note),
                   title: Text(

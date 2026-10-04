@@ -664,7 +664,7 @@ Widget _pagedBody<T>(
           );
         }
         return OgLReveal(
-          delay: OgLAnim.stagger(context, index),
+          delay: OgLAnim.staggerOf(context, index),
           child: itemBuilder(context, list[index], index),
         );
       },
@@ -1717,7 +1717,7 @@ class _CodeTabState extends State<_CodeTab> {
                         ),
                       for (int i = 0; i < shown.length; i++)
                         OgLReveal(
-                          delay: OgLAnim.stagger(context, i),
+                          delay: OgLAnim.staggerOf(context, i),
                           child: ListTile(
                             leading: Icon(
                               ogLFileVisualFor(shown[i].path,

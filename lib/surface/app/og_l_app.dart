@@ -72,9 +72,8 @@ class OgLApp extends StatelessWidget {
             // 桌面：鼠标 / 触控板可拖拽滚动（Flutter 默认只认触摸）。
             scrollBehavior: const OgLScrollBehavior(),
             // R7：主题切换也带动画（设置里换明暗/主题色时不再"硬切"）。
-            themeAnimationDuration: OgLAnim.enabled(context)
-                ? const Duration(milliseconds: 260)
-                : Duration.zero,
+            // 档位质量表：主题切换影响面大 → 用「慢」档；低档位自动更短、0 档为 0。
+            themeAnimationDuration: OgLAnim.slow(context),
             themeAnimationCurve: Curves.easeOut,
             theme: surface
                 .themeFor(MediaQuery.platformBrightnessOf(context))

@@ -76,7 +76,7 @@ class DownloadManagerPage extends StatelessWidget {
             separatorBuilder: (BuildContext context, int index) =>
                 const SizedBox(height: 8),
             itemBuilder: (BuildContext context, int index) => OgLReveal(
-              delay: OgLAnim.stagger(context, index),
+              delay: OgLAnim.staggerOf(context, index),
               child: _taskCard(context, theme, tasks[index]),
             ),
           );
@@ -122,9 +122,7 @@ class DownloadManagerPage extends StatelessWidget {
                 begin: 0,
                 end: task.total > 0 ? task.progress : 0,
               ),
-              duration: OgLAnim.enabled(context)
-                  ? const Duration(milliseconds: 220)
-                  : Duration.zero,
+              duration: OgLAnim.fast(context),
               curve: Curves.easeOut,
               builder: (
                 BuildContext context,

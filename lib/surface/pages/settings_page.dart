@@ -94,11 +94,14 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   /// 动效档位的短标签（与 [OgLSettings.motionLevelIds] 一一对应）。
+  ///
+  /// 5.2：档位语义改为**质量**（静默 / 保守 / 标准 / 拉满），
+  /// 不再复用界面密度的「最小 / 当前 / 标准 / 增强」字样。
   List<String> get _motionShort => <String>[
-        _t('densityMin'),
-        _t('densityCurrent'),
-        _t('densityStandard'),
-        _t('densityEnhanced'),
+        _t('motionMin'),
+        _t('motionConservative'),
+        _t('motionStandard'),
+        _t('motionFull'),
       ];
 
   /// 动效档位的说明（与 [OgLSettings.motionLevelIds] 一一对应）。

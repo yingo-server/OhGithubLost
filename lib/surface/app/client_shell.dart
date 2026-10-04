@@ -348,9 +348,11 @@ class _OgLShellSlide extends StatefulWidget {
 
 class _OgLShellSlideState extends State<_OgLShellSlide>
     with SingleTickerProviderStateMixin {
+  /// 初始时长置零：真正的时长在首次切换时按**档位质量表**赋值，
+  /// 避免"先跑一个硬编码时长再被覆盖"。
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 220),
+    duration: Duration.zero,
     value: 1,
   );
 

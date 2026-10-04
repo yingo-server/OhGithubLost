@@ -4,7 +4,8 @@
 /// （Flutter 默认 `ZoomPageTransitionsBuilder`）要求整页在过渡期间反复
 /// 重新光栅化。因此这里把两条约定固定成测试：
 /// 1. 过渡必须包 `RepaintBoundary`（过渡期间只重合成，不重绘页面）；
-/// 2. 过渡**不允许**出现缩放（`ScaleTransition`），且不得再引用默认缩放过渡。
+/// 2. 过渡默认**不带缩放**；只有档位 3（拉满）允许 0.99 级别的轻微缩放，
+///    且同样必须包在 `RepaintBoundary` 里。不得引用 Flutter 默认的整页缩放过渡。
 ///
 /// 档位 `0`（关闭动画）例外：直接返回 child，不做任何包装。
 library;
@@ -74,11 +75,15 @@ void main() {
       // ① 最外层就是 RepaintBoundary：过渡只做图层合成。
       expect(result, isA<RepaintBoundary>(),
           reason: '档位 $level 的过渡最外层必须是 RepaintBoundary');
-      // ② 真的挂进树里跑一遍：过渡链上不允许出现缩放
-      //（整页重新光栅化的根源）。
+      // ② 真的挂进树里跑一遍：只有拉满档允许缩放。
       await tester.pumpWidget(MaterialApp(home: result));
-      expect(find.byType(ScaleTransition), findsNothing,
-          reason: '档位 $level 不应使用缩放过渡');
+      if (level == 3) {
+        expect(find.byType(ScaleTransition), findsOneWidget,
+            reason: '拉满档允许 0.99 级轻微缩放');
+      } else {
+        expect(find.byType(ScaleTransition), findsNothing,
+            reason: '档位 $level 不应使用缩放过渡（整页重光栅化的根源）');
+      }
       expect(find.byType(RepaintBoundary), findsWidgets);
       // ③ 也不得回退到 Flutter 的整页缩放过渡。
       expect(_builderFor(level), isNot(isA<ZoomPageTransitionsBuilder>()));

@@ -250,7 +250,7 @@ class _SearchPageState extends State<SearchPage> {
                       itemBuilder: (BuildContext context, int index) {
                         final _SearchHit hit = hits[index];
                         return OgLReveal(
-                          delay: OgLAnim.stagger(context, index),
+                          delay: OgLAnim.staggerOf(context, index),
                           child: ListTile(
                             leading: Icon(
                               hit.initialPath == null

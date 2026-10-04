@@ -146,7 +146,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     final bool read = OgLAppLog.instance.isRead(entry);
                     final bool expanded = _expanded.contains(id);
                     return OgLReveal(
-                      delay: OgLAnim.stagger(context, index),
+                      delay: OgLAnim.staggerOf(context, index),
                       child: _NotificationTile(
                         entry: entry,
                         read: read,

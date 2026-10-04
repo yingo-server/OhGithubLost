@@ -2,6 +2,49 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## v5.2.0（开发中 · 未发布）
+
+**主题**：动效**严格按档位分级** —— 降档 = **降质量**，而不是在各处写死或直接砍掉效果。
+*Animations are strictly tiered: lowering the tier now **reduces quality** instead of hard-coding or cutting effects.*
+
+### 变更 · Changed
+
+- **档位语义改为「质量」· Tiers now mean quality**
+  每一档都有完整的动画，只是**开销逐级更低**（`1 最保守 → 2 标准 → 3 拉满`），
+  档位 `0` 为静默（时长归零、无位移/缩放，**内容依旧完整呈现**——不是"功能更少"）：
+
+  | 档位 | 时长（快/中/慢） | 入场效果 | 错峰项数 | 过渡位移 | 缩放 | 模糊 |
+  |---|---|---|---|---|---|---|
+  | 0 静默 | 0 / 0 / 0 | 无 | 0 | 0 | 无 | 无 |
+  | 1 保守 | 110 / 150 / 190 ms | 只淡入 | 前 4 项 | 0.012 | 无 | 无 |
+  | 2 标准 | 170 / 220 / 280 ms | 淡入 + 轻位移 | 前 9 项 | 0.035 | 无 | 无 |
+  | 3 拉满 | 220 / 300 / 380 ms | 淡入 + 位移 + 轻微缩放 | 前 17 项 | 0.06 | 0.99 / 0.985 | 允许（≤6） |
+
+  *Every tier keeps the full animation vocabulary; only the cost drops with the tier. Tier 0 is silent but still shows all content.*
+
+- **设置项文案随语义更新 · Settings copy updated**
+  动效档位标签由「最小 / 当前 / 标准 / 增强」改为 **静默 / 保守 / 标准 / 拉满**，
+  说明写清每档**具体做了什么**（15 语言同步）。
+
+### 新增 · Added
+
+- **档位质量表 `OgLOAnimQuality`**：把某档位下的**全部**动画参数
+  （时长、错峰步长、错峰项数上限、入场位移/缩放、过渡位移/缩放、模糊上限、缓动）
+  收进一张表，成为唯一事实来源；`isNotHeavierThan` 把"降档 = 降质量"钉成可测约束。
+- **入场动画按档位限项**：`OgLAnim.staggerOf()` 对超出档位上限的序号返回 `null`，
+  `OgLReveal` 见到 `null` **直接静态渲染**。此前长列表的每一项都会挂动画
+  （越靠后的项越晚、且同时起跳），是"列表滑动发涩"的常见来源。
+- **`OgLReveal` 自带 `RepaintBoundary`**：入场期间每帧只重合成，不重绘列表项内容。
+- **动效分级门禁 `tool/motion_audit.py`（已接入 CI）**：`lib/surface/**` 里禁止
+  硬编码 `Duration(milliseconds: …)`、`ScaleTransition/AnimatedScale`、
+  `BackdropFilter/ImageFilter.blur`（档位表与工具箱白名单除外；
+  节流 / 缓存 TTL / 草稿防抖 / 双击退出窗口等**等待类**时长可豁免）。
+
+### 修复 · Fixed
+
+- 修掉主题切换动画（固定 260ms）、切 tab 滑动（固定 220ms）、下载进度补间（固定 220ms）、
+  引导页翻页（固定 250ms）**绕开档位**的问题——现在全部读档位质量表。
+
 ## v5.1.0（2026-10-04 · 正式版）
 
 **主题**：5.x 的第一个正式版 —— 5.0 的交互打磨**全部内容** + 一次被探针发现的内核一致性硬化。

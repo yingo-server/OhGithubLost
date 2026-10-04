@@ -230,7 +230,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       }
                       final GhRepo repo = p.items[index];
                       return OgLReveal(
-                        delay: OgLAnim.stagger(context, index),
+                        delay: OgLAnim.staggerOf(context, index),
                         child: ListTile(
                           leading: Icon(
                             repo.isPrivate ? Icons.lock_outline : Icons.folder_outlined,

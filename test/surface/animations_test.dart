@@ -66,11 +66,14 @@ void main() {
         MaterialApp(
           home: OgLMotionScope(
             level: level,
-            child: const OgLReveal(child: Text('内容')),
+            child: const OgLReveal(delay: Duration.zero, child: Text('内容')),
           ),
         ),
       );
     }
+
+    // 注意：`delay == null` 表示"该项不参与动画"（长列表尾部按档位限项）。
+    // 这里显式给 Duration.zero 以验证**各档位的叠加效果**。
 
     // 档位 0：无动画层。
     await pumpAt(0);
@@ -87,9 +90,77 @@ void main() {
     expect(find.byType(AnimatedSlide), findsOneWidget);
     expect(find.byType(AnimatedScale), findsNothing);
 
-    // 档位 3：淡入 + 位移 + 缩放。
+    // 档位 3：淡入 + 位移 + 缩放（拉满）。
     await pumpAt(3);
     expect(find.byType(AnimatedSlide), findsOneWidget);
     expect(find.byType(AnimatedScale), findsOneWidget);
+    // 动画期间必须各自带绘制边界（不牵连整列表重绘）。
+    expect(find.byType(RepaintBoundary), findsWidgets);
+  });
+
+  group('档位质量表（降档 = 降质量，而不是砍掉效果）', () {
+    test('逐级单调：1 不比 2 重、2 不比 3 重、0 不比 1 重', () {
+      for (int level = 0; level <= 2; level++) {
+        expect(
+          OgLOAnimQuality.of(level)
+              .isNotHeavierThan(OgLOAnimQuality.of(level + 1)),
+          isTrue,
+          reason: '档位 $level 应不比 ${level + 1} 更重',
+        );
+      }
+    });
+
+    test('时长逐档更长（严格递增，而不是"档位相同"）', () {
+      final OgLOAnimQuality q1 = OgLOAnimQuality.of(1);
+      final OgLOAnimQuality q2 = OgLOAnimQuality.of(2);
+      final OgLOAnimQuality q3 = OgLOAnimQuality.of(3);
+      expect(q1.medium < q2.medium, isTrue);
+      expect(q2.medium < q3.medium, isTrue);
+      expect(q1.staggerMaxIndex < q2.staggerMaxIndex, isTrue);
+      expect(q2.staggerMaxIndex < q3.staggerMaxIndex, isTrue);
+      expect(q1.transitionOffset < q2.transitionOffset, isTrue);
+      expect(q2.transitionOffset < q3.transitionOffset, isTrue);
+    });
+
+    test('缩放与模糊只出现在拉满档', () {
+      expect(OgLOAnimQuality.of(1).hasScale, isFalse);
+      expect(OgLOAnimQuality.of(2).hasScale, isFalse);
+      expect(OgLOAnimQuality.of(3).hasScale, isTrue);
+      expect(OgLOAnimQuality.of(1).hasBlur, isFalse);
+      expect(OgLOAnimQuality.of(2).hasBlur, isFalse);
+      expect(OgLOAnimQuality.of(3).hasBlur, isTrue);
+    });
+
+    test('档位 0：全静默（时长零、无位移、无缩放）', () {
+      final OgLOAnimQuality q0 = OgLOAnimQuality.of(0);
+      expect(q0.fast, Duration.zero);
+      expect(q0.medium, Duration.zero);
+      expect(q0.slow, Duration.zero);
+      expect(q0.hasScale, isFalse);
+      expect(q0.revealOffset, 0);
+      expect(q0.transitionOffset, 0);
+    });
+
+    test('入场错峰按档位限项：超出上限返回 null（该项不参与动画）', () async {
+      Future<BuildContext> pump(int level) async {
+        late BuildContext captured;
+        await _pumpAt(level);
+        captured = await _pumpAt(level);
+        return captured;
+      }
+
+      // 档位 1：只让前 3 项动。
+      final BuildContext c1 = await pump(1);
+      expect(OgLAnim.staggerOf(c1, 0), Duration.zero);
+      expect(OgLAnim.staggerOf(c1, 3), isNotNull);
+      expect(OgLAnim.staggerOf(c1, 4), isNull);
+
+      final BuildContext c3 = await pump(3);
+      expect(OgLAnim.staggerOf(c3, 16), isNotNull);
+      expect(OgLAnim.staggerOf(c3, 17), isNull);
+
+      final BuildContext c0 = await pump(0);
+      expect(OgLAnim.staggerOf(c0, 0), isNull, reason: '静默档不参与任何入场动画');
+    });
   });
 }
