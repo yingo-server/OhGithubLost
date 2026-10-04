@@ -64,14 +64,23 @@ void main() {
   });
 
   group('simplifyReadme', () {
-    test('徽章行整行删除，普通图片换成占位文本', () {
+    test('徽章行整行删除；默认保留图片语法供渲染层加载', () {
       const String src = '# 标题\n'
           '[![badge](https://img.shields.io/x.svg)](https://x)\n'
           '正文 ![logo](logo.png) 结束';
       final String md = simplifyReadme(src);
       expect(md.contains('badge'), isFalse, reason: '徽章行必须整行消失');
-      expect(md.contains('（图：logo）'), isTrue);
+      expect(md.contains('![logo](logo.png)'), isTrue,
+          reason: '图片语法默认保留，由渲染层真正加载');
+      expect(md.contains('（图：logo）'), isFalse);
       expect(md.contains('正文'), isTrue);
+    });
+
+    test('keepImages: false 时图片退化为占位文本', () {
+      const String src = '正文 ![logo](logo.png) 结束';
+      final String md = simplifyReadme(src, keepImages: false);
+      expect(md.contains('（图：logo）'), isTrue);
+      expect(md.contains('![logo]'), isFalse);
     });
 
     test('HTML 注释与标签被清除，代码块内部原样保留', () {
