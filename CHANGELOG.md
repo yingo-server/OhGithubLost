@@ -7,7 +7,7 @@
 - **README 链接可用了**：相对链接（`LICENSE`、`docs/x.md`、`#锚点`、裸域名）先按仓库基址解析成绝对地址再交给系统浏览器；解析不了会明确提示，不再"点了没反应"。
 - **README 图片可以显示了**：图片经 **GitHub Contents API** 取字节后用 `Image.memory` 渲染，不经过 `raw.githubusercontent.com`，避开 DNS 污染；`<img src=…>` 也会渲染成图；单次上限 40 张，超出或失败退化为 alt 文本（不静默丢图）。
 - **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
-## v5.9.0（2026-10-05 · 测试版 / beta）
+## v5.9.0（未发布成功 · 构建失败，内容并入 v6.0.0 / never shipped）
 
 **主题**：**跨平台差异面硬化** —— 直面 Windows / Linux / Android 三系差异，
 把"能跑"变成"在真实发行版上也能跑"。
