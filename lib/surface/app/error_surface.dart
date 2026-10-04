@@ -191,12 +191,15 @@ class OgLAppLog extends ChangeNotifier {
 
   final List<OgLAppLogEntry> _entries = <OgLAppLogEntry>[];
 
-  /// 通知合并：批量写日志时不要逐条 notify（那会让通知中心整表重建）。
+  /// 通知合并（**微任务**，不引入计时器）。
   ///
-  /// 只合并"通知"，**数据仍然逐条立即入表**，所以不改变任何可见内容；
-  /// 最坏情况是 UI 晚 200ms 看到新条目。
-  static const Duration _notifyThrottle = Duration(milliseconds: 200);
-  Timer? _notifyTimer;
+  /// 批量写日志时不要逐条 notify —— 那会让通知中心整表重建；
+  /// 用微任务把"同一事件循环内的连续写入"合并为一次通知：
+  /// - **不延迟**：微任务在当前事件循环结束前执行，该看到的仍然看到；
+  /// - **不留计时器**：遗留计时器在测试环境会被判为失败，也让退出更干净。
+  ///
+  /// 只合并"通知"，**数据仍然逐条立即入表**，不改变任何可见内容。
+  bool _notifyScheduled = false;
 
   /// 全部条目（**最新在前**，方便直接看）。
   List<OgLAppLogEntry> get entries =>
@@ -234,13 +237,14 @@ class OgLAppLog extends ChangeNotifier {
     );
   }
 
-  /// 合并后的通知（最多 200ms 一次）。
+  /// 合并后的通知（同一事件循环内只通知一次）。
   void _notifyCoalesced() {
-    if (_notifyTimer != null) {
+    if (_notifyScheduled) {
       return;
     }
-    _notifyTimer = Timer(_notifyThrottle, () {
-      _notifyTimer = null;
+    _notifyScheduled = true;
+    scheduleMicrotask(() {
+      _notifyScheduled = false;
       notifyListeners();
     });
   }
