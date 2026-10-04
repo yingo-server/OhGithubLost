@@ -2,6 +2,7 @@
   "about": "เกี่ยวกับ",
   "appNotifDesc": "แจ้งเสร็จงานและข้อผิดพลาดสำคัญ",
   "appNotifications": "การแจ้งเตือน",
+  "backExitHint": "กดย้อนกลับอีกครั้งเพื่อออก",
   "bootRejected": "ปฏิเสธการบูต",
   "countChars": "{count} ตัวอักษร",
   "countItems": "{count} รายการ",

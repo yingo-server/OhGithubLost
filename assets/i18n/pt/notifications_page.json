@@ -11,5 +11,6 @@
   "reset": "Reiniciar",
   "resetDesc": "Limpará todos os eventos na memória atual (logs em disco serão mantidos).",
   "resetTitle": "Reiniciar central de notificações",
-  "title": "Central de notificações"
+  "title": "Central de notificações",
+  "unread": "Não lido"
 }

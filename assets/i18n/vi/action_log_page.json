@@ -1,4 +1,5 @@
 {
+  "linesCount": "{count} dòng",
   "noLogs": "Không có nhật ký (chưa hoàn tất hoặc Token thiếu quyền Actions)",
   "noMatchingJob": "Không có job phù hợp",
   "reload": "Tải lại",

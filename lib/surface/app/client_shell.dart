@@ -151,7 +151,20 @@ class _OgLClientShellState extends State<OgLClientShell> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+        // 统一接管返回键：二级页 / 弹窗 / 抽屉 / tab / 退出（见 [_handleBack]）。
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) {
+            return;
+          }
+          unawaited(_handleBack());
+        },
+        child: _buildShell(context),
+      );
+
+  /// 原 shell 构建（被 [build] 包在 `PopScope` 里）。
+  Widget _buildShell(BuildContext context) {
     // 首次引导优先于登录门：先让用户知道"这个应用会碰什么、不碰什么"。
     if (!_onboardingDone) {
       return OnboardingPage(

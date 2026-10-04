@@ -5,6 +5,7 @@
   "copyPath": "경로 복사",
   "empty": "다운로드 작업이 없습니다",
   "emptyHint": "Release 첨부 파일 또는 저장소 파일에서 '다운로드'를 클릭하면 추가됩니다",
+  "multiConnection": "다중 연결",
   "noAppForFile": "해당 파일을 처리할 앱이 없습니다",
   "open": "열기",
   "pathCopied": "파일 경로를 복사했습니다",

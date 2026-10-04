@@ -203,6 +203,7 @@ class OgLAppLog extends ChangeNotifier {
     String area,
     String message, {
     OgLNoticeSeverity severity = OgLNoticeSeverity.info,
+    String? logLevel,
   }) {
     _entries.add(OgLAppLogEntry(
       at: DateTime.now(),
@@ -217,25 +218,31 @@ class OgLAppLog extends ChangeNotifier {
     OgLLogFile.line(
       area,
       message,
-      level: severity == OgLNoticeSeverity.critical
-          ? 'ERR'
-          : severity == OgLNoticeSeverity.warning
-              ? 'WARN'
-              : 'INFO',
+      level: logLevel ??
+          (severity == OgLNoticeSeverity.critical
+              ? 'ERR'
+              : severity == OgLNoticeSeverity.warning
+                  ? 'WARN'
+                  : 'INFO'),
     );
   }
 
   /// 记录**成功的结果**（用户明确要求：不要只记错误）。
   ///
-  /// 例：`result('仓库', '拉取议题', '30 条')` → 落盘为 `✔ 拉取议题：30 条`。
+  /// 5.0：**不再往文案里塞 `✔` / `▶` 这类符号字形**——它们在 Android 上会被
+  /// 当成 emoji 呈现（不同字体大小不一致 → 用户说的“emoji 撕裂”）。
+  /// 现在的约定：**结构化信息靠 `level`，可见性靠图标**，正文保持纯文本。
+  /// 例：`result('仓库', '拉取议题', '30 条')` → 落盘 `[INFO] [仓库] 拉取议题：30 条`。
   void result(String area, String what, [String? detail]) {
     final String suffix = (detail == null || detail.isEmpty) ? '' : '：$detail';
-    add(area, '✔ $what$suffix');
+    add(area, '$what$suffix');
   }
 
   /// 记录**一个步骤的开始**（与 [result] 配对，形成"开始→结果"两行）。
+  ///
+  /// 用独立的 `STEP` 级别区分"开始"与"结果"，而不是在正文里加 `▶`。
   void step(String area, String what) {
-    add(area, '▶ $what');
+    add(area, what, logLevel: 'STEP');
   }
 
   // ───────────────────────── 已读状态（通知中心）─────────────────────────

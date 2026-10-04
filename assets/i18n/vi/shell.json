@@ -2,6 +2,7 @@
   "about": "Giới thiệu",
   "appNotifDesc": "Thông báo tải xuống hoàn tất, tác vụ kết thúc và lỗi quan trọng",
   "appNotifications": "Thông báo ứng dụng",
+  "backExitHint": "Nhấn quay lại lần nữa để thoát",
   "bootRejected": "Khởi động bị từ chối",
   "countChars": "{count} ký tự",
   "countItems": "{count} mục",

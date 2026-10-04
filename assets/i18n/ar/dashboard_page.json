@@ -11,5 +11,6 @@
   "repoCreated": "تم إنشاء المستودع",
   "repoCreatedName": "تم إنشاء {name}",
   "retry": "إعادة المحاولة",
-  "starred": "مفضل"
+  "starred": "مفضل",
+  "starsCount": "{count} نجمة"
 }

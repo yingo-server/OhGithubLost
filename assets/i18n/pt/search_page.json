@@ -9,6 +9,7 @@
   "repoResults": "Resultados de repositórios para \"{q}\": {count} itens",
   "repoSearch": "Busca de repositórios",
   "search": "Pesquisar",
+  "starsCount": "{count} estrelas",
   "startHint": "Digite uma palavra-chave para pesquisar",
   "tabCode": "Código",
   "tabRepos": "Repositórios"

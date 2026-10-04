@@ -11,5 +11,6 @@
   "repoCreated": "Dépôt créé",
   "repoCreatedName": "{name} créé",
   "retry": "Réessayer",
-  "starred": "Étoilés"
+  "starred": "Étoilés",
+  "starsCount": "{count} étoiles"
 }

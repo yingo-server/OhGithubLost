@@ -11,5 +11,6 @@
   "repoCreated": "Repo dibuat",
   "repoCreatedName": "{name} dibuat",
   "retry": "Coba Lagi",
-  "starred": "Bintang"
+  "starred": "Bintang",
+  "starsCount": "{count} bintang"
 }

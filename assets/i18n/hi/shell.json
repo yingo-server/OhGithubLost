@@ -2,6 +2,7 @@
   "about": "बारे में",
   "appNotifDesc": "डाउनलोड पूर्णता, टास्क समापन और महत्वपूर्ण त्रुटि चेतावनियां",
   "appNotifications": "एप्लिकेशन सूचनाएँ",
+  "backExitHint": "बाहर निकलने के लिए फिर से बैक दबाएँ",
   "bootRejected": "बूट अस्वीकृत",
   "countChars": "{count} अक्षर",
   "countItems": "{count} आइटम",

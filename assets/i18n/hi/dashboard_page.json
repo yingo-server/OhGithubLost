@@ -11,5 +11,6 @@
   "repoCreated": "रिपॉज़िटरी बनाई गई",
   "repoCreatedName": "{name} बनाया गया",
   "retry": "पुनः प्रयास",
-  "starred": "स्टारड"
+  "starred": "स्टारड",
+  "starsCount": "{count} स्टार"
 }

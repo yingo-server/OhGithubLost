@@ -197,6 +197,10 @@ class SurfaceBridge {
   /// 从列表移除某个下载记录。
   Future<void> removeDownload(String id) => domain.downloads.remove(id);
 
+  /// 设置下载并发连接数（非法档位由 `settings` 回落默认）。
+  Future<void> setDownloadConnections(int value) =>
+      settings.setDownloadConnections(value);
+
   /// 切换界面语言：先落盘设置，再加载对应语言分片。
   ///
   /// 非法代码由 `settings.setLanguage` 回落 `zh`；加载失败由 i18n 内部兜底英文。

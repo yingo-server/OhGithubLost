@@ -5,6 +5,7 @@
   "copyPath": "複製路徑",
   "empty": "還沒有下載工作",
   "emptyHint": "在 Release 附件或儲存庫檔案上點「下載」即可加入",
+  "multiConnection": "多連線",
   "noAppForFile": "沒有可處理該檔案的應用程式",
   "open": "開啟",
   "pathCopied": "已複製檔案路徑",

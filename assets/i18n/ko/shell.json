@@ -2,6 +2,7 @@
   "about": "정보",
   "appNotifDesc": "다운로드 완료, 작업 종료 및 주요 오류 알림",
   "appNotifications": "앱 알림",
+  "backExitHint": "뒤로 가기를 한 번 더 누르면 종료됩니다",
   "bootRejected": "시작 거부됨",
   "countChars": "{count}자",
   "countItems": "{count}개",

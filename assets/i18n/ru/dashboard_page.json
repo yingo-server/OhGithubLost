@@ -11,5 +11,6 @@
   "repoCreated": "Репозиторий создан",
   "repoCreatedName": "Создан: {name}",
   "retry": "Повторить",
-  "starred": "В избранном"
+  "starred": "В избранном",
+  "starsCount": "{count} звёзд"
 }

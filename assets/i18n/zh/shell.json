@@ -2,6 +2,7 @@
   "about": "关于",
   "appNotifDesc": "下载完成、任务结束与重要错误提醒",
   "appNotifications": "应用通知",
+  "backExitHint": "再按一次返回键退出应用",
   "bootRejected": "启动被拒绝",
   "countChars": "{count} 字符",
   "countItems": "{count} 条",

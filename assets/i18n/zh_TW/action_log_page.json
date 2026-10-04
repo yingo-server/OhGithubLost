@@ -1,4 +1,5 @@
 {
+  "linesCount": "共 {count} 行",
   "noLogs": "沒有日誌（可能尚未完成，或 Token 缺少 Actions 權限）",
   "noMatchingJob": "沒有相符的 job",
   "reload": "重新拉取",

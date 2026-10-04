@@ -2,6 +2,7 @@
   "about": "حول",
   "appNotifDesc": "إشعارات اكتمال التنزيل، نهاية المهام وتنبيهات الأخطاء المهمة",
   "appNotifications": "إشعارات التطبيق",
+  "backExitHint": "اضغط رجوع مرة أخرى للخروج",
   "bootRejected": "تم رفض الإقلاع",
   "countChars": "{count} حرف",
   "countItems": "{count} عنصر",

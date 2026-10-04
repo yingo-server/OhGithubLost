@@ -9,6 +9,7 @@
   "repoResults": "Hasil repositori \"{q}\": {count}",
   "repoSearch": "Pencarian Repositori",
   "search": "Cari",
+  "starsCount": "{count} bintang",
   "startHint": "Masukkan kata kunci untuk mulai mencari",
   "tabCode": "Kode",
   "tabRepos": "Repositori"

@@ -2,6 +2,7 @@
   "about": "About",
   "appNotifDesc": "Download complete, task end, and important error alerts",
   "appNotifications": "App Notifications",
+  "backExitHint": "Press back again to exit",
   "bootRejected": "Boot Rejected",
   "countChars": "{count} chars",
   "countItems": "{count} items",

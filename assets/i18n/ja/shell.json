@@ -2,6 +2,7 @@
   "about": "概要",
   "appNotifDesc": "ダウンロード完了、タスク終了、重要なエラーの通知",
   "appNotifications": "アプリ通知",
+  "backExitHint": "もう一度戻るを押すと終了します",
   "bootRejected": "起動が拒否されました",
   "countChars": "{count} 文字",
   "countItems": "{count} 件",

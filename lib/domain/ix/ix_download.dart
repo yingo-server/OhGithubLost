@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../kernel/contract/download_engine.dart';
 import '../../kernel/diagnostics.dart';
 
 /// 下载分类（决定落到哪个子目录）。
@@ -180,14 +181,34 @@ class IxDownloadManager extends ChangeNotifier {
   ///
   /// [diagnostics] 用于把"取不到文件大小"等**降级**情况按事件码上报
   /// （不允许静默）。
-  IxDownloadManager({FileDownloader? downloader, KernelDiagnostics? diagnostics})
-      : _downloader = downloader ?? FileDownloader(),
-        _diagnostics = diagnostics {
+  IxDownloadManager({
+    FileDownloader? downloader,
+    KernelDiagnostics? diagnostics,
+    DownloadEngine? engine,
+  })  : _downloader = downloader ?? FileDownloader(),
+        _diagnostics = diagnostics,
+        _engine = engine {
     _subscription = _downloader.updates.listen(_onUpdate);
   }
 
   final FileDownloader _downloader;
   final KernelDiagnostics? _diagnostics;
+
+  /// 多连接分片引擎（**契约层类型**，由装配根注入；为 `null` 时只用库）。
+  final DownloadEngine? _engine;
+
+  /// 走分片引擎的任务 → 取消令牌（暂停 / 取消 / 重试都靠它）。
+  final Map<String, DownloadCancelToken> _rangeTokens =
+      <String, DownloadCancelToken>{};
+
+  /// 走分片引擎的任务 → 并发数（重试用同一份参数）。
+  final Map<String, int> _rangeConnections = <String, int>{};
+
+  /// 已请求「暂停」的分片任务（取消令牌后据此标记 paused 而非 canceled）。
+  final Set<String> _pausedIds = <String>{};
+
+  /// 是否由分片引擎接管（页面据此显示"多线程"标记）。
+  bool isRanged(String id) => _rangeTokens.containsKey(id);
   StreamSubscription<TaskUpdate>? _subscription;
 
   final Map<String, IxDownloadTask> _snapshots = <String, IxDownloadTask>{};
@@ -223,6 +244,7 @@ class IxDownloadManager extends ChangeNotifier {
     required String fileName,
     IxDownloadCategory category = IxDownloadCategory.other,
     Map<String, String> headers = const <String, String>{},
+    int connections = 1,
   }) async {
     final DownloadTask task = DownloadTask(
       url: url,
@@ -255,12 +277,141 @@ class IxDownloadManager extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     notifyListeners();
+
+    // 5.0：并发 > 1 且装配层给了分片引擎 → 走**多连接分片**；
+    // 不支持 Range 时自动回退到库任务（同一 taskId，页面无感）。
+    if (connections > 1 && _engine != null && savePath.isNotEmpty) {
+      _rangeConnections[id] = connections;
+      unawaited(_runRanged(id: id, task: task, connections: connections));
+      return _snapshots[id]!;
+    }
     await _downloader.enqueue(task);
     return _snapshots[id]!;
   }
 
+  /// 用分片引擎跑一个任务；不支持 / 失败则回退库任务。
+  Future<void> _runRanged({
+    required String id,
+    required DownloadTask task,
+    required int connections,
+  }) async {
+    final IxDownloadTask? snap = _snapshots[id];
+    if (snap == null) {
+      return;
+    }
+    final DownloadEngine engine = _engine!;
+    final Uri uri = Uri.parse(task.url);
+    final DownloadCancelToken token = engine.newCancelToken();
+    _rangeTokens[id] = token;
+
+    DownloadProbe probe;
+    try {
+      probe = await engine.probe(uri, headers: task.headers.isEmpty
+          ? null
+          : task.headers);
+    } catch (error) {
+      probe = const DownloadProbe(supportsRange: false);
+    }
+    if (!probe.supportsRange || probe.total == null || probe.total! <= 0) {
+      // 回退：交给库任务（同一 taskId，页面无感）。
+      _rangeTokens.remove(id);
+      _diagnostics?.info(
+        'DL',
+        '目标不支持 Range，回退单连接下载：$uri',
+        code: 'OGL-DL-201',
+        data: probe.toJson(),
+      );
+      await _downloader.enqueue(task);
+      return;
+    }
+
+    _snapshots[id] = snap.copyWith(
+      status: IxDownloadStatus.running,
+      total: probe.total!,
+    );
+    notifyListeners();
+
+    try {
+      await engine.fetch(
+        DownloadRequest(
+          url: uri,
+          targetPath: snap.savePath,
+          total: probe.total!,
+          headers: task.headers,
+          connections: connections,
+        ),
+        cancel: token,
+        onProgress: (int received, int total) =>
+            _applyRangeProgress(id, received, total),
+      );
+      _applyRangeProgress(id, probe.total!, probe.total!);
+      _applyStatus(id, IxDownloadStatus.completed);
+    } on DownloadCanceled {
+      _applyStatus(
+        id,
+        _pausedIds.contains(id)
+            ? IxDownloadStatus.paused
+            : IxDownloadStatus.canceled,
+      );
+    } catch (error) {
+      // 分片失败**不静默**：记事件码并置失败（可重试）。
+      _diagnostics?.error(
+        'DL',
+        '多连接下载失败：$uri（$error）',
+        code: 'OGL-DL-202',
+        data: <String, Object?>{'connections': connections},
+      );
+      final IxDownloadTask? current = _snapshots[id];
+      if (current != null) {
+        _snapshots[id] = current.copyWith(
+          status: IxDownloadStatus.failed,
+          error: '$error',
+        );
+        notifyListeners();
+      }
+    } finally {
+      _rangeTokens.remove(id);
+      _pausedIds.remove(id);
+    }
+  }
+
+  /// 分片进度 → 快照（含速率估算；节流通知与库路径一致）。
+  void _applyRangeProgress(String id, int received, int total) {
+    final IxDownloadTask? snap = _snapshots[id];
+    if (snap == null) {
+      return;
+    }
+    final DateTime now = DateTime.now();
+    final ({DateTime at, int received})? last = _lastSample[id];
+    double speed = snap.bytesPerSecond;
+    if (last != null) {
+      final int ms = now.difference(last.at).inMilliseconds;
+      if (ms >= 400) {
+        speed = (received - last.received) * 1000 / ms;
+        _lastSample[id] = (at: now, received: received);
+      }
+    } else {
+      _lastSample[id] = (at: now, received: received);
+    }
+    _snapshots[id] = snap.copyWith(
+      status: IxDownloadStatus.running,
+      received: received,
+      total: total,
+      bytesPerSecond: speed,
+    );
+    _notifyThrottled();
+  }
+
   /// 暂停。
   Future<void> pause(String id) async {
+    final DownloadCancelToken? token = _rangeTokens[id];
+    if (token != null) {
+      // 分片任务：取消当前分片连接即"暂停"（重试会重新分片拉取）。
+      _pausedIds.add(id);
+      token.cancel();
+      _applyStatus(id, IxDownloadStatus.paused);
+      return;
+    }
     final DownloadTask? task = _tasks[id];
     if (task != null) {
       await _downloader.pause(task);
@@ -269,8 +420,18 @@ class IxDownloadManager extends ChangeNotifier {
   }
 
   /// 继续。
+  ///
+  /// 分片任务没有"库队列"可恢复：重新起一次分片拉取（分片临时文件已在失败时清理，
+  /// 因此是**从头发起**；换来的是不出现"假装在续传"的错位文件）。
   Future<void> resume(String id) async {
+    final int? connections = _rangeConnections[id];
     final DownloadTask? task = _tasks[id];
+    if (connections != null && task != null && _engine != null) {
+      _pausedIds.remove(id);
+      _applyStatus(id, IxDownloadStatus.running);
+      await _runRanged(id: id, task: task, connections: connections);
+      return;
+    }
     if (task != null) {
       await _downloader.resume(task);
       _applyStatus(id, IxDownloadStatus.running);
@@ -278,7 +439,16 @@ class IxDownloadManager extends ChangeNotifier {
   }
 
   /// 取消（不会保留未完成文件）。
+  ///
+  /// 分片任务：取消令牌 → 各分片退出 → 引擎负责删掉全部临时分片。
   Future<void> cancel(String id) async {
+    final DownloadCancelToken? token = _rangeTokens[id];
+    if (token != null) {
+      _pausedIds.remove(id);
+      token.cancel();
+      _applyStatus(id, IxDownloadStatus.canceled);
+      return;
+    }
     await _downloader.cancelTaskWithId(id);
     _applyStatus(id, IxDownloadStatus.canceled);
   }
@@ -299,11 +469,21 @@ class IxDownloadManager extends ChangeNotifier {
       );
       notifyListeners();
     }
+    final int? connections = _rangeConnections[id];
+    if (connections != null && _engine != null) {
+      _pausedIds.remove(id);
+      await _runRanged(id: id, task: task, connections: connections);
+      return;
+    }
     await _downloader.enqueue(task);
   }
 
   /// 从列表移除（进行中的先取消）。
   Future<void> remove(String id) async {
+    _rangeTokens[id]?.cancel();
+    _rangeTokens.remove(id);
+    _rangeConnections.remove(id);
+    _pausedIds.remove(id);
     await _downloader.cancelTaskWithId(id);
     _tasks.remove(id);
     _snapshots.remove(id);

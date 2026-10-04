@@ -241,49 +241,68 @@ class _NotificationTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${entry.area} · $timeText'
-                    '${read ? '' : ' · 未读'}',
+                    '${read ? '' : ' · ${_t('unread')}'}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: read
                           ? theme.colorScheme.outline
                           : theme.colorScheme.primary,
                     ),
                   ),
-                  if (expanded) ...<Widget>[
-                    const SizedBox(height: 8),
-                    // 完整详情：不截断，可选中复制。
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: SelectableText(
-                        entry.toDisplay(),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: <Widget>[
-                        TextButton.icon(
-                          onPressed: () {
-                            unawaited(Clipboard.setData(
-                              ClipboardData(text: entry.toDisplay()),
-                            ));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                               SnackBar(content: Text(_t('copiedEvent'))),
-                            );
-                          },
-                          icon: const Icon(Icons.content_copy, size: 16),
-                          label:  Text(_t('copy')),
-                        ),
-                      ],
-                    ),
-                  ],
+                  // 5.0：详情展开带动画（此前是「啪」地出现）。
+                  // 用 AnimatedSize 让高度平滑变化；关闭动画时直接跳变。
+                  AnimatedSize(
+                    duration: OgLAnim.enabled(context)
+                        ? OgLAnim.fast(context)
+                        : Duration.zero,
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: expanded
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const SizedBox(height: 8),
+                              // 完整详情：不截断，可选中复制。
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: SelectableText(
+                                  entry.toDisplay(),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: <Widget>[
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      unawaited(Clipboard.setData(
+                                        ClipboardData(text: entry.toDisplay()),
+                                      ));
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                         SnackBar(
+                                            content: Text(_t('copiedEvent')),
+                                          ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.content_copy,
+                                        size: 16),
+                                    label:  Text(_t('copy')),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
                 ],
               ),
             ),
@@ -293,6 +312,20 @@ class _NotificationTile extends StatelessWidget {
                 icon: const Icon(Icons.done, size: 18),
                 onPressed: onMarkRead,
               ),
+            // 展开指示：图标旋转（不用任何 emoji / 符号字形）。
+            IgnorePointer(
+              child: AnimatedRotation(
+                duration: OgLAnim.enabled(context)
+                    ? OgLAnim.fast(context)
+                    : Duration.zero,
+                turns: expanded ? 0.5 : 0,
+                child: Icon(
+                  Icons.expand_more,
+                  size: 18,
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ),
           ],
         ),
       ),

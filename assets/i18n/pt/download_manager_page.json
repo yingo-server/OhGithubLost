@@ -5,6 +5,7 @@
   "copyPath": "Copiar caminho",
   "empty": "Ainda não há tarefas de download",
   "emptyHint": "Toque em \"Baixar\" em anexos de Release ou arquivos de repositório para adicionar",
+  "multiConnection": "Várias conexões",
   "noAppForFile": "Nenhum aplicativo disponível para processar este arquivo",
   "open": "Abrir",
   "pathCopied": "Caminho do arquivo copiado",

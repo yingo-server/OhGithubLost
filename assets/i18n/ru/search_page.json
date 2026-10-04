@@ -9,6 +9,7 @@
   "repoResults": "Результаты репозиториев «{q}»: {count} эл.",
   "repoSearch": "Поиск репозиториев",
   "search": "Поиск",
+  "starsCount": "звёзд: {count}",
   "startHint": "Введите ключевое слово для начала поиска",
   "tabCode": "Код",
   "tabRepos": "Репозитории"

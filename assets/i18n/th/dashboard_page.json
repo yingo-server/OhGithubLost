@@ -11,5 +11,6 @@
   "repoCreated": "สร้างรีโพสิทอรีแล้ว",
   "repoCreatedName": "สร้าง {name} แล้ว",
   "retry": "ลองใหม่",
-  "starred": "ดาว"
+  "starred": "ดาว",
+  "starsCount": "ดาว {count} ดวง"
 }

@@ -11,5 +11,6 @@
   "reset": "Restablecer",
   "resetDesc": "Se vaciarán todos los eventos en la memoria actual (los registros en disco se conservan).",
   "resetTitle": "Restablecer el centro de notificaciones",
-  "title": "Centro de notificaciones"
+  "title": "Centro de notificaciones",
+  "unread": "Sin leer"
 }

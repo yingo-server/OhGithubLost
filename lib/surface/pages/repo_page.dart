@@ -1273,6 +1273,7 @@ class _CodeTabState extends State<_CodeTab> {
         url: url,
         fileName: ghPathName(entry.path),
         category: IxDownloadCategory.repo,
+        connections: widget.surface.settings.settings.downloadConnections,
       );
       _toast(_t('addedToDownload', {'name': ghPathName(entry.path)}));
     } catch (error) {

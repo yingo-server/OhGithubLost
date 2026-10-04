@@ -11,5 +11,6 @@
   "repoCreated": "Repo erstellt",
   "repoCreatedName": "{name} erstellt",
   "retry": "Erneut versuchen",
-  "starred": "Stern"
+  "starred": "Stern",
+  "starsCount": "{count} Sterne"
 }

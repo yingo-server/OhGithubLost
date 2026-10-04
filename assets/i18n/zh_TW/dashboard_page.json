@@ -11,5 +11,6 @@
   "repoCreated": "已建立儲存庫",
   "repoCreatedName": "已建立 {name}",
   "retry": "重試",
-  "starred": "加星"
+  "starred": "加星",
+  "starsCount": "{count} 個星標"
 }

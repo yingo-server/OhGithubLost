@@ -11,5 +11,6 @@
   "repoCreated": "リポジトリを作成しました",
   "repoCreatedName": "{name} を作成しました",
   "retry": "再試行",
-  "starred": "スター"
+  "starred": "スター",
+  "starsCount": "{count} スター"
 }

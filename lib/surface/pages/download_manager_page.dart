@@ -115,16 +115,60 @@ class DownloadManagerPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            LinearProgressIndicator(
-              value: task.total > 0 ? task.progress : null,
-              minHeight: 4,
+            // 5.0：进度条**平滑插值**（库的进度事件 200ms 一跳，
+            // 直接绑值会出现"跳格子"；这里补间 220ms，观感连续）。
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 0,
+                end: task.total > 0 ? task.progress : 0,
+              ),
+              duration: OgLAnim.enabled(context)
+                  ? const Duration(milliseconds: 220)
+                  : Duration.zero,
+              curve: Curves.easeOut,
+              builder: (
+                BuildContext context,
+                double value,
+                Widget? child,
+              ) =>
+                  LinearProgressIndicator(
+                value: task.total > 0 ? value.clamp(0.0, 1.0) : null,
+                minHeight: 4,
+              ),
             ),
             const SizedBox(height: 6),
-            Text(
-              _subtitleOf(task),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
+            Row(
+              children: <Widget>[
+                if (surface.domain.downloads.isRanged(task.id))
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Tooltip(
+                      message: _t('multiConnection'),
+                      child: Icon(
+                        Icons.multiple_stop,
+                        size: 14,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: OgLAnim.enabled(context)
+                        ? OgLAnim.fast(context)
+                        : Duration.zero,
+                    // 速率量化到 0.1 MB/s：小数位抖动不再触发重建。
+                    child: Text(
+                      _subtitleOf(task),
+                      key: ValueKey<String>(
+                        _quantizeSpeed(task.bytesPerSecond),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (task.error != null)
               Padding(
@@ -198,6 +242,14 @@ class DownloadManagerPage extends StatelessWidget {
         IxDownloadCategory.gist => Icons.article_outlined,
         IxDownloadCategory.other => Icons.download_outlined,
       };
+
+  /// 副标题（分类 · 大小 · 速率）。
+  ///
+  /// 速率按 **0.1 MB/s 粒度**取整后再进 [AnimatedSwitcher]，避免每帧
+  /// 因为小数位抖动而反复重建文本。
+  /// 速率量化（0.1 MB/s 一档）：让 AnimatedSwitcher 只在「肉眼可见的变化」时换文本。
+  static String _quantizeSpeed(double bytesPerSecond) =>
+      (bytesPerSecond / 102400).round().toString();
 
   static String _subtitleOf(IxDownloadTask task) {
     final String size = task.total > 0

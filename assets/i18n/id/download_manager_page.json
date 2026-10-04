@@ -5,6 +5,7 @@
   "copyPath": "Salin Path",
   "empty": "Belum ada tugas unduhan",
   "emptyHint": "Klik \"Unduh\" di lampiran Release atau file repo untuk menambahkan",
+  "multiConnection": "Multi-koneksi",
   "noAppForFile": "Tidak ada aplikasi yang dapat memproses file ini",
   "open": "Buka",
   "pathCopied": "Path file disalin",

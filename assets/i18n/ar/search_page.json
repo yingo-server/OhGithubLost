@@ -9,6 +9,7 @@
   "repoResults": "نتائج مستودعات \"<{q}>\": {count} مستودع",
   "repoSearch": "بحث المستودعات",
   "search": "بحث",
+  "starsCount": "{count} نجمة",
   "startHint": "أدخل الكلمة المفتاحية لبدء البحث",
   "tabCode": "كود",
   "tabRepos": "مستودعات"

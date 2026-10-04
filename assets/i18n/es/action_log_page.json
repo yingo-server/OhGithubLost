@@ -1,4 +1,5 @@
 {
+  "linesCount": "{count} líneas",
   "noLogs": "No hay registros (es posible que no se haya completado o que el Token no tenga permisos de Actions)",
   "noMatchingJob": "No hay jobs coincidentes",
   "reload": "Volver a obtener",

@@ -11,5 +11,6 @@
   "repoCreated": "已创建仓库",
   "repoCreatedName": "已创建 {name}",
   "retry": "重试",
-  "starred": "星标"
+  "starred": "星标",
+  "starsCount": "{count} 星标"
 }

@@ -11,5 +11,6 @@
   "reset": "Zurücksetzen",
   "resetDesc": "Löst alle in-memory-Ereignisse aus (Festplatteneingaben werden beibehalten).",
   "resetTitle": "Benachrichtigungs-Mittzentrum zurücksetzen",
-  "title": "Benachrichtigungs-Mittzentrum"
+  "title": "Benachrichtigungs-Mittzentrum",
+  "unread": "Ungelesen"
 }

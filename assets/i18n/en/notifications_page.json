@@ -11,5 +11,6 @@
   "reset": "Reset",
   "resetDesc": "Clears all in-memory events (disk logs are preserved).",
   "resetTitle": "Reset Notification Center",
-  "title": "Notifications"
+  "title": "Notifications",
+  "unread": "Unread"
 }

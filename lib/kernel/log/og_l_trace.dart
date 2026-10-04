@@ -42,17 +42,17 @@ abstract final class OgLTrace {
     final Object? argument = args?.call();
     OgLLogFile.line(
       '追踪',
-      '$_pad→ $name${argument == null ? '' : '($argument)'}',
+      '$_pad-> $name${argument == null ? '' : '($argument)'}',
     );
     _depth++;
     try {
       final T result = body();
       _depth--;
-      OgLLogFile.line('追踪', '$_pad← $name = ${describe(result)}');
+      OgLLogFile.line('追踪', '$_pad<- $name = ${describe(result)}');
       return result;
     } catch (error) {
       _depth--;
-      OgLLogFile.line('追踪', '$_pad✗ $name：$error', level: 'ERR');
+      OgLLogFile.line('追踪', '$_padx $name：$error', level: 'ERR');
       rethrow;
     }
   }
@@ -69,17 +69,17 @@ abstract final class OgLTrace {
     final Object? argument = args?.call();
     OgLLogFile.line(
       '追踪',
-      '$_pad→ $name${argument == null ? '' : '($argument)'}',
+      '$_pad-> $name${argument == null ? '' : '($argument)'}',
     );
     _depth++;
     try {
       final T result = await body();
       _depth--;
-      OgLLogFile.line('追踪', '$_pad← $name = ${describe(result)}');
+      OgLLogFile.line('追踪', '$_pad<- $name = ${describe(result)}');
       return result;
     } catch (error) {
       _depth--;
-      OgLLogFile.line('追踪', '$_pad✗ $name：$error', level: 'ERR');
+      OgLLogFile.line('追踪', '$_padx $name：$error', level: 'ERR');
       rethrow;
     }
   }

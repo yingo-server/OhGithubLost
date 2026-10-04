@@ -236,6 +236,8 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         url: ogLReleaseDownloadUrl(url, accelBase: accelBase),
         fileName: asset.name,
         category: IxDownloadCategory.release,
+        // 大附件优先多连接：服务端不支持 Range 时中枢层自动回退。
+        connections: widget.surface.settings.settings.downloadConnections,
       );
       if (mounted) {
         _toast(_t('addedToDownload', {'name': asset.name}));

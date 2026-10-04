@@ -2,6 +2,7 @@
   "about": "Über",
   "appNotifDesc": "Download-Fertig, Aufgabenende und wichtige Fehlerhinweise",
   "appNotifications": "App-Benachrichtigungen",
+  "backExitHint": "Zum Beenden erneut zurück drücken",
   "bootRejected": "Start abgelehnt",
   "countChars": "{count} Zeichen",
   "countItems": "{count} Element",

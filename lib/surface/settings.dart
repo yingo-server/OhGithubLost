@@ -23,6 +23,17 @@ import 'package:flutter/foundation.dart';
 import 'i18n/og_l_i18n.dart';
 import 'util/accel.dart';
 
+/// 解析历史 / 手改配置里的下载并发（非法值 → 默认）。
+int _asDownloadConnections(Object? raw) {
+  final int? value = raw is int ? raw : int.tryParse('${raw ?? ''}');
+  if (value == null) {
+    return OgLSettings.kOgLDefaultDownloadConnections;
+  }
+  return OgLSettings.downloadConnectionChoices.contains(value)
+      ? value
+      : OgLSettings.kOgLDefaultDownloadConnections;
+}
+
 /// 明暗模式偏好。
 enum OgLThemeMode {
   /// 跟随系统。
@@ -63,6 +74,7 @@ class OgLSettings {
     this.dnsMode = 'system',
     this.dnsServerId = 'alidns',
     this.dnsPreferDoh = true,
+    this.downloadConnections = OgLSettings.kOgLDefaultDownloadConnections,
     this.releaseProxyEnabled = false,
     this.releaseProxyChannels = const <OgLAccelChannel>[],
     this.releaseProxySelectedId = kOgLAccelBuiltinId,
@@ -88,6 +100,10 @@ class OgLSettings {
   /// 默认值。
   static const OgLSettings defaults = OgLSettings();
 
+  /// 默认并发连接数（4：三条以上并行足够吃满家用宽带，又不至于把
+  /// 小水管拖成"每片都在排队"）。
+  static const int kOgLDefaultDownloadConnections = 4;
+
   /// 字号缩放上下限（与 `og_l_app` 的文字缩放夹紧一致）。
   static const double minFontScale = 0.8;
   static const double maxFontScale = 1.6;
@@ -95,6 +111,9 @@ class OgLSettings {
   /// 代码字号上下限。
   static const double minCodeFontSize = 10;
   static const double maxCodeFontSize = 22;
+
+  /// 允许的下载并发档位（设置页只给这几档，避免「随便填个大数」）。
+  static const List<int> downloadConnectionChoices = <int>[1, 2, 4, 8];
 
   /// 由 JSON 构造（**永不抛**：坏数据回落默认）。
   factory OgLSettings.fromJson(Object? raw) {
@@ -118,6 +137,7 @@ class OgLSettings {
       dnsServerId:
           serverId is String && serverId.isNotEmpty ? serverId : 'alidns',
       dnsPreferDoh: _asBool(raw['dnsPreferDoh'], fallback: true),
+      downloadConnections: _asDownloadConnections(raw['downloadConnections']),
       releaseProxyEnabled:
           _asBool(raw['releaseProxyEnabled'], fallback: false),
       releaseProxyChannels: _asAccelChannels(raw['releaseProxyChannels']),
@@ -279,6 +299,12 @@ class OgLSettings {
   /// 是否优先 DoH（加密解析）。
   final bool dnsPreferDoh;
 
+  /// 下载并发连接数（1 = 单连接走库；>1 = 多连接分片）。
+  ///
+  /// 由设置页给出，跟随 `enqueue` 传入中枢层；服务端不支持 Range 时
+  /// 中枢层会**自动回退**到单连接，不会因为并发调高而下载失败。
+  final int downloadConnections;
+
   /// Release 附件是否走加速通道。
   ///
   /// 默认**关闭**：加速通道属于第三方信任边界，需用户显式开启；
@@ -409,6 +435,8 @@ class OgLSettings {
         dnsMode: dnsMode ?? this.dnsMode,
         dnsServerId: dnsServerId ?? this.dnsServerId,
         dnsPreferDoh: dnsPreferDoh ?? this.dnsPreferDoh,
+        downloadConnections:
+            downloadConnections ?? this.downloadConnections,
         releaseProxyEnabled: releaseProxyEnabled ?? this.releaseProxyEnabled,
         releaseProxyChannels:
             releaseProxyChannels ?? this.releaseProxyChannels,
@@ -445,6 +473,7 @@ class OgLSettings {
         'dnsMode': dnsMode,
         'dnsServerId': dnsServerId,
         'dnsPreferDoh': dnsPreferDoh,
+        'downloadConnections': downloadConnections,
         'releaseProxyEnabled': releaseProxyEnabled,
         'releaseProxyChannels': <Object?>[
           for (final OgLAccelChannel channel in releaseProxyChannels)
@@ -721,6 +750,16 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：标记首次引导已完成。
   Future<void> setOnboardingDone(bool done) =>
       apply(_settings.copyWith(onboardingDone: done));
+
+  /// 便捷：设置下载并发连接数（非法档位回落默认）。
+  Future<void> setDownloadConnections(int value) => apply(
+        _settings.copyWith(
+          downloadConnections:
+              OgLSettings.downloadConnectionChoices.contains(value)
+                  ? value
+                  : OgLSettings.kOgLDefaultDownloadConnections,
+        ),
+      );
 
   /// 便捷：设置界面语言（非法代码回落 `zh`）。
   Future<void> setLanguage(String code) => apply(

@@ -2,6 +2,7 @@
   "about": "Acerca de",
   "appNotifDesc": "Notificaciones de descargas completadas, tareas finalizadas y errores importantes",
   "appNotifications": "Notificaciones de la app",
+  "backExitHint": "Pulsa atrás otra vez para salir",
   "bootRejected": "Arranque rechazado",
   "countChars": "{count} caracteres",
   "countItems": "{count} elementos",

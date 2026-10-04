@@ -11,5 +11,6 @@
   "repoCreated": "Đã tạo kho",
   "repoCreatedName": "Đã tạo {name}",
   "retry": "Thử lại",
-  "starred": "Đánh dấu sao"
+  "starred": "Đánh dấu sao",
+  "starsCount": "{count} sao"
 }

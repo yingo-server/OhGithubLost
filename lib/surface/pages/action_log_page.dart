@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+import '../widgets/log_body.dart';
 
 /// 取 `action_log_page` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
@@ -139,15 +140,22 @@ class _ActionLogPageState extends State<ActionLogPage> {
                                 color: theme.colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: SingleChildScrollView(
-                                child: SelectableText(
-                                  logs[key] ?? '',
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
-                                    height: 1.4,
-                                  ),
-                                ),
+                              // 5.0：长日志**分块虚拟化**渲染。
+                              // 之前把整份日志塞进一个 `SelectableText`，
+                              // 上万行的 Actions 日志会一次性排版全部行 → 展开就是几秒卡顿。
+                              // 现在按行切块、交给 `ListView.builder` 按需渲染。
+                              child: OgLLogBody(text: logs[key] ?? ''),
+                            ),
+                            const SizedBox(height: 6),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _t('linesCount', <String, Object?>{
+                                  'count': (logs[key] ?? '')
+                                      .split('\n')
+                                      .length,
+                                }),
+                                style: theme.textTheme.bodySmall,
                               ),
                             ),
                           ],

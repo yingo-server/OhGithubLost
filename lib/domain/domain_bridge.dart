@@ -14,6 +14,7 @@ import 'dart:async';
 import '../base/base_bridge.dart';
 import '../base/net/net_bridge.dart';
 import '../base/net/net_transport.dart';
+import '../base/net/range_download.dart';
 import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
 import '../kernel/environment.dart';
@@ -311,7 +312,11 @@ class IxModule extends OgLModule {
       channelApplier: buildChannelApplier(base.net),
     );
     notifications = IxNotificationCenter();
-    downloads = IxDownloadManager(diagnostics: context.diagnostics);
+    downloads = IxDownloadManager(
+      diagnostics: context.diagnostics,
+      // 多连接分片引擎（硬件层实现，逻辑层只认契约）。
+      engine: OgLRangeDownloader(),
+    );
     actionLogs = IxActionLogs(
       tokenProvider: () async => (await auth.activeToken())?.value,
     );

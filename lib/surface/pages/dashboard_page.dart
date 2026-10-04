@@ -263,7 +263,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String _repoSubtitle(GhRepo repo) {
     final List<String> meta = <String>[
       if (repo.language != null && repo.language!.isNotEmpty) repo.language!,
-      '★ ${repo.stars}',
+      _t('starsCount', {'count': repo.stars}),
       if (repo.isPrivate) _t('private'),
     ];
     final String? desc = repo.description;

@@ -615,7 +615,7 @@ class GhClient {
         final String level = error is GhNotFoundException ? 'WARN' : 'ERR';
         OgLLogFile.line(
           '网络',
-          '✗ ${request.method.verb} ${request.path} → ${response.statusCode}：$error',
+          '${request.method.verb} ${request.path} -> ${response.statusCode}：$error',
           level: level,
         );
         rethrow;

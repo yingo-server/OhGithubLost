@@ -9,6 +9,7 @@
   "repoResults": "「{q}」仓库结果：{count} 个",
   "repoSearch": "仓库搜索",
   "search": "搜索",
+  "starsCount": "{count} 星标",
   "startHint": "输入关键字开始搜索",
   "tabCode": "代码",
   "tabRepos": "仓库"

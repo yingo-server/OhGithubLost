@@ -9,6 +9,7 @@
   "repoResults": "Kết quả kho «{q}»: {count} kho",
   "repoSearch": "Tìm kiếm kho",
   "search": "Tìm kiếm",
+  "starsCount": "{count} sao",
   "startHint": "Nhập từ khoá để bắt đầu tìm kiếm",
   "tabCode": "Mã",
   "tabRepos": "Kho"

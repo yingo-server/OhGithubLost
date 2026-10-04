@@ -5,6 +5,7 @@
   "copyPath": "Sao chép đường dẫn",
   "empty": "Chưa có tác vụ tải xuống",
   "emptyHint": "Nhấn «Tải xuống» trên tệp đính kèm Release hoặc tệp kho để thêm vào",
+  "multiConnection": "Nhiều kết nối",
   "noAppForFile": "Không có ứng dụng nào có thể xử lý tệp này",
   "open": "Mở",
   "pathCopied": "Đã sao chép đường dẫn tệp",

@@ -775,6 +775,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
 const Divider(height: 1),
+          ..._downloadTiles(theme, value),
           ..._accelTiles(theme, value),
         ],
       );
@@ -785,6 +786,57 @@ const Divider(height: 1),
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// ── 下载（并发连接数）──────────────────────────────────────────────
+  ///
+  /// 只给固定档位（1 / 2 / 4 / 8）：用户不需要理解 TCP，只需要「快一点 / 稳一点」。
+  /// 服务端不支持 Range 时中枢层会自动回退单连接，所以调高并发不会把下载搞坏。
+  List<Widget> _downloadTiles(ThemeData theme, OgLSettings value) => <Widget>[
+        ListTile(
+          leading: const Icon(Icons.download_outlined),
+          title: Text(_t('downloadConnections')),
+          subtitle: Text(_t('downloadConnectionsDesc')),
+          trailing: Text(
+            _t('connectionsCount', <String, Object?>{
+              'count': value.downloadConnections,
+            }),
+          ),
+          onTap: () => unawaited(_pickDownloadConnections(value)),
+        ),
+      ];
+
+  Future<void> _pickDownloadConnections(OgLSettings value) async {
+    final int? picked = await showDialog<int>(
+      context: context,
+      builder: (BuildContext dialogContext) => SimpleDialog(
+        title: Text(_t('downloadConnections')),
+        children: <Widget>[
+          for (final int choice in OgLSettings.downloadConnectionChoices)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(choice),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(_t('connectionsCount', <String, Object?>{
+                      'count': choice,
+                    })),
+                  ),
+                  if (choice == value.downloadConnections)
+                    const Icon(Icons.check, size: 18),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted || picked == value.downloadConnections) {
+      return;
+    }
+    await widget.surface.setDownloadConnections(picked);
+    if (mounted) {
+      _toast(_t('connectionsCount', <String, Object?>{'count': picked}));
+    }
   }
 
   /// ── Release 下载加速（总开关 + 多通道 + 协议同意）────────────────────
