@@ -152,6 +152,24 @@ void main() {
       expect(q0.transitionWindow, 0);
     });
 
+    test('曲线一律是自然减速（ease-out 阶梯），绝不匀速', () {
+      // 用户要求：动画不能"死板 / 僵硬"，所以任何档位都不许出现匀速。
+      expect(OgLOAnimQuality.of(1).curve, Curves.easeOut);
+      expect(OgLOAnimQuality.of(2).curve, Curves.easeOutCubic);
+      expect(OgLOAnimQuality.of(3).curve, Curves.easeOutQuart);
+      expect(OgLOAnimQuality.of(1).largeCurve, Curves.easeOutCubic);
+      expect(OgLOAnimQuality.of(2).largeCurve, Curves.easeOutQuart);
+      expect(OgLOAnimQuality.of(3).largeCurve, Curves.easeOutQuint);
+      for (int level = 1; level <= 3; level++) {
+        expect(OgLOAnimQuality.of(level).curve, isNot(Curves.linear),
+            reason: '档位 $level 的通用曲线不能是匀速（机械 / 死板）');
+        expect(OgLOAnimQuality.of(level).largeCurve, isNot(Curves.linear),
+            reason: '档位 $level 的大体积曲线不能是匀速（机械 / 死板）');
+      }
+      // 静默档（0）不做任何动画，曲线取值无关紧要。
+      expect(OgLOAnimQuality.of(0).curve, Curves.linear);
+    });
+
     test('缩放最保守档不做、模糊只在拉满档', () {
       expect(OgLOAnimQuality.of(1).hasScale, isFalse, reason: '档位 1 不缩放');
       expect(OgLOAnimQuality.of(2).hasScale, isTrue, reason: '档位 2 起给极轻缩放');

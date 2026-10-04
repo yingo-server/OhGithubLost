@@ -392,22 +392,31 @@ class _OgLShellSlideState extends State<_OgLShellSlide>
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _controller,
-        // RepaintBoundary：切 tab 时只做图层位移、不重绘整页
-        //（此前"整棵页面树每帧重绘"正是切换卡顿的主因）。
-        //
-        // 再叠一层**很轻的淡入**（0.7 → 1）：整页纯位移会显得"生硬"，
-        // 一点点透明度变化就足以让切换"活"起来，成本几乎为零。
-        builder: (BuildContext context, Widget? child) => RepaintBoundary(
-          child: FadeTransition(
-            opacity: Tween<double>(begin: 0.7, end: 1).animate(_controller),
+  Widget build(BuildContext context) {
+    // 切 tab 也是"大体积动画"：位移必须走**自然减速曲线**，
+    // 而不是把控制器直接当匀速直线用（匀速 = 机械 / 死板）。
+    // 曲线只改"落位节奏"，时长仍由档位表给 —— 对操作的影响不变。
+    final Curve curve = OgLAnim.largeCurve(context);
+    return AnimatedBuilder(
+      animation: _controller,
+      // RepaintBoundary：切 tab 时只做图层位移、不重绘整页
+      //（此前"整棵页面树每帧重绘"正是切换卡顿的主因）。
+      //
+      // 再叠一层**很轻的淡入**（0.7 → 1）：整页纯位移会显得"生硬"，
+      // 一点点透明度变化就足以让切换"活"起来，成本几乎为零。
+      builder: (BuildContext context, Widget? child) {
+        final double t = curve.transform(_controller.value.clamp(0.0, 1.0));
+        return RepaintBoundary(
+          child: Opacity(
+            opacity: 0.7 + 0.3 * t,
             child: FractionalTranslation(
-              translation: Offset(_from * (1 - _controller.value), 0),
+              translation: Offset(_from * (1 - t), 0),
               child: child,
             ),
           ),
-        ),
-        child: widget.child,
-      );
+        );
+      },
+      child: widget.child,
+    );
+  }
 }

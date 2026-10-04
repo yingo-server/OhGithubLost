@@ -21,6 +21,13 @@
   5 处 `showModalBottomSheet` 已改用它。
 - **缩放分级 · Scale tiering**
   最保守档位 1 **不做任何缩放**；档位 2/3 才给 ≤1% 的极轻缩放；模糊仍只在拉满档。
+- **曲线全部改为「自然减速」· Natural deceleration everywhere**
+  去掉所有匀速（`Curves.linear`）：三档统一走 **ease-out 阶梯**
+  （`easeOut` → `easeOutCubic` → `easeOutQuart`，大体积再各进一档到
+  `easeOutQuint`）——起手快、落位柔，符合直觉而不再"机械 / 死板"；
+  切 tab 的整页位移也从"控制器直驱匀速"改为走档位曲线（曲线只改落位节奏，
+  时长不变，因此**对操作的影响不变**）。新增门禁：`tool/motion_audit.py`
+  禁止白名单外出现 `Curves.linear`。
 ### 修复 · Fixed（读图会被误导的三处）
 
 - **纵轴不再按极值拉伸 · No more per-series stretching**

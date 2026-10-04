@@ -12,7 +12,11 @@
    `OgLOAnimQuality` 的档位表（`app/motion.dart`），经 `OgLAnim` 读取；
 2. **硬编码缩放 / 模糊**（`ScaleTransition(` / `AnimatedScale(` /
    `BackdropFilter(` / `ImageFilter.blur`）——缩放与模糊在低档位必须关闭，
-   只允许出现在档位表与工具箱里。
+   只允许出现在档位表与工具箱里；
+3. **匀速动画**（`Curves.linear`）——匀速运动"机械 / 死板"、不符合直觉；
+   动画一律走**自然减速**（ease-out 阶梯），曲线只能来自档位表
+   （`motion.dart` 的 `curve` / `largeCurve`）。档位 `0`（无动画）中的
+   `Curves.linear` 因位于白名单文件里而不被检查。
 
 允许名单（白名单文件 / 行内例外）写在下方的 [ALLOW_FILES] 与 [ALLOW_LINE_HINTS]：
 - `app/motion.dart`、`app/animations.dart` 是档位表与工具箱本身；
@@ -52,6 +56,7 @@ PATTERNS = [
     ('硬编码动画时长', re.compile(r'Duration\(\s*milliseconds:\s*\d')),
     ('硬编码缩放过渡', re.compile(r'\b(?:ScaleTransition|AnimatedScale)\(')),
     ('硬编码模糊', re.compile(r'(?:BackdropFilter|ImageFilter\.blur)\(')),
+    ('匀速动画（死板）', re.compile(r'\bCurves\.linear\b')),
 ]
 
 

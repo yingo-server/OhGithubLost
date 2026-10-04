@@ -81,7 +81,8 @@ class OgLOAnimQuality {
   /// 允许的最大模糊半径（0 = 不允许任何模糊，模糊是最贵的效果之一）。
   final double blurSigma;
 
-  /// 统一缓动（更保守的档位用更"直接"的曲线）。
+  /// 统一缓动：一律用**自然减速**（ease-out 阶梯），
+  /// 越保守的档位越轻、越高的档位越"果断"；**任何档位都不用匀速**。
   final Curve curve;
 
   /// **大体积动画**（整页 / 半页）统一用的"快速起步"曲线：
@@ -156,8 +157,9 @@ class OgLOAnimQuality {
           transitionOffset: 0.012,
           transitionScaleFrom: 1,
           blurSigma: 0,
-          curve: Curves.linear,
-          largeCurve: Curves.easeOut,
+          // 自然减速（ease-out 阶梯）：**绝不用匀速**——匀速是"机械/死板"的根源。
+          curve: Curves.easeOut,
+          largeCurve: Curves.easeOutCubic,
           transitionWindow: 0.42,
           shellDuration: Duration(milliseconds: 110),
           shellOffset: 0.02,
@@ -178,8 +180,8 @@ class OgLOAnimQuality {
           transitionOffset: 0.03,
           transitionScaleFrom: 0.99,
           blurSigma: 0,
-          curve: Curves.easeOut,
-          largeCurve: Curves.easeOutCubic,
+          curve: Curves.easeOutCubic,
+          largeCurve: Curves.easeOutQuart,
           transitionWindow: 0.55,
           shellDuration: Duration(milliseconds: 150),
           shellOffset: 0.035,
@@ -200,7 +202,7 @@ class OgLOAnimQuality {
           transitionOffset: 0.05,
           transitionScaleFrom: 0.975,
           blurSigma: 6,
-          curve: Curves.easeOutCubic,
+          curve: Curves.easeOutQuart,
           largeCurve: Curves.easeOutQuint,
           transitionWindow: 0.7,
           shellDuration: Duration(milliseconds: 190),
