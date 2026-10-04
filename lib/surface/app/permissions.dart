@@ -315,9 +315,9 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
 class _AndroidPermissionGateway extends _HandlerGateway {
   /// 创建网关。
   const _AndroidPermissionGateway({
-    Future<bool> Function()? storageProbe,
-    Future<String> Function()? storageLocation,
-  }) : super(storageProbe: storageProbe, storageLocation: storageLocation);
+    super.storageProbe,
+    super.storageLocation,
+  });
 
   @override
   String get platformLabel => 'Android';
