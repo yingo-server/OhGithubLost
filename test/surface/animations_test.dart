@@ -36,7 +36,7 @@ void main() {
     expect(OgLAnim.fast(context), Duration.zero);
     expect(OgLAnim.medium(context), Duration.zero);
     expect(OgLAnim.slow(context), Duration.zero);
-    expect(OgLAnim.stagger(context, 3), Duration.zero);
+    expect(OgLAnim.staggerOf(context, 3), Duration.zero);
   });
 
   testWidgets('档位 1 / 2 / 3：时长递增', (WidgetTester tester) async {
@@ -141,13 +141,9 @@ void main() {
       expect(q0.transitionOffset, 0);
     });
 
-    test('入场错峰按档位限项：超出上限返回 null（该项不参与动画）', () async {
-      Future<BuildContext> pump(int level) async {
-        late BuildContext captured;
-        await _pumpAt(level);
-        captured = await _pumpAt(level);
-        return captured;
-      }
+    testWidgets('入场错峰按档位限项：超出上限返回 null（该项不参与动画）',
+        (WidgetTester tester) async {
+      Future<BuildContext> pump(int level) => _pumpAt(tester, level);
 
       // 档位 1：只让前 3 项动。
       final BuildContext c1 = await pump(1);

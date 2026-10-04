@@ -18,6 +18,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../settings.dart';
+
 /// 动效质量档（某档位下的**全部**动画参数）。
 ///
 /// 纯数据 + 纯函数：可单测（逐级单调性），不依赖任何运行时环境。
@@ -269,4 +271,26 @@ class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
       child: FadeTransition(opacity: curved, child: result),
     );
   }
+}
+
+/// 动效档位作用域：把当前档位暴露给控件层。
+///
+/// 挂点：`OgLApp` 的 `builder`（位于 `MaterialApp` 之内，随设置变化重建）。
+/// 控件据此读 [OgLOAnimQuality]（时长 / 位移 / 缩放 / 错峰项数都随档位变化）。
+class OgLMotionScope extends InheritedWidget {
+  /// 创建作用域。
+  const OgLMotionScope({required this.level, required super.child, super.key});
+
+  /// 当前动效档位（0–3）。
+  final int level;
+
+  /// 读取当前档位（未挂载作用域时按 1 处理）。
+  static int levelOf(BuildContext context) {
+    final OgLMotionScope? scope =
+        context.dependOnInheritedWidgetOfExactType<OgLMotionScope>();
+    return scope?.level ?? 1;
+  }
+
+  @override
+  bool updateShouldNotify(OgLMotionScope oldWidget) => oldWidget.level != level;
 }

@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../app/permissions.dart';
 import '../i18n/og_l_i18n.dart';
