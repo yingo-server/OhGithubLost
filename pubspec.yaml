@@ -64,6 +64,9 @@ dependencies:
   #    构建期由 tool/inject_android_gradle.py 幂等注入（见 build.yml）。
   permission_handler: ^13.0.2
 
+  # ── 展示层 · 桌面窗口（自绘标题栏 / 原生标题 / 可回退系统装饰）────────
+  # 仅桌面（Windows / Linux / macOS）生效；移动端不参与。
+  window_manager: ^0.5.2
   # ── 底座 · Android SAF（分区存储下的"用户可见文件夹"授权）─────────────
   # 背景：Android 11+ 拿不到「所有文件访问」时，普通应用无法往 /storage/emulated/0
   # 写文件；此时唯一合规的"用户可见"落点是 SAF——让用户**自己选一个文件夹**，

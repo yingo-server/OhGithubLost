@@ -21,6 +21,7 @@ import '../settings.dart';
 import '../surface_bridge.dart';
 import 'animations.dart';
 import 'client_shell.dart';
+import 'desktop_window.dart';
 import 'error_surface.dart';
 import 'keyboard_guard.dart';
 import 'motion.dart';
@@ -110,7 +111,11 @@ class OgLApp extends StatelessWidget {
                 ),
               );
             },
-            home: OgLClientShell(surface: surface, report: report),
+            // 桌面端：自绘标题栏（不用系统默认装饰）。
+            // 非桌面平台 / 用户选择系统装饰时，本组件原样返回子组件。
+            home: OgLWindowFrame(
+              child: OgLClientShell(surface: surface, report: report),
+            ),
           );
         },
       );
