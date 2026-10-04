@@ -67,7 +67,7 @@ jobs:
       # （真事故：APK 显示 0.1.0，而 App 内部版本来自代码常量，看起来"正常"）。
       # 现在默认值已删除，这里再做一道硬校验，空值/非法值一律拒绝。
       - name: 校验发布参数（手动触发必填）
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && matrix.build != 'linux'
         env:
           VN: ${{ inputs.version_name }}
           VNUM: ${{ inputs.version_number }}
@@ -326,6 +326,60 @@ jobs:
       # 证书不随仓库保管：从 Secret `OGL_ANDROID_KEYSTORE`（base64 文本）还原到
       # 标准位置（$HOME/.android/debug.keystore），所有构建同一证书。
       # 【轮换注意】证书更换后，旧签名安装包需先卸载一次才能安装新证书版本。
+      - name: Linux · 容器内构建（debian:10 · glibc 2.28 下限）
+        if: matrix.build == 'linux'
+        shell: bash
+        run: |
+          set -u
+          # 宿主 SDK 路径（不依赖 action 是否导出 FLUTTER_ROOT）
+          SDK_ROOT="$(dirname "$(dirname "$(readlink -f "$(command -v flutter)")")")"
+          PUB="${PUB_CACHE:-$HOME/.pub-cache}"
+          mkdir -p "$PUB"
+          echo "宿主 SDK = $SDK_ROOT"
+          echo "宿主 pub = $PUB"
+
+          # 容器不可用 → 直接回退
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "::warning title=Linux 无容器::docker 不可用，回退宿主构建（glibc 下限升高）"
+            flutter build linux --release ${{ matrix.args }}
+            exit 0
+          fi
+
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/w" \
+            -v "$SDK_ROOT:/opt/flutter" \
+            -v "$PUB:/root/.pub-cache" \
+            -w /w \
+            -e PUB_CACHE=/root/.pub-cache \
+            -e OGL_ARGS="${{ matrix.args }}" \
+            debian:10 bash -lc "
+              set -e
+              # Debian 10 已归档，源指向 archive 并关闭有效期校验
+              printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive.debian.org/debian-security buster/updates main\n' > /etc/apt/sources.list
+              printf 'Acquire::Check-Valid-Until \"false\";\nAcquire::Retries \"3\";\n' > /etc/apt/apt.conf.d/99ogl
+              apt-get update -qq
+              apt-get install -y -qq --no-install-recommends \
+                git curl unzip xz-utils ca-certificates binutils \
+                clang cmake ninja-build pkg-config \
+                libgtk-3-dev liblzma-dev libstdc++-8-dev >/dev/null
+              export PATH=/opt/flutter/bin:\$PATH
+              git config --global --add safe.directory /w
+              git config --global --add safe.directory /opt/flutter
+              flutter --version
+              flutter build linux --release \$OGL_ARGS
+            " || {
+              echo "::warning title=Linux 容器构建失败::已回退宿主构建，glibc 下限将升高"
+              flutter build linux --release ${{ matrix.args }}
+            }
+
+          # 如实打印产物真实 glibc 需求上限（验收用）
+          BIN="$(find build/linux -path '*release/bundle/*' -maxdepth 5 -type f -executable 2>/dev/null | head -1)"
+          if [ -n "$BIN" ]; then
+            echo "产物：$BIN"
+            echo "glibc 需求上限：$(objdump -T "$BIN" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -1)"
+            echo "架构：$(file -b "$BIN" 2>/dev/null || echo '?')"
+          fi
+
       - name: 还原 Android 签名证书（Actions Secret · 可覆盖安装）
         if: matrix.build == 'apk' || matrix.build == 'appbundle'
         shell: bash
@@ -350,7 +404,7 @@ jobs:
             && echo 'CMake 预装完成' || echo 'CMake 预装未完成（不阻塞）'
 
       - name: 构建 ${{ matrix.label }}（非发布：按 pubspec 版本）
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && matrix.build != 'linux'
         run: >-
           flutter build ${{ matrix.build }} ${{ matrix.args }}
           --dart-define-from-file=dart_define.json
