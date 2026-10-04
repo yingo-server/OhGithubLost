@@ -12,11 +12,13 @@ library;
 import 'dart:async';
 
 import '../base/base_bridge.dart';
+import '../base/disk/og_l_storage.dart';
 import '../base/net/net_bridge.dart';
 import '../base/net/net_transport.dart';
 import '../base/net/range_download.dart';
 import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
+import '../kernel/contract/storage_export.dart';
 import '../kernel/environment.dart';
 import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
@@ -316,6 +318,8 @@ class IxModule extends OgLModule {
       diagnostics: context.diagnostics,
       // 多连接分片引擎（硬件层实现，逻辑层只认契约）。
       engine: OgLRangeDownloader(),
+      // 成品导出（存储②档：把成品粘贴到用户选的 SAF 文件夹）。
+      storageExporter: const _OgLStorageExporter(),
     );
     actionLogs = IxActionLogs(
       tokenProvider: () async => (await auth.activeToken())?.value,
@@ -468,5 +472,32 @@ class _SysEnvProbe implements KernelEnvironmentProbe {
       summary: '${runtime.localeName} · UTC${runtime.utcOffsetHoursText}',
       detail: runtime.toJson(),
     );
+  }
+}
+/// 装配根提供的**成品导出**实现（逻辑层只认契约，硬件层干活）。
+///
+/// 存储②档（用户授权了 SAF 文件夹）时，把下载成品**粘贴**进该文件夹；
+/// 其余档位返回 `false`（不需要导出）。**绝不抛出**。
+class _OgLStorageExporter implements StorageExporter {
+  /// 创建。
+  const _OgLStorageExporter();
+
+  @override
+  Future<bool> export({
+    required String localPath,
+    required String fileName,
+  }) async {
+    try {
+      final OgLStoragePlan plan = await OgLStorage.plan();
+      if (plan.mode != OgLStorageMode.safDir) {
+        return false;
+      }
+      return await OgLStorage.exportToSaf(
+        localPath: localPath,
+        fileName: fileName,
+      );
+    } catch (_) {
+      return false;
+    }
   }
 }

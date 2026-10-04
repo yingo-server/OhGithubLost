@@ -21,8 +21,8 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../base/disk/og_l_storage.dart';
 import '../../kernel/contract/download_engine.dart';
+import '../../kernel/contract/storage_export.dart';
 import '../../kernel/diagnostics.dart';
 
 /// 下载分类（决定落到哪个子目录）。
@@ -186,14 +186,18 @@ class IxDownloadManager extends ChangeNotifier {
     FileDownloader? downloader,
     KernelDiagnostics? diagnostics,
     DownloadEngine? engine,
+    StorageExporter? storageExporter,
   })  : _downloader = downloader ?? FileDownloader(),
         _diagnostics = diagnostics,
-        _engine = engine {
+        _engine = engine,
+        _exporter = storageExporter {
     _subscription = _downloader.updates.listen(_onUpdate);
   }
-
   final FileDownloader _downloader;
   final KernelDiagnostics? _diagnostics;
+
+  /// 成品导出能力（**契约层类型**，由装配根注入；为 `null` 时不导出）。
+  final StorageExporter? _exporter;
 
   /// 多连接分片引擎（**契约层类型**，由装配根注入；为 `null` 时只用库）。
   final DownloadEngine? _engine;
@@ -566,6 +570,10 @@ class IxDownloadManager extends ChangeNotifier {
   /// - 只在 ② 档（`safDir`）生效；① 档直接写公共目录、③ 档无处可导；
   /// - **绝不抛出**：导出失败不影响"下载已完成"这个事实，只在日志留痕。
   Future<void> _maybeExportToSaf(String id) async {
+    final StorageExporter? exporter = _exporter;
+    if (exporter == null) {
+      return;
+    }
     if (!_exportedToSaf.add(id)) {
       return;
     }
@@ -574,11 +582,7 @@ class IxDownloadManager extends ChangeNotifier {
       return;
     }
     try {
-      final OgLStoragePlan plan = await OgLStorage.plan();
-      if (plan.mode != OgLStorageMode.safDir) {
-        return;
-      }
-      final bool ok = await OgLStorage.exportToSaf(
+      final bool ok = await exporter.export(
         localPath: snap.savePath,
         fileName: snap.fileName,
       );
@@ -590,7 +594,6 @@ class IxDownloadManager extends ChangeNotifier {
         'DL',
         '已导出到所选文件夹：${snap.fileName}',
         code: 'OGL-DL-301',
-        data: <String, Object?>{'mode': plan.label},
       );
     } catch (_) {
       _exportedToSaf.remove(id);
