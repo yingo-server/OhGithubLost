@@ -52,7 +52,7 @@ abstract final class OgLTrace {
       return result;
     } catch (error) {
       _depth--;
-      OgLLogFile.line('追踪', '$_padx $name：$error', level: 'ERR');
+      OgLLogFile.line('追踪', '$_pad x $name：$error', level: 'ERR');
       rethrow;
     }
   }
@@ -79,7 +79,7 @@ abstract final class OgLTrace {
       return result;
     } catch (error) {
       _depth--;
-      OgLLogFile.line('追踪', '$_padx $name：$error', level: 'ERR');
+      OgLLogFile.line('追踪', '$_pad x $name：$error', level: 'ERR');
       rethrow;
     }
   }

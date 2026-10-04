@@ -405,6 +405,7 @@ class OgLSettings {
     String? dnsMode,
     String? dnsServerId,
     bool? dnsPreferDoh,
+    int? downloadConnections,
     bool? releaseProxyEnabled,
     List<OgLAccelChannel>? releaseProxyChannels,
     String? releaseProxySelectedId,

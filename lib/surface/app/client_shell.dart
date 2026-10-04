@@ -11,7 +11,10 @@
 /// "关于"不再是独立标签，而是设置页内的全屏子页面（见 [SettingsPage]）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
 import '../i18n/og_l_i18n.dart';
@@ -24,6 +27,7 @@ import '../pages/settings_page.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
 import 'animations.dart';
+import 'back_guard.dart';
 import 'error_surface.dart';
 
 /// 壳内的四个页面（导航值）。
@@ -120,7 +124,51 @@ class _OgLClientShellState extends State<OgLClientShell> {
     });
   }
 
+  /// 返回键状态机（「双击退出」的时序逻辑在 [OgLBackGuard] 里，可单测）。
+  final OgLBackGuard _backGuard = OgLBackGuard();
+
+  /// 抽屉状态需要它（返回键优先关抽屉，而不是切 tab / 退出）。
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// 统一返回键处理：二级页/弹窗 → 抽屉 → 回首页 → 双击退出。
+  ///
+  /// **一次误按绝不退出应用**：这是用户明确抱怨的点（返回键行为不佳）。
+  Future<void> _handleBack() async {
+    final NavigatorState? navigator = Navigator.maybeOf(context);
+    if (navigator != null && navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    final OgLBackAction action = _backGuard.decide(
+      atHome: _tab == OgLShellTab.home,
+      drawerOpen: _scaffoldKey.currentState?.isDrawerOpen ?? false,
+      now: DateTime.now(),
+    );
+    switch (action) {
+      case OgLBackAction.popRoute:
+        navigator?.maybePop();
+      case OgLBackAction.closeDrawer:
+        _scaffoldKey.currentState?.closeDrawer();
+      case OgLBackAction.goHome:
+        _select(OgLShellTab.home);
+      case OgLBackAction.armExit:
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: _backGuard.exitWindow,
+            content: Text(OgLI18n.instance.t('shell', kOgLBackExitHintKey)),
+          ),
+        );
+      case OgLBackAction.exit:
+        await SystemNavigator.pop();
+    }
+  }
+
   void _select(OgLShellTab tab) {
+    // 切 tab 即清除「待退出」：避免刚提示过又误触退出。
+    _backGuard.reset();
     if (tab == _tab) {
       return;
     }
@@ -206,6 +254,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
     // ── 手机：底栏 ──
     if (width < 600) {
       return Scaffold(
+        key: _scaffoldKey,
         body: body,
         bottomNavigationBar: NavigationBar(
           selectedIndex: index,
@@ -239,6 +288,7 @@ class _OgLClientShellState extends State<OgLClientShell> {
     // ── 平板 / 桌面：导航轨 ──
     final bool extended = width >= 1200;
     return Scaffold(
+      key: _scaffoldKey,
       body: Row(
         children: <Widget>[
           NavigationRail(

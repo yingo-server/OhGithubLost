@@ -14,8 +14,6 @@
 /// 逻辑（状态机）与 UI 分离，方便单测：见 [OgLBackGuard]。
 library;
 
-import 'package:flutter/foundation.dart';
-
 /// 返回键应当执行的动作。
 enum OgLBackAction {
   /// 交给导航器弹栈（二级页 / 弹窗）。
