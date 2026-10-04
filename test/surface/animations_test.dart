@@ -87,9 +87,10 @@ void main() {
     expect(find.byType(AnimatedOpacity), findsOneWidget);
     expect(find.byType(AnimatedSlide), findsNothing);
 
-    // 档位 2：淡入 + 位移。
+    // 档位 2（倒数第二档）：**最简全覆盖**——每个控件都动，但仍然只淡入。
     await pumpAt(2);
-    expect(find.byType(AnimatedSlide), findsOneWidget);
+    expect(find.byType(AnimatedOpacity), findsOneWidget);
+    expect(find.byType(AnimatedSlide), findsNothing);
     expect(find.byType(AnimatedScale), findsNothing);
 
     // 档位 3：淡入 + 位移 + 缩放（拉满）。
