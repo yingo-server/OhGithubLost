@@ -326,7 +326,7 @@ jobs:
       # 证书不随仓库保管：从 Secret `OGL_ANDROID_KEYSTORE`（base64 文本）还原到
       # 标准位置（$HOME/.android/debug.keystore），所有构建同一证书。
       # 【轮换注意】证书更换后，旧签名安装包需先卸载一次才能安装新证书版本。
-      - name: Linux · 容器内构建（debian:10 · glibc 2.31 下限）
+      - name: Linux · 容器内构建（ubuntu:20.04 · glibc 2.31 下限）
         if: matrix.build == 'linux'
         shell: bash
         run: |
