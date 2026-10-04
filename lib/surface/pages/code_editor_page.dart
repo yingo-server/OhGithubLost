@@ -215,11 +215,11 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('editTitle'),
-        _t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name})),
+        _t('commitFailedDetail', <String, String>{'detail': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name})));
+        _toast(_t('commitFailedDetail', <String, String>{'detail': error}));
       }
     } finally {
       if (mounted) {

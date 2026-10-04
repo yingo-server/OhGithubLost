@@ -118,12 +118,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('accounts'),
-        _t('switchFailed', <String, String>{'error': error})),
+        _t('switchFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('switchFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('switchFailed', <String, String>{'error': error}))),
         );
       }
     }
@@ -161,7 +161,7 @@ class _ProfilePageState extends State<ProfilePage> {
       } catch (error) {
         OgLAppLog.instance.add(
           _t('accounts'),
-          _t('clearCacheFailed', <String, String>{'error': error})),
+          _t('clearCacheFailed', <String, String>{'error': error}),
           severity: OgLNoticeSeverity.warning,
         );
       }
@@ -169,12 +169,12 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('accounts'),
-        _t('removeFailed', <String, String>{'error': error})),
+        _t('removeFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('removeFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('removeFailed', <String, String>{'error': error}))),
         );
       }
     }
@@ -284,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     builder:
                         (BuildContext context, AsyncSnapshot<int> snapshot) {
                       final int count = snapshot.data ?? 0;
-                      return Text(count == 0 ? _t('noDrafts') : _t('draftCount', <String, String>{'count': count})));
+                      return Text(count == 0 ? _t('noDrafts') : _t('draftCount', <String, String>{'count': count}));
                     },
                   ),
                 ),

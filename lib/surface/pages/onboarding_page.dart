@@ -82,7 +82,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('permissionListFailed', <String, String>{'error': error})),
+        _t('permissionListFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
       if (mounted) {
@@ -106,7 +106,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('permissionRequestFailed', <String, String>{'error': error})),
+        _t('permissionRequestFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
       status = OgLPermissionStatus.needsUserAction;

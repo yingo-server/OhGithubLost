@@ -185,7 +185,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       if (text == null) {
         setState(() {
           _loadingForm = false;
-          _formError = _t('readFileFailed', <String, String>{'path': path}));
+          _formError = _t('readFileFailed', <String, String>{'path': path});
         });
         return;
       }
@@ -211,7 +211,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       }
       setState(() {
         _loadingForm = false;
-        _formError = _t('parseFailed', <String, String>{'error': error}));
+        _formError = _t('parseFailed', <String, String>{'error': error});
       });
     }
   }
@@ -326,11 +326,11 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('triggerFailed', <String, String>{'error': error})),
+        _t('triggerFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('triggerFailedNoDispatch', <String, String>{'error': error})));
+        _toast(_t('triggerFailedNoDispatch', <String, String>{'error': error}));
       }
     } finally {
       if (mounted) {

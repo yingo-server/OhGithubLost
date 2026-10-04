@@ -99,7 +99,7 @@ class _IssuePageState extends State<IssuePage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(closing ? _t('closeIssue', <String, String>{'number': _number})) : _t('reopenIssue', <String, String>{'number': _number}))),
+        title: Text(closing ? _t('closeIssue', <String, String>{'number': _number}) : _t('reopenIssue', <String, String>{'number': _number})),
         content: Text(closing ? _t('closeHint') : _t('reopenHint')),
         actions: <Widget>[
           TextButton(
@@ -135,12 +135,12 @@ class _IssuePageState extends State<IssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        _t('toggleFailed', <String, String>{'error': error})),
+        _t('toggleFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error}))),
         );
       }
     } finally {
@@ -163,7 +163,7 @@ class _IssuePageState extends State<IssuePage> {
     if (body.length > _kMaxCommentChars) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_t('commentTooLong', <String, String>{'length': body.length, 'max': _kMaxCommentChars}))),
+          content: Text(_t('commentTooLong', <String, String>{'length': body.length, 'max': _kMaxCommentChars})),
         ),
       );
       return;
@@ -192,12 +192,12 @@ class _IssuePageState extends State<IssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        _t('commentPostFailed', <String, String>{'error': error})),
+        _t('commentPostFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('commentFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('commentFailed', <String, String>{'error': error}))),
         );
       }
     } finally {

@@ -60,7 +60,7 @@ Future<void> openLinkOrCopy(BuildContext context, String href, {String tag = 'é“
   if (uri == null || uri.scheme.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_t('linkInvalid'))),
+         SnackBar(content: Text(_t('linkInvalid'))),
       );
     }
     return;

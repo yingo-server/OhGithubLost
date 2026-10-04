@@ -90,13 +90,13 @@ class _NewReleasePageState extends State<NewReleasePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '发布',
-        _t('createFailed', <String, String>{'error': error})),
+        _t('createFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = _t('createFailed', <String, String>{'error': error}));
+          _error = _t('createFailed', <String, String>{'error': error});
         });
       }
     }

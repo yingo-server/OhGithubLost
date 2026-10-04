@@ -239,7 +239,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('logoutFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('logoutFailed', <String, String>{'error': error}))),
         );
       }
     }
@@ -392,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error}))),
         );
       }
     }
@@ -674,7 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 for (final MapEntry<String, String> entry
                     in kOgLCodePresetLabels.entries)
                   ChoiceChip(
-                    label: Text(ogLCodePresetLabel(entry.key)),
+                    label: Text(entry.value),
                     selected: value.codeThemePreset == entry.key,
                     // 同款修正：选中态用 primary 底 + onPrimary 字/勾，确保明环境下的对比度。
                     selectedColor: theme.colorScheme.primary,
@@ -818,7 +818,7 @@ const Divider(height: 1),
           leading: Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           ),
-          title: Text(ogLAccelChannelName(channel)),
+          title: Text(channel.name),
           subtitle: Text(
             channel.builtin ? _t('accelBuiltinDesc') : channel.baseUrl,
             maxLines: 1,
@@ -1000,7 +1000,7 @@ const Divider(height: 1),
     name.dispose();
     url.dispose();
     if (mounted) {
-      _toast(_t('channelAdded', <String, String>{'label': label})));
+      _toast(_t('channelAdded', <String, String>{'label': label}));
     }
   }
 
@@ -1219,7 +1219,7 @@ const Divider(height: 1),
             const Icon(Icons.chevron_right),
           ],
         ),
-        onTap: () => _pickCodeColor(field, argb, _t('chooseColor', <String, String>{'label': label}))),
+        onTap: () => _pickCodeColor(field, argb, _t('chooseColor', <String, String>{'label': label})),
       );
 
   Widget _sliderTile(

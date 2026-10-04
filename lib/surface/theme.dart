@@ -14,6 +14,10 @@ import 'package:flutter/material.dart';
 
 import 'i18n/og_l_i18n.dart';
 
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);
+
 /// 品牌种子色（GitHub 蓝）。
 const Color kOgLSeedColor = Color(0xFF0969DA);
 
@@ -31,25 +35,23 @@ const Map<String, Color> kOgLSeedColors = <String, Color>{
   'slate': Color(0xFF546E7A),
 };
 
-/// 主题色展示名（id → `common` 分片键）。
-const Map<String, String> kOgLSeedColorLabelKeys = <String, String>{
-  'github': 'seedGithub',
-  'ocean': 'seedOcean',
-  'forest': 'seedForest',
-  'grape': 'seedGrape',
-  'sunset': 'seedSunset',
-  'rose': 'seedRose',
-  'slate': 'seedSlate',
+/// 主题色展示名。
+const Map<String, String> kOgLSeedColorLabels = <String, String>{
+  'github': _t('seedGithub'),
+  'ocean': _t('seedOcean'),
+  'forest': _t('seedForest'),
+  'grape': _t('seedGrape'),
+  'sunset': _t('seedSunset'),
+  'rose': _t('seedRose'),
+  'slate': _t('seedSlate'),
 };
 
 /// 按 id 取主题色（未知 id 回落品牌色）。
 Color ogLSeedColorOf(String id) => kOgLSeedColors[id] ?? kOgLSeedColor;
 
 /// 按 id 取主题色名（未知 id 回落首个）。
-String ogLSeedColorLabel(String id) => OgLI18n.instance.t(
-      'common',
-      kOgLSeedColorLabelKeys[id] ?? 'seedGithub',
-    );
+String ogLSeedColorLabel(String id) =>
+    kOgLSeedColorLabels[id] ?? kOgLSeedColorLabels.values.first;
 
 /// 界面密度（`compact` → 更紧凑）。
 VisualDensity ogLDensityOf(String id) => id == 'compact'

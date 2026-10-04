@@ -117,12 +117,12 @@ class _ActionRunPageState extends State<ActionRunPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('rerunFailed', <String, String>{'error': error})),
+        _t('rerunFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('rerunFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('rerunFailed', <String, String>{'error': error}))),
         );
       }
     } finally {
@@ -165,12 +165,12 @@ class _ActionRunPageState extends State<ActionRunPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        _t('cancelFailed', <String, String>{'error': error})),
+        _t('cancelFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('cancelFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('cancelFailed', <String, String>{'error': error}))),
         );
       }
     } finally {
@@ -300,7 +300,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _t('status', <String, String>{'status': status}))
+                  _t('status', <String, String>{'status': status})
                   '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
                   '${ghDate(run, 'created_at')}',
                   style: theme.textTheme.bodySmall,

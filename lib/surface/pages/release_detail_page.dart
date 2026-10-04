@@ -166,11 +166,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('publish'),
-        _t('updateFailed', <String, String>{'error': error})),
+        _t('updateFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('saveFailed', <String, String>{'error': error})));
+        _toast(_t('saveFailed', <String, String>{'error': error}));
       }
     } finally {
       if (mounted) {
@@ -213,11 +213,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('publish'),
-        _t('deleteFailed', <String, String>{'error': error})),
+        _t('deleteFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('deleteFailed', <String, String>{'error': error})));
+        _toast(_t('deleteFailed', <String, String>{'error': error}));
       }
     } finally {
       if (mounted) {
@@ -246,7 +246,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       }
     } catch (error) {
       if (mounted) {
-        _toast(_t('addDownloadFailed', <String, String>{'error': error})));
+        _toast(_t('addDownloadFailed', <String, String>{'error': error}));
       }
     }
   }

@@ -72,13 +72,13 @@ class _NewRepoPageState extends State<NewRepoPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         _t('title'),
-        _t('createFailed', <String, String>{'error': error})),
+        _t('createFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = _t('createFailed', <String, String>{'error': error}));
+          _error = _t('createFailed', <String, String>{'error': error});
         });
       }
     }

@@ -195,12 +195,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('updateFailed', <String, String>{'error': error})),
+        _t('updateFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error}))),
         );
       }
     } finally {
@@ -244,12 +244,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('deleteFailed', <String, String>{'error': error})),
+        _t('deleteFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('deleteFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('deleteFailed', <String, String>{'error': error}))),
         );
       }
     } finally {

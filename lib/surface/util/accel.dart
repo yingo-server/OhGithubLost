@@ -1,4 +1,8 @@
-/// L3 展示级 · Release 下载加速通道（模型 / 内置通道 / 法律声明）。
+
+
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);/// L3 展示级 · Release 下载加速通道（模型 / 内置通道 / 法律声明）。
 ///
 /// ## 能力
 /// - **一个总开关**：`releaseProxyEnabled`——关掉即全部走直连；
@@ -12,11 +16,6 @@
 /// 两个协议的**文本与版本号**都收敛在本文件；用户同意后会记录
 /// 版本号与时间（[kOgLAccelConsentVersion]），文本升版必须重新同意。
 library;
-
-import '../i18n/og_l_i18n.dart';
-
-/// 取 `common` 分片文案。
-String _t(String key) => OgLI18n.instance.t('common', key);
 
 /// 同意协议的版本号：**文本任何实质修改都必须 +1**，以便重新征求同意。
 const int kOgLAccelConsentVersion = 1;
@@ -100,17 +99,17 @@ String? ogLValidateAccelBaseUrl(String raw) {
     return _t('accelUrlCjk');
   }
   if (!input.startsWith('https://') && !input.startsWith('http://')) {
-    return _t('accelUrlScheme');
+    return '地址必须以 https:// 或 http:// 开头';
   }
   if (input.contains(' ')) {
     return _t('accelUrlSpace');
   }
   if (input.startsWith('http://')) {
     // 明文会被 Android 9+ 直接拦截（此前 4.4.0 的故障根因），提前告知。
-    return _t('accelUrlPlainHttp');
+    return '明文 http:// 会被 Android 9+ 拦截，请使用 https://';
   }
   if (!input.endsWith('/')) {
-    return _t('accelUrlTrailingSlash');
+    return '地址需以 / 结尾（例如 https://example.com/）';
   }
   return null;
 }
@@ -169,10 +168,8 @@ const String kOgLBuiltinAccelSecurityStatement = '''
    对你的使用行为生效。
 ''';
 
-/// 按通道类型返回对应协议文本（走 i18n；中文源文见上方常量）。
+/// 按通道类型返回对应协议文本。
 String ogLAccelAgreementFor(OgLAccelChannel channel) =>
-    channel.builtin ? _t('accelBuiltinStatement') : _t('accelThirdPartyDisclaimer');
-
-/// 通道展示名（内置通道走 i18n，自定义通道用用户填写的名字）。
-String ogLAccelChannelName(OgLAccelChannel channel) =>
-    channel.builtin ? _t('accelBuiltin') : channel.name;
+    channel.builtin
+        ? kOgLBuiltinAccelSecurityStatement
+        : kOgLThirdPartyAccelDisclaimer;

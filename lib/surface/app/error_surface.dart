@@ -413,12 +413,12 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
             : '${notice.title}：${notice.detail}';
     OgLLogFile.line(
       _t('notification'),
-      _t('systemChannel', <String, String>{'text': text})),
+      _t('systemChannel', <String, String>{'text': text}),
       level: notice.severity == OgLNoticeSeverity.critical ? 'ERR' : 'WARN',
     );
     OgLAppLog.instance.add(
       _t('notification'),
-      _t('systemChannel', <String, String>{'text': text})),
+      _t('systemChannel', <String, String>{'text': text}),
       severity: notice.severity,
     );
     unawaited(OgLSystemNotifier.instance.show(

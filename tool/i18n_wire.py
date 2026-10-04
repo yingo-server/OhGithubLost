@@ -194,7 +194,8 @@ def wire_file(rel, apply_changes, stats):
                 unmatched.append(content)
             continue
         key, value = hit
-        exprs = [g1 if g1 is not None else g2 for g1, g2 in INTERP.findall(content)]
+        exprs = [m.group(1) if m.group(1) is not None else m.group(2)
+                 for m in INTERP.finditer(content)]
         ph_names = names[key]
         if len(exprs) != len(ph_names):
             unmatched.append(content)
@@ -235,6 +236,17 @@ def wire_file(rel, apply_changes, stats):
                   "String _t(String key, [Map<String, String>? args]) =>\n"
                   "    OgLI18n.instance.t('%s', key, args: args);" % (page, page))
         new = new[:pos] + helper + new[pos:]
+
+    # 相邻字符串字面量会变成相邻的 _t()：补上 '+'
+    if "_t('" in new:
+        call = (r"_t\('[A-Za-z0-9_]+'(?:,\s*<String,\s*String>\{[^{}]*\})?\)")
+        adjacent = re.compile(r"(" + call + r")\s*\n(\s*)(" + call + r")")
+        while True:
+            joined = adjacent.sub(
+                lambda m: '%s +\n%s%s' % (m.group(1), m.group(2), m.group(3)), new)
+            if joined == new:
+                break
+            new = joined
 
     # 剥掉失效 const
     if "_t('" in new:

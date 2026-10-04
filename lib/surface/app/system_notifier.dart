@@ -102,7 +102,7 @@ class OgLSystemNotifier {
       _unavailableReason = '$error';
       OgLAppLog.instance.add(
         _t('notification'),
-        _t('systemNotifUnavailable', <String, String>{'error': error})),
+        _t('systemNotifUnavailable', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.warning,
       );
       return false;

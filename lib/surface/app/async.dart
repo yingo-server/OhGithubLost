@@ -94,7 +94,7 @@ class AsyncController<T> extends ChangeNotifier {
       _data = value;
       _empty = isEmpty(value);
       _error = null;
-      OgLAppLog.instance.result(_t('loading'), _t('done', <String, String>{'label': label})), _summarize(value));
+      OgLAppLog.instance.result(_t('loading'), _t('done', <String, String>{'label': label}), _summarize(value));
     } catch (error) {
       _error = _describe(error);
       OgLAppLog.instance.add(
@@ -153,9 +153,9 @@ class AsyncController<T> extends ChangeNotifier {
   String _describe(Object error) {
     final String text = error.toString();
     if (text.startsWith('Exception: ')) {
-      return _t('failedWith', <String, String>{'label': label, 'text': text.substring(11)}));
+      return _t('failedWith', <String, String>{'label': label, 'text': text.substring(11)});
     }
-    return _t('failedParen', <String, String>{'label': label, 'text': text}));
+    return _t('failedParen', <String, String>{'label': label, 'text': text});
   }
 }
 

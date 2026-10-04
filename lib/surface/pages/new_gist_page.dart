@@ -74,12 +74,12 @@ class _NewGistPageState extends State<NewGistPage> {
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        _t('createFailed', <String, String>{'error': error})),
+        _t('createFailed', <String, String>{'error': error}),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('createFailed', <String, String>{'error': error})))),
+          SnackBar(content: Text(_t('createFailed', <String, String>{'error': error}))),
         );
       }
     } finally {

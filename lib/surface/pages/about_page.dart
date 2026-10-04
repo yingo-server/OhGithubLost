@@ -38,7 +38,7 @@ class AboutPage extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('copied', <String, String>{'label': label})))),
+      SnackBar(content: Text(_t('copied', <String, String>{'label': label}))),
     );
   }
 

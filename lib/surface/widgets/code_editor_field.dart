@@ -62,6 +62,10 @@ import 'package:re_highlight/re_highlight.dart';
 
 import '../i18n/og_l_i18n.dart';
 
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);
+
 /// 高亮语言注册的上限（超过即跳过高亮，避免超大文件拖垮渲染）。
 const int kOgLHighlightMaxChars = 400 * 1024;
 
@@ -81,20 +85,13 @@ const String kOgLCodePresetSoft = 'soft';
 /// 预设：自定义（用户自选每个 token 的颜色）。
 const String kOgLCodePresetCustom = 'custom';
 
-/// 全部预设（id → `common` 分片键）。
+/// 全部预设（id → 展示名）。
 const Map<String, String> kOgLCodePresetLabels = <String, String>{
-  kOgLCodePresetTheme: 'codePresetTheme',
-  kOgLCodePresetHighContrast: 'codePresetHighContrast',
-  kOgLCodePresetSoft: 'codePresetSoft',
-  kOgLCodePresetCustom: 'codePresetCustom',
+  kOgLCodePresetTheme: _t('codePresetTheme'),
+  kOgLCodePresetHighContrast: _t('codePresetHighContrast'),
+  kOgLCodePresetSoft: _t('codePresetSoft'),
+  kOgLCodePresetCustom: _t('codePresetCustom'),
 };
-
-/// 预设展示名（`common` 分片）。
-String ogLCodePresetLabel(String id) =>
-    OgLI18n.instance.t('common', kOgLCodePresetLabels[id] ?? id);
-
-/// 取 `common` 分片文案。
-String _t(String key) => OgLI18n.instance.t('common', key);
 
 /// 代码配色方案。
 @immutable
@@ -679,7 +676,7 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
             controller: controller.findInputController,
             focusNode: controller.findInputFocusNode,
             style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
+            decoration:  InputDecoration(
               isDense: true,
               hintText: _t('findHint'),
               border: InputBorder.none,
@@ -717,7 +714,7 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
           ),
         IconButton(
           icon: const Icon(Icons.close, size: 18),
-          tooltip: _t('closeMin'),
+          tooltip: _t('close'),
           onPressed: controller.close,
         ),
       ],
@@ -732,7 +729,7 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
               controller: controller.replaceInputController,
               focusNode: controller.replaceInputFocusNode,
               style: const TextStyle(fontSize: 13),
-              decoration: InputDecoration(
+              decoration:  InputDecoration(
                 isDense: true,
                 hintText: _t('replaceWithHint'),
                 border: InputBorder.none,
@@ -741,7 +738,7 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
           ),
           IconButton(
             icon: const Icon(Icons.done, size: 18),
-            tooltip: _t('replaceOne'),
+            tooltip: _t('replaceMode'),
             onPressed: value.result == null ? null : controller.replaceMatch,
           ),
           IconButton(

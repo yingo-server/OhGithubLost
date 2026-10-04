@@ -83,7 +83,7 @@ class _SearchPageState extends State<SearchPage> {
         loader: () async {
           final List<GhRepo> repos =
               await widget.surface.domain.api.searchRepos(q, perPage: 30);
-          OgLAppLog.instance.add(_t('search'), _t('repoResults', <String, String>{'q': q, 'count': repos.length})));
+          OgLAppLog.instance.add(_t('search'), _t('repoResults', <String, String>{'q': q, 'count': repos.length}));
           return repos
               .map(
                 (GhRepo repo) => _SearchHit(
@@ -102,7 +102,7 @@ class _SearchPageState extends State<SearchPage> {
         loader: () async {
           final List<Map<String, dynamic>> items =
               await widget.surface.domain.api.searchCode(q, perPage: 30);
-          OgLAppLog.instance.add(_t('search'), _t('codeResults', <String, String>{'q': q, 'count': items.length})));
+          OgLAppLog.instance.add(_t('search'), _t('codeResults', <String, String>{'q': q, 'count': items.length}));
           return items.map(_hitFromCode).toList();
         },
       );
@@ -241,7 +241,7 @@ class _SearchPageState extends State<SearchPage> {
                 : AsyncView<List<_SearchHit>>(
                     controller: controller,
                     emptyIcon: Icons.search_off,
-                    emptyText: _t('noResults', <String, String>{'query': _query})),
+                    emptyText: _t('noResults', <String, String>{'query': _query}),
                     builder: (
                       BuildContext context,
                       List<_SearchHit> hits,
