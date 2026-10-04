@@ -113,14 +113,14 @@ abstract final class OgLSaf {
       return false;
     }
     try {
-      final Object? created = await SafStream().pasteLocalFile(
+      await SafStream().pasteLocalFile(
         srcPath,
         treeUri,
         fileName,
         mime,
         overwrite: true,
       );
-      return created != null;
+      return true;
     } catch (error) {
       debugPrint('OGL 存储：导出到 SAF 失败：$error');
       return false;
