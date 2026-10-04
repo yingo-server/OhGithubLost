@@ -167,6 +167,13 @@ class OgLNoticeCenter extends ChangeNotifier {
   void requeueFront(OgLNotice notice) {
     _pending.insert(0, notice);
   }
+
+  /// 仅测试用：清空待展示与历史（避免用例之间互相污染）。
+  @visibleForTesting
+  void debugClear() {
+    _pending.clear();
+    _history.clear();
+  }
 }
 
 /// 应用级日志环（surface 层）：记录用户操作与**原始错误**，供「关于页」展示。

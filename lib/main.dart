@@ -11,7 +11,6 @@
 ///    用户第一次打开就能看见"到底加载了什么"。
 library;
 
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';

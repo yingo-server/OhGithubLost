@@ -67,7 +67,7 @@ void _loadZh() {
 void main() {
   setUpAll(_loadZh);
   setUp(() {
-    OgLNoticeCenter.instance.clear();
+    OgLNoticeCenter.instance.debugClear();
     OgLPermissionSelfTestReport.last = null;
   });
 

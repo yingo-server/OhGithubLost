@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
 import '../app/permission_selftest.dart';
+import '../app/permissions.dart';
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
 
