@@ -20,6 +20,15 @@
   「选择文件夹（SAF）」「取消文件夹授权」「打开『所有文件访问』设置」。
 - 新增事件码 `OGL-DL-301`（已导出到所选文件夹）。
 
+### 变更 · Changed（图标 / 命名 / 平台 / 产物 · Icon, naming, platforms, artifacts）
+- **应用图标 = 矢量、背景透明**：几何事实来源 `assets/icon/ogl_icon.svg`；
+  Android 用**矢量 XML**（VectorDrawable 前景 + 自适应图标，透明背景）。
+- **应用名**：Android = **OGL**；其余平台 = **OhGithubLost**。
+- **平台调整**：**弃用 macOS 与 iOS**（最后支持版本 **v5.3.0**）；
+  Windows / Linux 补齐 **arm64**（由 best-effort 转为正式腿），
+  桌面端无 32 位目标（上游 Flutter 不提供），32 位仅 Android（`armeabi-v7a`）。
+- **Release 只提供压缩包**：`.zip` 与 `.7z` 双份、**极限压缩**（`zip -9` / `7z -mx=9`）。
+
 ### 变更 · Changed（引导 / 设置 · Onboarding & settings）
 - **引导页新增第 1 步「语言与外观」**：语言与明暗模式**在引导里首次设定**、
   即时生效；引导**不含登录**（符合商业规范：登录不属于引导流程）。

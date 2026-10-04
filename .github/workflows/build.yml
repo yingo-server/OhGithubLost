@@ -152,54 +152,34 @@ jobs:
             build: windows
             args: --release
             artifact: build/windows/x64/runner/Release/**
-          - label: Windows · arm64-best-effort
+          - label: Windows · arm64
             # `flutter build windows` 无 --target-platform 选项（CI 实证：
             # "Could not find an option named --target-platform"），
-            # 只能在 arm64 宿主上原生构建 → 使用 windows-11-arm 预览 runner。
-            # 失败不阻塞主线（best_effort）。
+            # 只能在 arm64 宿主上原生构建 → 使用 windows-11-arm runner。
+            # 5.6.0 起**不再 best-effort**：这条腿失败即阻塞发布。
             os: windows-11-arm
             build: windows
             args: --release
             artifact: build/windows/arm64/runner/Release/**
-            best_effort: true
+          # 注：Windows/Linux **没有 32 位桌面目标**（Flutter 桌面只提供
+          # x64 与 arm64，官方无 ia32 引擎）——32 位仅 Android 有（armeabi-v7a）。
           - label: Linux · x64
             os: ubuntu-latest
             build: linux
             args: --release
             artifact: build/linux/x64/release/bundle/**
-          - label: Linux · arm64-best-effort
+          - label: Linux · arm64
             # Flutter 官方不发布 linux-arm64 宿主 SDK（releases 404）；
             # 且 x64→arm64 交叉构建不受支持（CI 实证："Cross-build from
             # Linux x64 host to Linux arm64 target is not currently supported"）。
             # 因此改为 arm64 宿主原生构建 + git 方式装 Flutter（绕过归档缺失）。
-            # 能否成功取决于上游是否发布 linux-arm64 引擎产物；失败不阻塞主线。
+            # 5.6.0 起**不再 best-effort**：这条腿失败即阻塞发布。
             os: ubuntu-24.04-arm
             build: linux
             args: --release
             artifact: build/linux/arm64/release/bundle/**
-            best_effort: true
-          - label: macOS · arm64
-            os: macos-14
-            build: macos
-            args: --release
-            artifact: build/macos/Build/Products/Release/*.app/**
-          - label: macOS · x64
-            # CI 实证：macos-13 队列连续多轮被平台取消（cancelled，
-            # 非构建失败）——Intel 容量/淘汰策略所致。改用 macos-15-intel。
-            os: macos-15-intel
-            build: macos
-            args: --release
-            artifact: build/macos/Build/Products/Release/*.app/**
-          - label: iOS · device-arm64
-            os: macos-14
-            build: ios
-            args: --release --no-codesign
-            artifact: build/ios/iphoneos/Runner.app/**
-          - label: iOS · simulator
-            os: macos-14
-            build: ios
-            args: --no-codesign --simulator
-            artifact: build/ios/iphonesimulator/Runner.app/**
+          # macOS / iOS 自 5.6.0 起**弃用**（不再构建、不再发布）；
+          # 最后支持的版本是 **v5.3.0**（README 已标注）。
 
     steps:
       - name: 拉取代码
@@ -472,26 +452,29 @@ jobs:
         with:
           path: dist
 
-      - name: 整理产物
+      - name: 准备压缩工具
+        # 7z 在 ubuntu runner 上一般已预装；显式装一次，缺失也能补上。
+        run: sudo apt-get update -qq && sudo apt-get install -y p7zip-full >/dev/null || true
+      - name: 整理产物（**只发压缩包** · zip + 7z · 极限压缩）
         shell: bash
         run: |
           set -u
           mkdir -p out
           shopt -s nullglob
-          # ① APK / AAB：加版本前缀，手机上一眼可辨。
-          for f in dist/*/*.apk dist/*/*.aab; do
-            base=$(basename "$f")
-            cp "$f" "out/OGL-v${VN}-${base}"
-            echo "包: OGL-v${VN}-${base}"
-          done
-          # ② 桌面 / 移动整包：按平台目录打成 zip，保持目录结构。
+          # 5.6.0 起：**只提供压缩包 release**——不再直传 APK / AAB / 平台目录。
+          # 每条产物同时出 **zip** 与 **7z** 两种，且都用**极限压缩**
+          # （zip -9 / 7z -mx=9），尽量把体积压到最小。
           cd dist
           for d in */; do
             n="${d%/}"
-            zip -qr "../out/${n}.zip" "$n"
+            nv="OGL-v${VN}-${n}"
+            # 在目录内部打包：压缩包里是文件本身，不套一层目录。
+            (cd "$n" && zip -r -9 -q "../../out/${nv}.zip" .)
+            (cd "$n" && 7z a -t7z -mx=9 -mmt=on -bso0 -bsp0 "../../out/${nv}.7z" . >/dev/null)
+            echo "包: ${nv}.zip / ${nv}.7z"
           done
           cd ..
-          echo '=== 最终产物 ==='
+          echo '=== 最终产物（仅压缩包） ==='
           ls -la out/
 
       - name: 计算标签
@@ -524,7 +507,10 @@ jobs:
               echo ""
               echo "- 通道：**$CH**"
               echo "- 版本：**${VN}**（build ${VNUM}）"
-              echo "- 产物：Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）+ Windows + Linux + macOS + iOS"
+              echo "- 产物（**仅压缩包**，zip 与 7z 双份、极限压缩）："
+              echo "  Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）、Windows（x64 / arm64）、Linux（x64 / arm64）"
+              echo ""
+              echo "> macOS / iOS 自 5.6.0 起**不再提供**；最后支持的版本是 **v5.3.0**。"
             } > notes.md
           fi
 
