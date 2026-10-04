@@ -75,8 +75,9 @@ Future<void> ogLApplyWindowDecoration(OgLWindowDecoration decoration) async {
       }
     } else {
       // 回退：恢复系统默认标题栏与按钮。
-      await windowManager.setAsFrameless(asFrameless: false);
-      if (Platform.isWindows || Platform.isMacOS) {
+      // 注：`setAsFrameless()` 在 window_manager 0.5.x **不接受参数**，
+      //     所以回退只靠 `setTitleBarStyle(normal)`（它才是跨平台可控的开关）。
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
         await windowManager.setTitleBarStyle(
           TitleBarStyle.normal,
           windowButtonVisibility: true,

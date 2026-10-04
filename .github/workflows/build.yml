@@ -469,6 +469,17 @@ jobs:
       - name: 准备压缩工具
         # 7z 在 ubuntu runner 上一般已预装；显式装一次，缺失也能补上。
         run: sudo apt-get update -qq && sudo apt-get install -y p7zip-full >/dev/null || true
+      - name: 安装 Linux 打包工具
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rpm file >/dev/null || true
+      - name: Linux 安装包（deb / rpm / AppImage · 裸放直传）
+        # 三种格式**自身已深度压缩**，不再套外层压缩包。
+        # AppImage 用 `--appimage-extract-and-run` 绕过 CI 无 FUSE 的限制；
+        # 任何一步不可用都只告警、不失败（不让它拖垮整个发布）。
+        shell: bash
+        run: python3 tool/linux_packages.py --dist dist --out out --version "${VN}" || true
+
       - name: 整理产物（**只发压缩包** · zip + 7z · 极限压缩）
         shell: bash
         run: |
@@ -478,9 +489,13 @@ jobs:
           # 5.6.0 起：**只提供压缩包 release**——不再直传 APK / AAB / 平台目录。
           # 每条产物同时出 **zip** 与 **7z** 两种，且都用**极限压缩**
           # （zip -9 / 7z -mx=9），尽量把体积压到最小。
+          # 例外：Linux 走**裸放**的 deb / rpm / AppImage（见上一步）。
           cd dist
           for d in */; do
             n="${d%/}"
+            case "$n" in
+              Linux.*) echo "跳过压缩（已裸放）：$n"; continue ;;
+            esac
             nv="OGL-v${VN}-${n}"
             # 在目录内部打包：压缩包里是文件本身，不套一层目录。
             (cd "$n" && zip -r -9 -q "../../out/${nv}.zip" .)
