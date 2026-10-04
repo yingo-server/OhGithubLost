@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../kernel/kernel.dart';
 import '../app/animations.dart';
@@ -33,6 +34,20 @@ class AboutPage extends StatelessWidget {
 
   /// 启动报告（内核在启动时定格的快照）。
   final KernelReport? report;
+
+  /// 打开仓库页面（赞助 = 给仓库加星，落在 GitHub 上完成）。
+  Future<void> _openSponsor(BuildContext context) async {
+    final Uri uri = Uri.parse(OgLProjectInfo.repositoryUrl);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_t('copied', {'label': Uri.decodeFull(uri.toString())}))),
+        );
+      }
+    }
+  }
 
   Future<void> _copy(BuildContext context, String text, String label) async {
     await Clipboard.setData(ClipboardData(text: text));
@@ -95,6 +110,22 @@ class AboutPage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 赞助：原在设置根级，**并入关于页**（这里是"身份页"，赞助属于身份认同）。
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: const Icon(Icons.favorite, color: Colors.redAccent),
+              title: Text(OgLI18n.instance.t('shell', 'donateHeart')),
+              subtitle: Text(
+                OgLI18n.instance.t('shell', 'donateTileDesc', args: <String, String>{
+                  'repo': OgLProjectInfo.repoFullName,
+                }),
+              ),
+              trailing: const Icon(Icons.open_in_new, size: 18),
+              onTap: () => _openSponsor(context),
             ),
           ),
           const SizedBox(height: 16),

@@ -341,6 +341,8 @@ class _SettingsPageState extends State<SettingsPage> {
   /// 捐赠一颗心：二次确认后，用当前登录令牌给项目仓库加星。
   ///
   /// 已 star 时不重复操作，直接给出提示（幂等，不制造"操作了但没变化"的疑惑）。
+  // ignore: unused_element
+  
   Future<void> _donateStar() async {
     final GhAccount? account = await widget.surface.domain.auth.activeAccount();
     if (!mounted) {
@@ -427,10 +429,13 @@ class _SettingsPageState extends State<SettingsPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
+              // 根级顺序**严格固定**（不再随缘排列）：
+              // 外观 → 语言 → 代码与文件 → 网络 → 存储位置 → 账号 → 维护
+              // → 关于 → 许可 → 日志。
               _appearanceSection(theme, value),
               _languageSection(theme),
               _codeSection(theme, value),
-              // 网络：**独立子页面**（不再是一个可折叠分组）。
+              // 网络：**独立子页面**（不折叠）。
               Card(
                 clipBehavior: Clip.antiAlias,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -471,18 +476,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle:  Text(_t('projectInfo')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openAbout,
-                ),
-              ),
-              // 捐赠一颗心：二次确认后加星。
-              Card(
-                clipBehavior: Clip.antiAlias,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: Icon(Icons.favorite, color: theme.colorScheme.error),
-                  title:  Text(_t('donateHeart')),
-                  subtitle: Text(_t('donateTileDesc', {'repo': OgLProjectInfo.repoFullName})),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _donateStar,
                 ),
               ),
               _licenseSection(theme),
@@ -1417,13 +1410,20 @@ const Divider(height: 1),
         child: Theme(
           // 去掉 ExpansionTile 展开时的上下分隔线，外观更干净。
           data: theme.copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: Text(title, style: theme.textTheme.titleMedium),
-            subtitle: subtitle.isEmpty
-                ? null
-                : Text(subtitle, style: theme.textTheme.bodySmall),
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            children: children,
+          // 层级规范：**设置根级一律不允许下拉/折叠**。
+          // 分组标题即分组本身，内容直接展开（设置项数量有限，无需折叠）。
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              ListTile(
+                title: Text(title, style: theme.textTheme.titleMedium),
+                subtitle: subtitle.isEmpty
+                    ? null
+                    : Text(subtitle, style: theme.textTheme.bodySmall),
+              ),
+              ...children,
+            ],
+          ),
           ),
         ),
       );
