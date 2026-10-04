@@ -2,9 +2,32 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v5.4.0（开发中 · 未发布）
-**主题**：网络设置**独立成页** + 加速通道「**内置优先 / 静默降级**」+ 许可入口合并。
-*Network settings as its own page, built-in acceleration channel with silent fallback, merged license entry.*
+## v5.6.0（2026-10-04 · 正式版）
+**主题**：**存储三档（公共目录 → SAF → 内部）** + 网络独立成页 + 引导页重做（语言/外观前置）+ 加速通道内置优先链。
+*Three-tier storage (public dir → SAF → internal), network settings as its own page, reworked onboarding (language & appearance first), and a built-in acceleration priority chain.*
+
+### 新增 · Added（存储 · Storage）
+- **三档落盘，前两档算「过」· Three storage tiers**
+  | 档 | 条件 | 落点 | 用户可见 | 自检 |
+  |---|---|---|---|---|
+  | ① 公共目录 | 有「所有文件访问」 | `/storage/emulated/0/ogl` | ✅ | **过** |
+  | ② SAF 文件夹 | 用户授权了文件夹 | 私有目录 → **导出粘贴**到该文件夹 | ✅ | **过** |
+  | ③ 应用内部 | 两者都没有 | 应用私有目录 | ❌ | **不过**（不阻断） |
+- **SAF 落地方式**：下载**照旧**写私有目录（分片 / 断点 / 后台通知零改动），
+  完成后用 `SafStream.pasteLocalFile` **粘贴**到用户选的文件夹。新增依赖
+  `saf_util` / `saf_stream`（仅 Android 生效）。
+- **设置 → 存储位置**：如实显示当前档位与实际路径，并提供
+  「选择文件夹（SAF）」「取消文件夹授权」「打开『所有文件访问』设置」。
+- 新增事件码 `OGL-DL-301`（已导出到所选文件夹）。
+
+### 变更 · Changed（引导 / 设置 · Onboarding & settings）
+- **引导页新增第 1 步「语言与外观」**：语言与明暗模式**在引导里首次设定**、
+  即时生效；引导**不含登录**（符合商业规范：登录不属于引导流程）。
+- **登录页左上角**新增入口，可随时**重新触发引导**（回顾模式，不改动引导标志）。
+- 网络设置**独立成页**（DNS / 下载并发 / 加速通道），不再是一个可折叠分组。
+- 开源许可**合并为一条**，打开时弹窗（本项目 + 第三方依赖）。
+- 加速通道：内置通道 = `gh.344977.xyz`（**优先**）+ `gh.felicity.ac.cn`（**降级**），
+  用户不可调整；下载时逐个探测，**静默降级**，最后永远保留直连兜底。
 
 ### 变更 · Changed
 - **内置加速通道改为「优先 + 降级」固定链（用户不可调整）**

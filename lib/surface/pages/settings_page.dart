@@ -28,6 +28,7 @@ import '../../kernel/kernel.dart';
 import '../../kernel/log/og_l_log_file.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
+import '../app/permissions.dart';
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
@@ -441,6 +442,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: _openNetwork,
                 ),
               ),
+              // 存储位置：档位 + 选择文件夹（SAF）/ 所有文件访问。
+              _storageSection(theme),
               if (saveError != null) ...<Widget>[
                 Card(
                   color: theme.colorScheme.errorContainer,
@@ -816,6 +819,128 @@ const Divider(height: 1),
         ),
       ),
     );
+  }
+
+  /// 存储位置：三档（公共目录 / 已授权文件夹 / 应用私有目录）。
+  ///
+  /// 与权限网关同一套裁决（`OgLStorage.plan()`）；这里只负责**如实展示**与
+  /// 提供入口：选文件夹（SAF）/ 取消授权 / 打开「所有文件访问」设置。
+  Widget _storageSection(ThemeData theme) => Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          leading: const Icon(Icons.folder_outlined),
+          title: Text(_t('storageAccess')),
+          subtitle: Text(_t('storageGrantDesc1')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _showStorage,
+        ),
+      );
+
+  /// 存储弹窗。
+  Future<void> _showStorage() async {
+    // 每次都**重新探测**（用户可能刚在系统设置里改过权限）。
+    final String mode = await widget.surface.appStorageMode();
+    final ({String path, bool visible}) info =
+        await widget.surface.appStorageInfo();
+    final String? saf = await widget.surface.safTreeUri();
+    if (!mounted) {
+      return;
+    }
+    final String modeText = switch (mode) {
+      'public' => _t('storageModePublic'),
+      'saf' => _t('storageModeSaf'),
+      _ => _t('storageModeInternal'),
+    };
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title:  Text(_t('storageAccess')),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(modeText, style: Theme.of(dialogContext).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text('${_t('storageWhere')}：${info.path}'),
+                if (!info.visible) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(_t('storageHintModern')),
+                ],
+                if (saf != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(
+                    saf,
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          if (!info.visible)
+            TextButton(
+              onPressed: () => unawaited(_requestAllFiles(dialogContext)),
+              child:  Text(_t('storageOpenAllFiles')),
+            ),
+          TextButton(
+            onPressed: () => unawaited(_pickSafFolder(dialogContext)),
+            child:  Text(_t('storagePickFolder')),
+          ),
+          if (saf != null)
+            TextButton(
+              onPressed: () => unawaited(_clearSafFolder(dialogContext)),
+              child:  Text(_t('storageClearFolder')),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child:  Text(_tc('close')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 请求「所有文件访问」（Android 11+ 会跳到特殊设置页）。
+  Future<void> _requestAllFiles(BuildContext dialogContext) async {
+    Navigator.of(dialogContext).pop();
+    final OgLPermissionGateway gateway = ogLPermissionGateway(
+      storageProbe: widget.surface.ensureStorage,
+      storageLocation: widget.surface.appStoragePath,
+    );
+    final OgLPermissionStatus status =
+        await gateway.request(OgLPermission.storage);
+    if (!mounted) {
+      return;
+    }
+    _toast(status == OgLPermissionStatus.granted
+        ? _t('dnsSaved')
+        : _t('storageHintModern'));
+  }
+
+  /// 选一个文件夹（SAF）并持久化授权。
+  Future<void> _pickSafFolder(BuildContext dialogContext) async {
+    Navigator.of(dialogContext).pop();
+    final bool ok = await widget.surface.pickSafDirectory();
+    if (!mounted) {
+      return;
+    }
+    _toast(ok ? _t('storageModeSaf') : _t('storageHintModern'));
+  }
+
+  /// 取消 SAF 授权。
+  Future<void> _clearSafFolder(BuildContext dialogContext) async {
+    Navigator.of(dialogContext).pop();
+    await widget.surface.clearSafDirectory();
+    if (mounted) {
+      _toast(_t('storageClearFolder'));
+    }
   }
 
   /// 轻提示。

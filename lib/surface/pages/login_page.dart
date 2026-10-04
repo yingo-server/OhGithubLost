@@ -6,6 +6,7 @@
 /// 任何一步失败都会让"看起来登上了、实际没有令牌"，
 /// 因此每一步都摊开显示状态，失败时错误原样给用户看（并写日志）。
 library;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -14,6 +15,7 @@ import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import 'onboarding_page.dart';
 
 /// 取 `login` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
@@ -198,13 +200,33 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  /// 打开引导页（**回顾模式**：不改动"已引导"标志，也不影响登录状态）。
+  Future<void> _openOnboarding() async {
+    final NavigatorState navigator = Navigator.of(context);
+    await navigator.push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => OnboardingPage(
+          surface: widget.surface,
+          review: true,
+          onFinished: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Future<void> Function()? skip = widget.onSkip;
     return Scaffold(
       appBar: AppBar(
         title: Text(OgLI18n.instance.t('login', 'title')),
+        // 左上角：**重新触发引导**（商业规范：引导只自动弹一次，
+        // 之后由用户在这里主动唤起；设置页也有对应入口）。
         automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.school_outlined),
+          onPressed: _busy ? null : () => unawaited(_openOnboarding()),
+        ),
         actions: <Widget>[
           if (skip != null)
             TextButton(

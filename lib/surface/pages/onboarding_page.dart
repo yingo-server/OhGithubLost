@@ -1,9 +1,12 @@
 /// L3 展示级 · 首次引导（分步）。
 ///
 /// ## 分步设计
-/// 用 `PageView` 把引导拆成 4 步：欢迎 → 权限 → 隐私 → 完成。
-/// 每步只讲一件事，底部有进度指示与「上一步 / 下一步」，
-/// 用户始终知道「还有几步、当前在哪一步」。
+/// 用 `PageView` 把引导拆成 5 步：
+/// **语言与外观** → 欢迎 → 权限 → 隐私 → 完成。
+///
+/// - 「语言与外观」放**第一步**：这两件事必须在用户看懂任何文案之前定下来；
+/// - **不含登录**：按商业规范，登录不属于引导流程（登录页左上角可随时重看引导，
+///   设置页也有全部设置项）。
 ///
 /// ## 权限是「真请求」
 /// 权限获取走 [OgLPermissionGateway]（不同平台不同网关）：
@@ -11,6 +14,7 @@
 /// - 通知：弹窗说明后跳转系统设置（纯 Dart 无法直接申请）。
 /// 拿不到就如实告诉用户，绝不自称已授权。
 library;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -18,12 +22,15 @@ import '../app/animations.dart';
 import '../app/error_surface.dart';
 import '../app/permissions.dart';
 import '../i18n/og_l_i18n.dart';
+import '../settings.dart';
 import '../surface_bridge.dart';
-
 /// 取 `onboarding` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
     OgLI18n.instance.t('onboarding', key,
         args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
+
+/// 取 `settings` 分片文案（引导里的「语言 / 外观」直接复用设置页的词条）。
+String _ts(String key) => OgLI18n.instance.t('settings', key);
 
 /// 首次引导页。
 class OnboardingPage extends StatefulWidget {
@@ -49,7 +56,7 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  static const int _stepCount = 4;
+  static const int _stepCount = 5;
 
   late final OgLPermissionGateway _gateway = ogLPermissionGateway(
     storageProbe: widget.surface.ensureStorage,
@@ -216,6 +223,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 controller: _page,
                 onPageChanged: (int value) => setState(() => _step = value),
                 children: <Widget>[
+                  _preferencesStep(theme),
                   _welcomeStep(theme),
                   _permissionStep(theme),
                   _privacyStep(theme),
@@ -274,6 +282,69 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Widget _stepBody(ThemeData theme, {required List<Widget> children}) =>
       ListView(padding: const EdgeInsets.all(20), children: children);
+
+  /// 第 1 步：**语言与外观**。
+  ///
+  /// 放在最前面：语言决定用户能不能看懂后面的每一步，外观决定整体观感。
+  /// 两者都**即时生效**（改完立刻能看到），并复用设置页的同一套状态与词条。
+  Widget _preferencesStep(ThemeData theme) => ListenableBuilder(
+        listenable: widget.surface.settings,
+        builder: (BuildContext context, Widget? _) {
+          final OgLSettings value = widget.surface.settings.settings;
+          return _stepBody(
+            theme,
+            children: <Widget>[
+              Text(_ts('language'), style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  for (final OgLLocale locale in OgLI18n.locales)
+                    ChoiceChip(
+                      label: Text(locale.label),
+                      selected: locale.code == value.languageCode,
+                      onSelected: (bool selected) {
+                        if (selected) {
+                          unawaited(
+                            widget.surface.settings.setLanguage(locale.code),
+                          );
+                        }
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(_ts('appearance'), style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              SegmentedButton<OgLThemeMode>(
+                segments: <ButtonSegment<OgLThemeMode>>[
+                  ButtonSegment<OgLThemeMode>(
+                    value: OgLThemeMode.system,
+                    label: Text(_ts('followSystem')),
+                  ),
+                  ButtonSegment<OgLThemeMode>(
+                    value: OgLThemeMode.light,
+                    label: Text(_ts('light')),
+                  ),
+                  ButtonSegment<OgLThemeMode>(
+                    value: OgLThemeMode.dark,
+                    label: Text(_ts('dark')),
+                  ),
+                ],
+                selected: <OgLThemeMode>{value.mode},
+                onSelectionChanged: (Set<OgLThemeMode> selection) {
+                  if (selection.isNotEmpty) {
+                    unawaited(widget.surface.settings.setMode(selection.first));
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(_ts('appearanceDesc'), style: theme.textTheme.bodySmall),
+            ],
+          );
+        },
+      );
 
   Widget _welcomeStep(ThemeData theme) => _stepBody(
         theme,

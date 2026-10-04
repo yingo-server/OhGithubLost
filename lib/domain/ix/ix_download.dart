@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../base/disk/og_l_storage.dart';
 import '../../kernel/contract/download_engine.dart';
 import '../../kernel/diagnostics.dart';
 
@@ -551,6 +552,48 @@ class IxDownloadManager extends ChangeNotifier {
     if (snap != null) {
       _snapshots[id] = snap.copyWith(status: status);
       notifyListeners();
+      if (status == IxDownloadStatus.completed) {
+        unawaited(_maybeExportToSaf(id));
+      }
+    }
+  }
+
+  /// 已导出到 SAF 的任务（去重：进度/状态事件会反复到达）。
+  final Set<String> _exportedToSaf = <String>{};
+
+  /// 下载完成后，把成品**导出**到用户授权的 SAF 文件夹（存储②档）。
+  ///
+  /// - 只在 ② 档（`safDir`）生效；① 档直接写公共目录、③ 档无处可导；
+  /// - **绝不抛出**：导出失败不影响"下载已完成"这个事实，只在日志留痕。
+  Future<void> _maybeExportToSaf(String id) async {
+    if (!_exportedToSaf.add(id)) {
+      return;
+    }
+    final IxDownloadTask? snap = _snapshots[id];
+    if (snap == null) {
+      return;
+    }
+    try {
+      final OgLStoragePlan plan = await OgLStorage.plan();
+      if (plan.mode != OgLStorageMode.safDir) {
+        return;
+      }
+      final bool ok = await OgLStorage.exportToSaf(
+        localPath: snap.savePath,
+        fileName: snap.fileName,
+      );
+      if (!ok) {
+        _exportedToSaf.remove(id);
+        return;
+      }
+      _diagnostics?.info(
+        'DL',
+        '已导出到所选文件夹：${snap.fileName}',
+        code: 'OGL-DL-301',
+        data: <String, Object?>{'mode': plan.label},
+      );
+    } catch (_) {
+      _exportedToSaf.remove(id);
     }
   }
 
@@ -572,6 +615,8 @@ class IxDownloadManager extends ChangeNotifier {
         // 库对小文件可能一次进度事件都不发 → 界面会一直显示 "0 B"（截图实证）。
         // 完成时以磁盘上的真实文件大小回填。
         unawaited(_fillCompletedSize(id));
+        // 存储②档：成品自动**导出**到用户选的文件夹（去重、失败不阻断）。
+        unawaited(_maybeExportToSaf(id));
       }
       return;
     }
