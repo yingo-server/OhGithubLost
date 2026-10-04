@@ -169,7 +169,7 @@ class _GistsPageState extends State<GistsPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  _t('fileCount', {'count': _fileCountOf(gist)})
+                  _t('fileCount', {'count': _fileCountOf(gist)}) +
                   '${isPublic ? '公开' : _t('private')} · '
                   '${ghDate(gist, 'updated_at')}',
                   maxLines: 1,

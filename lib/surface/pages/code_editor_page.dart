@@ -342,7 +342,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Text(
-            _t('stats', {'lines': _controller.lineCount, 'chars': _controller.text.length})
+            _t('stats', {'lines': _controller.lineCount, 'chars': _controller.text.length}) +
             '${_dirty ? ' · 未保存' : ''}',
             style: theme.textTheme.bodySmall,
           ),

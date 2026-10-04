@@ -102,7 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   /// 动效档位的短标签（与 [OgLSettings.motionLevelIds] 一一对应）。
-  static List<String> get _motionShort => <String>[
+  List<String> get _motionShort => <String>[
         _t('densityMin'),
         _t('densityCurrent'),
         _t('densityStandard'),
@@ -110,7 +110,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ];
 
   /// 动效档位的说明（与 [OgLSettings.motionLevelIds] 一一对应）。
-  static List<String> get _motionHints => <String>[
+  List<String> get _motionHints => <String>[
     _t('motionMinDesc'),
     _t('motionCurrentDesc'),
     _t('motionStandardDesc'),

@@ -301,7 +301,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _t('status', {'status': status})
+                  _t('status', {'status': status}) +
                   '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
                   '${ghDate(run, 'created_at')}',
                   style: theme.textTheme.bodySmall,

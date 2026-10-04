@@ -116,7 +116,7 @@ class OgLSystemNotifier {
       if (!await _ensureInit()) {
         return;
       }
-      const NotificationDetails details = NotificationDetails(
+      final NotificationDetails details = NotificationDetails(
         android: AndroidNotificationDetails(
           'ogl_events',
           _t('appNotifications'),

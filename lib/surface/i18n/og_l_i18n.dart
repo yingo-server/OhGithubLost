@@ -18,7 +18,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter/services.dart';
 
-import 'og_l_i18n.dart';
 
 /// 一个可选语言。
 @immutable

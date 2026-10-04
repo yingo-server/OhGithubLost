@@ -74,7 +74,7 @@ class OgLDependencyLicense {
 }
 
 /// 第三方依赖清单（顺序与 `pubspec.yaml` 保持一致）。
-const List<OgLDependencyLicense> kOgLDependencyLicenses =
+final List<OgLDependencyLicense> kOgLDependencyLicenses =
     <OgLDependencyLicense>[
   OgLDependencyLicense('path_provider', 'BSD-3-Clause', _t('featureCrossPlatformDirs')),
   OgLDependencyLicense('flutter_secure_storage', 'MIT', _t('featureTokenVault')),
