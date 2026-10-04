@@ -6,7 +6,7 @@
 
 - **README 链接可用了**：相对链接（`LICENSE`、`docs/x.md`、`#锚点`、裸域名）先按仓库基址解析成绝对地址再交给系统浏览器；解析不了会明确提示，不再"点了没反应"。
 - **README 图片可以显示了**：图片经 **GitHub Contents API** 取字节后用 `Image.memory` 渲染，不经过 `raw.githubusercontent.com`，避开 DNS 污染；`<img src=…>` 也会渲染成图；单次上限 40 张，超出或失败退化为 alt 文本（不静默丢图）。
-- **Linux 产物 glibc 下限锁到 2.28**：Linux 构建改为在 `debian:10` 容器内进行（对应 Ubuntu 18.10 / Debian 10 一代及以上）。
+- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
 ## v5.9.0（2026-10-05 · 测试版 / beta）
 
 **主题**：**跨平台差异面硬化** —— 直面 Windows / Linux / Android 三系差异，
@@ -28,7 +28,7 @@
   现改为 `sha256(编码键)`，`purgeOrphans` 同步（否则会误删有效缓存）。
 
 ### 已知限制 · Known limits
-- Linux 产物 **glibc ≥ 2.28**；musl（Alpine）与更老的 glibc 不支持。
+- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
 - Windows 需 **10 1809+**；7 / 8.1 无法运行。
 - 桌面**无 32 位**产物（上游 Flutter 不提供 ia32 引擎）。
 

@@ -29,14 +29,14 @@ GitHub 仓库管理客户端，手机、平板与桌面可用。仓库地址与�
 | --- | --- | --- |
 | Android | Android 6.0（API 23）+ | 32 位（`armeabi-v7a`）仅此平台提供 |
 | Windows | **Windows 10 1809 或更高** | Flutter 桌面自身的要求；**7 / 8.1 无法运行** |
-**glibc ≥ 2.28**（对应 Ubuntu 18.10 / Debian 10 一代及以上；Linux 产物在 `debian:10` 容器内构建以锁定该下限）
+- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
 
 ### ⚠️ 不要做无用尝试
 
 以下组合**明确不支持**，试了也不会成功（不是配置问题，是上游限制）：
 
 - **Linux · musl 系（Alpine 等）**：Flutter 的 Linux 引擎依赖 glibc，musl 下不保证可运行；
-- **glibc ≥ 2.28**（对应 Ubuntu 18.10 / Debian 10 一代及以上；Linux 产物在 `debian:10` 容器内构建以锁定该下限）
+- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
 - **Windows 7 / 8.1**：Flutter 桌面要求 Windows 10 1809+；
 - **桌面 32 位（x86）**：Flutter 桌面只提供 x64 / arm64，**没有 ia32 引擎**。
 

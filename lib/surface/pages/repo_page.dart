@@ -1436,10 +1436,10 @@ class _CodeTabState extends State<_CodeTab> {
     if (path.isEmpty) {
       return null;
     }
-    final String ref = _branch.isEmpty ? _repo.defaultBranch : _branch;
+    final String ref = widget.branch;
     try {
       final GhContent? content =
-          await widget.surface.domain.api.content(_full, path, branch: ref);
+          await widget.surface.domain.api.content(widget.fullName, path, branch: ref);
       if (content == null) {
         return null;
       }

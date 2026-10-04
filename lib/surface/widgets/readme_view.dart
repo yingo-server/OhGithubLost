@@ -287,6 +287,7 @@ class ReadmeView extends StatelessWidget {
         }
         open(uri);
       },
+      // ignore: deprecated_member_use
       imageBuilder: (Uri uri, String? title, String? alt) {
         final String label =
             (alt == null || alt.trim().isEmpty) ? uri.path : alt.trim();
