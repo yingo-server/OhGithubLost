@@ -41,7 +41,6 @@ class OgLOAnimQuality {
     required this.curve,
     required this.largeCurve,
     required this.transitionWindow,
-    required this.transitionScaleFrom,
     required this.shellDuration,
     required this.shellOffset,
     required this.stateSwapDuration,
@@ -95,9 +94,6 @@ class OgLOAnimQuality {
   /// 这样**不必改动任何路由创建点**，也不会破坏系统的返回手势语义，
   /// 但肉眼观感快一倍以上。
   final double transitionWindow;
-
-  /// 全页过渡起始缩放（1 = 不缩放；仅中/高档给一点点）。
-  final double transitionScaleFrom;
 
   /// 切 tab 的滑动时长。
   final Duration shellDuration;
@@ -230,7 +226,6 @@ class OgLOAnimQuality {
           curve: Curves.linear,
           largeCurve: Curves.linear,
           transitionWindow: 0,
-          transitionScaleFrom: 1,
           shellDuration: Duration.zero,
           shellOffset: 0,
           stateSwapDuration: Duration.zero,

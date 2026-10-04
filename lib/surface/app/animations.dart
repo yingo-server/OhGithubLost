@@ -71,37 +71,7 @@ abstract final class OgLAnim {
     return from >= 1 ? 1 : from;
   }
 
-  /// 切 tab 的滑动时长 / 位移。
-  static Duration shellDuration(BuildContext context) =>
-      quality(context).shellDuration;
-
-  /// 切 tab 的位移比例。
-  static double shellOffset(BuildContext context) =>
-      quality(context).shellOffset;
-
-  /// 整页翻页（引导页）时长。
-  static Duration pageViewDuration(BuildContext context) =>
-      quality(context).pageViewDuration;
-
-  /// 半页弹层（底部面板）时长。
-  static Duration sheetDuration(BuildContext context) =>
-      quality(context).sheetDuration;
-
-  /// 大体积动画（整页 / 半页）统一曲线：起步快、收尾柔。
-  static Curve largeCurve(BuildContext context) => quality(context).largeCurve;
-
-  /// 大体积内容切换（loading → data）时长。
-  static Duration stateSwapDuration(BuildContext context) =>
-      quality(context).stateSwapDuration;
-
-  /// 大体积内容切换的起始缩放（1 = 不缩放）。
-  static double stateSwapScale(BuildContext context) {
-    // 复用全页过渡的缩放量级：低档不缩放，中/高档各给一点点。
-    final double from = quality(context).transitionScaleFrom;
-    return from >= 1 ? 1 : from;
-  }
-
-  /// 切 tab 的滑动时长 / 位移。
+  /// 切 tab 的滑动时长。
   static Duration shellDuration(BuildContext context) =>
       quality(context).shellDuration;
 
@@ -269,48 +239,3 @@ class OgLSurfaceSwitch extends StatelessWidget {
     );
   }
 }
-
-/// **大体积内容切换**：整页 / 半页内容（loading → data、页面级状态）换用
-/// 「快速淡入 + 极轻缩放」。
-///
-/// 为什么单独做成一个组件：
-/// - 大体积内容用纯淡入会"发闷"，用位移又容易和页面过渡打架——
-///   **淡入 + 极轻缩放**是最稳的"灵动"组合，且几乎不增加绘制成本
-///   （缩放幅度 ≤ 1%、外层仍有 `RepaintBoundary`）；
-/// - 缩放属于"会被低档位关掉的效果"，因此它的取值、曲线、时长都从
-///   `OgLOAnimQuality` 来；门禁（`tool/motion_audit.py`）只允许在**本文件**
-///   与 `motion.dart` 里出现 `ScaleTransition`，避免各处私自造效果。
-class OgLSurfaceSwitch extends StatelessWidget {
-  /// 创建。
-  const OgLSurfaceSwitch({required this.child, super.key});
-
-  /// 当前内容（用 `Key` 区分不同状态即可触发切换）。
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final Duration duration = OgLAnim.stateSwapDuration(context);
-    final Curve curve = OgLAnim.largeCurve(context);
-    final double from = OgLAnim.stateSwapScale(context);
-    return AnimatedSwitcher(
-      duration: duration,
-      switchInCurve: curve,
-      switchOutCurve: Curves.easeOut,
-      transitionBuilder: (Widget current, Animation<double> animation) {
-        if (from >= 1) {
-          // 低档：只淡入（不缩放）——最保守但仍"有反应"。
-          return FadeTransition(opacity: animation, child: current);
-        }
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: from, end: 1).animate(animation),
-            child: current,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
-
