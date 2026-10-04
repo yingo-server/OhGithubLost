@@ -21,6 +21,7 @@ import '../base/base_bridge.dart';
 import '../base/disk/app_dirs.dart';
 import '../base/disk/disk_cache.dart';
 import '../base/disk/disk_store.dart';
+import '../base/disk/og_l_storage.dart';
 import '../base/net/net_bridge.dart';
 import '../domain/domain_bridge.dart';
 import '../kernel/bridge_registry.dart';
@@ -91,15 +92,44 @@ class SurfaceBridge {
   Future<String> appStoragePath() async => (await appStorageInfo()).path;
 
   /// 当前落盘位置摘要：路径 + **是否用户可见**（文件管理器 / 电脑能找到）。
+  ///
+  /// 可见性由**三档方案**裁决：公共目录 ✅ / SAF 文件夹 ✅ / 应用内部 ⚠️。
   Future<({String path, bool visible})> appStorageInfo() async {
     try {
-      final ({String path, OgLStorageTier tier, bool visible}) info =
-          await OgLAppDirs.location();
-      return (path: info.path, visible: info.visible);
+      final OgLStoragePlan plan = await OgLStorage.plan();
+      return (path: plan.root, visible: plan.userVisible);
     } catch (_) {
       return (path: OgLI18n.instance.t('common', 'unknown'), visible: false);
     }
   }
+
+  /// 当前落盘档位（`public` / `saf` / `internal`；供 UI 如实展示）。
+  Future<String> appStorageMode() async {
+    try {
+      return (await OgLStorage.plan()).label;
+    } catch (_) {
+      return 'internal';
+    }
+  }
+
+  /// 已授权的 SAF 文件夹 URI（未授权 = `null`）。
+  Future<String?> safTreeUri() async {
+    await OgLStorage.ensureLoaded();
+    return OgLStorage.safTreeUri;
+  }
+
+  /// 让用户**选一个文件夹**（SAF）并持久化授权；返回是否成功。
+  Future<bool> pickSafDirectory() async {
+    final String? uri = await OgLSaf.pickDirectory();
+    if (uri == null) {
+      return false;
+    }
+    await OgLStorage.setSafTreeUri(uri);
+    return true;
+  }
+
+  /// 取消 SAF 授权（回到"内部存储"档）。
+  Future<void> clearSafDirectory() => OgLStorage.setSafTreeUri(null);
 
   /// 清空本机仓库缓存。
   ///
@@ -375,23 +405,24 @@ List<OgLModule> surfaceLayerModules() => <OgLModule>[
       SurfaceLayerModule(),
     ];
 
-/// 真实写入探针：**只有落到"用户可见"的公共目录才算通过**。
+/// 存储探针：**按三档方案裁决**「用户拿不拿得到文件」。
 ///
-/// 两个关键点（此前踩过的坑）：
+/// 三个关键点（此前踩过的坑）：
 /// 1. **先让根目录缓存失效**：权限可能在本次会话里刚变（用户去系统设置授权后
 ///    返回），缓存不清就会一直卡在旧位置——"就算给了所有文件权限，也还是
 ///    优先用内部存储"。
-/// 2. **探的是"可见性"，不是"能不能写"**：应用私有目录（内部存储 /
-///    `Android/data`）一定写得动，但它们**用户看不到**；以前探"已回退后的
-///    目录"，于是回退成功也会被判成"已授权"，问题被掩盖。
+/// 2. **判的是"用户可见"，不是"能不能写"**：应用私有目录（内部存储 /
+///    `Android/data`）一定写得动，但它们**用户看不到**。
+/// 3. **①②算过、③不过**：公共目录 ✅ / SAF 文件夹 ✅ / 应用内部 ⚠️
+///    （如实报告"不过"，但**不阻断**——功能照常）。
 Future<bool> _probeStorage() async {
   OgLAppDirs.invalidate();
   try {
-    final String root = await OgLAppDirs.root();
-    if (!OgLAppDirs.isUserVisible(root)) {
-      return false; // 用户看不见 → 如实报告"未取得存储权限"。
+    final OgLStoragePlan plan = await OgLStorage.plan();
+    if (!plan.userVisible) {
+      return false;
     }
-    final File probe = File('$root/.ogl_probe_ui');
+    final File probe = File('${plan.root}/.ogl_probe_ui');
     await probe.writeAsString('ok', flush: true);
     await probe.delete();
     return true;
