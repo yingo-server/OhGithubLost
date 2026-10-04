@@ -13,6 +13,8 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1426,6 +1428,66 @@ class _CodeTabState extends State<_CodeTab> {
     );
   }
 
+  /// README / Markdown 里图片的**仓库内相对路径** → 字节。
+  ///
+  /// 走 **GitHub Contents API**（同一套 DoH / 镜像传输层），
+  /// 因此不碰 `raw.githubusercontent.com`，避开 DNS 污染。
+  Future<Uint8List?> _readImageBytes(String path) async {
+    if (path.isEmpty) {
+      return null;
+    }
+    final String ref = _branch.isEmpty ? _repo.defaultBranch : _branch;
+    try {
+      final GhContent? content =
+          await widget.surface.domain.api.content(_full, path, branch: ref);
+      if (content == null) {
+        return null;
+      }
+      final String encoding = '${content.raw['encoding'] ?? ''}';
+      final String encoded = '${content.raw['content'] ?? ''}';
+      // >1 MB 的图片 Contents API 不回内容（isTooLarge），如实退化为替代文本。
+      if (encoded.isEmpty) {
+        return null;
+      }
+      if (encoding == 'base64') {
+        return base64Decode(encoded.replaceAll('\n', ''));
+      }
+      return Uint8List.fromList(utf8.encode(encoded));
+    } catch (error) {
+      OgLAppLog.instance.add('README', '图片取回失败：$path（$error）',
+          severity: OgLNoticeSeverity.warning);
+      return null;
+    }
+  }
+
+  /// 相对路径 → 仓库内真实路径（处理 `./`、`../`、查询串与锚点）。
+  static String _repoPath(String dir, String raw) {
+    final String stripped = raw.split('?').first.split('#').first;
+    final List<String> stack = <String>[
+      for (final String seg in dir.split('/'))
+        if (seg.isNotEmpty) seg,
+    ];
+    for (final String seg in Uri.decodeComponent(stripped).split('/')) {
+      if (seg.isEmpty || seg == '.') {
+        continue;
+      }
+      if (seg == '..') {
+        if (stack.isNotEmpty) {
+          stack.removeLast();
+        }
+        continue;
+      }
+      stack.add(seg);
+    }
+    return stack.join('/');
+  }
+
+  /// 目录部分（`a/b/c.md` → `a/b`）。
+  static String _dirOf(String path) {
+    final int i = path.lastIndexOf('/');
+    return i <= 0 ? '' : path.substring(0, i);
+  }
+
   Widget _readmeTile() {
     final String? md = _readme;
     if (md == null || md.trim().isEmpty) {
@@ -1438,6 +1500,7 @@ class _CodeTabState extends State<_CodeTab> {
       children: <Widget>[
         ReadmeView(
           markdown: md,
+          imageLoader: (String p) => _readImageBytes(_repoPath('', p)),
           onOpenLink: (Uri uri) {
             unawaited(openExternalLink(uri, tag: 'README'));
           },
@@ -1592,6 +1655,8 @@ class _CodeTabState extends State<_CodeTab> {
         padding: const EdgeInsets.all(16),
         child: ReadmeView(
           markdown: text,
+          imageLoader: (String p) =>
+              _readImageBytes(_repoPath(_dirOf(file.path), p)),
           onOpenLink: (Uri uri) {
             unawaited(openExternalLink(uri, tag: _t('file')));
           },
