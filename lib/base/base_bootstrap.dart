@@ -11,10 +11,8 @@
 library;
 
 import '../kernel/contract/module.dart';
-
 import 'base_bridge.dart';
 import 'disk/platform_io.dart';
-
 import 'net/net_bridge.dart';
 
 /// 组装 L1 全部模块（**真机默认路径**）。

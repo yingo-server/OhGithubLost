@@ -19,7 +19,6 @@ library;
 import 'package:flutter/material.dart';
 
 import '../i18n/og_l_i18n.dart';
-
 import 'animations.dart';
 import 'error_surface.dart';
 

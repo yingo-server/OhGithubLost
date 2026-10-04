@@ -7,14 +7,14 @@
 /// 4. 加速通道地址必须是 `https://`（明文 http 会被 Android 9+ 拦截）；
 /// 5. 加速地址拼接是纯函数、不会二次加前缀。
 library;
-import 'package:flutter_test/flutter_test.dart';
-import 'package:ohgithublost/surface/util/accel.dart';
-import 'package:ohgithublost/surface/util/download_proxy.dart';
-import 'package:ohgithublost/surface/util/path_rules.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/surface/i18n/og_l_i18n.dart';
+import 'package:ohgithublost/surface/util/accel.dart';
+import 'package:ohgithublost/surface/util/download_proxy.dart';
+import 'package:ohgithublost/surface/util/path_rules.dart';
 
 /// 把 zh 分片注入 i18n 内核（测试环境读不到 assets）。
 void _loadZh() {

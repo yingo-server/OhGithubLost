@@ -9,16 +9,12 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
-
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
-
 import '../surface_bridge.dart';
 import '../types.dart';
-
 import 'drafts_page.dart';
 import 'gists_page.dart';
-
 import 'login_page.dart';
 import 'repo_page.dart';
 

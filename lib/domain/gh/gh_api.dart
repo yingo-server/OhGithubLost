@@ -12,17 +12,13 @@ library;
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-
 import 'package:flutter/foundation.dart';
 
 import '../../base/disk/disk_cache.dart';
-
 import '../../kernel/contract/disk_types.dart';
 import '../../kernel/contract/net_types.dart';
-
 import 'gh_client.dart';
 import 'gh_draft.dart';
-
 import 'gh_models.dart';
 
 /// GitHub 端点封装。

@@ -15,7 +15,6 @@
 library;
 
 import 'dart:async';
-
 import 'dart:io';
 
 /// 日志落盘器（单例；组合根在 `runApp` 之前 `init`）。

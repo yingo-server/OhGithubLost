@@ -9,14 +9,11 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
-
 import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
-
 import '../surface_bridge.dart';
 import '../types.dart';
 

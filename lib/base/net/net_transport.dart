@@ -20,7 +20,6 @@
 library;
 
 import 'net_mirror.dart';
-
 import 'net_retry.dart';
 import 'net_types.dart';
 

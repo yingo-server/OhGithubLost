@@ -22,10 +22,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../kernel/boot/trust_warnings.dart';
-
 import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
-
 import '../i18n/og_l_i18n.dart';
 import 'system_notifier.dart';
 

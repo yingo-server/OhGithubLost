@@ -11,14 +11,11 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:re_editor/re_editor.dart';
 
 import '../app/error_surface.dart';
-
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
-
 import '../types.dart';
 import '../widgets/code_editor_field.dart';
 

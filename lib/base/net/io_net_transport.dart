@@ -20,15 +20,12 @@
 library;
 
 import 'dart:async';
-
 import 'dart:convert';
 import 'dart:io';
 
 import 'net_dns.dart';
-
 import 'net_self_test.dart';
 import 'net_transport.dart';
-
 import 'net_types.dart';
 
 /// 基于 `dart:io HttpClient` 的传输实现（Android / Windows / Linux 共用）。

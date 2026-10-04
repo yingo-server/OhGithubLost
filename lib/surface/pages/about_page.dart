@@ -10,11 +10,9 @@
 library;
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
-
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
 

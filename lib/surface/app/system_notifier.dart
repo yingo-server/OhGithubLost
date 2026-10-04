@@ -15,7 +15,6 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../i18n/og_l_i18n.dart';
-
 import 'error_surface.dart';
 
 /// 取 `shell` 分片文案。

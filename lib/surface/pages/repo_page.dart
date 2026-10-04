@@ -15,38 +15,27 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
-
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
-
 import '../surface_bridge.dart';
 import '../types.dart';
-
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
-
 import '../util/link_opener.dart';
 import '../util/path_rules.dart';
-
 import '../widgets/code_editor_field.dart';
 import '../widgets/readme_view.dart';
-
 import 'action_run_page.dart';
 import 'code_editor_page.dart';
-
 import 'commit_page.dart';
 import 'issue_page.dart';
-
 import 'new_issue_page.dart';
 import 'new_release_page.dart';
-
 import 'pull_page.dart';
 import 'release_detail_page.dart';
-
 import 'workflow_dispatch_page.dart';
 
 /// 取 `repo` 分片文案。

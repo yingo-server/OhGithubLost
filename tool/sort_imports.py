@@ -11,7 +11,9 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 同时整理 lib 与 test（测试也受 directives_ordering 约束，CI 会卡）。
 LIB = os.path.join(ROOT, 'lib')
+TEST = os.path.join(ROOT, 'test')
 
 DIRECTIVE = re.compile(r"^(import|export|part)\s+'([^']+)'(?:\s+(?:as\s+\w+|show\s+[^;]+|hide\s+[^;]+))*\s*;")
 
@@ -67,9 +69,6 @@ def sort_file(path, apply_changes):
     # 块内原本可能夹着空行 / 注释（注释保留在块后），整体替换
     new_lines = lines[:start] + out + lines[end + 1:]
     new_text = '\n'.join(new_lines)
-    # 确保 import 块后有空行
-    new_text = re.sub(r"(\n(?:import|export|part)\s+'[^']+';)\n(?!\n)", r'\1\n\n',
-                      new_text)
     if apply_changes and new_text != text:
         with open(path, 'w', encoding='utf-8') as handle:
             handle.write(new_text)
@@ -82,14 +81,17 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
     changed = 0
-    for dirpath, _, filenames in os.walk(LIB):
-        for name in sorted(filenames):
-            if not name.endswith('.dart'):
-                continue
-            path = os.path.join(dirpath, name)
-            if sort_file(path, not args.dry_run):
-                changed += 1
-                print('sorted', os.path.relpath(path, ROOT))
+    for base in (LIB, TEST):
+        if not os.path.isdir(base):
+            continue
+        for dirpath, _, filenames in os.walk(base):
+            for name in sorted(filenames):
+                if not name.endswith('.dart'):
+                    continue
+                path = os.path.join(dirpath, name)
+                if sort_file(path, not args.dry_run):
+                    changed += 1
+                    print('sorted', os.path.relpath(path, ROOT))
     print('changed %d（%s）' % (changed, 'dry-run' if args.dry_run else '已写入'))
     return 0
 

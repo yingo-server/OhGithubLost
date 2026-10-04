@@ -8,15 +8,12 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/animations.dart';
-
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
-
 import '../types.dart';
 import '../util/gh_format.dart';
 

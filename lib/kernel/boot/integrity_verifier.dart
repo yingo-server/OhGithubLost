@@ -16,7 +16,6 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:cryptography/cryptography.dart';
 
 import '../contract/module.dart';
-
 import 'boot_fs.dart';
 import 'boot_manifest.dart';
 

@@ -9,12 +9,10 @@
 library;
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/error_surface.dart';
-
 import '../i18n/og_l_i18n.dart';
 
 /// 取 `common` 分片文案。

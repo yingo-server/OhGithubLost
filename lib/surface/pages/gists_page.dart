@@ -10,13 +10,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
-
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
-
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
-
 import 'gist_detail_page.dart';
 import 'new_gist_page.dart';
 

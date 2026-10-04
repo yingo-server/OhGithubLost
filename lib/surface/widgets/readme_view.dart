@@ -12,7 +12,6 @@
 library;
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../i18n/og_l_i18n.dart';

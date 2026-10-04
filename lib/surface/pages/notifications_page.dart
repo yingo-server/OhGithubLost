@@ -13,11 +13,9 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
-
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 

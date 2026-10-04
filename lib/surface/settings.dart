@@ -21,7 +21,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'i18n/og_l_i18n.dart';
-
 import 'util/accel.dart';
 
 /// 明暗模式偏好。

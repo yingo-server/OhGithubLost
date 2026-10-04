@@ -14,22 +14,16 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../kernel/kernel.dart';
-
 import '../i18n/og_l_i18n.dart';
 import '../pages/dashboard_page.dart';
-
 import '../pages/login_page.dart';
 import '../pages/onboarding_page.dart';
-
 import '../pages/profile_page.dart';
 import '../pages/search_page.dart';
-
 import '../pages/settings_page.dart';
 import '../surface_bridge.dart';
-
 import '../types.dart';
 import 'animations.dart';
-
 import 'error_surface.dart';
 
 /// 壳内的四个页面（导航值）。

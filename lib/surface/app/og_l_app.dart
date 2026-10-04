@@ -12,21 +12,16 @@
 library;
 
 import 'package:flutter/gestures.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../kernel/kernel.dart';
-
 import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
-
 import '../surface_bridge.dart';
 import 'animations.dart';
-
 import 'client_shell.dart';
 import 'error_surface.dart';
-
 import 'keyboard_guard.dart';
 import 'motion.dart';
 

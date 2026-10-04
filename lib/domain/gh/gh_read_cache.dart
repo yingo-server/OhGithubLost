@@ -18,7 +18,6 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../../kernel/contract/disk_store.dart';
-
 import '../../kernel/diagnostics.dart';
 
 /// 只读端点缓存。
