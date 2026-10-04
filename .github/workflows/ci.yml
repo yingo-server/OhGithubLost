@@ -76,8 +76,8 @@ jobs:
     name: AI 审计（Agnes · 补正则盲区）
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # 密钥存在才真正跑。缺失 = 跳过并显式标注（不把 CI 锁死）。
-    if: ${{ secrets.AGNES_API_KEY != '' }}
+    # 注：secrets 上下文不能用于 job 的 if: 条件（Actions 限制），
+    # 因此这里始终运行；密钥经 env 传入，脚本内部判空则跳过并显式标注。
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
