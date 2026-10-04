@@ -23,6 +23,11 @@ abstract final class BootWarningCodes {
   /// 未签名第三方 Mod 已加载。
   static const String unsignedModLoaded = 'OGL-BOOT-101';
 
+  /// 清单声明的模块在装配时**未被提供**（构建裁剪 / 接线遗漏）。
+  ///
+  /// 由 5.0 的一次性一致性探针发现：此前这种不一致会被**静默放过**。
+  static const String manifestModuleNotProvided = 'OGL-BOOT-108';
+
   /// 官方模块完整性校验失败（已拒绝装载并进入安全模式）。
   static const String moduleIntegrityFailed = 'OGL-BOOT-102';
 

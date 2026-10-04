@@ -2,7 +2,7 @@
   "about": "À propos",
   "appNotifDesc": "Notifications de fin de téléchargement, de fin de tâche et d'erreurs importantes",
   "appNotifications": "Notifications de l'application",
-  "backExitHint": "Appuyez à nouveau sur retour pour quitter",
+  "backExitHint": "Appuyez sur retour une fois de plus pour quitter l'application",
   "bootRejected": "Démarrage refusé",
   "countChars": "{count} caractères",
   "countItems": "{count} élément(s)",

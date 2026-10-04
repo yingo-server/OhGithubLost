@@ -681,6 +681,30 @@ void main() {
       expect(net.trace, contains('stop'));
     });
 
+    test('清单声明的模块未被提供 → 留痕 OGL-BOOT-108（不静默通过）', () async {
+      // 5.0 由一次性一致性探针发现的缺口：清单里有、运行期没给 → 以前静默通过。
+      final fixture = await _buildFixture(specs: _defaultSpecs());
+      final harness = _buildHarness(fixture);
+      final kernel = OgLKernel(
+        diagnostics: harness.diagnostics,
+        bootLoader: harness.loader,
+      );
+
+      // 只提供 base.net：清单声明的 domain.api 故意不给。
+      final report = await kernel.boot(<OgLModule>[
+        _FakeModule(id: 'base.net', layer: ModuleLayer.base),
+      ]);
+
+      expect(report.safeMode, isFalse, reason: '这是装配缺失，不是完整性失败');
+      expect(
+        harness.diagnostics.logTail.any(
+          (KernelLogEntry entry) => entry.code == 'OGL-BOOT-108',
+        ),
+        isTrue,
+        reason: '必须留下「清单声明但装配缺失」的事件码',
+      );
+    });
+
     test('安全模式下被排除模块不参与装配', () async {
       final fixture = await _buildFixture(specs: _defaultSpecs());
       fixture.fs.writeText('lib/domain/api/gh_api.dart', 'class Evil {}');

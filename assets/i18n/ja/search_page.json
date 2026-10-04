@@ -9,7 +9,7 @@
   "repoResults": "「{q}」のリポジトリ結果：{count} 個",
   "repoSearch": "リポジトリ検索",
   "search": "検索",
-  "starsCount": "{count} スター",
+  "starsCount": "スター数：{count}",
   "startHint": "キーワードを入力して検索を開始",
   "tabCode": "コード",
   "tabRepos": "リポジトリ"

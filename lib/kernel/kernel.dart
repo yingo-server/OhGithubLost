@@ -14,6 +14,7 @@
 library;
 
 import 'boot/boot_loader.dart';
+import 'boot/boot_manifest.dart';
 import 'boot/trust_policy.dart';
 import 'boot/trust_warnings.dart';
 import 'bridge_registry.dart';
@@ -202,6 +203,38 @@ class OgLKernel {
       bus.register(module);
     }
     bus.seal();
+
+    // ★ 5.0（探针发现）：**清单 ↔ 运行期模块**交叉校验。
+    //   清单声明了某模块、装配时却没提供它 —— 可能是构建裁剪或接线遗漏。
+    //   这类不一致以前会静默通过（应用"看起来正常"，实际少了一整层能力），
+    //   现在必须留痕：诊断 warn（带事件码）+ 引导信任告警。
+    final Set<String> declared = <String>{
+      for (final BootModuleEntry entry
+          in bootResult.manifest?.modules ?? const <BootModuleEntry>[])
+        entry.id,
+    };
+    final Set<String> provided = <String>{
+      for (final OgLModule module in modules) module.descriptor.id,
+    };
+    for (final String missing in declared.difference(provided)) {
+      diagnostics.warn(
+        'KERNEL',
+        '清单声明的模块未被提供（装配缺失）：$missing',
+        code: BootWarningCodes.manifestModuleNotProvided,
+        data: <String, Object?>{'module': missing},
+      );
+      warnings.report(
+        code: BootWarningCodes.manifestModuleNotProvided,
+        subject: 'module:$missing',
+        severity: TrustSeverity.warning,
+        message: '引导清单声明了 $missing，但运行期未提供该模块（装配缺失）。',
+        data: <String, Object?>{
+          'module': missing,
+          'declared': declared.length,
+          'provided': provided.length,
+        },
+      );
+    }
 
     final ordered = bus.resolveOrder();
     final context = KernelContext(
