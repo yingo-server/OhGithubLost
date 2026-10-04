@@ -482,7 +482,7 @@ class RepositoryCache {
   /// 由 [_loadLocal] 在读取时自愈。
   Future<int> purgeOrphans() async {
     final referenced = <String>{
-      for (final meta in await _scanMetas()) '${meta.encoded}.txt',
+      for (final meta in await _scanMetas()) blobNameOf(meta.encoded),
     };
     var removed = 0;
     for (final name in await _blobs.list('cache')) {
@@ -835,7 +835,16 @@ class RepositoryCache {
 
   String _metaKeyOf(String encoded) => '$_indexPrefix$encoded';
 
-  String _blobPathOf(String encoded) => '$_blobPrefix$encoded.txt';
+  /// blob 文件名 = `sha256(编码键)` + `.txt`。
+  ///
+  /// **为什么必须摘要（而不是直接拼键）**：编码键形如 `scope|path`，
+  /// 其中的 `|` 在 Windows 上是**非法文件名字符** —— 直接拼名字会让
+  /// 整块本地缓存写不进去（`FileSystemException`）。
+  /// 摘要顺带解决了两件事：路径过长、以及 Windows 大小写不敏感导致的碰撞。
+  static String blobNameOf(String encoded) =>
+      '${sha256.convert(utf8.encode(encoded))}.txt';
+
+  String _blobPathOf(String encoded) => '$_blobPrefix${blobNameOf(encoded)}';
 
   Future<List<_LocalMeta>> _scanMetas() async {
     final result = <_LocalMeta>[];

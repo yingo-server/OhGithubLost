@@ -19,7 +19,9 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
@@ -48,6 +50,34 @@ class IoDiskFileStore implements DiskFileStore {
     return value;
   }
 
+  /// 触发长路径处理的门槛（Win32 的 MAX_PATH 是 260）。
+  static const int kWinPathSoftLimit = 240;
+
+  /// Windows 长路径前缀：`\\?\` 让 Win32 **跳过 MAX_PATH 解析**。
+  ///
+  /// 三个约束（缺一不可，否则前缀反而会让调用失败）：
+  /// 1. 必须是**绝对路径**（本项目 `abs()` 保证）；
+  /// 2. 必须用**反斜杠**；
+  /// 3. UNC 路径（`\\server\share`）要写成 `\\?\UNC\server\share`。
+  ///
+  /// 非 Windows 平台原样返回。
+  static String winLong(String posixAbs) {
+    if (!Platform.isWindows) {
+      return posixAbs;
+    }
+    final String native = posixAbs.replaceAll('/', r'\');
+    if (native.startsWith(r'\\?\')) {
+      return native;
+    }
+    if (native.length < kWinPathSoftLimit) {
+      return native;
+    }
+    if (native.startsWith(r'\\')) {
+      return r'\\?\UNC' + native.substring(1);
+    }
+    return r'\\?\' + native;
+  }
+
   /// 把仓库相对路径解析为绝对路径，并执行安全校验。
   ///
   /// `relative` 为空表示根目录本身（仅 [list] 允许）。
@@ -68,16 +98,17 @@ class IoDiskFileStore implements DiskFileStore {
 
   @override
   Future<String?> readText(String path) async {
-    final file = File(_absFile(path));
-    if (!await file.exists()) {
-      return null;
+    final file = File(winLong(_absFile(path)));
+    if (await file.exists()) {
+      return file.readAsString();
     }
-    return file.readAsString();
+    // 曾经因超长被压缩收纳的内容：从压缩包里还原。
+    return _readPacked(path);
   }
 
   @override
   Future<void> writeText(String path, String content) async {
-    final target = File(_absFile(path));
+    final target = File(winLong(_absFile(path)));
     await target.parent.create(recursive: true);
 
     // 原子写：临时文件 → flush（fsync）→ rename 替换。
@@ -85,7 +116,22 @@ class IoDiskFileStore implements DiskFileStore {
     // 会互相踩（A 写完 tmp、B 覆盖 tmp、A rename 时文件已被 B 移走 → ENOENT）。
     final temp = File(_tempNameOf(target));
     await temp.writeAsString(content, flush: true);
-    await temp.rename(target.path);
+    try {
+      await temp.rename(target.path);
+    } catch (_) {
+      // Windows：路径超限 / 保留名 / 非法字符。先清残骸，再走收纳回退。
+      try {
+        if (await temp.exists()) {
+          await temp.delete();
+        }
+      } catch (_) {
+        // 清不掉就算了，不掩盖原始错误。
+      }
+      if (await _packTooLong(path, content)) {
+        return;
+      }
+      rethrow;
+    }
   }
 
   static int _tempSeq = 0;
@@ -94,35 +140,189 @@ class IoDiskFileStore implements DiskFileStore {
   static String _tempNameOf(File target) =>
       '${target.path}.${DateTime.now().microsecondsSinceEpoch}-${_tempSeq++}.tmp';
 
-  @override
-  Future<void> delete(String path) async {
-    final file = File(_absFile(path));
-    if (await file.exists()) {
-      await file.delete();
+  // ── 长路径收纳（Windows 路径超限 / 保留名的回退）────────────────────────
+
+  /// 收纳包前缀（形如 `TooLongRoad_a1b2c3d4.zip`）。
+  static const String tooLongPrefix = 'TooLongRoad_';
+
+  /// 收纳索引文件名（位于应用根目录，记录「原路径 → 收纳包」）。
+  static const String tooLongIndexName = '.ogl_toolong.json';
+
+  /// 收纳索引：`相对路径 → 收纳包绝对路径`。
+  Future<Map<String, String>> _index() async {
+    try {
+      final File file = File(winLong('$_root/$tooLongIndexName'));
+      if (!await file.exists()) {
+        return <String, String>{};
+      }
+      final Object? decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map) {
+        return <String, String>{};
+      }
+      return decoded.map(
+        (Object? k, Object? v) =>
+            MapEntry<String, String>('$k', '$v'),
+      );
+    } catch (_) {
+      return <String, String>{};
     }
   }
 
+  Future<void> _saveIndex(Map<String, String> index) async {
+    try {
+      await File(winLong('$_root/$tooLongIndexName'))
+          .writeAsString(jsonEncode(index), flush: true);
+    } catch (_) {
+      // 索引写不进去只能放弃：内容仍在包里，只是无法自动还原。
+    }
+  }
+
+  /// 把内容收纳进 `TooLongRoad_<8位随机十六进制>.zip`。
+  ///
+  /// 放在**最近可用的父目录**：从目标父目录逐级向上退，直到
+  /// `目录/包名` 的长度落在安全范围内。包内保留**完整相对路径**。
+  Future<bool> _packTooLong(String relative, String content) async {
+    try {
+      final Random rnd = Random.secure();
+      final String hex = List<String>.generate(
+        8,
+        (_) => rnd.nextInt(16).toRadixString(16),
+      ).join();
+      final String name = '$tooLongPrefix$hex.zip';
+
+      final String norm = InMemoryFileStore.normalize(relative);
+      String dir = norm.contains('/')
+          ? norm.substring(0, norm.lastIndexOf('/'))
+          : '';
+      while (dir.isNotEmpty &&
+          '$_root/$dir/$name'.length > kWinPathSoftLimit) {
+        final int cut = dir.lastIndexOf('/');
+        dir = cut <= 0 ? '' : dir.substring(0, cut);
+      }
+      final String zipAbs = dir.isEmpty ? '$_root/$name' : '$_root/$dir/$name';
+
+      final List<int> bytes = utf8.encode(content);
+      final Archive archive = Archive()
+        ..addFile(ArchiveFile(norm, bytes.length, bytes));
+      final List<int>? zipped = ZipEncoder().encode(archive);
+      if (zipped == null) {
+        return false;
+      }
+      final File target = File(winLong(zipAbs));
+      await target.parent.create(recursive: true);
+      await target.writeAsBytes(zipped, flush: true);
+
+      final Map<String, String> index = await _index();
+      index[norm] = zipAbs;
+      await _saveIndex(index);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 从收纳包里还原内容（没有收纳记录时返回 `null`）。
+  Future<String?> _readPacked(String relative) async {
+    try {
+      final Map<String, String> index = await _index();
+      final String norm = InMemoryFileStore.normalize(relative);
+      final String? zipAbs = index[norm];
+      if (zipAbs == null) {
+        return null;
+      }
+      final File file = File(winLong(zipAbs));
+      if (!await file.exists()) {
+        return null;
+      }
+      final Archive archive = ZipDecoder().decodeBytes(await file.readAsBytes());
+      for (final ArchiveFile entry in archive.files) {
+        if (entry.name == norm) {
+          final Object? data = entry.content;
+          if (data is List<int>) {
+            return utf8.decode(data);
+          }
+        }
+      }
+    } catch (_) {
+      // 收纳包损坏：当作不存在（调用方按"没有"处理，不编造内容）。
+    }
+    return null;
+  }
+
+  /// 删除收纳条目（连同它的包；包为空即删）。
+  Future<void> _deletePacked(String relative) async {
+    try {
+      final Map<String, String> index = await _index();
+      final String norm = InMemoryFileStore.normalize(relative);
+      final String? zipAbs = index.remove(norm);
+      if (zipAbs == null) {
+        return;
+      }
+      final File file = File(winLong(zipAbs));
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await _saveIndex(index);
+    } catch (_) {
+      // 删不掉就留着，绝不外抛。
+    }
+  }
+
+  /// 是否为内部文件（收纳索引），列举时应当跳过。
+  static bool _isInternalName(String name) =>
+      name == tooLongIndexName || name.endsWith('.tmp');
+
   @override
-  Future<bool> exists(String path) => File(_absFile(path)).exists();
+  Future<void> delete(String path) async {
+    final file = File(winLong(_absFile(path)));
+    if (await file.exists()) {
+      await file.delete();
+      return;
+    }
+    // 可能被收纳过：连包一起删。
+    await _deletePacked(path);
+  }
+
+  @override
+  Future<bool> exists(String path) async {
+    if (await File(winLong(_absFile(path))).exists()) {
+      return true;
+    }
+    final Map<String, String> index = await _index();
+    return index.containsKey(InMemoryFileStore.normalize(path));
+  }
 
   @override
   Future<List<String>> list(String directory) async {
-    final dir = Directory(abs(directory));
-    if (!await dir.exists()) {
-      return const <String>[];
-    }
+    final dir = Directory(winLong(abs(directory)));
     final names = <String>[];
-    await for (final entity in dir.list(followLinks: false)) {
-      if (entity is! File) {
+    if (await dir.exists()) {
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File) {
+          continue;
+        }
+        final name = entity.uri.pathSegments.isEmpty
+            ? entity.path
+            : entity.uri.pathSegments.last;
+        if (_isInternalName(name)) {
+          continue; // 残骸与收纳索引不算条目。
+        }
+        names.add(name);
+      }
+    }
+    // 被收纳的条目：名字在索引里，不在目录里——也要如实列出来。
+    final String prefix = directory.isEmpty
+        ? ''
+        : '${InMemoryFileStore.normalize(directory)}/';
+    for (final String rel in (await _index()).keys) {
+      if (!rel.startsWith(prefix)) {
         continue;
       }
-      final name = entity.uri.pathSegments.isEmpty
-          ? entity.path
-          : entity.uri.pathSegments.last;
-      if (name.endsWith('.tmp')) {
-        continue; // 残骸不算条目。
+      final String rest = rel.substring(prefix.length);
+      if (rest.isEmpty || rest.contains('/')) {
+        continue;
       }
-      names.add(name);
+      names.add(rest);
     }
     names.sort();
     return names;
