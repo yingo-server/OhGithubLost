@@ -43,10 +43,13 @@ API = 'https://api.github.com'
 # ── 版面（像素）────────────────────────────────────────────────────────────
 WIDTH = 800
 HEIGHT = 320
-MARGIN_LEFT = 74
-MARGIN_RIGHT = 18
-MARGIN_TOP = 44
-MARGIN_BOTTOM = 46
+MARGIN_LEFT = 96
+MARGIN_RIGHT = 20
+MARGIN_TOP = 56
+MARGIN_BOTTOM = 52
+
+# 图内文字放大倍数：5×7 点阵在 1× 时手机上几乎读不清（刻度数字尤其）。
+TEXT_SCALE = 2
 
 COLOR_BG = (255, 255, 255)
 COLOR_AXIS = (154, 165, 177)
@@ -140,13 +143,13 @@ def _line(rows, x0, y0, x1, y1, color, thick=2):
         _rect(rows, x, y, x + thick, y + thick, color)
 
 
-def text_width(text):
+def text_width(text, scale=TEXT_SCALE):
     if not text:
         return 0
-    return len(text) * (GLYPH_W + GLYPH_GAP) - GLYPH_GAP
+    return len(text) * (GLYPH_W + GLYPH_GAP) * scale - GLYPH_GAP * scale
 
 
-def _text(rows, x, y, text, color, scale=1):
+def _text(rows, x, y, text, color, scale=TEXT_SCALE):
     cursor = x
     for char in text:
         glyph = _font_glyph(char)
@@ -366,8 +369,8 @@ def render_chart(points, key, color, path, title, unit, source):
 
     # 标题行：指标（单位）+ 最新值 + 点数
     last_value = values[-1] if values else 0
-    _text(rows, plot_left, 14, title, COLOR_TEXT)
-    _text(rows, plot_left, 28,
+    _text(rows, plot_left, 10, title, COLOR_TEXT)
+    _text(rows, plot_left, 10 + GLYPH_H * TEXT_SCALE + 4,
           'LAST %s %s   POINTS %s   SOURCE %s'
           % (format_value(last_value), unit, len(points), source),
           COLOR_MUTED)
@@ -377,7 +380,8 @@ def render_chart(points, key, color, path, title, unit, source):
         y = int(round(y_of(tick)))
         _rect(rows, plot_left, y, plot_left + plot_w, y + 1, COLOR_GRID)
         label = format_value(tick)
-        _text(rows, plot_left - 10 - text_width(label), y - 3, label, COLOR_MUTED)
+        _text(rows, plot_left - 10 - text_width(label),
+              y - GLYPH_H * TEXT_SCALE / 2.0, label, COLOR_MUTED)
 
     # 轴框
     _rect(rows, plot_left, plot_top, plot_left + plot_w, plot_top + 1, COLOR_AXIS)
@@ -386,7 +390,7 @@ def render_chart(points, key, color, path, title, unit, source):
     _rect(rows, plot_left, plot_top, plot_left + 1, plot_bottom + 1, COLOR_AXIS)
 
     # 纵轴单位（写在轴顶：`COUNT` 之类，明确量纲）
-    _text(rows, 6, plot_top - 10, unit, COLOR_MUTED)
+    _text(rows, 6, plot_top - GLYPH_H * TEXT_SCALE - 6, unit, COLOR_MUTED)
 
     # 横轴：真实时间刻度（首/中/尾）
     if times:
@@ -403,8 +407,9 @@ def render_chart(points, key, color, path, title, unit, source):
             x_pos = int(min(max(plot_left, x - width / 2.0),
                             plot_left + plot_w - width))
             _text(rows, x_pos, plot_bottom + 8, label, COLOR_MUTED)
-        _text(rows, plot_left, plot_bottom + 24, 'TIME (UTC)  Y-AXIS FROM 0',
-              COLOR_MUTED)
+        _text(rows, plot_left,
+              plot_bottom + 8 + GLYPH_H * TEXT_SCALE + 4,
+              'TIME (UTC)  Y-AXIS FROM 0', COLOR_MUTED)
 
     # 数据：横轴按真实时间、纵轴按数值
     if len(points) >= 2:
