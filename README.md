@@ -23,6 +23,30 @@ GitHub 仓库管理客户端，手机、平板与桌面可用。仓库地址与�
   Android 有 32 位产物（`armeabi-v7a`）。
 - 上表的「构建产物」由 CI 生成；「测试情况」指手工使用记录。
 
+## 平台最低要求（请先读，能省下大量时间）
+
+| 平台 | 最低要求 | 说明 |
+| --- | --- | --- |
+| Android | Android 6.0（API 23）+ | 32 位（`armeabi-v7a`）仅此平台提供 |
+| Windows | **Windows 10 1809 或更高** | Flutter 桌面自身的要求；**7 / 8.1 无法运行** |
+| Linux | **glibc ≥ 2.28** | 对应 Ubuntu 18.10 / Debian 10 / RHEL 8 那一代；产物在更老的 glibc 上会报 `GLIBC_2.xx not found` |
+
+### ⚠️ 不要做无用尝试
+
+以下组合**明确不支持**，试了也不会成功（不是配置问题，是上游限制）：
+
+- **Linux · musl 系（Alpine 等）**：Flutter 的 Linux 引擎依赖 glibc，musl 下不保证可运行；
+- **Linux · glibc < 2.28**：产物按 2.28 基线构建，老系统缺符号；
+- **Windows 7 / 8.1**：Flutter 桌面要求 Windows 10 1809+；
+- **桌面 32 位（x86）**：Flutter 桌面只提供 x64 / arm64，**没有 ia32 引擎**。
+
+### 可选要求
+
+- **Windows 长路径支持**（建议开启）：路径接近 260 字符时，
+  Windows 会拒绝创建文件。程序已做三层兜底（`\\?\` 前缀 → 超长部分收纳为
+  `TooLongRoad_<8位编号>.zip` → 根目录索引可还原），但**开启系统长路径支持后
+  体验最好**（组策略 / `LongPathsEnabled`）。
+
 ## 快速开始
 
 1. 在 Releases 页面下载对应平台的安装包。

@@ -292,6 +292,20 @@ jobs:
                       print(e, 'network.client 已注入')
           PY
 
+      - name: 注入桌面原生壳（图标 + 原生窗口标题）
+        # ★ 窗口标题与任务栏图标**不是 Flutter 绘制的**，由操作系统读取：
+        #   Windows 看 main.cpp / Runner.rc，Linux 看 my_application.cc。
+        #   图标几何源是 assets/icon/ogl_icon.svg，由 tool/desktop_icon.py
+        #   （零第三方依赖）现场光栅化：Windows 出 256 单帧 ICO，Linux 出 2048 PNG。
+        if: matrix.build == 'windows' || matrix.build == 'linux'
+        shell: bash
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          "$PY" tool/inject_desktop_shell.py || exit 1
+
       # GTK 工具链：Flutter Linux 桌面构建的**必需**依赖。
       # 缺 libgtk-3-dev 时 CMake 会报
       # `FindPkgConfig ... The following required packages were not found`。

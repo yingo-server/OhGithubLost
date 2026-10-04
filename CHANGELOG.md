@@ -2,6 +2,32 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## v5.9.0（2026-10-05 · 测试版 / beta）
+
+**主题**：**跨平台差异面硬化** —— 直面 Windows / Linux / Android 三系差异，
+把"能跑"变成"在真实发行版上也能跑"。
+
+### 新增 · Added
+- **Windows 长路径三层处理**：`\\?\` 前缀绕过 MAX_PATH → 仍失败则把超长部分
+  收纳为 `TooLongRoad_<8位随机编号>.zip`（落在最近可用父目录，包内保留完整相对路径）
+  → 根目录 `.ogl_toolong.json` 索引，`read` / `exists` / `delete` / `list` 全部贯通。
+- **桌面原生壳注入**（`tool/inject_desktop_shell.py`）：Windows 出 **256 单帧 ICO**
+  并写入 `Runner.rc` 版本信息，Linux 出 **2048 PNG** 母版；两者都把**原生窗口标题**
+  写为 `OhGithubLost`（任务栏 / Alt-Tab / 任务管理器读的是它）。
+- **零依赖图标光栅化**（`tool/desktop_icon.py`）：直接解析图标几何源 SVG，
+  扫描线填充 + 抗锯齿 + 自编码 PNG/ICO，CI 无需 cairo / Pillow。
+
+### 修复 · Fixed
+- **Windows 本地缓存完全写不进去**：缓存 blob 文件名原样拼接 `scope|path`，
+  而 `|` 在 Windows 是**非法文件名字符** → 一律 `FileSystemException`。
+  现改为 `sha256(编码键)`，`purgeOrphans` 同步（否则会误删有效缓存）。
+
+### 已知限制 · Known limits
+- Linux 产物 **glibc ≥ 2.28**；musl（Alpine）与更老的 glibc 不支持。
+- Windows 需 **10 1809+**；7 / 8.1 无法运行。
+- 桌面**无 32 位**产物（上游 Flutter 不提供 ia32 引擎）。
+
+
 ## v5.6.0（2026-10-04 · 正式版）
 **主题**：**存储三档（公共目录 → SAF → 内部）** + 网络独立成页 + 引导页重做（语言/外观前置）+ 加速通道内置优先链。
 *Three-tier storage (public dir → SAF → internal), network settings as its own page, reworked onboarding (language & appearance first), and a built-in acceleration priority chain.*
