@@ -5,10 +5,13 @@
 library;
 
 import '../../kernel/contract/module.dart';
+
 import 'io_net_transport.dart';
 import 'net_dns.dart';
+
 import 'net_mirror.dart';
 import 'net_retry.dart';
+
 import 'net_transport.dart';
 import 'net_types.dart';
 

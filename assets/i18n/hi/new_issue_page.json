@@ -1,0 +1,10 @@
+{
+  "bodyLabel": "मोटा (वैकल्पिक, Markdown सपोर्ट)",
+  "createFailed": "क्रिएशन विफल: {error}",
+  "created": "बनाया गया",
+  "submit": "इशू बनाएं",
+  "submitting": "सबमिट हो रहा…",
+  "title": "नया इशू",
+  "titleLabel": "शीर्षक",
+  "titleRequired": "कृपया पहले शीर्षक भरें"
+}

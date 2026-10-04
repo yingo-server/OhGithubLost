@@ -18,10 +18,13 @@ library;
 import 'dart:convert';
 
 import '../diagnostics.dart';
+
 import 'boot_fs.dart';
 import 'boot_manifest.dart';
+
 import 'integrity_verifier.dart';
 import 'trust_policy.dart';
+
 import 'trust_warnings.dart';
 
 /// 一个引导阶段的执行结果。

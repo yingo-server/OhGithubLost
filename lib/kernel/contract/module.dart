@@ -5,8 +5,10 @@
 library;
 
 import '../boot/trust_warnings.dart';
+
 import '../bridge_registry.dart';
 import '../di.dart';
+
 import '../diagnostics.dart';
 import '../environment.dart';
 

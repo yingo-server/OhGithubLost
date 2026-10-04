@@ -1,0 +1,15 @@
+{
+  "downloads": "Gestión de descargas",
+  "emptyMine": "Aún no hay repositorios",
+  "emptyStarred": "Aún no hay repositorios con estrella",
+  "home": "Inicio",
+  "loadMore": "Cargar más ({count} elementos)",
+  "mine": "Mis",
+  "newRepo": "Nuevo repositorio",
+  "notifications": "Centro de notificaciones",
+  "private": "Privado",
+  "repoCreated": "Repositorio creado",
+  "repoCreatedName": "{name} creado",
+  "retry": "Reintentar",
+  "starred": "Con estrella"
+}

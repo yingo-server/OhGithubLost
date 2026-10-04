@@ -1,0 +1,20 @@
+{
+  "back": "กลับ",
+  "cancelFailed": "การยกเลิกล้มเหลว: {error}",
+  "cancelRequested": "ขอระงับแล้ว",
+  "cancelRun": "ระงับการรัน",
+  "cancelRunDesc": "จะขอให้ GitHub ระงับการรันครั้งนี้; ขั้นตอนที่เสร็จแล้วจะไม่ถูกลดระดับกลับ",
+  "durationMinSecs": "ใช้เวลารวม {mins} น. {secs} วินาที",
+  "durationSecs": "ใช้เวลารวม {secs} วินาที",
+  "jobs": "งาน",
+  "noJobs": "ไม่มีบันทึกการรันงาน",
+  "noRunDetail": "ไม่มีรายละเอียดการรัน",
+  "openInBrowser": "เปิดในเบราว์เซอร์",
+  "rerun": "รันใหม่",
+  "rerunFailed": "การรันใหม่ออกความล้มเหลว: {error}",
+  "rerunTriggered": "เริ่มต้นการรันใหม่แล้ว",
+  "runNumber": "การรัน #{number}",
+  "status": "สถานะ: {status}",
+  "title": "รายละเอียดการรัน",
+  "viewLogs": "ดูบันทึก"
+}

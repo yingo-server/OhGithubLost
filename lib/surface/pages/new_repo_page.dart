@@ -8,8 +8,15 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
+
+/// 取 `new_repo_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('new_repo_page', key, args: args);
 
 /// 新建仓库页。
 class NewRepoPage extends StatefulWidget {
@@ -43,7 +50,7 @@ class _NewRepoPageState extends State<NewRepoPage> {
     }
     final String name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = '请先填写仓库名');
+      setState(() => _error = _t('nameRequired'));
       return;
     }
     setState(() {
@@ -57,21 +64,21 @@ class _NewRepoPageState extends State<NewRepoPage> {
             _description.text.trim().isEmpty ? null : _description.text.trim(),
         private: _private,
       );
-      OgLAppLog.instance.result('新建仓库', '已创建', repo.fullName);
+      OgLAppLog.instance.result(_t('title'), _t('created'), repo.fullName);
       if (!mounted) {
         return;
       }
       Navigator.of(context).pop(repo);
     } catch (error) {
       OgLAppLog.instance.add(
-        '新建仓库',
-        '创建失败：$error',
+        _t('title'),
+        _t('createFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = '创建失败：$error';
+          _error = _t('createFailed', <String, String>{'error': error}));
         });
       }
     }
@@ -80,15 +87,15 @@ class _NewRepoPageState extends State<NewRepoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('新建仓库')),
+      appBar: AppBar(title:  Text(_t('title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           TextField(
             controller: _name,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '仓库名',
+            decoration:  InputDecoration(
+              labelText: _t('nameLabel'),
               hintText: 'my-project',
               border: OutlineInputBorder(),
             ),
@@ -97,15 +104,15 @@ class _NewRepoPageState extends State<NewRepoPage> {
           TextField(
             controller: _description,
             maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: '描述（可选）',
+            decoration:  InputDecoration(
+              labelText: _t('description'),
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
-            title: const Text('私有仓库'),
-            subtitle: const Text('仅自己可见'),
+            title:  Text(_t('private')),
+            subtitle:  Text(_t('privateDesc')),
             value: _private,
             onChanged: _busy
                 ? null
@@ -129,7 +136,7 @@ class _NewRepoPageState extends State<NewRepoPage> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _busy ? null : _submit,
-            child: Text(_busy ? '创建中…' : '创建仓库'),
+            child: Text(_busy ? _t('creating') : _t('create')),
           ),
         ],
       ),

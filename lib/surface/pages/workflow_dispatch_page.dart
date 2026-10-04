@@ -8,13 +8,21 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 
 import '../app/async.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
+
+/// 取 `workflow_dispatch_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('workflow_dispatch_page', key, args: args);
 
 /// 一个 `workflow_dispatch` 参数声明。
 class _WfInput {
@@ -99,7 +107,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       return existing;
     }
     final controller = AsyncController<List<Map<String, dynamic>>>(
-      label: '工作流',
+      label: _t('title'),
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
       loader: () => widget.surface.domain.api.workflows(widget.fullName),
     );
@@ -177,7 +185,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       if (text == null) {
         setState(() {
           _loadingForm = false;
-          _formError = '读不到工作流文件（$path）：可能路径变更或令牌权限不足';
+          _formError = _t('readFileFailed', <String, String>{'path': path}));
         });
         return;
       }
@@ -203,7 +211,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       }
       setState(() {
         _loadingForm = false;
-        _formError = '解析工作流参数失败：$error';
+        _formError = _t('parseFailed', <String, String>{'error': error}));
       });
     }
   }
@@ -242,7 +250,8 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       }
     }
     if (missing.isNotEmpty) {
-      throw FormatException('缺少必选参数：${missing.join('、')}');
+      throw FormatException(
+          _t('missingRequired', <String, String>{'names': missing.join('、')}));
     }
     return result;
   }
@@ -256,7 +265,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     if (raw.startsWith('{')) {
       final Object? decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        throw const FormatException('inputs 需为 JSON 对象');
+        throw  FormatException(_t('inputsNotObject'));
       }
       return <String, String>{
         for (final MapEntry<Object?, Object?> e in decoded.entries)
@@ -271,7 +280,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       }
       final int eq = trimmed.indexOf('=');
       if (eq <= 0) {
-        throw const FormatException('每行需形如 key=value');
+        throw  FormatException(_t('eachLineKeyValue'));
       }
       result[trimmed.substring(0, eq).trim()] = trimmed.substring(eq + 1).trim();
     }
@@ -281,12 +290,12 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   Future<void> _submit() async {
     final String workflowIdOrFile = _selected ?? '';
     if (workflowIdOrFile.isEmpty) {
-      _toast('请选择要触发的工作流');
+      _toast(_t('selectWorkflow'));
       return;
     }
     final String ref = _ref.text.trim();
     if (ref.isEmpty) {
-      _toast('请填写 ref（如 main）');
+      _toast(_t('refRequired'));
       return;
     }
     Map<String, String> inputs;
@@ -310,18 +319,18 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
         ref: ref,
         inputs: inputs,
       );
-      OgLAppLog.instance.result('Actions', '已触发工作流', workflowIdOrFile);
+      OgLAppLog.instance.result('Actions', _t('triggered'), workflowIdOrFile);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        '触发失败：$error',
+        _t('triggerFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast('触发失败：$error（该工作流可能未声明 workflow_dispatch）');
+        _toast(_t('triggerFailedNoDispatch', <String, String>{'error': error})));
       }
     } finally {
       if (mounted) {
@@ -342,18 +351,18 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('手动触发工作流'),
+        title:  Text(_t('manualTrigger')),
         actions: <Widget>[
           TextButton(
             onPressed: _busy ? null : _submit,
-            child: Text(_busy ? '触发中…' : '触发'),
+            child: Text(_busy ? _t('triggering') : _t('trigger')),
           ),
         ],
       ),
       body: AsyncView<List<Map<String, dynamic>>>(
         controller: _workflowsC(),
         emptyIcon: Icons.play_circle_outline,
-        emptyText: '该仓库没有工作流（或令牌缺少 Actions 权限）',
+        emptyText: _t('noWorkflows'),
         builder: (BuildContext context, List<Map<String, dynamic>> workflows) {
           if (_selected == null && workflows.isNotEmpty) {
             // 默认选中第一个工作流——不能在 build 中直接 setState，
@@ -367,7 +376,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: <Widget>[
-              Text('工作流', style: theme.textTheme.titleSmall),
+              Text(_t('title'), style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               Card(
                 child: Column(
@@ -395,7 +404,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('ref（分支 / 标签）', style: theme.textTheme.titleSmall),
+              Text(_t('refLabel'), style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               TextField(
                 controller: _ref,
@@ -408,7 +417,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
               Row(
                 children: <Widget>[
                   Expanded(
-                    child: Text('参数', style: theme.textTheme.titleSmall),
+                    child: Text(_t('inputs'), style: theme.textTheme.titleSmall),
                   ),
                   if (_loadingForm)
                     const SizedBox(
@@ -423,7 +432,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
               const SizedBox(height: 16),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                title: Text('高级：直接输入', style: theme.textTheme.titleSmall),
+                title: Text(_t('advanced'), style: theme.textTheme.titleSmall),
                 childrenPadding: const EdgeInsets.only(bottom: 8),
                 children: <Widget>[
                   TextField(
@@ -434,17 +443,17 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
                       fontFamily: 'monospace',
                       fontSize: 13,
                     ),
-                    decoration: const InputDecoration(
+                    decoration:  InputDecoration(
                       border: OutlineInputBorder(),
-                      hintText: '每行 key=value，例如\nversion_name=2.0.0\nchannel=stable',
+                      hintText: _t('jsonHint'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
-                '提示：仅声明了 workflow_dispatch 的工作流可被触发；'
-                '否则 GitHub 会返回 422（本页会如实提示）。',
+                _t('dispatchHint')
+                _t('dispatchHint2'),
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -470,7 +479,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     if (_form.isEmpty) {
       return <Widget>[
         Text(
-          '该工作流没有声明参数（可直接触发）。',
+          _t('noInputs'),
           style: theme.textTheme.bodySmall,
         ),
       ];
@@ -485,7 +494,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   }
 
   Widget _fieldFor(ThemeData theme, _WfInput input) {
-    final String label = input.name + (input.required ? '（必选）' : '（可选）');
+    final String label = input.name + (input.required ? _t('requiredSuffix') : _t('optionalSuffix'));
     final String? helper = input.description;
     if (input.type == 'choice') {
       final String value = _formChoice[input.name] ?? '';

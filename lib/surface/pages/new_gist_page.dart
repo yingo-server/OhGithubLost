@@ -7,7 +7,13 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
+/// 取 `new_gist_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('new_gist_page', key, args: args);
 
 /// 新建 Gist 页。
 class NewGistPage extends StatefulWidget {
@@ -41,13 +47,13 @@ class _NewGistPageState extends State<NewGistPage> {
     final String filename = _filename.text.trim();
     if (filename.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写文件名')),
+         SnackBar(content: Text(_t('fileNameRequired'))),
       );
       return;
     }
     if (_content.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('内容不能为空')),
+         SnackBar(content: Text(_t('contentRequired'))),
       );
       return;
     }
@@ -61,19 +67,19 @@ class _NewGistPageState extends State<NewGistPage> {
         description: _description.text,
         public: _public,
       );
-      OgLAppLog.instance.result('Gist', '已创建', filename);
+      OgLAppLog.instance.result('Gist', _t('created'), filename);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        '创建失败：$error',
+        _t('createFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建失败：$error')),
+          SnackBar(content: Text(_t('createFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -88,11 +94,11 @@ class _NewGistPageState extends State<NewGistPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('新建 Gist'),
+        title:  Text(_t('title')),
         actions: <Widget>[
           TextButton(
             onPressed: _busy ? null : _submit,
-            child: Text(_busy ? '创建中…' : '创建'),
+            child: Text(_busy ? _t('creating') : _t('create')),
           ),
         ],
       ),
@@ -101,43 +107,43 @@ class _NewGistPageState extends State<NewGistPage> {
         children: <Widget>[
           TextField(
             controller: _description,
-            decoration: const InputDecoration(
-              labelText: '描述（可选）',
+            decoration:  InputDecoration(
+              labelText: _t('description'),
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _filename,
-            decoration: const InputDecoration(
-              labelText: '文件名（含扩展名，决定高亮语言）',
+            decoration:  InputDecoration(
+              labelText: _t('fileName'),
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.insert_drive_file_outlined),
             ),
           ),
           const SizedBox(height: 12),
-          Text('内容', style: theme.textTheme.labelLarge),
+          Text(_t('content'), style: theme.textTheme.labelLarge),
           const SizedBox(height: 6),
           TextField(
             controller: _content,
             minLines: 8,
             maxLines: 20,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
+            decoration:  InputDecoration(
               border: OutlineInputBorder(),
-              hintText: '粘贴或输入代码 / 文本',
+              hintText: _t('contentHint'),
             ),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('公开 Gist'),
-            subtitle: const Text('公开后任何人可通过链接访问'),
+            title:  Text(_t('isPublic')),
+            subtitle:  Text(_t('isPublicDesc')),
             value: _public,
             onChanged: (bool on) => setState(() => _public = on),
           ),
           const SizedBox(height: 8),
           Text(
-            '提示：文件名扩展名会影响高亮语言（如 main.dart / app.py）。',
+            _t('fileNameHint'),
             style: theme.textTheme.bodySmall,
           ),
         ],

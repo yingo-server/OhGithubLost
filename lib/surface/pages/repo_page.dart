@@ -15,28 +15,43 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
+
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../types.dart';
+
 import '../util/file_icons.dart';
 import '../util/gh_format.dart';
+
 import '../util/link_opener.dart';
 import '../util/path_rules.dart';
+
 import '../widgets/code_editor_field.dart';
 import '../widgets/readme_view.dart';
+
 import 'action_run_page.dart';
 import 'code_editor_page.dart';
+
 import 'commit_page.dart';
 import 'issue_page.dart';
+
 import 'new_issue_page.dart';
 import 'new_release_page.dart';
+
 import 'pull_page.dart';
 import 'release_detail_page.dart';
+
 import 'workflow_dispatch_page.dart';
+
+/// 取 `repo` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('repo', key, args: args);
 
 /// 每页条数（统一）。
 const int _kPageSize = 30;
@@ -107,7 +122,7 @@ class _RepoPageState extends State<RepoPage> {
       // 拿不到详情**不静默**：留痕（通知中心可见）；此时按"不可写"处理。
       OgLAppLog.instance.add(
         '仓库',
-        '读取仓库详情失败（写权限暂不可用）：$error',
+        _t('readFailedWritePerm', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.warning,
       );
     }
@@ -139,13 +154,13 @@ class _RepoPageState extends State<RepoPage> {
     final bool target = !_starred;
     try {
       await widget.surface.domain.api.setStarred(_full, target);
-      OgLAppLog.instance.result('仓库', target ? '已加星标' : '已取消星标', _full);
+      OgLAppLog.instance.result('仓库', target ? _t('starred') : _t('unstarred'), _full);
       if (mounted) {
         setState(() => _starred = target);
-        _toast(target ? '已加星标' : '已取消星标');
+        _toast(target ? _t('starred') : _t('unstarred'));
       }
     } catch (error) {
-      _toast('操作失败：$error');
+      _toast(_t('actionFailed', <String, String>{'error': error})));
     } finally {
       if (mounted) {
         setState(() => _starBusy = false);
@@ -160,16 +175,16 @@ class _RepoPageState extends State<RepoPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('复刻仓库'),
-        content: Text('将把 $_full 复刻到你的账号下，继续？'),
+        title:  Text(_t('forkTitle')),
+        content: Text(_t('forkDesc', <String, String>{'full': _full}))),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('复刻'),
+            child:  Text(_t('fork')),
           ),
         ],
       ),
@@ -180,10 +195,10 @@ class _RepoPageState extends State<RepoPage> {
     setState(() => _forkBusy = true);
     try {
       final GhRepo forked = await widget.surface.domain.api.fork(_full);
-      OgLAppLog.instance.result('仓库', '已复刻', forked.fullName);
-      _toast('已复刻为 ${forked.fullName}');
+      OgLAppLog.instance.result('仓库', _t('forked'), forked.fullName);
+      _toast(_t('forkedAs', <String, String>{'name': forked.fullName}));
     } catch (error) {
-      _toast('复刻失败：$error');
+      _toast(_t('forkFailed', <String, String>{'error': error})));
     } finally {
       if (mounted) {
         setState(() => _forkBusy = false);
@@ -198,7 +213,7 @@ class _RepoPageState extends State<RepoPage> {
 
   Future<void> _copyCloneUrl() async {
     await Clipboard.setData(ClipboardData(text: 'https://github.com/$_full.git'));
-    _toast('已复制克隆地址');
+    _toast(_t('cloneUrlCopied'));
   }
 
   /// 选择分支（Material 底部弹层 + 搜索）。
@@ -208,7 +223,7 @@ class _RepoPageState extends State<RepoPage> {
       branches = await widget.surface.domain.api
           .branches(_full, perPage: 100);
     } catch (error) {
-      _toast('分支读取失败：$error');
+      _toast(_t('branchesFailed', <String, String>{'error': error})));
       return;
     }
     if (!mounted) {
@@ -232,7 +247,7 @@ class _RepoPageState extends State<RepoPage> {
       return;
     }
     setState(() => _branch = next);
-    OgLAppLog.instance.result('仓库', '已切换分支', next);
+    OgLAppLog.instance.result('仓库', _t('branchSwitched'), next);
   }
 
   @override
@@ -304,11 +319,11 @@ class _RepoPageState extends State<RepoPage> {
           actions: <Widget>[
             IconButton(
               icon: Icon(_starred ? Icons.star : Icons.star_border),
-              tooltip: _starred ? '取消星标' : '加星',
+              tooltip: _starred ? _t('unstar') : _t('star'),
               onPressed: _starBusy ? null : _toggleStar,
             ),
             PopupMenuButton<String>(
-              tooltip: '更多',
+              tooltip: _t('more'),
               onSelected: (String value) {
                 switch (value) {
                   case 'fork':
@@ -320,14 +335,14 @@ class _RepoPageState extends State<RepoPage> {
                 }
               },
               itemBuilder: (BuildContext context) =>
-                  const <PopupMenuEntry<String>>[
+                   <PopupMenuEntry<String>>[
                 PopupMenuItem<String>(
                   value: 'fork',
                   child: ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.call_split),
-                    title: Text('复刻仓库'),
+                    title: Text(_t('forkTitle')),
                   ),
                 ),
                 PopupMenuItem<String>(
@@ -336,7 +351,7 @@ class _RepoPageState extends State<RepoPage> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.link),
-                    title: Text('复制克隆地址'),
+                    title: Text(_t('copyCloneUrl')),
                   ),
                 ),
                 PopupMenuItem<String>(
@@ -345,7 +360,7 @@ class _RepoPageState extends State<RepoPage> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.open_in_new),
-                    title: Text('用浏览器打开'),
+                    title: Text(_t('openInBrowser')),
                   ),
                 ),
               ],
@@ -381,7 +396,7 @@ class _RepoPageState extends State<RepoPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _branch.isEmpty ? '默认分支' : _branch,
+                    _branch.isEmpty ? _t('defaultBranch') : _branch,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelLarge,
@@ -390,7 +405,7 @@ class _RepoPageState extends State<RepoPage> {
                 if (_branch == _repo.defaultBranch)
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: Text('默认', style: theme.textTheme.bodySmall),
+                    child: Text(_t('defaultLabel'), style: theme.textTheme.bodySmall),
                   ),
                 const Icon(Icons.expand_more),
               ],
@@ -438,18 +453,18 @@ class _BranchSheetState extends State<_BranchSheet> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: TextField(
               autofocus: false,
-              decoration: const InputDecoration(
+              decoration:  InputDecoration(
                 isDense: true,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.search),
-                hintText: '搜索分支',
+                hintText: _t('searchBranch'),
               ),
               onChanged: (String value) => setState(() => _filter = value),
             ),
           ),
           Expanded(
             child: shown.isEmpty
-                ? const Center(child: Text('没有匹配的分支'))
+                ?  Center(child: Text(_t('noMatchingBranch')))
                 : ListView.builder(
                     itemCount: shown.length,
                     itemBuilder: (BuildContext context, int index) {
@@ -630,7 +645,7 @@ Widget _pagedBody<T>(
       message: paged.error!,
       action: FilledButton.tonal(
         onPressed: paged.refresh,
-        child: const Text('重试'),
+        child:  Text(_t('retry')),
       ),
     );
   }
@@ -653,7 +668,7 @@ Widget _pagedBody<T>(
                   ? const CircularProgressIndicator()
                   : OutlinedButton(
                       onPressed: paged.loadMore,
-                      child: Text('加载更多（已 ${paged.items.length} 条）'),
+                      child: Text(_t('loadMore', <String, String>{'count': paged.items.length})),
                     ),
             ),
           );
@@ -814,7 +829,7 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content == null) {
-        _toast('路径不存在：$path');
+        _toast(_t('pathNotFound', <String, String>{'path': path})));
         return;
       }
       if (content.isDirectory) {
@@ -823,7 +838,7 @@ class _CodeTabState extends State<_CodeTab> {
         setState(() => _file = content);
       }
     } catch (error) {
-      _toast('读取失败：$error');
+      _toast(_t('readFailed', <String, String>{'error': error})));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -847,12 +862,12 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content == null) {
-        _toast('读取失败：文件可能已不存在');
+        _toast(_t('readFailedFileGone'));
         return;
       }
       setState(() => _file = content);
     } catch (error) {
-      _toast('读取失败：$error');
+      _toast(_t('readFailed', <String, String>{'error': error})));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -903,7 +918,7 @@ class _CodeTabState extends State<_CodeTab> {
   /// - 路径禁止中文 / 全角 / 特殊字符（见 `util/path_rules.dart`）。
   Future<void> _createFile() async {
     if (!widget.canWrite) {
-      _toast('你没有该仓库的写权限');
+      _toast(_t('noWritePerm'));
       return;
     }
     _newPath.text = _path.isEmpty ? '' : '$_path/';
@@ -914,7 +929,7 @@ class _CodeTabState extends State<_CodeTab> {
         builder: (BuildContext context, StateSetter setLocal) {
           final bool directory = _newPath.text.trim().endsWith('/');
           return AlertDialog(
-            title: Text(directory ? '新建目录' : '新建文件'),
+            title: Text(directory ? _t('newDirectory') : _t('newFile')),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -924,16 +939,16 @@ class _CodeTabState extends State<_CodeTab> {
                     controller: _newPath,
                     autofocus: true,
                     onChanged: (String _) => setLocal(() {}),
-                    decoration: const InputDecoration(
-                      labelText: '路径',
-                      hintText: 'src/hello.dart 或 docs/api/',
-                      helperText: '以 / 结尾表示建目录（用 .gitkeep 占位）',
+                    decoration:  InputDecoration(
+                      labelText: _t('pathLabel'),
+                      hintText: _t('pathHint'),
+                      helperText: _t('pathHintSlash'),
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 12),
                   if (directory)
-                    const Text('将创建目录占位文件 .gitkeep（内容可留空）')
+                     Text(_t('gitkeepHint'))
                   else
                     TextField(
                       controller: content,
@@ -943,14 +958,14 @@ class _CodeTabState extends State<_CodeTab> {
                         fontFamily: 'monospace',
                         fontSize: 13,
                       ),
-                      decoration: const InputDecoration(
-                        labelText: '内容（必填）',
+                      decoration:  InputDecoration(
+                        labelText: _t('contentRequired'),
                         border: OutlineInputBorder(),
                       ),
                     ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '路径仅允许英文字母、数字与 . _ -，禁止中文、空格与特殊字符。',
+                   Text(
+                    _t('pathCharsetHint'),
                     style: TextStyle(fontSize: 12),
                   ),
                 ],
@@ -959,11 +974,11 @@ class _CodeTabState extends State<_CodeTab> {
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('取消'),
+                child:  Text(_t('cancel')),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('创建'),
+                child:  Text(_t('create')),
               ),
             ],
           );
@@ -995,7 +1010,7 @@ class _CodeTabState extends State<_CodeTab> {
         _entries.items.any((GhContent e) => e.path == path);
     if (exists) {
       content.dispose();
-      _toast('已存在同名条目：$path');
+      _toast(_t('alreadyExists', <String, String>{'path': path})));
       return;
     }
     try {
@@ -1008,21 +1023,21 @@ class _CodeTabState extends State<_CodeTab> {
       );
       OgLAppLog.instance.result(
         '仓库',
-        directory ? '已新建目录' : '已新建文件',
+        directory ? _t('dirCreated') : _t('fileCreated'),
         path,
       );
       content.dispose();
-      _toast(directory ? '已创建目录：$raw' : '已创建：$path');
+      _toast(directory ? _t('createdDir', <String, String>{'path': raw})) : _t('createdPath', <String, String>{'path': path})));
       await _reload();
     } catch (error) {
       content.dispose();
-      _toast('创建失败：$error');
+      _toast(_t('branchCreateFailed', <String, String>{'error': error})));
     }
   }
 
   Future<void> _deleteEntry(GhContent entry) async {
     if (!widget.canWrite) {
-      _toast('你没有该仓库的写权限');
+      _toast(_t('noWritePerm'));
       return;
     }
     if (entry.isDirectory) {
@@ -1032,19 +1047,19 @@ class _CodeTabState extends State<_CodeTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除文件'),
-        content: Text('将删除 ${entry.path} 并提交到仓库。该操作不易撤销。'),
+        title:  Text(_t('deleteFileAction')),
+        content: Text(_t('deleteFileDesc', <String, String>{'path': entry.path})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child:  Text(_t('delete')),
           ),
         ],
       ),
@@ -1063,17 +1078,17 @@ class _CodeTabState extends State<_CodeTab> {
         confirmed: true,
       );
       if (!result.ok) {
-        _toast('删除失败：${result.detail ?? result.conflict.name}');
+        _toast(_t('branchDeleteFailed', <String, String>{'error': result.detail ?? result.conflict.name}));
         return;
       }
-      OgLAppLog.instance.result('仓库', '已删除', entry.path);
+      OgLAppLog.instance.result('仓库', _t('branchDeleted'), entry.path);
       if (_file?.path == entry.path) {
         setState(() => _file = null);
       }
-      _toast('已删除：${entry.path}');
+      _toast(_t('deletedPath', <String, String>{'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast('删除失败：$error');
+      _toast(_t('branchDeleteFailed', <String, String>{'error': result.detail ?? result.conflict.name})));
     }
   }
 
@@ -1091,7 +1106,7 @@ class _CodeTabState extends State<_CodeTab> {
         branch: widget.branch,
       );
       if (tree.truncated) {
-        _toast('目录过大（GitHub 结果被截断），为安全起见请分批删除');
+        _toast(_t('dirTooLarge'));
         return;
       }
       for (final GhTreeEntry node in tree.entries) {
@@ -1100,16 +1115,16 @@ class _CodeTabState extends State<_CodeTab> {
         }
       }
     } catch (error) {
-      _toast('读取目录内容失败：$error');
+      _toast(_t('readDirFailed', <String, String>{'error': error})));
       return;
     }
     if (paths.isEmpty) {
-      _toast('该目录下没有可删除的文件（Git 不跟踪空目录）');
+      _toast(_t('noDeletableFiles'));
       return;
     }
     const int maxBatch = 200;
     if (paths.length > maxBatch) {
-      _toast('该目录含 ${paths.length} 个文件，超过单次上限 $maxBatch，请分批删除');
+      _toast(_t('dirExceedsBatch', <String, String>{'count': paths.length, 'max': maxBatch})));
       return;
     }
     if (!mounted) {
@@ -1118,22 +1133,22 @@ class _CodeTabState extends State<_CodeTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除目录'),
+        title:  Text(_t('deleteDirAction')),
         content: Text(
-          '将删除目录 ${entry.path} 下的 **${paths.length}** 个文件，'
-          '并在一次提交中完成。该操作不易撤销。',
+          _t('deleteDirDesc', <String, String>{'path': entry.path, 'count': paths.length})
+          _t('deleteDirDesc2'),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child:  Text(_t('delete')),
           ),
         ],
       ),
@@ -1149,11 +1164,11 @@ class _CodeTabState extends State<_CodeTab> {
         deletions: paths,
         message: 'chore: delete directory ${entry.path}',
       );
-      OgLAppLog.instance.result('仓库', '已删除目录', '${entry.path}（${paths.length} 个文件）');
-      _toast('已删除目录：${entry.path}');
+      OgLAppLog.instance.result('仓库', _t('dirDeleted'), _t('dirDeletedMeta', <String, String>{'path': entry.path, 'count': paths.length}));
+      _toast(_t('dirDeletedPath', <String, String>{'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast('删除目录失败：$error');
+      _toast(_t('deleteDirFailed', <String, String>{'error': error})));
     }
   }
 
@@ -1163,11 +1178,11 @@ class _CodeTabState extends State<_CodeTab> {
   /// 会明确提示用户（不静默失败）。
   Future<void> _renameEntry(GhContent entry) async {
     if (!widget.canWrite) {
-      _toast('你没有该仓库的写权限');
+      _toast(_t('noWritePerm'));
       return;
     }
     if (entry.isDirectory) {
-      _toast('暂不支持目录重命名（请逐个文件处理）');
+      _toast(_t('renameDirUnsupported'));
       return;
     }
     final TextEditingController target =
@@ -1175,24 +1190,24 @@ class _CodeTabState extends State<_CodeTab> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('重命名文件'),
+        title:  Text(_t('renameFileTitle')),
         content: TextField(
           controller: target,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '新路径',
-            helperText: '路径仅允许英文字母、数字与 . _ -',
+          decoration:  InputDecoration(
+            labelText: _t('newPath'),
+            helperText: _t('pathCharsetHintShort'),
             border: OutlineInputBorder(),
           ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('重命名'),
+            child:  Text(_t('rename')),
           ),
         ],
       ),
@@ -1213,7 +1228,7 @@ class _CodeTabState extends State<_CodeTab> {
       return;
     }
     if (ogLIsGitKeep(next)) {
-      _toast('.gitkeep 是目录占位文件，不能重命名');
+      _toast(_t('gitkeepNotRenamable'));
       return;
     }
     try {
@@ -1224,7 +1239,7 @@ class _CodeTabState extends State<_CodeTab> {
       );
       final String? text = current?.text;
       if (text == null) {
-        _toast('该文件不是文本（或读取失败），无法安全重命名');
+        _toast(_t('notTextFile'));
         return;
       }
       await widget.surface.domain.api.commitFiles(
@@ -1234,11 +1249,11 @@ class _CodeTabState extends State<_CodeTab> {
         deletions: <String>[entry.path],
         message: 'chore: rename ${entry.path} -> $next',
       );
-      OgLAppLog.instance.result('仓库', '已重命名', '${entry.path} → $next');
-      _toast('已重命名为：$next');
+      OgLAppLog.instance.result('仓库', _t('branchRenamed'), '${entry.path} → $next');
+      _toast(_t('renamedTo', <String, String>{'path': next})));
       await _reload();
     } catch (error) {
-      _toast('重命名失败：$error');
+      _toast(_t('branchRenameFailed', <String, String>{'error': error})));
     }
   }
 
@@ -1260,7 +1275,7 @@ class _CodeTabState extends State<_CodeTab> {
   Future<void> _downloadEntry(GhContent entry) async {
     final String? url = _downloadUrlOf(entry);
     if (url == null || url.isEmpty) {
-      _toast('该条目没有可用的下载链接');
+      _toast(_t('noDownloadLink'));
       return;
     }
     try {
@@ -1269,9 +1284,9 @@ class _CodeTabState extends State<_CodeTab> {
         fileName: ghPathName(entry.path),
         category: IxDownloadCategory.repo,
       );
-      _toast('已加入下载：${ghPathName(entry.path)}');
+      _toast(_t('addedToDownload', <String, String>{'name': ghPathName(entry.path)}));
     } catch (error) {
-      _toast('加入下载失败：$error');
+      _toast(_t('addDownloadFailed', <String, String>{'error': error})));
     }
   }
 
@@ -1287,12 +1302,12 @@ class _CodeTabState extends State<_CodeTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              _detailRow(theme, '路径', entry.path),
-              _detailRow(theme, '类型', entry.isDirectory ? '目录' : '文件'),
+              _detailRow(theme, _t('pathLabel'), entry.path),
+              _detailRow(theme, _t('typeLabel'), entry.isDirectory ? _t('dir') : _t('file')),
               if (!entry.isDirectory)
-                _detailRow(theme, '大小', ghSizeText(entry.size)),
+                _detailRow(theme, _t('sizeLabel'), ghSizeText(entry.size)),
               _detailRow(theme, 'SHA', entry.sha.isEmpty ? '—' : entry.sha),
-              if (url.isNotEmpty) _detailRow(theme, '下载直链', url),
+              if (url.isNotEmpty) _detailRow(theme, _t('directLink'), url),
             ],
           ),
         ),
@@ -1302,14 +1317,14 @@ class _CodeTabState extends State<_CodeTab> {
               await Clipboard.setData(ClipboardData(text: entry.path));
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
-                _toast('已复制路径');
+                _toast(_t('pathCopied'));
               }
             },
-            child: const Text('复制路径'),
+            child:  Text(_t('copyPath')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('关闭'),
+            child:  Text(_t('close')),
           ),
         ],
       ),
@@ -1346,13 +1361,13 @@ class _CodeTabState extends State<_CodeTab> {
                     ogLFileVisualFor(entry.path, isDirectory: entry.isDirectory).color,
               ),
               title: Text(ghPathName(entry.path)),
-              subtitle: Text(entry.isDirectory ? '目录' : '文件'),
+              subtitle: Text(entry.isDirectory ? _t('dir') : _t('file')),
             ),
             const Divider(height: 1),
             if (!entry.isDirectory)
               ListTile(
                 leading: const Icon(Icons.download_outlined),
-                title: const Text('下载'),
+                title:  Text(_t('download')),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_downloadEntry(entry));
@@ -1360,7 +1375,7 @@ class _CodeTabState extends State<_CodeTab> {
               ),
             ListTile(
               leading: const Icon(Icons.info_outline),
-              title: const Text('详情信息'),
+              title:  Text(_t('detailInfo')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _showEntryDetails(entry);
@@ -1369,7 +1384,7 @@ class _CodeTabState extends State<_CodeTab> {
             if (widget.canWrite && !entry.isDirectory)
               ListTile(
                 leading: const Icon(Icons.drive_file_rename_outline),
-                title: const Text('重命名'),
+                title:  Text(_t('rename')),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_renameEntry(entry));
@@ -1379,7 +1394,7 @@ class _CodeTabState extends State<_CodeTab> {
               ListTile(
                 leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
                 title: Text(
-                  entry.isDirectory ? '删除目录' : '删除文件',
+                  entry.isDirectory ? _t('deleteDirAction') : _t('deleteFileAction'),
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
                 onTap: () {
@@ -1402,7 +1417,7 @@ class _CodeTabState extends State<_CodeTab> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Row(
         children: <Widget>[
-          TextButton(onPressed: () => _goTo(''), child: const Text('根目录')),
+          TextButton(onPressed: () => _goTo(''), child:  Text(_t('rootDir'))),
           for (int i = 0; i < parts.length; i++) ...<Widget>[
             Icon(Icons.chevron_right, size: 16, color: scheme.outline),
             TextButton(
@@ -1423,7 +1438,7 @@ class _CodeTabState extends State<_CodeTab> {
     }
     return ExpansionTile(
       title: const Text('README'),
-      subtitle: const Text('点击展开 / 收起'),
+      subtitle:  Text(_t('expandCollapse')),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: <Widget>[
         ReadmeView(
@@ -1444,7 +1459,7 @@ class _CodeTabState extends State<_CodeTab> {
         children: <Widget>[
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            tooltip: '返回目录',
+            tooltip: _t('backToDir'),
             onPressed: () => setState(() => _file = null),
           ),
           Expanded(
@@ -1458,7 +1473,7 @@ class _CodeTabState extends State<_CodeTab> {
           if (!file.isTooLarge && widget.canWrite)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑',
+              tooltip: _t('edit'),
               onPressed: () => _openEditor(file),
             ),
           PopupMenuButton<String>(
@@ -1473,19 +1488,19 @@ class _CodeTabState extends State<_CodeTab> {
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
+               PopupMenuItem<String>(
                 value: 'copy',
-                child: Text('复制路径'),
+                child: Text(_t('copyPath')),
               ),
-              const PopupMenuItem<String>(
+               PopupMenuItem<String>(
                 value: 'browser',
-                child: Text('用浏览器打开'),
+                child: Text(_t('openInBrowser')),
               ),
               // 删除属写操作：仅在有 push 权限时出现（R3）。
               if (widget.canWrite)
-                const PopupMenuItem<String>(
+                 PopupMenuItem<String>(
                   value: 'delete',
-                  child: Text('删除文件'),
+                  child: Text(_t('deleteFileAction')),
                 ),
             ],
           ),
@@ -1498,16 +1513,16 @@ class _CodeTabState extends State<_CodeTab> {
 
   Future<void> _copyPath(String path) async {
     await Clipboard.setData(ClipboardData(text: path));
-    _toast('已复制路径');
+    _toast(_t('pathCopied'));
   }
 
   void _openFileInBrowser(GhContent file) {
     final String? url = file.htmlUrl;
     if (url == null || url.isEmpty) {
-      _toast('该文件没有可打开的链接');
+      _toast(_t('noOpenLink'));
       return;
     }
-    unawaited(openLinkOrCopy(context, url, tag: '文件'));
+    unawaited(openLinkOrCopy(context, url, tag: _t('file')));
   }
 
   static bool _isImage(String path) {
@@ -1528,7 +1543,7 @@ class _CodeTabState extends State<_CodeTab> {
       if (url == null) {
         return _MessagePane(
           icon: Icons.image_not_supported_outlined,
-          message: '无法获取图片地址',
+          message: _t('noImageUrl'),
         );
       }
       return Center(
@@ -1550,7 +1565,7 @@ class _CodeTabState extends State<_CodeTab> {
                     StackTrace? stack) =>
                 _MessagePane(
               icon: Icons.broken_image_outlined,
-              message: '图片加载失败（可点右上角用浏览器打开）',
+              message: _t('imageLoadFailed'),
             ),
           ),
         ),
@@ -1559,10 +1574,10 @@ class _CodeTabState extends State<_CodeTab> {
     if (file.isTooLarge) {
       return _MessagePane(
         icon: Icons.warning_amber_rounded,
-        message: '文件过大（超过 1 MB），接口未返回内容。\n可用浏览器打开查看。',
+        message: _t('fileTooLarge'),
         action: FilledButton.tonal(
           onPressed: () => _openFileInBrowser(file),
-          child: const Text('用浏览器打开'),
+          child:  Text(_t('openInBrowser')),
         ),
       );
     }
@@ -1570,10 +1585,10 @@ class _CodeTabState extends State<_CodeTab> {
     if (text == null) {
       return _MessagePane(
         icon: Icons.help_outline,
-        message: '没有可显示的文本内容（可能是二进制文件）。',
+        message: _t('noTextContent'),
         action: FilledButton.tonal(
           onPressed: () => _openFileInBrowser(file),
-          child: const Text('用浏览器打开'),
+          child:  Text(_t('openInBrowser')),
         ),
       );
     }
@@ -1583,7 +1598,7 @@ class _CodeTabState extends State<_CodeTab> {
         child: ReadmeView(
           markdown: text,
           onOpenLink: (Uri uri) {
-            unawaited(openExternalLink(uri, tag: '文件'));
+            unawaited(openExternalLink(uri, tag: _t('file')));
           },
         ),
       );
@@ -1623,7 +1638,7 @@ class _CodeTabState extends State<_CodeTab> {
       backgroundColor: Colors.transparent,
       floatingActionButton: widget.canWrite
           ? FloatingActionButton(
-              tooltip: '新建文件 / 目录',
+              tooltip: _t('newFileOrDir'),
               onPressed: _createFile,
               child: const Icon(Icons.add),
             )
@@ -1635,11 +1650,11 @@ class _CodeTabState extends State<_CodeTab> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: TextField(
               controller: _filter,
-              decoration: const InputDecoration(
+              decoration:  InputDecoration(
                 isDense: true,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.filter_alt_outlined),
-                hintText: '筛选当前目录',
+                hintText: _t('filterCurrentDir'),
               ),
               onChanged: (String value) => setState(() {}),
             ),
@@ -1673,18 +1688,18 @@ class _CodeTabState extends State<_CodeTab> {
                     message: _entries.error!,
                     action: FilledButton.tonal(
                       onPressed: _entries.refresh,
-                      child: const Text('重试'),
+                      child:  Text(_t('retry')),
                     ),
                   );
                 }
                 if (sorted.isEmpty) {
                   return _MessagePane(
                     icon: Icons.folder_open,
-                    message: '这个目录是空的',
+                    message: _t('dirEmpty'),
                     action: widget.canWrite
                         ? FilledButton.tonal(
                             onPressed: _createFile,
-                            child: const Text('新建文件'),
+                            child:  Text(_t('newFile')),
                           )
                         : null,
                   );
@@ -1697,7 +1712,7 @@ class _CodeTabState extends State<_CodeTab> {
                       if (_path.isNotEmpty)
                         ListTile(
                           leading: const Icon(Icons.arrow_upward),
-                          title: const Text('上一级'),
+                          title:  Text(_t('parentDir')),
                           onTap: () {
                             final int cut = _path.lastIndexOf('/');
                             unawaited(_goTo(cut <= 0 ? '' : _path.substring(0, cut)));
@@ -1705,9 +1720,9 @@ class _CodeTabState extends State<_CodeTab> {
                         ),
                       if (_path.isEmpty) _readmeTile(),
                       if (shown.isEmpty)
-                        const Padding(
+                         Padding(
                           padding: EdgeInsets.all(24),
-                          child: Center(child: Text('没有匹配的条目')),
+                          child: Center(child: Text(_t('noMatchingEntries'))),
                         ),
                       for (int i = 0; i < shown.length; i++)
                         OgLReveal(
@@ -1806,7 +1821,7 @@ class _IssuesTabState extends State<_IssuesTab> {
     );
     if (created == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已创建议题')),
+         SnackBar(content: Text(_t('issueCreated'))),
       );
       await _paged.refresh();
     }
@@ -1816,16 +1831,16 @@ class _IssuesTabState extends State<_IssuesTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text('关闭议题 #$number'),
-        content: const Text('关闭后仍可在「已关闭」筛选里看到它。'),
+        title: Text(_t('closeIssue', <String, String>{'number': number}))),
+        content:  Text(_t('closeIssueHint')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('关闭'),
+            child:  Text(_t('close')),
           ),
         ],
       ),
@@ -1836,12 +1851,12 @@ class _IssuesTabState extends State<_IssuesTab> {
     try {
       await widget.surface.domain.api
           .updateIssue(widget.fullName, number, state: 'closed');
-      OgLAppLog.instance.result('议题', '已关闭', '#$number');
+      OgLAppLog.instance.result('议题', _t('issueClosed'), '#$number');
       await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('关闭失败：$error')),
+          SnackBar(content: Text(_t('closeFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -1866,17 +1881,17 @@ class _IssuesTabState extends State<_IssuesTab> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.add_comment_outlined),
-        label: const Text('新建议题'),
+        label:  Text(_t('newIssue')),
       ),
       body: Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: SegmentedButton<String>(
-              segments: const <ButtonSegment<String>>[
-                ButtonSegment<String>(value: 'open', label: Text('打开中')),
-                ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
-                ButtonSegment<String>(value: 'all', label: Text('全部')),
+              segments:  <ButtonSegment<String>>[
+                ButtonSegment<String>(value: 'open', label: Text(_t('openState'))),
+                ButtonSegment<String>(value: 'closed', label: Text(_t('issueClosed'))),
+                ButtonSegment<String>(value: 'all', label: Text(_t('all'))),
               ],
               selected: <String>{_state},
               showSelectedIcon: false,
@@ -1912,7 +1927,7 @@ class _IssuesTabState extends State<_IssuesTab> {
                     trailing: ghStr(item, 'state') == 'open'
                         ? IconButton(
                             icon: const Icon(Icons.task_alt),
-                            tooltip: '关闭',
+                            tooltip: _t('close'),
                             onPressed: () => _close(number),
                           )
                         : const Icon(Icons.chevron_right),
@@ -1920,10 +1935,10 @@ class _IssuesTabState extends State<_IssuesTab> {
                   );
                 },
                 emptyIcon: Icons.task_alt,
-                emptyText: _state == 'all' ? '还没有议题' : '没有该状态的议题',
+                emptyText: _state == 'all' ? _t('noIssues') : _t('noIssuesFiltered'),
                 emptyAction: FilledButton.tonal(
                   onPressed: _create,
-                  child: const Text('新建议题'),
+                  child:  Text(_t('newIssue')),
                 ),
               ),
             ),
@@ -1992,10 +2007,10 @@ class _PullsTabState extends State<_PullsTab> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: SegmentedButton<String>(
-            segments: const <ButtonSegment<String>>[
-              ButtonSegment<String>(value: 'open', label: Text('打开中')),
-              ButtonSegment<String>(value: 'closed', label: Text('已关闭')),
-              ButtonSegment<String>(value: 'all', label: Text('全部')),
+            segments:  <ButtonSegment<String>>[
+              ButtonSegment<String>(value: 'open', label: Text(_t('openState'))),
+              ButtonSegment<String>(value: 'closed', label: Text(_t('issueClosed'))),
+              ButtonSegment<String>(value: 'all', label: Text(_t('all'))),
             ],
             selected: <String>{_state},
             showSelectedIcon: false,
@@ -2029,7 +2044,7 @@ class _PullsTabState extends State<_PullsTab> {
                 onTap: () => _openPull(item),
               ),
               emptyIcon: Icons.call_merge,
-              emptyText: _state == 'all' ? '还没有 PR' : '没有该状态的 PR',
+              emptyText: _state == 'all' ? _t('noPulls') : _t('noPullsFiltered'),
             ),
           ),
         ),
@@ -2095,7 +2110,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
     );
     if (created != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已创建发布 ${created.tagName}')),
+        SnackBar(content: Text(_t('releaseCreated', <String, String>{'tag': created.tagName}))),
       );
       await _paged.refresh();
     }
@@ -2124,7 +2139,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
           ? FloatingActionButton.extended(
               onPressed: _create,
               icon: const Icon(Icons.new_releases_outlined),
-              label: const Text('新建发布'),
+              label:  Text(_t('newRelease')),
             )
           : null,
       body: ListenableBuilder(
@@ -2134,8 +2149,8 @@ class _ReleasesTabState extends State<_ReleasesTab> {
           _paged,
           (BuildContext context, GhRelease release, int index) {
             final List<String> marks = <String>[
-              if (release.isDraft) '草稿',
-              if (release.isPrerelease) '预发布',
+              if (release.isDraft) _t('draft'),
+              if (release.isPrerelease) _t('prerelease'),
             ];
             return ListTile(
               leading: const Icon(Icons.new_releases_outlined),
@@ -2150,9 +2165,14 @@ class _ReleasesTabState extends State<_ReleasesTab> {
               subtitle: Text(
                 <String>[
                   if (release.publishedAt != null)
-                    '发布 ${release.publishedAt!.toIso8601String().split('T').first}',
+                    _t('releasePublishedAt', <String, String>{
+                      'date': release.publishedAt!
+                          .toIso8601String()
+                          .split('T')
+                          .first,
+                    }),
                   if (marks.isNotEmpty) marks.join(' / '),
-                  '${release.assets.length} 个附件',
+                  _t('releaseAssetsCount', <String, String>{'count': release.assets.length}),
                 ].join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -2162,11 +2182,11 @@ class _ReleasesTabState extends State<_ReleasesTab> {
             );
           },
           emptyIcon: Icons.new_releases_outlined,
-          emptyText: '还没有发布',
+          emptyText: _t('noReleases'),
           emptyAction: widget.canWrite
               ? FilledButton.tonal(
                   onPressed: _create,
-                  child: const Text('新建发布'),
+                  child:  Text(_t('newRelease')),
                 )
               : null,
         ),
@@ -2230,23 +2250,23 @@ class _BranchesTabState extends State<_BranchesTab> {
     final String? input = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('新建分支'),
+        title:  Text(_t('newBranch')),
         content: TextField(
           controller: _createName,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '分支名',
+          decoration:  InputDecoration(
+            labelText: _t('branchName'),
             hintText: 'feature/xxx',
           ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(_createName.text),
-            child: const Text('创建'),
+            child:  Text(_t('create')),
           ),
         ],
       ),
@@ -2261,13 +2281,13 @@ class _BranchesTabState extends State<_BranchesTab> {
         name: trimmed,
         fromBranch: widget.defaultBranch,
       );
-      OgLAppLog.instance.result('分支', '已创建', trimmed);
+      OgLAppLog.instance.result(_t('branches'), _t('branchCreated'), trimmed);
       await _paged.refresh();
       widget.onBranchChanged();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('创建失败：$error')),
+          SnackBar(content: Text(_t('branchCreateFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -2278,20 +2298,20 @@ class _BranchesTabState extends State<_BranchesTab> {
     final String? input = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('重命名分支'),
+        title:  Text(_t('renameBranch')),
         content: TextField(
           controller: _renameName,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '新名称'),
+          decoration:  InputDecoration(labelText: _t('newName')),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(_renameName.text),
-            child: const Text('重命名'),
+            child:  Text(_t('rename')),
           ),
         ],
       ),
@@ -2303,12 +2323,12 @@ class _BranchesTabState extends State<_BranchesTab> {
     try {
       await widget.surface.domain.api
           .renameBranch(widget.fullName, branch.name, trimmed);
-      OgLAppLog.instance.result('分支', '已重命名', '${branch.name} → $trimmed');
+      OgLAppLog.instance.result(_t('branches'), _t('branchRenamed'), '${branch.name} → $trimmed');
       await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('重命名失败：$error')),
+          SnackBar(content: Text(_t('branchRenameFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -2318,19 +2338,19 @@ class _BranchesTabState extends State<_BranchesTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除分支'),
-        content: Text('将删除分支「${branch.name}」。该操作不可直接撤销。'),
+        title:  Text(_t('deleteBranchTitle')),
+        content: Text(_t('deleteBranchDesc', <String, String>{'name': branch.name})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child:  Text(_t('delete')),
           ),
         ],
       ),
@@ -2340,12 +2360,12 @@ class _BranchesTabState extends State<_BranchesTab> {
     }
     try {
       await widget.surface.domain.api.deleteBranch(widget.fullName, branch.name);
-      OgLAppLog.instance.result('分支', '已删除', branch.name);
+      OgLAppLog.instance.result(_t('branches'), _t('branchDeleted'), branch.name);
       await _paged.refresh();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$error')),
+          SnackBar(content: Text(_t('branchDeleteFailed', <String, String>{'error': result.detail ?? result.conflict.name})))),
         );
       }
     }
@@ -2359,7 +2379,7 @@ class _BranchesTabState extends State<_BranchesTab> {
           ? FloatingActionButton.extended(
               onPressed: _create,
               icon: const Icon(Icons.alt_route),
-              label: const Text('新建分支'),
+              label:  Text(_t('newBranch')),
             )
           : null,
       body: ListenableBuilder(
@@ -2393,22 +2413,22 @@ class _BranchesTabState extends State<_BranchesTab> {
                   PopupMenuItem<String>(
                     value: 'rename',
                     enabled: !isDefault,
-                    child: const Text('重命名'),
+                    child:  Text(_t('rename')),
                   ),
                   PopupMenuItem<String>(
                     value: 'delete',
                     enabled: !isDefault,
-                    child: const Text('删除'),
+                    child:  Text(_t('delete')),
                   ),
                 ],
               ),
             );
           },
           emptyIcon: Icons.account_tree_outlined,
-          emptyText: '还没有分支',
+          emptyText: _t('noBranches'),
           emptyAction: FilledButton.tonal(
             onPressed: _create,
-            child: const Text('新建分支'),
+            child:  Text(_t('newBranch')),
           ),
         ),
       ),
@@ -2489,7 +2509,7 @@ class _CommitsTabState extends State<_CommitsTab> {
           ),
         ),
         emptyIcon: Icons.history,
-        emptyText: '还没有提交',
+        emptyText: _t('noCommits'),
       ),
     );
   }
@@ -2556,7 +2576,7 @@ class _ActionsTabState extends State<_ActionsTab> {
     );
     if (triggered == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已触发工作流')),
+         SnackBar(content: Text(_t('workflowTriggered'))),
       );
       await _paged.refresh();
     }
@@ -2614,7 +2634,7 @@ class _ActionsTabState extends State<_ActionsTab> {
                   FilledButton.tonalIcon(
                     onPressed: _dispatch,
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('手动触发'),
+                    label:  Text(_t('manualTrigger')),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2623,11 +2643,11 @@ class _ActionsTabState extends State<_ActionsTab> {
                       child: Row(
                         children: <Widget>[
                           for (final MapEntry<String, String> entry
-                              in const <String, String>{
-                            'all': '全部',
-                            'running': '进行中',
-                            'success': '成功',
-                            'failure': '失败',
+                              in  <String, String>{
+                            'all': _t('all'),
+                            'running': _t('runInProgress'),
+                            'success': _t('runSuccess'),
+                            'failure': _t('runFailed'),
                           }.entries)
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
@@ -2650,9 +2670,9 @@ class _ActionsTabState extends State<_ActionsTab> {
             ),
             Expanded(
               child: shown.isEmpty && _paged.items.isNotEmpty
-                  ? const _MessagePane(
+                  ?  _MessagePane(
                       icon: Icons.filter_alt_off_outlined,
-                      message: '没有符合筛选条件的运行',
+                      message: _t('noRunsFiltered'),
                     )
                   : _pagedBody<Map<String, dynamic>>(
                       context,
@@ -2697,7 +2717,7 @@ class _ActionsTabState extends State<_ActionsTab> {
                         );
                       },
                       emptyIcon: Icons.play_circle_outline,
-                      emptyText: '没有工作流运行记录',
+                      emptyText: _t('noWorkflowRuns'),
                       items: shown,
                   ),
             ),
@@ -2783,17 +2803,17 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         name: _name.text.trim().isEmpty ? null : _name.text.trim(),
         description: _description.text.trim(),
       );
-      OgLAppLog.instance.result('仓库', '基本信息已更新', _full);
+      OgLAppLog.instance.result('仓库', _t('basicInfoUpdated'), _full);
       if (mounted) {
         widget.onRepoChanged(updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存')),
+           SnackBar(content: Text(_t('saved'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败：$error')),
+          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -2810,7 +2830,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     final String domain = _cname.text.trim();
     if (domain.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填写域名')),
+         SnackBar(content: Text(_t('domainRequired'))),
       );
       return;
     }
@@ -2840,23 +2860,23 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('CNAME 保存失败：${result.detail ?? result.conflict.name}'),
+                content: Text(_t('cnameSaveFailed', <String, String>{'error': result.detail ?? result.conflict.name})),
               ),
             );
           }
           return;
         }
       }
-      OgLAppLog.instance.result('仓库', 'CNAME 已写入', domain);
+      OgLAppLog.instance.result('仓库', _t('cnameSaved'), domain);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存 CNAME')),
+           SnackBar(content: Text(_t('cnameSavedShort'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CNAME 保存失败：$error')),
+          SnackBar(content: Text(_t('cnameSaveFailed', <String, String>{'error': result.detail ?? result.conflict.name})))),
         );
       }
     } finally {
@@ -2874,17 +2894,17 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     try {
       await widget.surface.domain.api
           .enablePages(_full, branch: widget.repo.defaultBranch);
-      OgLAppLog.instance.result('仓库', 'Pages 已启用', _full);
+      OgLAppLog.instance.result('仓库', _t('pagesEnabled'), _full);
       if (mounted) {
         setState(() => _pagesFuture = _loadPages());
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pages 已启用（首次发布可能需要几十秒）')),
+           SnackBar(content: Text(_t('pagesEnabledHint'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('启用失败：$error')),
+          SnackBar(content: Text(_t('enableFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -2901,17 +2921,17 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     setState(() => _busy = true);
     try {
       await widget.surface.domain.api.disablePages(_full);
-      OgLAppLog.instance.result('仓库', 'Pages 已停用', _full);
+      OgLAppLog.instance.result('仓库', _t('pagesDisabledHint'), _full);
       if (mounted) {
         setState(() => _pagesFuture = _loadPages());
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pages 已停用')),
+           SnackBar(content: Text(_t('pagesDisabledHint'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('停用失败：$error')),
+          SnackBar(content: Text(_t('disableFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -2925,19 +2945,19 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除仓库'),
-        content: Text('将删除 $_full（含代码与记录）。该操作不可撤销。'),
+        title:  Text(_t('deleteRepo')),
+        content: Text(_t('deleteRepoDesc', <String, String>{'full': _full}))),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('永久删除'),
+            child:  Text(_t('deleteForever')),
           ),
         ],
       ),
@@ -2947,7 +2967,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     }
     try {
       await widget.surface.domain.api.deleteRepo(_full);
-      OgLAppLog.instance.add('仓库', '已删除仓库 $_full',
+      OgLAppLog.instance.add('仓库', _t('repoDeleted', <String, String>{'full': _full})),
           severity: OgLNoticeSeverity.warning);
       if (mounted) {
         Navigator.of(context).pop();
@@ -2955,7 +2975,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$error')),
+          SnackBar(content: Text(_t('branchDeleteFailed', <String, String>{'error': result.detail ?? result.conflict.name})))),
         );
       }
     }
@@ -2967,12 +2987,12 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Text('基本信息', style: theme.textTheme.titleMedium),
+        Text(_t('basicInfo'), style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         TextField(
           controller: _name,
-          decoration: const InputDecoration(
-            labelText: '仓库名',
+          decoration:  InputDecoration(
+            labelText: _t('repoName'),
             border: OutlineInputBorder(),
           ),
         ),
@@ -2980,8 +3000,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         TextField(
           controller: _description,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: '描述',
+          decoration:  InputDecoration(
+            labelText: _t('description'),
             border: OutlineInputBorder(),
           ),
         ),
@@ -2990,7 +3010,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           alignment: Alignment.centerRight,
           child: FilledButton(
             onPressed: _busy ? null : _saveBasic,
-            child: const Text('保存基本信息'),
+            child:  Text(_t('saveBasicInfo')),
           ),
         ),
         const Divider(height: 32),
@@ -3000,18 +3020,21 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           future: _pagesFuture,
           builder: (BuildContext context, AsyncSnapshot<Map<String, dynamic>?> snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Text('读取中…');
+              return  Text(_t('reading'));
             }
             final Map<String, dynamic>? info = snapshot.data;
             if (info == null) {
-              return const Text('当前未启用');
+              return  Text(_t('notEnabled'));
             }
             final String url = ghStr(info, 'html_url');
             final String status = ghStr(info, 'status');
-            return Text(
-              '状态：${status.isEmpty ? '已启用' : status}'
-              '${url.isEmpty ? '' : '\n地址：$url'}',
-            );
+            final String statusPart = status.isEmpty ? _t('enabled') : status;
+            final String urlPart = url.isEmpty
+                ? ''
+                : '\n${_t('address', <String, String>{'url': url})}';
+            return Text(_t('statusLabel', <String, String>{
+              'status': '$statusPart$urlPart',
+            }));
           },
         ),
         const SizedBox(height: 8),
@@ -3020,19 +3043,19 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           children: <Widget>[
             FilledButton.tonal(
               onPressed: _busy ? null : _enablePages,
-              child: const Text('启用（默认分支）'),
+              child:  Text(_t('enableDefaultBranch')),
             ),
             OutlinedButton(
               onPressed: _busy ? null : _disablePages,
-              child: const Text('停用'),
+              child:  Text(_t('disable')),
             ),
           ],
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _cname,
-          decoration: const InputDecoration(
-            labelText: '自定义域名（CNAME）',
+          decoration:  InputDecoration(
+            labelText: _t('customDomain'),
             hintText: 'example.com',
             border: OutlineInputBorder(),
           ),
@@ -3042,12 +3065,12 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           alignment: Alignment.centerRight,
           child: FilledButton.tonal(
             onPressed: _busy ? null : _saveCname,
-            child: const Text('保存 CNAME'),
+            child:  Text(_t('saveCname')),
           ),
         ),
         const Divider(height: 32),
         Text(
-          '危险区',
+          _t('dangerZone'),
           style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.error),
         ),
         const SizedBox(height: 8),
@@ -3057,14 +3080,14 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Text('删除仓库会连同代码与记录一起消失，且不可撤销。'),
+                 Text(_t('deleteRepoWarning')),
                 const SizedBox(height: 12),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.error,
                   ),
                   onPressed: _deleteRepo,
-                  child: const Text('删除仓库'),
+                  child:  Text(_t('deleteRepo')),
                 ),
               ],
             ),

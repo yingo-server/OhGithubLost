@@ -9,11 +9,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
+
 import '../util/link_opener.dart';
 import '../widgets/readme_view.dart';
+
+/// 取 `issue_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('issue_page', key, args: args);
 
 /// 评论文本上限（字符数）。
 ///
@@ -74,7 +82,7 @@ class _IssuePageState extends State<IssuePage> {
       return existing;
     }
     final controller = AsyncController<List<Map<String, dynamic>>>(
-      label: '评论',
+      label: _t('comments'),
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
       loader: () =>
           widget.surface.domain.api.issueComments(widget.fullName, _number),
@@ -91,16 +99,16 @@ class _IssuePageState extends State<IssuePage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(closing ? '关闭议题 #$_number' : '重新打开议题 #$_number'),
-        content: Text(closing ? '关闭后仍可在「已关闭」筛选里看到它。' : '重新打开后议题会回到打开列表。'),
+        title: Text(closing ? _t('closeIssue', <String, String>{'number': _number})) : _t('reopenIssue', <String, String>{'number': _number}))),
+        content: Text(closing ? _t('closeHint') : _t('reopenHint')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(closing ? '关闭' : '重新打开'),
+            child: Text(closing ? _t('close') : _t('reopen')),
           ),
         ],
       ),
@@ -117,7 +125,7 @@ class _IssuePageState extends State<IssuePage> {
       );
       OgLAppLog.instance.result(
         '议题',
-        closing ? '已关闭' : '已重新打开',
+        closing ? _t('closed') : _t('reopened'),
         '#$_number',
       );
       if (!mounted) {
@@ -127,12 +135,12 @@ class _IssuePageState extends State<IssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        '状态切换失败：$error',
+        _t('toggleFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败：$error')),
+          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -146,7 +154,7 @@ class _IssuePageState extends State<IssuePage> {
     final String body = _comment.text.trim();
     if (body.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('评论不能为空')),
+         SnackBar(content: Text(_t('commentRequired'))),
       );
       return;
     }
@@ -155,7 +163,7 @@ class _IssuePageState extends State<IssuePage> {
     if (body.length > _kMaxCommentChars) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('评论过长（${body.length}/$_kMaxCommentChars 字符），请精简后重试'),
+          content: Text(_t('commentTooLong', <String, String>{'length': body.length, 'max': _kMaxCommentChars}))),
         ),
       );
       return;
@@ -170,7 +178,7 @@ class _IssuePageState extends State<IssuePage> {
         _number,
         body: body,
       );
-      OgLAppLog.instance.result('议题', '评论已发布', '#$_number');
+      OgLAppLog.instance.result('议题', _t('commentPosted'), '#$_number');
       if (!mounted) {
         return;
       }
@@ -178,18 +186,18 @@ class _IssuePageState extends State<IssuePage> {
       await _commentsC().load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('评论已发布')),
+           SnackBar(content: Text(_t('commentPosted'))),
         );
       }
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        '评论发布失败：$error',
+        _t('commentPostFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('评论失败：$error')),
+          SnackBar(content: Text(_t('commentFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -223,7 +231,7 @@ class _IssuePageState extends State<IssuePage> {
           Text(
             'by ${ghLogin(widget.issue)} · '
             '${ghDate(widget.issue, 'created_at')} · '
-            '${open ? '打开中' : '已关闭'}',
+            '${open ? '打开中' : _t('closed')}',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -245,17 +253,17 @@ class _IssuePageState extends State<IssuePage> {
             child: OutlinedButton.icon(
               onPressed: _busy ? null : _toggleState,
               icon: Icon(open ? Icons.task_alt : Icons.undo),
-              label: Text(open ? '关闭议题' : '重新打开'),
+              label: Text(open ? _t('closeIssueTitle') : _t('reopen')),
             ),
           ),
           const Divider(height: 32),
-          Text('评论', style: theme.textTheme.titleMedium),
+          Text(_t('comments'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           AsyncView<List<Map<String, dynamic>>>(
             controller: _commentsC(),
             fill: false,
             emptyIcon: Icons.chat_bubble_outline,
-            emptyText: '还没有评论',
+            emptyText: _t('noComments'),
             builder: (
               BuildContext context,
               List<Map<String, dynamic>> comments,
@@ -299,7 +307,7 @@ class _IssuePageState extends State<IssuePage> {
                           child: ReadmeView(
                             markdown: ghStr(comment, 'body'),
                             onOpenLink: (Uri uri) {
-                              unawaited(openExternalLink(uri, tag: '评论'));
+                              unawaited(openExternalLink(uri, tag: _t('comments')));
                             },
                           ),
                         ),
@@ -310,16 +318,16 @@ class _IssuePageState extends State<IssuePage> {
             ),
           ),
           const Divider(height: 32),
-          Text('发表评论', style: theme.textTheme.titleMedium),
+          Text(_t('postComment'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           TextField(
             controller: _comment,
             minLines: 3,
             maxLines: 8,
             enabled: !_posting,
-            decoration: const InputDecoration(
+            decoration:  InputDecoration(
               border: OutlineInputBorder(),
-              hintText: '支持 Markdown；请保持友善与具体',
+              hintText: _t('commentHint'),
             ),
           ),
           const SizedBox(height: 8),
@@ -328,7 +336,7 @@ class _IssuePageState extends State<IssuePage> {
             child: FilledButton.icon(
               onPressed: _posting ? null : _postComment,
               icon: const Icon(Icons.send),
-              label: Text(_posting ? '发布中…' : '发表评论'),
+              label: Text(_posting ? _t('posting') : _t('postComment')),
             ),
           ),
           const SizedBox(height: 24),

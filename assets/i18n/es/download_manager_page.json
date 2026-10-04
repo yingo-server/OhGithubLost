@@ -1,0 +1,16 @@
+{
+  "cancel": "Cancelar",
+  "cannotOpenCopied": "No se puede abrir directamente, se copió la ruta del archivo",
+  "clearFinished": "Limpieza completada",
+  "copyPath": "Copiar ruta",
+  "empty": "Aún no hay tareas de descarga",
+  "emptyHint": "Toca «Descargar» en un adjunto de Release o un archivo del repositorio para añadirlo",
+  "noAppForFile": "No hay ninguna app que pueda procesar este archivo",
+  "open": "Abrir",
+  "pathCopied": "Se copió la ruta del archivo",
+  "pause": "Pausar",
+  "remove": "Quitar",
+  "resume": "Reanudar",
+  "retry": "Reintentar",
+  "title": "Gestión de descargas"
+}

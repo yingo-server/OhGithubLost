@@ -22,21 +22,29 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
+
 import '../../kernel/log/og_l_log_file.dart';
 import '../app/error_surface.dart';
+
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
+
 import '../settings.dart';
 import '../surface_bridge.dart';
+
 import '../theme.dart';
 import '../types.dart';
+
 import '../util/accel.dart';
 import '../widgets/code_editor_field.dart';
+
 import 'about_page.dart';
 import 'onboarding_page.dart';
+
 import 'repo_page.dart';
 
 /// 设置页。
@@ -94,14 +102,19 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   /// 动效档位的短标签（与 [OgLSettings.motionLevelIds] 一一对应）。
-  static const List<String> _motionShort = <String>['最小', '当前', '标准', '增强'];
+  static List<String> get _motionShort => <String>[
+        _t('densityMin'),
+        _t('densityCurrent'),
+        _t('densityStandard'),
+        _t('densityEnhanced'),
+      ];
 
   /// 动效档位的说明（与 [OgLSettings.motionLevelIds] 一一对应）。
-  static const List<String> _motionHints = <String>[
-    '关闭页面过渡等动画',
-    '沿用当前的动效量',
-    '页面过渡使用 Material 标准',
-    '在标准之上增加淡入与缩放',
+  static List<String> get _motionHints => <String>[
+    _t('motionMinDesc'),
+    _t('motionCurrentDesc'),
+    _t('motionStandardDesc'),
+    _t('motionEnhancedDesc'),
   ];
 
   Future<void> _pickCodeColor(String field, int current, String title) async {
@@ -154,7 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final Map<String, String> choices = widget.surface.dnsServerChoices;
     if (choices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前环境没有可选的 DNS 服务器')),
+         SnackBar(content: Text(_t('noDnsServers'))),
       );
       return;
     }
@@ -162,7 +175,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final String? picked = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => SimpleDialog(
-        title: const Text('选择 DNS 服务器'),
+        title:  Text(_t('selectDns')),
         children: <Widget>[
           for (final MapEntry<String, String> entry in choices.entries)
             SimpleDialogOption(
@@ -184,7 +197,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await widget.surface.setDnsServer(picked);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('DNS 选择已保存并生效')),
+         SnackBar(content: Text(_t('dnsSaved'))),
       );
     }
   }
@@ -193,19 +206,19 @@ class _SettingsPageState extends State<SettingsPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('退出登录'),
+        title:  Text(_t('logout')),
         content: Text(
-          '将删除「@${account.login}」在本机保存的令牌。'
-          '该账号的远端数据不受影响；重新登录需要再次输入令牌。',
+          _t('logoutDesc', <String, String>{'login': account.login})
+          _t('logoutDesc2'),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('退出登录'),
+            child:  Text(_t('logout')),
           ),
         ],
       ),
@@ -220,13 +233,13 @@ class _SettingsPageState extends State<SettingsPage> {
       clearOgLRepoPageCaches();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已退出登录（令牌已从本机删除）')),
+           SnackBar(content: Text(_t('loggedOut'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('退出失败：$error')),
+          SnackBar(content: Text(_t('logoutFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -236,16 +249,16 @@ class _SettingsPageState extends State<SettingsPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('重置设置'),
-        content: const Text('将把外观 / 代码 / 网络设置恢复为默认值（账户与数据不受影响）。'),
+        title:  Text(_t('resetSettings')),
+        content:  Text(_t('resetDesc')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('重置'),
+            child:  Text(_t('reset')),
           ),
         ],
       ),
@@ -257,7 +270,7 @@ class _SettingsPageState extends State<SettingsPage> {
     widget.surface.applyDns();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已恢复默认设置')),
+         SnackBar(content: Text(_t('resetDone'))),
       );
     }
   }
@@ -330,27 +343,27 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     if (account == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先登录，再用当前账号为项目点亮 star')),
+         SnackBar(content: Text(_t('starLoginFirst'))),
       );
       return;
     }
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('捐赠一颗心'),
+        title:  Text(_t('donateHeart')),
         content: Text(
-          '将用当前登录账号「@${account.login}」'
-          '给 ${OgLProjectInfo.repoFullName} 点亮 star。'
-          '如果已经 star 过，不会重复操作。',
+          _t('donateDesc1', <String, String>{'login': account.login})
+          _t('donateDesc2', <String, String>{'repo': OgLProjectInfo.repoFullName})
+          _t('donateDesc3'),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('再想想'),
+            child:  Text(_t('thinkAgain')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('捐赠一颗心'),
+            child:  Text(_t('donateHeart')),
           ),
         ],
       ),
@@ -364,7 +377,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (already) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('这个账号已经 star 过，心意已收到')),
+             SnackBar(content: Text(_t('alreadyStarred'))),
           );
         }
         return;
@@ -373,13 +386,13 @@ class _SettingsPageState extends State<SettingsPage> {
           .setStarred(OgLProjectInfo.repoFullName, true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('感谢支持，已为项目点亮 star')),
+           SnackBar(content: Text(_t('starredThanks'))),
         );
       }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败：$error')),
+          SnackBar(content: Text(_t('actionFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -392,7 +405,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已复制 ${lines.length} 行日志')),
+      SnackBar(content: Text(_t('copiedLogLines', <String, String>{'count': lines.length}))),
     );
   }
 
@@ -437,7 +450,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: Text(OgLI18n.instance.t('shell', 'about')),
-                  subtitle: const Text('项目信息与启动诊断'),
+                  subtitle:  Text(_t('projectInfo')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openAbout,
                 ),
@@ -448,8 +461,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: Icon(Icons.favorite, color: theme.colorScheme.error),
-                  title: const Text('捐赠一颗心'),
-                  subtitle: Text('用当前登录账号给 ${OgLProjectInfo.repoFullName} 点亮 star'),
+                  title:  Text(_t('donateHeart')),
+                  subtitle: Text(_t('donateTileDesc', <String, String>{'repo': OgLProjectInfo.repoFullName})),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _donateStar,
                 ),
@@ -470,24 +483,24 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _appearanceSection(ThemeData theme, OgLSettings value) => _section(
         theme,
         title: _t('appearance'),
-        subtitle: '主题、缩放与动效',
+        subtitle: _t('appearanceDesc'),
         children: <Widget>[
           _subTitle(theme, _t('themeMode')),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: SegmentedButton<OgLThemeMode>(
-              segments: const <ButtonSegment<OgLThemeMode>>[
+              segments:  <ButtonSegment<OgLThemeMode>>[
                 ButtonSegment<OgLThemeMode>(
                   value: OgLThemeMode.system,
-                  label: Text('跟随系统'),
+                  label: Text(_t('followSystem')),
                 ),
                 ButtonSegment<OgLThemeMode>(
                   value: OgLThemeMode.light,
-                  label: Text('亮色'),
+                  label: Text(_t('light')),
                 ),
                 ButtonSegment<OgLThemeMode>(
                   value: OgLThemeMode.dark,
-                  label: Text('暗色'),
+                  label: Text(_t('dark')),
                 ),
               ],
               selected: <OgLThemeMode>{value.mode},
@@ -541,14 +554,14 @@ class _SettingsPageState extends State<SettingsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: SegmentedButton<String>(
-              segments: const <ButtonSegment<String>>[
+              segments:  <ButtonSegment<String>>[
                 ButtonSegment<String>(
                   value: 'comfortable',
-                  label: Text('舒适'),
+                  label: Text(_t('comfortable')),
                 ),
                 ButtonSegment<String>(
                   value: 'compact',
-                  label: Text('紧凑'),
+                  label: Text(_t('compact')),
                 ),
               ],
               selected: <String>{value.density},
@@ -578,8 +591,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 24),
           _motionTile(theme, value.motionLevel),
           SwitchListTile(
-            title: const Text('减少动效（无障碍）'),
-            subtitle: const Text('跟随系统的"减少动效"设置；档位"最小"会直接关闭'),
+            title:  Text(_t('reduceMotionA11y')),
+            subtitle:  Text(_t('reduceMotionDesc')),
             value: value.reduceMotion,
             onChanged: _settings.setReduceMotion,
           ),
@@ -597,7 +610,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             children: <Widget>[
               Expanded(
-                child: Text('动效档位', style: theme.textTheme.labelLarge),
+                child: Text(_t('motionLevel'), style: theme.textTheme.labelLarge),
               ),
               Text(_motionShort[index], style: theme.textTheme.bodySmall),
             ],
@@ -627,7 +640,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _languageSection(ThemeData theme) => _section(
         theme,
         title: _t('language'),
-        subtitle: '界面显示语言',
+        subtitle: _t('displayLanguage'),
         children: <Widget>[
           ListTile(
             leading: const Icon(Icons.translate),
@@ -643,11 +656,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _codeSection(ThemeData theme, OgLSettings value) => _section(
         theme,
         title: _t('codeAndFiles'),
-        subtitle: '高亮、字号与排序',
+        subtitle: _t('codeDesc'),
         children: <Widget>[
           SwitchListTile(
             title: Text(_t('syntaxHighlight')),
-            subtitle: const Text('按文件类型着色（关键词 / 字符串 / 注释）'),
+            subtitle:  Text(_t('codeColorDesc')),
             value: value.codeHighlight,
             onChanged: _settings.setCodeHighlight,
           ),
@@ -661,7 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 for (final MapEntry<String, String> entry
                     in kOgLCodePresetLabels.entries)
                   ChoiceChip(
-                    label: Text(entry.value),
+                    label: Text(ogLCodePresetLabel(entry.key)),
                     selected: value.codeThemePreset == entry.key,
                     // 同款修正：选中态用 primary 底 + onPrimary 字/勾，确保明环境下的对比度。
                     selectedColor: theme.colorScheme.primary,
@@ -685,30 +698,30 @@ class _SettingsPageState extends State<SettingsPage> {
               const Divider(height: 1),
               _codeColorTile(
                 theme,
-                '背景',
+                _t('tokenBackground'),
                 'background',
                 value.codeColorBackground,
               ),
               _codeColorTile(
                 theme,
-                '正文',
+                _t('tokenForeground'),
                 'foreground',
                 value.codeColorForeground,
               ),
-              _codeColorTile(theme, '关键词', 'keyword', value.codeColorKeyword),
+              _codeColorTile(theme, _t('tokenKeyword'), 'keyword', value.codeColorKeyword),
               _codeColorTile(
                 theme,
-                '类型',
+                _t('tokenType'),
                 'typeName',
                 value.codeColorTypeName,
               ),
-              _codeColorTile(theme, '字符串', 'string', value.codeColorString),
-              _codeColorTile(theme, '注释', 'comment', value.codeColorComment),
-              _codeColorTile(theme, '数字', 'number', value.codeColorNumber),
+              _codeColorTile(theme, _t('tokenString'), 'string', value.codeColorString),
+              _codeColorTile(theme, _t('tokenComment'), 'comment', value.codeColorComment),
+              _codeColorTile(theme, _t('tokenNumber'), 'number', value.codeColorNumber),
             ],
           SwitchListTile(
             title: Text(_t('codeWrap')),
-            subtitle: const Text('关闭则横向滚动查看长行'),
+            subtitle:  Text(_t('codeWrapDesc')),
             value: value.codeWrap,
             onChanged: _settings.setCodeWrap,
           ),
@@ -728,7 +741,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SwitchListTile(
             title: Text(_t('foldersFirst')),
-            subtitle: const Text('仓库浏览时把文件夹排在文件前面'),
+            subtitle:  Text(_t('foldersFirstDesc')),
             value: value.foldersFirst,
             onChanged: _settings.setFoldersFirst,
           ),
@@ -739,11 +752,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _networkSection(ThemeData theme, OgLSettings value) => _section(
         theme,
         title: _t('network'),
-        subtitle: '解析方式',
+        subtitle: _t('dnsMode'),
         children: <Widget>[
           SwitchListTile(
             title: Text(_t('customDns')),
-            subtitle: const Text('关闭则使用系统解析（推荐默认）'),
+            subtitle:  Text(_t('dnsModeDesc')),
             value: value.dnsMode == 'custom',
             onChanged: (bool on) {
               widget.surface.setDnsMode(on ? 'custom' : 'system');
@@ -752,7 +765,7 @@ class _SettingsPageState extends State<SettingsPage> {
           if (value.dnsMode == 'custom') ...<Widget>[
             ListTile(
               leading: const Icon(Icons.dns_outlined),
-              title: const Text('DNS 服务器'),
+              title:  Text(_t('dnsServer')),
               subtitle: Text(
                 widget.surface.dnsServerChoices[value.dnsServerId] ??
                     value.dnsServerId,
@@ -762,7 +775,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             SwitchListTile(
               title: Text(_t('doh')),
-              subtitle: const Text('关闭则走明文 UDP，容易被中间设备干扰'),
+              subtitle:  Text(_t('dnsServerDesc')),
               value: value.dnsPreferDoh,
               onChanged: widget.surface.setDnsPreferDoh,
             ),
@@ -788,8 +801,8 @@ const Divider(height: 1),
   List<Widget> _accelTiles(ThemeData theme, OgLSettings value) {
     final List<Widget> tiles = <Widget>[
       SwitchListTile(
-        title: const Text('Release 下载加速'),
-        subtitle: const Text('仅影响 Release 附件下载；关闭时始终直连'),
+        title:  Text(_t('accelTitle')),
+        subtitle:  Text(_t('accelDesc')),
         value: value.releaseProxyEnabled,
         onChanged: (bool on) => unawaited(_toggleAccel(on)),
       ),
@@ -797,7 +810,7 @@ const Divider(height: 1),
     if (!value.releaseProxyEnabled) {
       return tiles;
     }
-    tiles.add(_subTitle(theme, '加速通道'));
+    tiles.add(_subTitle(theme, _t('accelChannels')));
     for (final OgLAccelChannel channel in value.allAccelChannels) {
       final bool selected = channel.id == value.activeAccelChannel.id;
       tiles.add(
@@ -805,16 +818,16 @@ const Divider(height: 1),
           leading: Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           ),
-          title: Text(channel.name),
+          title: Text(ogLAccelChannelName(channel)),
           subtitle: Text(
-            channel.builtin ? '开发者自建（HTTPS）' : channel.baseUrl,
+            channel.builtin ? _t('accelBuiltinDesc') : channel.baseUrl,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           trailing: channel.builtin
               ? null
               : IconButton(
-                  tooltip: '移除该通道',
+                  tooltip: _t('removeChannel'),
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () =>
                       unawaited(widget.surface.removeAccelChannel(channel.id)),
@@ -827,7 +840,7 @@ const Divider(height: 1),
     tiles.add(
       ListTile(
         leading: const Icon(Icons.add),
-        title: const Text('添加自定义通道'),
+        title:  Text(_t('addCustomChannel')),
         subtitle: const Text('第三方服务，需自行确认可信；地址需为 https://'),
         onTap: _addAccelChannel,
       ),
@@ -835,12 +848,18 @@ const Divider(height: 1),
     tiles.add(
       ListTile(
         leading: const Icon(Icons.gavel_outlined),
-        title: const Text('查看加速通道协议'),
+        title:  Text(_t('viewAccelAgreement')),
         subtitle: Text(
           value.accelConsentCurrent
-              ? '已同意（v${value.releaseProxyConsentVersion}'
-                  '${value.releaseProxyConsentAt == null ? '' : ' · ${value.releaseProxyConsentAt}'}）'
-              : '尚未同意',
+              ? (value.releaseProxyConsentAt == null
+                  ? _t('consented', <String, String>{
+                      'version': '${value.releaseProxyConsentVersion}',
+                    })
+                  : _t('consentedAt', <String, String>{
+                      'version': '${value.releaseProxyConsentVersion}',
+                      'at': '${value.releaseProxyConsentAt}',
+                    }))
+              : _t('notConsented'),
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => unawaited(
@@ -880,7 +899,7 @@ const Divider(height: 1),
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setLocal) => AlertDialog(
-          title: Text(channel.builtin ? '内置通道安全声明' : '外来服务自负责任协议'),
+          title: Text(channel.builtin ? _t('accelBuiltinTitle') : _t('accelThirdPartyTitle')),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -890,19 +909,19 @@ const Divider(height: 1),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('不同意'),
+              child:  Text(_t('disagree')),
             ),
             FilledButton(
               onPressed: agreed
                   ? () => Navigator.of(dialogContext).pop(true)
                   : null,
-              child: const Text('同意并继续'),
+              child:  Text(_t('agreeContinue')),
             ),
             if (requireConsent)
               CheckboxListTile(
                 value: agreed,
                 onChanged: (bool? v) => setLocal(() => agreed = v ?? false),
-                title: const Text('我已阅读并同意上述条款'),
+                title:  Text(_t('agreeRead')),
                 controlAffinity: ListTileControlAffinity.leading,
                 dense: true,
               ),
@@ -913,7 +932,7 @@ const Divider(height: 1),
     if (ok == true && agreed) {
       await widget.surface.acceptAccelConsent();
       if (mounted) {
-        OgLAppLog.instance.result('设置', '已同意加速通道协议', channel.id);
+        OgLAppLog.instance.result(_t('title'), _t('agreedAccel'), channel.id);
       }
       return true;
     }
@@ -927,23 +946,23 @@ const Divider(height: 1),
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('添加自定义通道'),
+        title:  Text(_t('addCustomChannel')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             TextField(
               controller: name,
-              decoration: const InputDecoration(
-                labelText: '名称',
-                hintText: '例如：我的加速',
+              decoration:  InputDecoration(
+                labelText: _t('channelName'),
+                hintText: _t('channelNameHint'),
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: url,
-              decoration: const InputDecoration(
-                labelText: '地址',
+              decoration:  InputDecoration(
+                labelText: _t('channelUrl'),
                 hintText: 'https://example.com/',
                 border: OutlineInputBorder(),
               ),
@@ -953,11 +972,11 @@ const Divider(height: 1),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('添加'),
+            child:  Text(_t('add')),
           ),
         ],
       ),
@@ -974,14 +993,14 @@ const Divider(height: 1),
       _toast(error);
       return;
     }
-    final String label = name.text.trim().isEmpty ? '自定义通道' : name.text.trim();
+    final String label = name.text.trim().isEmpty ? _t('customChannel') : name.text.trim();
     final String id = 'custom-${DateTime.now().millisecondsSinceEpoch}';
     await widget.surface
         .upsertAccelChannel(OgLAccelChannel(id: id, name: label, baseUrl: url.text));
     name.dispose();
     url.dispose();
     if (mounted) {
-      _toast('已添加通道：$label');
+      _toast(_t('channelAdded', <String, String>{'label': label})));
     }
   }
 
@@ -989,7 +1008,7 @@ const Divider(height: 1),
   Widget _accountSection(ThemeData theme) => _section(
         theme,
         title: _t('account'),
-        subtitle: '当前登录账号',
+        subtitle: _t('currentAccount'),
         children: <Widget>[
           FutureBuilder<GhAccount?>(
             future: widget.surface.domain.auth.activeAccount(),
@@ -998,23 +1017,23 @@ const Divider(height: 1),
               AsyncSnapshot<GhAccount?> snapshot,
             ) {
               if (snapshot.connectionState != ConnectionState.done) {
-                return const ListTile(
+                return  ListTile(
                   leading: Icon(Icons.key),
-                  title: Text('读取账户…'),
+                  title: Text(_t('readingAccount')),
                 );
               }
               final GhAccount? account = snapshot.data;
               if (account == null) {
-                return const ListTile(
+                return  ListTile(
                   leading: Icon(Icons.key),
-                  title: Text('未登录'),
-                  subtitle: Text('到「我的」页接入令牌后即可浏览私有仓库'),
+                  title: Text(_t('notLoggedIn')),
+                  subtitle: Text(_t('notLoggedInHint')),
                 );
               }
               return ListTile(
                 leading: const Icon(Icons.key),
                 title: Text('@${account.login}'),
-                subtitle: Text('账号 ID：${account.id}'),
+                subtitle: Text(_t('accountId', <String, String>{'id': account.id})),
                 trailing: OutlinedButton(
                   onPressed: () => _logout(account),
                   child: Text(_t('logout')),
@@ -1029,19 +1048,19 @@ const Divider(height: 1),
   Widget _maintenanceSection(ThemeData theme) => _section(
         theme,
         title: _t('maintenance'),
-        subtitle: '引导与重置',
+        subtitle: _t('guideAndReset'),
         children: <Widget>[
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: Text(_t('permissionsGuide')),
-            subtitle: const Text('重新查看当前平台的权限说明'),
+            subtitle:  Text(_t('recheckPermissions')),
             onTap: _openOnboarding,
           ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.settings_backup_restore),
             title: Text(_t('resetSettings')),
-            subtitle: const Text('恢复外观 / 代码 / 网络的默认值'),
+            subtitle:  Text(_t('restoreDefaults')),
             onTap: _reset,
           ),
         ],
@@ -1050,12 +1069,12 @@ const Divider(height: 1),
   /// 开源许可（本项目 + 第三方依赖），默认收起。
   Widget _licenseSection(ThemeData theme) => _section(
         theme,
-        title: '开源许可',
-        subtitle: '本项目与第三方依赖',
+        title: _t('licenses'),
+        subtitle: _t('licensesDesc'),
         children: <Widget>[
           ListTile(
             leading: const Icon(Icons.gavel_outlined),
-            title: Text('${OgLProjectInfo.name}（本项目）'),
+            title: Text(_t('licenseSelf', <String, String>{'name': OgLProjectInfo.name})),
             subtitle: Text(
               '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
             ),
@@ -1063,8 +1082,8 @@ const Divider(height: 1),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.inventory_2_outlined),
-            title: const Text('第三方依赖'),
-            subtitle: Text('共 ${kOgLDependencyLicenses.length} 项'),
+            title:  Text(_t('thirdPartyDeps')),
+            subtitle: Text(_t('depsCount', <String, String>{'count': kOgLDependencyLicenses.length})),
           ),
           for (final OgLDependencyLicense dep in kOgLDependencyLicenses)
             ListTile(
@@ -1078,8 +1097,8 @@ const Divider(height: 1),
   /// 日志（应用运行日志），默认收起。
   Widget _logsSection(ThemeData theme) => _section(
         theme,
-        title: '日志',
-        subtitle: '网络 / 认证 / 写入的原始记录',
+        title: _t('logs'),
+        subtitle: _t('logsDesc'),
         children: <Widget>[
           ListenableBuilder(
             listenable: OgLAppLog.instance,
@@ -1096,8 +1115,8 @@ const Divider(height: 1),
                 children: <Widget>[
                   ListTile(
                     leading: const Icon(Icons.description_outlined),
-                    title: const Text('当前日志文件'),
-                    subtitle: Text(OgLLogFile.filePath ?? '未启用落盘'),
+                    title:  Text(_t('currentLogFile')),
+                    subtitle: Text(OgLLogFile.filePath ?? _t('logDisabled')),
                   ),
                   if (!OgLLogFile.isEnabled)
                     ListTile(
@@ -1105,11 +1124,11 @@ const Divider(height: 1),
                         Icons.error_outline,
                         color: theme.colorScheme.error,
                       ),
-                      title: const Text('未能落盘的原因'),
-                      subtitle: Text(OgLLogFile.lastError ?? '未知'),
+                      title:  Text(_t('logDisabledReason')),
+                      subtitle: Text(OgLLogFile.lastError ?? _t('unknown')),
                     ),
                   if (tail.isEmpty)
-                    const ListTile(title: Text('还没有日志'))
+                     ListTile(title: Text(_t('noLogs')))
                   else
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -1128,7 +1147,7 @@ const Divider(height: 1),
                       child: TextButton.icon(
                         onPressed: () => _copyLogs(allLines),
                         icon: const Icon(Icons.content_copy, size: 16),
-                        label: const Text('复制全部日志'),
+                        label:  Text(_t('copyAllLogs')),
                       ),
                     ),
                   ),
@@ -1200,7 +1219,7 @@ const Divider(height: 1),
             const Icon(Icons.chevron_right),
           ],
         ),
-        onTap: () => _pickCodeColor(field, argb, '选择「$label」颜色'),
+        onTap: () => _pickCodeColor(field, argb, _t('chooseColor', <String, String>{'label': label}))),
       );
 
   Widget _sliderTile(

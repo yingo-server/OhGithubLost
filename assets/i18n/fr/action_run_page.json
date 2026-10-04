@@ -1,0 +1,20 @@
+{
+  "back": "Retour",
+  "cancelFailed": "Échec de l'annulation : {error}",
+  "cancelRequested": "Annulation demandée",
+  "cancelRun": "Annuler l'exécution",
+  "cancelRunDesc": "Demande à GitHub d'annuler cette exécution ; les étapes terminées ne seront pas annulées.",
+  "durationMinSecs": "Durée {mins}m {secs}s",
+  "durationSecs": "Durée {secs}s",
+  "jobs": "Tâches",
+  "noJobs": "Aucun enregistrement de tâche",
+  "noRunDetail": "Aucun détail d'exécution",
+  "openInBrowser": "Ouvrir dans le navigateur",
+  "rerun": "Relancer",
+  "rerunFailed": "Échec de la relance : {error}",
+  "rerunTriggered": "Relance déclenchée",
+  "runNumber": "Exécution n°{number}",
+  "status": "Statut : {status}",
+  "title": "Détails d'exécution",
+  "viewLogs": "Voir les journaux"
+}

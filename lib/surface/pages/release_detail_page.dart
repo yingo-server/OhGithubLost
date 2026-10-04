@@ -11,15 +11,25 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
 import '../util/download_proxy.dart';
+
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+
 import '../widgets/readme_view.dart';
+
+/// 取 `release_detail_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('release_detail_page', key, args: args);
 
 /// 发布详情页。
 class ReleaseDetailPage extends StatefulWidget {
@@ -62,23 +72,23 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext ctx, StateSetter setLocal) => AlertDialog(
-          title: const Text('编辑发布'),
+          title:  Text(_t('editTitle')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 TextField(
                   controller: tag,
-                  decoration: const InputDecoration(
-                    labelText: '标签（tag）',
+                  decoration:  InputDecoration(
+                    labelText: _t('tagLabel'),
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: name,
-                  decoration: const InputDecoration(
-                    labelText: '标题',
+                  decoration:  InputDecoration(
+                    labelText: _t('titleLabel'),
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -87,21 +97,21 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                   controller: body,
                   minLines: 5,
                   maxLines: 12,
-                  decoration: const InputDecoration(
-                    labelText: '说明（支持 Markdown）',
+                  decoration:  InputDecoration(
+                    labelText: _t('bodyLabel'),
                     border: OutlineInputBorder(),
                     alignLabelWithHint: true,
                   ),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('草稿'),
+                  title:  Text(_t('draft')),
                   value: draft,
                   onChanged: (bool v) => setLocal(() => draft = v),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('预发布'),
+                  title:  Text(_t('prerelease')),
                   value: prerelease,
                   onChanged: (bool v) => setLocal(() => prerelease = v),
                 ),
@@ -111,11 +121,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
+              child:  Text(_t('cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('保存'),
+              child:  Text(_t('save')),
             ),
           ],
         ),
@@ -131,7 +141,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       return;
     }
     if (tagText.isEmpty) {
-      _toast('标签不能为空');
+      _toast(_t('tagRequired'));
       return;
     }
     setState(() => _busy = true);
@@ -145,22 +155,22 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         draft: draft,
         prerelease: prerelease,
       );
-      OgLAppLog.instance.result('发布', '已更新', updated.tagName);
+      OgLAppLog.instance.result(_t('publish'), _t('updated'), updated.tagName);
       if (!mounted) {
         return;
       }
       setState(() {
         _release = updated;
       });
-      _toast('已保存');
+      _toast(_t('saved'));
     } catch (error) {
       OgLAppLog.instance.add(
-        '发布',
-        '更新失败：$error',
+        _t('publish'),
+        _t('updateFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast('保存失败：$error');
+        _toast(_t('saveFailed', <String, String>{'error': error})));
       }
     } finally {
       if (mounted) {
@@ -173,19 +183,19 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除发布'),
-        content: Text('将删除发布 ${_release.tagName}。该操作不易撤销。'),
+        title:  Text(_t('deleteTitle')),
+        content: Text(_t('deleteDesc', <String, String>{'tag': _release.tagName})),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child:  Text(_t('delete')),
           ),
         ],
       ),
@@ -196,18 +206,18 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     setState(() => _busy = true);
     try {
       await widget.surface.domain.api.deleteRelease(widget.fullName, _release.id);
-      OgLAppLog.instance.result('发布', '已删除', _release.tagName);
+      OgLAppLog.instance.result(_t('publish'), _t('deleted'), _release.tagName);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
-        '发布',
-        '删除失败：$error',
+        _t('publish'),
+        _t('deleteFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast('删除失败：$error');
+        _toast(_t('deleteFailed', <String, String>{'error': error})));
       }
     } finally {
       if (mounted) {
@@ -219,7 +229,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
   Future<void> _download(GhAsset asset) async {
     final String? url = asset.downloadUrl;
     if (url == null || url.isEmpty) {
-      _toast('该附件没有下载地址');
+      _toast(_t('assetNoUrl'));
       return;
     }
     try {
@@ -232,11 +242,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         category: IxDownloadCategory.release,
       );
       if (mounted) {
-        _toast('已加入下载：${asset.name}');
+        _toast(_t('addedToDownload', <String, String>{'name': asset.name}));
       }
     } catch (error) {
       if (mounted) {
-        _toast('加入下载失败：$error');
+        _toast(_t('addDownloadFailed', <String, String>{'error': error})));
       }
     }
   }
@@ -263,12 +273,12 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                 style: Theme.of(sheetContext).textTheme.titleMedium,
               ),
               const SizedBox(height: 10),
-              _assetKeyRow('大小', ghSizeText(asset.size)),
-              _assetKeyRow('下载次数', '${asset.downloadCount}'),
+              _assetKeyRow(_t('size'), ghSizeText(asset.size)),
+              _assetKeyRow(_t('downloadCount'), '${asset.downloadCount}'),
               if (asset.contentType != null && asset.contentType!.isNotEmpty)
-                _assetKeyRow('类型', asset.contentType!),
+                _assetKeyRow(_t('type'), asset.contentType!),
               if (asset.downloadUrl != null && asset.downloadUrl!.isNotEmpty)
-                _assetKeyRow('直链', asset.downloadUrl!),
+                _assetKeyRow(_t('directLink'), asset.downloadUrl!),
               const SizedBox(height: 16),
               Row(
                 children: <Widget>[
@@ -279,7 +289,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                         unawaited(_download(asset));
                       },
                       icon: const Icon(Icons.download_outlined),
-                      label: const Text('下载'),
+                      label:  Text(_t('download')),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -290,7 +300,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                         unawaited(_copyAssetLink(asset));
                       },
                       icon: const Icon(Icons.link),
-                      label: const Text('复制链接'),
+                      label:  Text(_t('copyLink')),
                     ),
                   ),
                 ],
@@ -316,7 +326,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
           children: <Widget>[
             ListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('下载'),
+              title:  Text(_t('download')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 unawaited(_download(asset));
@@ -324,7 +334,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
             ),
             ListTile(
               leading: const Icon(Icons.link),
-              title: const Text('复制下载链接'),
+              title:  Text(_t('copyDownloadLink')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 unawaited(_copyAssetLink(asset));
@@ -332,7 +342,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
             ),
             ListTile(
               leading: const Icon(Icons.info_outline),
-              title: const Text('查看文件详情'),
+              title:  Text(_t('viewFileDetail')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 unawaited(_showAssetDetail(asset));
@@ -348,11 +358,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
   Future<void> _copyAssetLink(GhAsset asset) async {
     final String? url = asset.downloadUrl;
     if (url == null || url.isEmpty) {
-      _toast('该附件没有下载地址');
+      _toast(_t('assetNoUrl'));
       return;
     }
     await Clipboard.setData(ClipboardData(text: url));
-    _toast('已复制下载链接');
+    _toast(_t('copiedDownloadLink'));
   }
 
   Widget _assetKeyRow(String key, String value) => Padding(
@@ -370,7 +380,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     final String text = _release.body ?? '';
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      _toast('已复制发布说明');
+      _toast(_t('copiedNotes'));
     }
   }
 
@@ -385,8 +395,8 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final List<String> marks = <String>[
-      if (_release.isDraft) '草稿',
-      if (_release.isPrerelease) '预发布',
+      if (_release.isDraft) _t('draft'),
+      if (_release.isPrerelease) _t('prerelease'),
     ];
     return PopScope(
       canPop: true,
@@ -400,17 +410,17 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
           actions: <Widget>[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑',
+              tooltip: _t('edit'),
               onPressed: _busy ? null : _edit,
             ),
             IconButton(
               icon: const Icon(Icons.copy_all_outlined),
-              tooltip: '复制说明',
+              tooltip: _t('copyNotes'),
               onPressed: _copyNotes,
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: '删除',
+              tooltip: _t('delete'),
               onPressed: _busy ? null : _delete,
             ),
           ],
@@ -428,9 +438,14 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
             Text(
               <String>[
                 if (_release.publishedAt != null)
-                  '发布 ${_release.publishedAt!.toIso8601String().split('T').first}',
+                  _t('publishedAt', <String, String>{
+                    'date': _release.publishedAt!
+                        .toIso8601String()
+                        .split('T')
+                        .first,
+                  }),
                 if (marks.isNotEmpty) marks.join(' / '),
-                '${_release.assets.length} 个附件',
+                _t('assetsCount', <String, String>{'count': _release.assets.length}),
               ].join(' · '),
               style: theme.textTheme.bodySmall,
             ),
@@ -442,19 +457,19 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                   child: ReadmeView(
                     markdown: _release.body!,
                     onOpenLink: (Uri uri) {
-                      unawaited(openExternalLink(uri, tag: '发布'));
+                      unawaited(openExternalLink(uri, tag: _t('publish')));
                     },
                   ),
                 ),
               ),
             ],
             const Divider(height: 32),
-            Text('附件', style: theme.textTheme.titleMedium),
+            Text(_t('assets'), style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             if (_release.assets.isEmpty)
-              const Padding(
+               Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('这次发布没有附件'),
+                child: Text(_t('noAssets')),
               )
             else
               for (final GhAsset asset in _release.assets)
@@ -467,7 +482,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      '${ghSizeText(asset.size)} · ${asset.downloadCount} 次下载',
+                      _t('assetMeta', <String, String>{'size': ghSizeText(asset.size), 'count': asset.downloadCount}),
                     ),
                     trailing: const Icon(Icons.info_outline),
                     // R5：点击**先看详情**（不再直接触发下载）；长按弹出快捷操作。

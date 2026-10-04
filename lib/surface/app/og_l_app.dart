@@ -12,18 +12,27 @@
 library;
 
 import 'package:flutter/gestures.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../../kernel/kernel.dart';
+
 import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
+
 import '../surface_bridge.dart';
 import 'animations.dart';
+
 import 'client_shell.dart';
 import 'error_surface.dart';
+
 import 'keyboard_guard.dart';
 import 'motion.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);
 
 /// 应用根。
 class OgLApp extends StatelessWidget {
@@ -152,15 +161,15 @@ class OgLBootFailureApp extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text(
-                      '启动被拒绝',
+                     Text(
+                      _t('bootRejected'),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text('数据没有被改动，也没有任何东西被上传。'),
+                     Text(_t('dataUntouched')),
                     const SizedBox(height: 16),
                     SelectableText(
                       message,

@@ -1,0 +1,15 @@
+{
+  "bodyLabel": "説明（任意、Markdown 対応）",
+  "createFailed": "作成失敗：{error}",
+  "created": "作成しました",
+  "draft": "草稿",
+  "draftDesc": "草稿として保存し、現在は公開しません",
+  "prerelease": "プレリリース",
+  "prereleaseDesc": "pre-release としてマークします",
+  "publish": "リリースを作成",
+  "publishing": "公開中…",
+  "tagLabel": "タグ",
+  "tagRequired": "まずタグを入力してください（例：v1.0.0）",
+  "title": "新規リリース",
+  "titleLabel": "タイトル（任意）"
+}

@@ -9,11 +9,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
+
 import '../util/link_opener.dart';
 import 'action_log_page.dart';
+
+/// 取 `action_run_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('action_run_page', key, args: args);
 
 /// 一次运行 + 它的作业列表。
 class _RunDetail {
@@ -71,7 +79,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
       return existing;
     }
     final controller = AsyncController<_RunDetail>(
-      label: '运行详情',
+      label: _t('title'),
       isEmpty: (_RunDetail value) => false,
       loader: () async {
         final Map<String, dynamic>? run =
@@ -99,22 +107,22 @@ class _ActionRunPageState extends State<ActionRunPage> {
     try {
       await widget.surface.domain.api
           .rerunWorkflowRun(widget.fullName, widget.runId);
-      OgLAppLog.instance.result('Actions', '已触发重新运行', '#${widget.runId}');
+      OgLAppLog.instance.result('Actions', _t('rerunTriggered'), '#${widget.runId}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已触发重新运行')),
+           SnackBar(content: Text(_t('rerunTriggered'))),
         );
       }
       await _detailC().load();
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        '重新运行失败：$error',
+        _t('rerunFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('重新运行失败：$error')),
+          SnackBar(content: Text(_t('rerunFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -131,16 +139,16 @@ class _ActionRunPageState extends State<ActionRunPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('取消运行'),
-        content: const Text('将请求 GitHub 取消这次运行；已完成的步骤不会回滚。'),
+        title:  Text(_t('cancelRun')),
+        content:  Text(_t('cancelRunDesc')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('返回'),
+            child:  Text(_t('back')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('取消运行'),
+            child:  Text(_t('cancelRun')),
           ),
         ],
       ),
@@ -152,17 +160,17 @@ class _ActionRunPageState extends State<ActionRunPage> {
     try {
       await widget.surface.domain.api
           .cancelWorkflowRun(widget.fullName, widget.runId);
-      OgLAppLog.instance.result('Actions', '已请求取消', '#${widget.runId}');
+      OgLAppLog.instance.result('Actions', _t('cancelRequested'), '#${widget.runId}');
       await _detailC().load();
     } catch (error) {
       OgLAppLog.instance.add(
         'Actions',
-        '取消失败：$error',
+        _t('cancelFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('取消失败：$error')),
+          SnackBar(content: Text(_t('cancelFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -217,9 +225,9 @@ class _ActionRunPageState extends State<ActionRunPage> {
       return '';
     }
     if (d.inSeconds < 60) {
-      return '耗时 ${d.inSeconds}s';
+      return _t('durationSecs', <String, String>{'secs': d.inSeconds});
     }
-    return '耗时 ${d.inMinutes}m${d.inSeconds % 60}s';
+    return _t('durationMinSecs', <String, String>{'mins': d.inMinutes, 'secs': d.inSeconds % 60});
   }
 
   @override
@@ -228,14 +236,16 @@ class _ActionRunPageState extends State<ActionRunPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          '运行 #${ghInt(widget.run, 'run_number')}',
+          _t('runNumber', <String, String>{
+            'number': '${ghInt(widget.run, 'run_number')}',
+          }),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.receipt_long),
-            tooltip: '查看日志',
+            tooltip: _t('viewLogs'),
             onPressed: () {
               Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
@@ -252,7 +262,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
       ),
       body: AsyncView<_RunDetail>(
         controller: _detailC(),
-        emptyText: '没有运行详情',
+        emptyText: _t('noRunDetail'),
         builder: (BuildContext context, _RunDetail detail) {
           final Map<String, dynamic> run = detail.run;
           final String status = ghStr(run, 'status');
@@ -290,7 +300,7 @@ class _ActionRunPageState extends State<ActionRunPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '状态：$status'
+                  _t('status', <String, String>{'status': status}))
                   '${conclusion.isEmpty ? '' : ' / $conclusion'} · '
                   '${ghDate(run, 'created_at')}',
                   style: theme.textTheme.bodySmall,
@@ -304,13 +314,13 @@ class _ActionRunPageState extends State<ActionRunPage> {
                       FilledButton.tonalIcon(
                         onPressed: _busy ? null : _rerun,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('重新运行'),
+                        label:  Text(_t('rerun')),
                       ),
                     if (running)
                       OutlinedButton.icon(
                         onPressed: _busy ? null : _cancel,
                         icon: const Icon(Icons.cancel_outlined),
-                        label: const Text('取消运行'),
+                        label:  Text(_t('cancelRun')),
                       ),
                     if (htmlUrl.isNotEmpty)
                       TextButton.icon(
@@ -318,17 +328,17 @@ class _ActionRunPageState extends State<ActionRunPage> {
                           unawaited(openLinkOrCopy(context, htmlUrl, tag: 'Actions'));
                         },
                         icon: const Icon(Icons.open_in_new),
-                        label: const Text('浏览器打开'),
+                        label:  Text(_t('openInBrowser')),
                       ),
                   ],
                 ),
                 const Divider(height: 32),
-                Text('作业', style: theme.textTheme.titleMedium),
+                Text(_t('jobs'), style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 if (detail.jobs.isEmpty)
-                  const Padding(
+                   Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('没有作业记录'),
+                    child: Text(_t('noJobs')),
                   )
                 else
                   for (final Map<String, dynamic> job in detail.jobs)

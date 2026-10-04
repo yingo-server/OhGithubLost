@@ -1,0 +1,20 @@
+{
+  "back": "رجوع",
+  "cancelFailed": "فشل الإلغاء: {error}",
+  "cancelRequested": "تم طلب الإلغاء",
+  "cancelRun": "إلغاء التشغيل",
+  "cancelRunDesc": "سيطلب من GitHub إلغاء هذا التشغيل؛ لن يتم تراجع الخطوات المكتملة.",
+  "durationMinSecs": "المدة {mins} د {secs} ث",
+  "durationSecs": "المدة {secs} ث",
+  "jobs": "المهام",
+  "noJobs": "لا توجد سجلات للمهام",
+  "noRunDetail": "لا توجد تفاصيل للتشغيل",
+  "openInBrowser": "فتح في المتصفح",
+  "rerun": "إعادة التشغيل",
+  "rerunFailed": "فشلت إعادة التشغيل: {error}",
+  "rerunTriggered": "تم تشغيل إعادة التشغيل",
+  "runNumber": "التشغيل #{number}",
+  "status": "الحالة: {status}",
+  "title": "تفاصيل التشغيل",
+  "viewLogs": "عرض السجلات"
+}

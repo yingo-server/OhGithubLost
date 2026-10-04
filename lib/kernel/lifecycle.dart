@@ -8,6 +8,7 @@
 library;
 
 import 'contract/module.dart';
+
 import 'diagnostics.dart';
 
 /// 启动失败异常（携带模块 ID、原因与回滚结果）。

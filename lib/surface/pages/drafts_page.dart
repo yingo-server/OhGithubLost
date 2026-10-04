@@ -9,12 +9,20 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
+
 import '../app/async.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../types.dart';
+
+/// 取 `drafts_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('drafts_page', key, args: args);
 
 /// 草稿箱页。
 class DraftsPage extends StatefulWidget {
@@ -58,7 +66,7 @@ class _DraftsPageState extends State<DraftsPage> {
       return existing;
     }
     final controller = AsyncController<List<GhDraft>>(
-      label: '草稿',
+      label: _t('draft'),
       isEmpty: (List<GhDraft> value) => value.isEmpty,
       loader: () => widget.surface.domain.api.drafts(),
     );
@@ -80,7 +88,7 @@ class _DraftsPageState extends State<DraftsPage> {
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('草稿已删除')),
+         SnackBar(content: Text(_t('deleted'))),
       );
       await _controller().load();
     }
@@ -106,14 +114,14 @@ class _DraftsPageState extends State<DraftsPage> {
               unawaited(Clipboard.setData(ClipboardData(text: draft.content)));
               Navigator.of(dialogContext).pop();
             },
-            child: const Text('复制内容'),
+            child:  Text(_t('copyContent')),
           ),
           FilledButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               unawaited(_delete(draft));
             },
-            child: const Text('删除草稿'),
+            child:  Text(_t('deleteDraft')),
           ),
         ],
       ),
@@ -123,11 +131,11 @@ class _DraftsPageState extends State<DraftsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('草稿箱')),
+      appBar: AppBar(title:  Text(_t('title'))),
       body: AsyncView<List<GhDraft>>(
         controller: _controller(),
         emptyIcon: Icons.edit_note,
-        emptyText: '还没有未提交的草稿',
+        emptyText: _t('empty'),
         builder: (BuildContext context, List<GhDraft> drafts) =>
             RefreshIndicator(
           onRefresh: () => _controller().load(),
@@ -154,7 +162,7 @@ class _DraftsPageState extends State<DraftsPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: IconButton(
-                    tooltip: '删除',
+                    tooltip: _t('delete'),
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () => unawaited(_delete(draft)),
                   ),

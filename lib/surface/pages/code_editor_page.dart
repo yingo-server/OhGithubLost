@@ -11,12 +11,20 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:re_editor/re_editor.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
 import '../widgets/code_editor_field.dart';
+
+/// 取 `code_editor_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('code_editor_page', key, args: args);
 
 /// 全屏代码编辑器页。
 class CodeEditorPage extends StatefulWidget {
@@ -117,7 +125,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         return;
       }
       _controller.text = draft;
-      _toast('已恢复上次未提交的草稿');
+      _toast(_t('draftRestored'));
     } catch (_) {
       // 草稿读取失败不影响编辑。
     }
@@ -168,7 +176,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       if (!result.ok && result.canForceOverwrite) {
         final bool? overwrite = await _showConflictDialog(result);
         if (overwrite != true) {
-          _toast('已取消：远端已被更新，未覆盖');
+          _toast(_t('cancelledRemoteUpdated'));
           return;
         }
         result = await widget.surface.domain.api.putContentLocked(
@@ -184,16 +192,16 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       }
       if (!result.ok) {
         OgLAppLog.instance.add(
-          '编辑',
+          _t('editTitle'),
           '提交失败（${result.conflict.name}）：${result.detail ?? ''}',
           severity: OgLNoticeSeverity.critical,
         );
         if (mounted) {
-          _toast('提交失败：${result.detail ?? result.conflict.name}');
+          _toast(_t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name}));
         }
         return;
       }
-      OgLAppLog.instance.result('编辑', '已提交', widget.path);
+      OgLAppLog.instance.result(_t('editTitle'), _t('committed'), widget.path);
       await widget.surface.domain.api.discardDraft(
         widget.fullName,
         widget.path,
@@ -201,17 +209,17 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       );
       _saved = true;
       if (mounted) {
-        _toast('已提交修改：${widget.path}');
+        _toast(_t('committedPath', <String, String>{'path': widget.path}));
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
-        '编辑',
-        '提交失败：$error',
+        _t('editTitle'),
+        _t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast('提交失败：$error');
+        _toast(_t('commitFailedDetail', <String, String>{'detail': result.detail ?? result.conflict.name})));
       }
     } finally {
       if (mounted) {
@@ -223,19 +231,19 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   Future<bool?> _showConflictDialog(GhWriteResult result) => showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('远端已更新，可能覆盖他人改动'),
+          title:  Text(_t('remoteUpdated')),
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Text('你的基线：${_short(result.baseSha)}'),
-                Text('远端最新：${_short(result.sha)}'),
+                Text(_t('baseline', <String, String>{'sha': _short(result.baseSha)})),
+                Text(_t('remoteLatest', <String, String>{'sha': _short(result.sha)})),
                 const SizedBox(height: 8),
-                const Text('直接覆盖会丢弃远端这一次改动。'),
+                 Text(_t('overwriteWarning')),
                 if (result.remoteContent != null) ...<Widget>[
                   const SizedBox(height: 12),
-                  const Text('远端最新内容：'),
+                   Text(_t('remoteLatestContent')),
                   Container(
                     width: double.infinity,
                     constraints: const BoxConstraints(maxHeight: 200),
@@ -263,14 +271,14 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消（保留远端）'),
+              child:  Text(_t('keepRemote')),
             ),
             TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(dialogContext).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('强制覆盖'),
+              child:  Text(_t('forceOverwrite')),
             ),
           ],
         ),
@@ -279,16 +287,16 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   Future<bool?> _confirmDiscard() => showDialog<bool>(
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
-          title: const Text('放弃未保存的修改？'),
-          content: const Text('当前修改尚未提交，返回将丢失这些改动。'),
+          title:  Text(_t('discardTitle')),
+          content:  Text(_t('discardDesc')),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('继续编辑'),
+              child:  Text(_t('continueEditing')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('放弃修改'),
+              child:  Text(_t('discardChanges')),
             ),
           ],
         ),
@@ -305,7 +313,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       sha == null || sha.isEmpty ? '—' : (sha.length <= 8 ? sha : sha.substring(0, 8));
 
   static String _preview(String text) =>
-      text.length <= 4000 ? text : '${text.substring(0, 4000)}\n…（已截断预览）';
+      text.length <= 4000 ? text : _t('previewTruncated', <String, String>{'text': text.substring(0, 4000)});
 
   /// 只读预览（弹层）：与编辑器同一套库渲染，便于核对排版与高亮。
   void _previewSheet() {
@@ -333,7 +341,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
           child: Text(
-            '${_controller.lineCount} 行 · ${_controller.text.length} 字符'
+            _t('stats', <String, String>{'lines': _controller.lineCount, 'chars': _controller.text.length})
             '${_dirty ? ' · 未保存' : ''}',
             style: theme.textTheme.bodySmall,
           ),
@@ -366,12 +374,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
           actions: <Widget>[
             IconButton(
               icon: const Icon(Icons.undo),
-              tooltip: '撤销',
+              tooltip: _t('undo'),
               onPressed: _controller.canUndo ? _controller.undo : null,
             ),
             IconButton(
               icon: const Icon(Icons.redo),
-              tooltip: '重做',
+              tooltip: _t('redo'),
               onPressed: _controller.canRedo ? _controller.redo : null,
             ),
             ValueListenableBuilder<CodeFindValue?>(
@@ -379,33 +387,33 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
               builder: (BuildContext context, CodeFindValue? value, Widget? _) =>
                   IconButton(
                 icon: Icon(value == null ? Icons.search : Icons.search_off),
-                tooltip: '查找 / 替换',
+                tooltip: _t('findReplace'),
                 onPressed: () => value == null ? _find.findMode() : _find.close(),
               ),
             ),
             IconButton(
               icon: Icon(_wrap ? Icons.wrap_text : Icons.notes),
-              tooltip: _wrap ? '关闭自动换行' : '开启自动换行',
+              tooltip: _wrap ? _t('wrapOff') : _t('wrapOn'),
               onPressed: () => setState(() => _wrap = !_wrap),
             ),
             IconButton(
               icon: const Icon(Icons.remove),
-              tooltip: '减小字号',
+              tooltip: _t('fontSmaller'),
               onPressed: () => _changeFont(-1),
             ),
             IconButton(
               icon: const Icon(Icons.add),
-              tooltip: '增大字号',
+              tooltip: _t('fontLarger'),
               onPressed: () => _changeFont(1),
             ),
             IconButton(
               icon: const Icon(Icons.visibility_outlined),
-              tooltip: '预览（只读）',
+              tooltip: _t('preview'),
               onPressed: _previewSheet,
             ),
             IconButton(
               icon: const Icon(Icons.save_outlined),
-              tooltip: '保存',
+              tooltip: _t('save'),
               onPressed: _saving ? null : _save,
             ),
           ],

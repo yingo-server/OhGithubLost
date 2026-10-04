@@ -1,0 +1,20 @@
+{
+  "back": "Quay lại",
+  "cancelFailed": "Huỷ thất bại: {error}",
+  "cancelRequested": "Đã yêu cầu huỷ",
+  "cancelRun": "Huỷ chạy",
+  "cancelRunDesc": "Sẽ yêu cầu GitHub huỷ lần chạy này; các bước đã hoàn tất sẽ không bị hồi quy.",
+  "durationMinSecs": "Thời gian {mins}m{secs}s",
+  "durationSecs": "Thời gian {secs}s",
+  "jobs": "Tác vụ",
+  "noJobs": "Không có bản ghi tác vụ",
+  "noRunDetail": "Không có chi tiết chạy",
+  "openInBrowser": "Mở trong trình duyệt",
+  "rerun": "Chạy lại",
+  "rerunFailed": "Chạy lại thất bại: {error}",
+  "rerunTriggered": "Đã kích hoạt chạy lại",
+  "runNumber": "Chạy #{number}",
+  "status": "Trạng thái: {status}",
+  "title": "Chi tiết chạy",
+  "viewLogs": "Xem nhật ký"
+}

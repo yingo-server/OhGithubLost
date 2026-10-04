@@ -10,13 +10,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/animations.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../types.dart';
+
 import 'download_manager_page.dart';
 import 'new_repo_page.dart';
+
 import 'notifications_page.dart';
 import 'repo_page.dart';
+
+/// 取 `dashboard_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('dashboard_page', key, args: args);
 
 /// 每页条数。
 const int _kPageSize = 30;
@@ -96,9 +105,9 @@ class _DashboardPageState extends State<DashboardPage> {
     if (created == null || !mounted) {
       return;
     }
-    OgLAppLog.instance.result('首页', '已创建仓库', created.fullName);
+    OgLAppLog.instance.result(_t('home'), _t('repoCreated'), created.fullName);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已创建 ${created.fullName}')),
+      SnackBar(content: Text(_t('repoCreatedName', <String, String>{'name': created.fullName}))),
     );
     await _mine.refresh();
     if (mounted) {
@@ -110,7 +119,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('首页'),
+        title:  Text(_t('home')),
         actions: <Widget>[
           ListenableBuilder(
             listenable: OgLAppLog.instance,
@@ -125,7 +134,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: const Icon(Icons.notifications_outlined),
                       )
                     : const Icon(Icons.notifications_outlined),
-                tooltip: '通知中心',
+                tooltip: _t('notifications'),
                 onPressed: _openNotifications,
               );
             },
@@ -141,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: const Icon(Icons.download_outlined),
                       )
                     : const Icon(Icons.download_outlined),
-                tooltip: '下载管理',
+                tooltip: _t('downloads'),
                 onPressed: _openDownloads,
               );
             },
@@ -151,16 +160,16 @@ class _DashboardPageState extends State<DashboardPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createRepo,
         icon: const Icon(Icons.add),
-        label: const Text('新建仓库'),
+        label:  Text(_t('newRepo')),
       ),
       body: Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: SegmentedButton<int>(
-              segments: const <ButtonSegment<int>>[
-                ButtonSegment<int>(value: 0, label: Text('我的')),
-                ButtonSegment<int>(value: 1, label: Text('星标')),
+              segments:  <ButtonSegment<int>>[
+                ButtonSegment<int>(value: 0, label: Text(_t('mine'))),
+                ButtonSegment<int>(value: 1, label: Text(_t('starred'))),
               ],
               selected: <int>{_segment},
               showSelectedIcon: false,
@@ -185,18 +194,18 @@ class _DashboardPageState extends State<DashboardPage> {
                     message: p.error!,
                     action: FilledButton.tonal(
                       onPressed: p.refresh,
-                      child: const Text('重试'),
+                      child:  Text(_t('retry')),
                     ),
                   );
                 }
                 if (p.items.isEmpty) {
                   return _RepoMessage(
                     icon: Icons.folder_outlined,
-                    message: _segment == 0 ? '还没有仓库' : '还没有星标仓库',
+                    message: _segment == 0 ? _t('emptyMine') : _t('emptyStarred'),
                     action: _segment == 0
                         ? FilledButton(
                             onPressed: _createRepo,
-                            child: const Text('新建仓库'),
+                            child:  Text(_t('newRepo')),
                           )
                         : null,
                   );
@@ -217,7 +226,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 ? const CircularProgressIndicator()
                                 : OutlinedButton(
                                     onPressed: p.loadMore,
-                                    child: Text('加载更多（已 ${p.items.length} 条）'),
+                                    child: Text(_t('loadMore', <String, String>{'count': p.items.length})),
                                   ),
                           ),
                         );
@@ -258,7 +267,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final List<String> meta = <String>[
       if (repo.language != null && repo.language!.isNotEmpty) repo.language!,
       '★ ${repo.stars}',
-      if (repo.isPrivate) '私有',
+      if (repo.isPrivate) _t('private'),
     ];
     final String? desc = repo.description;
     if (desc == null || desc.isEmpty) {

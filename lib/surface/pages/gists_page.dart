@@ -10,11 +10,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+
 import 'gist_detail_page.dart';
 import 'new_gist_page.dart';
+
+/// 取 `gists_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('gists_page', key, args: args);
 
 /// Gist 列表页。
 class GistsPage extends StatefulWidget {
@@ -67,7 +75,7 @@ class _GistsPageState extends State<GistsPage> {
     if (files is Map<Object?, Object?> && files.isNotEmpty) {
       return '${files.keys.first}';
     }
-    return '（无描述）';
+    return _t('noDescription');
   }
 
   int _fileCountOf(Map<String, dynamic> gist) {
@@ -80,7 +88,7 @@ class _GistsPageState extends State<GistsPage> {
     if (id.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('这条 Gist 缺少 id，无法打开')),
+           SnackBar(content: Text(_t('missingId'))),
         );
       }
       return;
@@ -106,7 +114,7 @@ class _GistsPageState extends State<GistsPage> {
     );
     if (created == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已创建 Gist')),
+         SnackBar(content: Text(_t('created'))),
       );
       await _gistsC().load();
     }
@@ -117,7 +125,7 @@ class _GistsPageState extends State<GistsPage> {
     if (url.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('这条 Gist 没有可打开的链接')),
+           SnackBar(content: Text(_t('noOpenLink'))),
         );
       }
       return;
@@ -128,16 +136,16 @@ class _GistsPageState extends State<GistsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Gist 片段')),
+      appBar: AppBar(title:  Text(_t('title'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
         icon: const Icon(Icons.add),
-        label: const Text('新建'),
+        label:  Text(_t('new')),
       ),
       body: AsyncView<List<Map<String, dynamic>>>(
         controller: _gistsC(),
         emptyIcon: Icons.article_outlined,
-        emptyText: '还没有 Gist 片段',
+        emptyText: _t('empty'),
         builder: (
           BuildContext context,
           List<Map<String, dynamic>> gists,
@@ -160,15 +168,15 @@ class _GistsPageState extends State<GistsPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  '${_fileCountOf(gist)} 个文件 · '
-                  '${isPublic ? '公开' : '私密'} · '
+                  _t('fileCount', <String, String>{'count': _fileCountOf(gist)})
+                  '${isPublic ? '公开' : _t('private')} · '
                   '${ghDate(gist, 'updated_at')}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.open_in_new),
-                  tooltip: '在浏览器打开',
+                  tooltip: _t('openInBrowser'),
                   onPressed: () => unawaited(_openInBrowser(gist)),
                 ),
                 onTap: () => unawaited(_openDetail(gist)),

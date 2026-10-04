@@ -13,10 +13,17 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `notifications_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('notifications_page', key, args: args);
 
 /// 通知中心页。
 class NotificationsPage extends StatefulWidget {
@@ -59,16 +66,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('重置通知中心'),
-        content: const Text('将清空当前内存中的全部事件（磁盘日志保留）。'),
+        title:  Text(_t('resetTitle')),
+        content:  Text(_t('resetDesc')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('重置'),
+            child:  Text(_t('reset')),
           ),
         ],
       ),
@@ -86,15 +93,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('通知中心'),
+        title:  Text(_t('title')),
         actions: <Widget>[
           IconButton(
-            tooltip: '全部已读',
+            tooltip: _t('markAllRead'),
             icon: const Icon(Icons.done_all),
             onPressed: OgLAppLog.instance.markAllRead,
           ),
           IconButton(
-            tooltip: '重置通知中心',
+            tooltip: _t('resetTitle'),
             icon: const Icon(Icons.delete_sweep_outlined),
             onPressed: () => unawaited(_confirmReset()),
           ),
@@ -105,10 +112,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
             child: SegmentedButton<int>(
-              segments: const <ButtonSegment<int>>[
-                ButtonSegment<int>(value: 0, label: Text('全部')),
-                ButtonSegment<int>(value: 1, label: Text('告警')),
-                ButtonSegment<int>(value: 2, label: Text('错误')),
+              segments:  <ButtonSegment<int>>[
+                ButtonSegment<int>(value: 0, label: Text(_t('filterAll'))),
+                ButtonSegment<int>(value: 1, label: Text(_t('filterWarning'))),
+                ButtonSegment<int>(value: 2, label: Text(_t('filterError'))),
               ],
               selected: <int>{_filter},
               showSelectedIcon: false,
@@ -127,7 +134,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     OgLAppLog.instance.entries.where(_match).toList();
                 if (entries.isEmpty) {
                   return Center(
-                    child: Text('没有符合条件的事件', style: theme.textTheme.bodySmall),
+                    child: Text(_t('empty'), style: theme.textTheme.bodySmall),
                   );
                 }
                 return ListView.separated(
@@ -269,11 +276,11 @@ class _NotificationTile extends StatelessWidget {
                               ClipboardData(text: entry.toDisplay()),
                             ));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已复制该条事件')),
+                               SnackBar(content: Text(_t('copiedEvent'))),
                             );
                           },
                           icon: const Icon(Icons.content_copy, size: 16),
-                          label: const Text('复制'),
+                          label:  Text(_t('copy')),
                         ),
                       ],
                     ),
@@ -283,7 +290,7 @@ class _NotificationTile extends StatelessWidget {
             ),
             if (!read)
               IconButton(
-                tooltip: '标记已读',
+                tooltip: _t('markRead'),
                 icon: const Icon(Icons.done, size: 18),
                 onPressed: onMarkRead,
               ),

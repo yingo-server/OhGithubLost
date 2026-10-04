@@ -1,0 +1,20 @@
+{
+  "back": "이전",
+  "cancelFailed": "취소 실패: {error}",
+  "cancelRequested": "취소 요청됨",
+  "cancelRun": "실행 취소",
+  "cancelRunDesc": "GitHub에 이 실행을 취소하도록 요청합니다. 완료된 단계는 되돌아가지 않습니다.",
+  "durationMinSecs": "소요 시간 {mins}분 {secs}초",
+  "durationSecs": "소요 시간 {secs}초",
+  "jobs": "작업",
+  "noJobs": "작업 기록 없음",
+  "noRunDetail": "실행 세부 정보 없음",
+  "openInBrowser": "브라우저에서 열기",
+  "rerun": "다시 실행",
+  "rerunFailed": "다시 실행 실패: {error}",
+  "rerunTriggered": "다시 실행 요청됨",
+  "runNumber": "실행 #{number}",
+  "status": "상태: {status}",
+  "title": "실행 세부 정보",
+  "viewLogs": "로그 보기"
+}

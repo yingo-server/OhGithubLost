@@ -1,0 +1,16 @@
+{
+  "content": "内容",
+  "contentHint": "コード / テキストを貼り付けまたは入力",
+  "contentRequired": "内容は空にできません",
+  "create": "作成",
+  "createFailed": "作成失敗：{error}",
+  "created": "作成しました",
+  "creating": "作成中…",
+  "description": "説明（任意）",
+  "fileName": "ファイル名（拡張名を含む。ハイライト言語を決定）",
+  "fileNameHint": "ヒント：ファイル名の拡張子がハイライト言語に影響します（例：main.dart / app.py）。",
+  "fileNameRequired": "ファイル名を入力してください",
+  "isPublic": "パブリック Gist",
+  "isPublicDesc": "パブリックにすると誰でもリンクを通じてアクセスできます",
+  "title": "新規 Gist"
+}

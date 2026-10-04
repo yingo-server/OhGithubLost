@@ -18,18 +18,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../base/base_bridge.dart';
+
 import '../base/disk/app_dirs.dart';
 import '../base/disk/disk_cache.dart';
+
 import '../base/disk/disk_store.dart';
 import '../base/net/net_bridge.dart';
+
 import '../domain/domain_bridge.dart';
 import '../kernel/bridge_registry.dart';
+
 import '../kernel/contract/module.dart';
 import 'app/error_surface.dart';
+
 import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
+
 import 'theme.dart';
 import 'types.dart';
+
 import 'util/accel.dart';
 
 /// 表面桥：展示层对外的唯一入口。

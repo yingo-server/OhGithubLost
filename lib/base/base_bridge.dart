@@ -7,8 +7,10 @@
 library;
 
 import '../kernel/bridge_registry.dart';
+
 import '../kernel/contract/module.dart';
 import 'disk/disk_bridge.dart';
+
 import 'net/net_bridge.dart';
 
 /// 底座层桥（L1 唯一出口）。

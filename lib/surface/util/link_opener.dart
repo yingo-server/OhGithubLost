@@ -9,10 +9,17 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);
 
 /// 用系统浏览器打开外链。
 ///
@@ -53,7 +60,7 @@ Future<void> openLinkOrCopy(BuildContext context, String href, {String tag = '�
   if (uri == null || uri.scheme.isEmpty) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('链接无效，已忽略')),
+        SnackBar(content: Text(_t('linkInvalid'))),
       );
     }
     return;
@@ -65,7 +72,7 @@ Future<void> openLinkOrCopy(BuildContext context, String href, {String tag = '�
   await Clipboard.setData(ClipboardData(text: href));
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('打不开链接，已复制：$href')),
+      SnackBar(content: Text(_t('linkOpenFailedCopy', <String, String>{'url': href}))),
     );
   }
 }

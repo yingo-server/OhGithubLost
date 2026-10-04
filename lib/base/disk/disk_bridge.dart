@@ -6,8 +6,10 @@
 library;
 
 import '../../kernel/contract/module.dart';
+
 import 'disk_cache.dart';
 import 'disk_draft.dart';
+
 import 'disk_journal.dart';
 import 'disk_store.dart';
 

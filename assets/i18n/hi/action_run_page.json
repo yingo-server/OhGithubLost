@@ -1,0 +1,20 @@
+{
+  "back": "वापस",
+  "cancelFailed": "रद्द करना विफल: {error}",
+  "cancelRequested": "रद्द करने का अनुरोध किया गया",
+  "cancelRun": "रन रद्द करें",
+  "cancelRunDesc": "GitHub से इस रन को रद्द करने का अनुरोध किया जाएगा; पूर्ण चरण रिवर्स नहीं होंगे।",
+  "durationMinSecs": "अवधि {mins}मिन {secs}सेक",
+  "durationSecs": "अवधि {secs}सेक",
+  "jobs": "Jobs",
+  "noJobs": "कोई job रिकॉर्ड नहीं",
+  "noRunDetail": "कोई रन विवरण नहीं",
+  "openInBrowser": "ब्राउज़र में खोलें",
+  "rerun": "फिर से चलाएँ",
+  "rerunFailed": "फिर से चलायना विफल: {error}",
+  "rerunTriggered": "फिर से चलायना ट्रिगर किया गया",
+  "runNumber": "रन #{number}",
+  "status": "स्थिति: {status}",
+  "title": "रन विवरण",
+  "viewLogs": "लॉग देखें"
+}

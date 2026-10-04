@@ -1,0 +1,15 @@
+{
+  "cancel": "Cancelar",
+  "copiedEvent": "Se copió este evento",
+  "copy": "Copiar",
+  "empty": "No hay eventos que coincidan",
+  "filterAll": "Todos",
+  "filterError": "Error",
+  "filterWarning": "Advertencia",
+  "markAllRead": "Marcar todo leído",
+  "markRead": "Marcar como leído",
+  "reset": "Restablecer",
+  "resetDesc": "Se vaciarán todos los eventos en la memoria actual (los registros en disco se conservan).",
+  "resetTitle": "Restablecer el centro de notificaciones",
+  "title": "Centro de notificaciones"
+}

@@ -14,23 +14,32 @@ library;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 
 import 'base/base_bootstrap.dart';
+
 import 'base/log/log_dirs.dart';
 import 'domain/domain_bridge.dart';
+
 import 'kernel/boot/boot_fs.dart';
 import 'kernel/boot/boot_loader.dart';
+
 import 'kernel/boot/integrity_verifier.dart';
 import 'kernel/boot/release_trust_root.dart';
+
 import 'kernel/boot/trust_policy.dart';
 import 'kernel/boot/trust_warnings.dart';
+
 import 'kernel/contract/module.dart';
 import 'kernel/diagnostics.dart';
+
 import 'kernel/kernel.dart';
 import 'kernel/log/og_l_log_file.dart';
+
 import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
+
 import 'surface/surface_bridge.dart';
 
 /// 应用版本（零外部资源：不读 pubspec，直接内联常量）。

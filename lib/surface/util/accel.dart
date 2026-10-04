@@ -13,6 +13,11 @@
 /// 版本号与时间（[kOgLAccelConsentVersion]），文本升版必须重新同意。
 library;
 
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key) => OgLI18n.instance.t('common', key);
+
 /// 同意协议的版本号：**文本任何实质修改都必须 +1**，以便重新征求同意。
 const int kOgLAccelConsentVersion = 1;
 
@@ -80,7 +85,7 @@ const String kOgLAccelBuiltinBaseUrl = 'https://server.344977.xyz:9999/';
 /// 内置通道。
 const OgLAccelChannel kOgLAccelBuiltinChannel = OgLAccelChannel(
   id: kOgLAccelBuiltinId,
-  name: '内置通道',
+  name: _t('accelBuiltin'),
   baseUrl: kOgLAccelBuiltinBaseUrl,
   builtin: true,
 );
@@ -89,23 +94,23 @@ const OgLAccelChannel kOgLAccelBuiltinChannel = OgLAccelChannel(
 String? ogLValidateAccelBaseUrl(String raw) {
   final String input = raw.trim();
   if (input.isEmpty) {
-    return '请填写通道地址';
+    return _t('accelUrlRequired');
   }
   if (RegExp(r'[\u2E80-\u9FFF\uFF00-\uFFEF]').hasMatch(input)) {
-    return '地址不能包含中文或全角字符';
+    return _t('accelUrlCjk');
   }
   if (!input.startsWith('https://') && !input.startsWith('http://')) {
-    return '地址必须以 https:// 或 http:// 开头';
+    return _t('accelUrlScheme');
   }
   if (input.contains(' ')) {
-    return '地址不能包含空格';
+    return _t('accelUrlSpace');
   }
   if (input.startsWith('http://')) {
     // 明文会被 Android 9+ 直接拦截（此前 4.4.0 的故障根因），提前告知。
-    return '明文 http:// 会被 Android 9+ 拦截，请使用 https://';
+    return _t('accelUrlPlainHttp');
   }
   if (!input.endsWith('/')) {
-    return '地址需以 / 结尾（例如 https://example.com/）';
+    return _t('accelUrlTrailingSlash');
   }
   return null;
 }
@@ -164,8 +169,10 @@ const String kOgLBuiltinAccelSecurityStatement = '''
    对你的使用行为生效。
 ''';
 
-/// 按通道类型返回对应协议文本。
+/// 按通道类型返回对应协议文本（走 i18n；中文源文见上方常量）。
 String ogLAccelAgreementFor(OgLAccelChannel channel) =>
-    channel.builtin
-        ? kOgLBuiltinAccelSecurityStatement
-        : kOgLThirdPartyAccelDisclaimer;
+    channel.builtin ? _t('accelBuiltinStatement') : _t('accelThirdPartyDisclaimer');
+
+/// 通道展示名（内置通道走 i18n，自定义通道用用户填写的名字）。
+String ogLAccelChannelName(OgLAccelChannel channel) =>
+    channel.builtin ? _t('accelBuiltin') : channel.name;

@@ -7,8 +7,10 @@
 library;
 
 import 'bridge_registry.dart';
+
 import 'contract/module.dart';
 import 'di.dart';
+
 import 'diagnostics.dart';
 
 /// 模块总线错误。

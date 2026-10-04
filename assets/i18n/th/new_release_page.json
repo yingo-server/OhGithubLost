@@ -1,0 +1,15 @@
+{
+  "bodyLabel": "คำอธิบาย (ไม่บังคับ, รองรับ Markdown)",
+  "createFailed": "ล้มเหลวในการสร้าง: {error}",
+  "created": "สร้างแล้ว",
+  "draft": "ร่าง",
+  "draftDesc": "เก็บเป็นร่าง ยังไม่เผยแพร่",
+  "prerelease": "Pre-release",
+  "prereleaseDesc": "ระบุสถานะเป็น pre-release",
+  "publish": "สร้าง Release",
+  "publishing": "กำลังเผยแพร่...",
+  "tagLabel": "ป้าย (tag)",
+  "tagRequired": "กรุณากรอกป้ายก่อน (เช่น v1.0.0)",
+  "title": "สร้าง Release ใหม่",
+  "titleLabel": "หัวข้อ (ไม่บังคับ)"
+}

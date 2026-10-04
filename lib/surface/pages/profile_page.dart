@@ -9,13 +9,22 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../types.dart';
+
 import 'drafts_page.dart';
 import 'gists_page.dart';
+
 import 'login_page.dart';
 import 'repo_page.dart';
+
+/// 取 `profile_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('profile_page', key, args: args);
 
 /// 我的页。
 class ProfilePage extends StatefulWidget {
@@ -67,7 +76,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return existing;
     }
     final controller = AsyncController<List<GhAccount>>(
-      label: '账户',
+      label: _t('accounts'),
       isEmpty: (List<GhAccount> value) => value.isEmpty,
       loader: () async {
         final List<GhAccount> list = await widget.surface.domain.auth.accounts();
@@ -95,12 +104,12 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('@${account.login} 没有可用令牌，已拒绝切换'),
+            content: Text(_t('noTokenSwitch', <String, String>{'login': account.login})),
           ),
         );
         return;
       }
-      OgLAppLog.instance.result('账户', '已切换', '@${account.login}');
+      OgLAppLog.instance.result(_t('accounts'), _t('switched'), '@${account.login}');
       // 多用户安全：缓存不含账号维度（分页快照 / 仓库缓存都不含），
       // 切换后必须**清空所有缓存**，避免"用 B 账号看到 A 账号的私有数据"。
       await widget.surface.clearAllCaches();
@@ -108,13 +117,13 @@ class _ProfilePageState extends State<ProfilePage> {
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(
-        '账户',
-        '切换失败：$error',
+        _t('accounts'),
+        _t('switchFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('切换失败：$error')),
+          SnackBar(content: Text(_t('switchFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -124,19 +133,19 @@ class _ProfilePageState extends State<ProfilePage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('移除账户'),
+        title:  Text(_t('removeTitle')),
         content: Text(
-          '将删除「@${account.login}」在本机保存的令牌。'
-          '该账号的远端数据不受影响；重新使用需要再次输入令牌。',
+          _t('removeDesc', <String, String>{'login': account.login})
+          _t('removeDesc2'),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('移除'),
+            child:  Text(_t('remove')),
           ),
         ],
       ),
@@ -146,26 +155,26 @@ class _ProfilePageState extends State<ProfilePage> {
     }
     try {
       await widget.surface.domain.auth.removeAccount(account.id);
-      OgLAppLog.instance.result('账户', '已移除', '@${account.login}');
+      OgLAppLog.instance.result(_t('accounts'), _t('removed'), '@${account.login}');
       try {
         await widget.surface.clearRepositoryCache();
       } catch (error) {
         OgLAppLog.instance.add(
-          '账户',
-          '清空仓库缓存失败（不影响操作）：$error',
+          _t('accounts'),
+          _t('clearCacheFailed', <String, String>{'error': error})),
           severity: OgLNoticeSeverity.warning,
         );
       }
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(
-        '账户',
-        '移除失败：$error',
+        _t('accounts'),
+        _t('removeFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('移除失败：$error')),
+          SnackBar(content: Text(_t('removeFailed', <String, String>{'error': error})))),
         );
       }
     }
@@ -209,11 +218,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final AsyncController<List<GhAccount>> controller = _accountsC();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的'),
+        title:  Text(_t('mine')),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.person_add_alt),
-            tooltip: '新增账户',
+            tooltip: _t('addAccount'),
             onPressed: _addAccount,
           ),
         ],
@@ -221,12 +230,12 @@ class _ProfilePageState extends State<ProfilePage> {
       body: AsyncView<List<GhAccount>>(
         controller: controller,
         emptyIcon: Icons.key_outlined,
-        emptyText: '未登录（去「登录」页接入令牌后即可浏览私有仓库）',
+        emptyText: _t('notLoggedIn'),
         builder: (BuildContext context, List<GhAccount> accounts) => ListView(
           children: <Widget>[
-            const Padding(
+             Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text('账户'),
+              child: Text(_t('accounts')),
             ),
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -237,7 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       leading: const Icon(Icons.key),
                       title: Text('@${account.login}'),
                       subtitle: Text(
-                        account.id == _activeId ? '当前账号' : '可切换',
+                        account.id == _activeId ? _t('currentAccount') : _t('switchable'),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -245,11 +254,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (account.id != _activeId)
                             TextButton(
                               onPressed: () => _switchTo(account),
-                              child: const Text('切换'),
+                              child:  Text(_t('switch')),
                             ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline),
-                            tooltip: '移除',
+                            tooltip: _t('remove'),
                             onPressed: () => _remove(account),
                           ),
                         ],
@@ -259,15 +268,15 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 16),
-            const Padding(
+             Padding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: Text('内容'),
+              child: Text(_t('content')),
             ),
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: ListTile(
                 leading: const Icon(Icons.edit_note),
-                title: const Text('草稿箱'),
+                title:  Text(_t('drafts')),
                 subtitle: ListenableBuilder(
                   listenable: widget.surface.domain.api.draftsChanged,
                   builder: (BuildContext context, Widget? _) => FutureBuilder<int>(
@@ -275,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     builder:
                         (BuildContext context, AsyncSnapshot<int> snapshot) {
                       final int count = snapshot.data ?? 0;
-                      return Text(count == 0 ? '没有未提交的草稿' : '$count 条未提交草稿');
+                      return Text(count == 0 ? _t('noDrafts') : _t('draftCount', <String, String>{'count': count})));
                     },
                   ),
                 ),
@@ -288,16 +297,16 @@ class _ProfilePageState extends State<ProfilePage> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: ListTile(
                 leading: const Icon(Icons.article_outlined),
-                title: const Text('Gist 片段'),
-                subtitle: const Text('代码片段：列表、详情、新建、编辑、删除'),
+                title:  Text(_t('gists')),
+                subtitle:  Text(_t('gistsDesc')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openGists,
               ),
             ),
             const SizedBox(height: 16),
-            const Padding(
+             Padding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: Text('危险区'),
+              child: Text(_t('dangerZone')),
             ),
             Card(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -306,7 +315,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text('退出登录会删除本机保存的令牌；远端数据不受影响。'),
+                     Text(_t('logoutDesc')),
                     const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: accounts.isEmpty
@@ -317,7 +326,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 await _remove(current);
                               }
                             },
-                      child: const Text('退出当前账号'),
+                      child:  Text(_t('logout')),
                     ),
                   ],
                 ),

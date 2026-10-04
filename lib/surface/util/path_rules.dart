@@ -10,6 +10,12 @@
 /// - **新建文件必须有内容**：空文件没有意义（`.gitkeep` 占位例外）。
 library;
 
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);
+
 /// `.gitkeep` 文件名（目录占位）。
 const String kOgLGitKeepName = '.gitkeep';
 
@@ -48,22 +54,22 @@ String ogLGitKeepPathFor(String directory) {
 String? ogLValidateRepoEntryPath(String raw, {required bool directory}) {
   final String input = raw.trim();
   if (input.isEmpty) {
-    return directory ? '请填写目录路径（如 docs/api/）' : '请填写文件路径（如 src/main.dart）';
+    return directory ? _t('pathReqDir') : _t('pathReqFile');
   }
   if (_kControl.hasMatch(input)) {
-    return '路径不能包含控制字符';
+    return _t('pathControl');
   }
   if (_kCjk.hasMatch(input)) {
-    return '路径不能包含中文或全角字符（请改用英文）';
+    return _t('pathCjk');
   }
   if (input.contains(r'\')) {
-    return '请使用 / 作为路径分隔符，不要用 \\';
+    return _t('pathBackslash');
   }
   if (input.startsWith('/')) {
-    return '路径不能以 / 开头';
+    return _t('pathLeadingSlash');
   }
   if (input.contains('//')) {
-    return '路径中不能出现连续的两个 /';
+    return _t('pathDoubleSlash');
   }
   final bool trailingSlash = input.endsWith('/');
   final List<String> segments = input
@@ -71,14 +77,14 @@ String? ogLValidateRepoEntryPath(String raw, {required bool directory}) {
       .where((String s) => s.isNotEmpty)
       .toList();
   if (segments.isEmpty) {
-    return '路径无效';
+    return _t('pathInvalid');
   }
   if (directory && !trailingSlash) {
     // 目录必须以 `/` 结尾，避免与"建文件"混淆。
-    return '创建目录时路径需以 / 结尾（如 docs/api/）';
+    return _t('pathDirNeedSlash');
   }
   if (!directory && trailingSlash) {
-    return '创建文件时路径不能以 / 结尾';
+    return _t('pathFileNoSlash');
   }
   for (final String segment in segments) {
     final String? error = _validateSegment(segment, directory: directory);
@@ -91,25 +97,28 @@ String? ogLValidateRepoEntryPath(String raw, {required bool directory}) {
 
 String? _validateSegment(String segment, {required bool directory}) {
   if (segment == '.' || segment == '..') {
-    return '路径中不能包含 . 或 ..';
+    return _t('pathDotSegment');
   }
   if (segment.length > 100) {
-    return '单级名称不能超过 100 个字符（当前 ${segment.length}）';
+    return _t('pathSegTooLong', <String, String>{
+      'max': '100',
+      'count': '${segment.length}',
+    });
   }
   if (segment.endsWith('.') || segment.endsWith(' ')) {
-    return '名称不能以点或空格结尾（Windows 上无法落盘）';
+    return _t('pathSegTrailing');
   }
   if (segment.startsWith(' ') || segment.contains(' ')) {
-    return '名称不能包含空格';
+    return _t('pathSpace');
   }
   if (!_kAllowedSegment.hasMatch(segment)) {
-    return '名称只能使用英文字母、数字与 . _ -（不能含特殊字符）';
+    return _t('pathCharset');
   }
   final String stem = segment.contains('.')
       ? segment.substring(0, segment.indexOf('.'))
       : segment;
   if (_kReservedNames.contains(stem.toLowerCase())) {
-    return '“$segment”是 Windows 保留名，无法落盘';
+    return _t('pathReserved', <String, String>{'name': segment});
   }
   // 目录不需要扩展名约束；文件需有扩展名（.gitkeep / .gitignore 等点文件除外）。
   if (!directory && !segment.startsWith('.')) {
@@ -126,7 +135,7 @@ String? ogLValidateFileContent(String path, String content) {
     return null;
   }
   if (content.trim().isEmpty) {
-    return '文件内容不能为空（请至少写入一行）';
+    return _t('pathEmptyContent');
   }
   return null;
 }

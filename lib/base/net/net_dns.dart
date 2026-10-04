@@ -21,11 +21,14 @@
 library;
 
 import 'dart:async';
+
 import 'dart:convert';
 import 'dart:io';
+
 import 'dart:math';
 
 import '../../kernel/diagnostics.dart';
+
 import '../../kernel/environment.dart';
 
 /// DNS 解析模式。

@@ -1,0 +1,12 @@
+{
+  "created": "Gist を作成しました",
+  "empty": "まだ Gist 片段がありません",
+  "fileCount": "{count} ファイル · ",
+  "missingId": "この Gist に id が欠けており、開けません",
+  "new": "新規作成",
+  "noDescription": "（説明なし）",
+  "noOpenLink": "この Gist に開けるリンクがありません",
+  "openInBrowser": "ブラウザで開く",
+  "private": "非公開",
+  "title": "Gist 片段"
+}

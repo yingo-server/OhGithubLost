@@ -4,3 +4,4 @@
 /// 逻辑层（domain）请直接依赖 `kernel/contract/net_types.dart`。
 library;
 export '../../kernel/contract/net_types.dart';
+

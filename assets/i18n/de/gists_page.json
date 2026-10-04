@@ -1,0 +1,12 @@
+{
+  "created": "Gist erstellt",
+  "empty": "Keine Gist-Snippets",
+  "fileCount": "{count} Dateien · ",
+  "missingId": "Dieser Gist hat keine ID, kann nicht geöffnet werden",
+  "new": "Neu",
+  "noDescription": "(Keine Beschreibung)",
+  "noOpenLink": "Dieser Gist hat keinen verknüpften Link",
+  "openInBrowser": "Im Browser öffnen",
+  "private": "Privat",
+  "title": "Gist-Snippets"
+}

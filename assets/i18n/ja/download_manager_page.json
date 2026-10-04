@@ -1,0 +1,16 @@
+{
+  "cancel": "キャンセル",
+  "cannotOpenCopied": "直接開けません。ファイルパスをコピーしました",
+  "clearFinished": "完了したものを削除",
+  "copyPath": "パスをコピー",
+  "empty": "まだダウンロードタスクがありません",
+  "emptyHint": "Release アタッシュメントまたはリポジトリファイルの「ダウンロード」をタップすると追加されます",
+  "noAppForFile": "このファイルを処理できるアプリがありません",
+  "open": "開く",
+  "pathCopied": "ファイルパスをコピーしました",
+  "pause": "一時停止",
+  "remove": "削除",
+  "resume": "再開",
+  "retry": "再試行",
+  "title": "ダウンロード管理"
+}

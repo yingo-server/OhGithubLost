@@ -1,0 +1,7 @@
+{
+  "noLogs": "ログがありません（未完成またはトークンにActions権限がない可能性があります）",
+  "noMatchingJob": "一致する job がありません",
+  "reload": "再フェッチ",
+  "searchJobHint": "job 名を検索",
+  "title": "実行ログ"
+}

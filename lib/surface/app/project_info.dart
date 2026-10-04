@@ -1,4 +1,8 @@
-/// L3 展示级 · 项目元数据（名称 / 主要开发者 / 仓库坐标 / 许可）。
+
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);/// L3 展示级 · 项目元数据（名称 / 主要开发者 / 仓库坐标 / 许可）。
 ///
 /// ## 为什么单独成文件
 /// 关于页、捐赠 star、开源许可三处都要用到同一组事实（项目名、仓库坐标、许可）。
@@ -67,16 +71,16 @@ class OgLDependencyLicense {
 /// 第三方依赖清单（顺序与 `pubspec.yaml` 保持一致）。
 const List<OgLDependencyLicense> kOgLDependencyLicenses =
     <OgLDependencyLicense>[
-  OgLDependencyLicense('path_provider', 'BSD-3-Clause', '跨平台目录规划'),
-  OgLDependencyLicense('flutter_secure_storage', 'MIT', '令牌安全存储'),
-  OgLDependencyLicense('crypto', 'BSD-3-Clause', '摘要计算'),
-  OgLDependencyLicense('cryptography', 'Apache-2.0', '引导清单签名校验'),
-  OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', 'Markdown 渲染'),
-  OgLDependencyLicense('url_launcher', 'BSD-3-Clause', '外链打开'),
-  OgLDependencyLicense('re_editor', 'MIT', '代码编辑器内核（行号 / 查找替换 / 撤销重做 / 折叠）'),
-  OgLDependencyLicense('re_highlight', 'MIT', '语法高亮（highlight.js 的 Dart 移植）'),
-  OgLDependencyLicense('permission_handler', 'MIT', '运行时权限请求与系统设置入口'),
-  OgLDependencyLicense('background_downloader', 'MIT', '多平台后台下载（断点续传 / 队列）'),
-  OgLDependencyLicense('archive', 'MIT', 'Actions 日志 zip 解压'),
-  OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', '系统组件本地化'),
+  OgLDependencyLicense('path_provider', 'BSD-3-Clause', _t('featureCrossPlatformDirs')),
+  OgLDependencyLicense('flutter_secure_storage', 'MIT', _t('featureTokenVault')),
+  OgLDependencyLicense('crypto', 'BSD-3-Clause', _t('featureDigest')),
+  OgLDependencyLicense('cryptography', 'Apache-2.0', _t('featureManifestSignature')),
+  OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', _t('featureMarkdown')),
+  OgLDependencyLicense('url_launcher', 'BSD-3-Clause', _t('featureExternalLink')),
+  OgLDependencyLicense('re_editor', 'MIT', _t('featureCodeEditor')),
+  OgLDependencyLicense('re_highlight', 'MIT', _t('featureHighlight')),
+  OgLDependencyLicense('permission_handler', 'MIT', _t('featurePermissions')),
+  OgLDependencyLicense('background_downloader', 'MIT', _t('featureDownloads')),
+  OgLDependencyLicense('archive', 'MIT', _t('featureActionsZip')),
+  OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', _t('featureLocalization')),
 ];

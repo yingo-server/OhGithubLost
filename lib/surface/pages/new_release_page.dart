@@ -8,8 +8,15 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
+
+/// 取 `new_release_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('new_release_page', key, args: args);
 
 /// 新建发布页。
 class NewReleasePage extends StatefulWidget {
@@ -57,7 +64,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
     }
     final String tag = _tag.text.trim();
     if (tag.isEmpty) {
-      setState(() => _error = '请先填写标签（如 v1.0.0）');
+      setState(() => _error = _t('tagRequired'));
       return;
     }
     setState(() {
@@ -75,7 +82,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
         targetCommitish:
             widget.defaultBranch.isEmpty ? null : widget.defaultBranch,
       );
-      OgLAppLog.instance.result('发布', '已创建', release.tagName);
+      OgLAppLog.instance.result('发布', _t('created'), release.tagName);
       if (!mounted) {
         return;
       }
@@ -83,13 +90,13 @@ class _NewReleasePageState extends State<NewReleasePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '发布',
-        '创建失败：$error',
+        _t('createFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = '创建失败：$error';
+          _error = _t('createFailed', <String, String>{'error': error}));
         });
       }
     }
@@ -98,15 +105,15 @@ class _NewReleasePageState extends State<NewReleasePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('新建发布')),
+      appBar: AppBar(title:  Text(_t('title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           TextField(
             controller: _tag,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '标签（tag）',
+            decoration:  InputDecoration(
+              labelText: _t('tagLabel'),
               hintText: 'v1.0.0',
               border: OutlineInputBorder(),
             ),
@@ -114,8 +121,8 @@ class _NewReleasePageState extends State<NewReleasePage> {
           const SizedBox(height: 12),
           TextField(
             controller: _name,
-            decoration: const InputDecoration(
-              labelText: '标题（可选）',
+            decoration:  InputDecoration(
+              labelText: _t('titleLabel'),
               border: OutlineInputBorder(),
             ),
           ),
@@ -123,24 +130,24 @@ class _NewReleasePageState extends State<NewReleasePage> {
           TextField(
             controller: _body,
             maxLines: 6,
-            decoration: const InputDecoration(
-              labelText: '说明（可选，支持 Markdown）',
+            decoration:  InputDecoration(
+              labelText: _t('bodyLabel'),
               border: OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
-            title: const Text('草稿'),
-            subtitle: const Text('保存为草稿，暂不发布'),
+            title:  Text(_t('draft')),
+            subtitle:  Text(_t('draftDesc')),
             value: _draft,
             onChanged: _busy
                 ? null
                 : (bool value) => setState(() => _draft = value),
           ),
           SwitchListTile(
-            title: const Text('预发布'),
-            subtitle: const Text('标记为 pre-release'),
+            title:  Text(_t('prerelease')),
+            subtitle:  Text(_t('prereleaseDesc')),
             value: _prerelease,
             onChanged: _busy
                 ? null
@@ -164,7 +171,7 @@ class _NewReleasePageState extends State<NewReleasePage> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _busy ? null : _submit,
-            child: Text(_busy ? '发布中…' : '创建发布'),
+            child: Text(_busy ? _t('publishing') : _t('publish')),
           ),
         ],
       ),

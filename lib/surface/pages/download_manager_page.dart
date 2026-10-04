@@ -8,13 +8,21 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/animations.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
 import '../util/gh_format.dart';
+
+/// 取 `download_manager_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('download_manager_page', key, args: args);
 
 /// 下载管理页。
 class DownloadManagerPage extends StatelessWidget {
@@ -30,10 +38,10 @@ class DownloadManagerPage extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('下载管理'),
+        title:  Text(_t('title')),
         actions: <Widget>[
           IconButton(
-            tooltip: '清理已结束',
+            tooltip: _t('clearFinished'),
             icon: const Icon(Icons.cleaning_services_outlined),
             onPressed: surface.clearFinishedDownloads,
           ),
@@ -54,10 +62,10 @@ class DownloadManagerPage extends StatelessWidget {
                     color: theme.colorScheme.outline,
                   ),
                   const SizedBox(height: 12),
-                  const Text('还没有下载任务'),
+                   Text(_t('empty')),
                   const SizedBox(height: 4),
                   Text(
-                    '在 Release 附件或仓库文件上点「下载」即可加入',
+                    _t('emptyHint'),
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -138,43 +146,43 @@ class DownloadManagerPage extends StatelessWidget {
               children: <Widget>[
                 if (active || task.status == IxDownloadStatus.queued)
                   IconButton(
-                    tooltip: '暂停',
+                    tooltip: _t('pause'),
                     icon: const Icon(Icons.pause),
                     onPressed: () => unawaited(surface.pauseDownload(task.id)),
                   ),
                 if (paused)
                   IconButton(
-                    tooltip: '继续',
+                    tooltip: _t('resume'),
                     icon: const Icon(Icons.play_arrow),
                     onPressed: () => unawaited(surface.resumeDownload(task.id)),
                   ),
                 if (task.status == IxDownloadStatus.failed ||
                     task.status == IxDownloadStatus.canceled)
                   IconButton(
-                    tooltip: '重试',
+                    tooltip: _t('retry'),
                     icon: const Icon(Icons.refresh),
                     onPressed: () => unawaited(surface.retryDownload(task.id)),
                   ),
                 if (active || task.status == IxDownloadStatus.queued || paused)
                   IconButton(
-                    tooltip: '取消',
+                    tooltip: _t('cancel'),
                     icon: const Icon(Icons.close),
                     onPressed: () => unawaited(surface.cancelDownload(task.id)),
                   ),
                 if (done) ...<Widget>[
                   IconButton(
-                    tooltip: '打开',
+                    tooltip: _t('open'),
                     icon: const Icon(Icons.open_in_new),
                     onPressed: () => unawaited(_openLocal(context, task)),
                   ),
                   IconButton(
-                    tooltip: '复制路径',
+                    tooltip: _t('copyPath'),
                     icon: const Icon(Icons.content_copy),
                     onPressed: () => unawaited(_copyPath(context, task)),
                   ),
                 ],
                 IconButton(
-                  tooltip: '移除',
+                  tooltip: _t('remove'),
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () => unawaited(surface.removeDownload(task.id)),
                 ),
@@ -210,13 +218,13 @@ class DownloadManagerPage extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!ok) {
-        throw StateError('没有可处理该文件的应用');
+        throw StateError(_t('noAppForFile'));
       }
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: task.savePath));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('无法直接打开，已复制文件路径')),
+           SnackBar(content: Text(_t('cannotOpenCopied'))),
         );
       }
     }
@@ -226,7 +234,7 @@ class DownloadManagerPage extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: task.savePath));
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已复制文件路径')),
+         SnackBar(content: Text(_t('pathCopied'))),
       );
     }
   }

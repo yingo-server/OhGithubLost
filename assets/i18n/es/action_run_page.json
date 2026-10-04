@@ -1,0 +1,20 @@
+{
+  "back": "Volver",
+  "cancelFailed": "Error al cancelar: {error}",
+  "cancelRequested": "Cancelación solicitada",
+  "cancelRun": "Cancelar ejecución",
+  "cancelRunDesc": "Se solicitará a GitHub que cancele esta ejecución. Los pasos completados no se revertirán.",
+  "durationMinSecs": "Duración {mins}m{secs}s",
+  "durationSecs": "Duración {secs}s",
+  "jobs": "Tareas",
+  "noJobs": "No hay registros de tareas",
+  "noRunDetail": "No hay detalles de la ejecución",
+  "openInBrowser": "Abrir en el navegador",
+  "rerun": "Volver a ejecutar",
+  "rerunFailed": "Error al volver a ejecutar: {error}",
+  "rerunTriggered": "Reejecución iniciada",
+  "runNumber": "Ejecución #{number}",
+  "status": "Estado: {status}",
+  "title": "Detalles de ejecución",
+  "viewLogs": "Ver registros"
+}

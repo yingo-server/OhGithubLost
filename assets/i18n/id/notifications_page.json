@@ -1,0 +1,15 @@
+{
+  "cancel": "Batalkan",
+  "copiedEvent": "Event ini disalin",
+  "copy": "Salin",
+  "empty": "Tidak ada event yang sesuai",
+  "filterAll": "Semua",
+  "filterError": "Error",
+  "filterWarning": "Peringatan",
+  "markAllRead": "Semua Terbaca",
+  "markRead": "Tandai Terbaca",
+  "reset": "Reset",
+  "resetDesc": "Akan mengosongkan semua event di memori saat ini (log disk tetap ada).",
+  "resetTitle": "Reset Pusat Notifikasi",
+  "title": "Pusat Notifikasi"
+}

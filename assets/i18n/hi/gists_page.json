@@ -1,0 +1,12 @@
+{
+  "created": "Gist बनाया गया",
+  "empty": "अभी कोई Gist स्निपेट नहीं",
+  "fileCount": "{count} फ़ाइलें · ",
+  "missingId": "इस Gist में id नहीं है, नहीं खुला जा सकता",
+  "new": "नया",
+  "noDescription": "(कोई विवरण नहीं)",
+  "noOpenLink": "इस Gist का कोई खुलने योग्य लिंक नहीं है",
+  "openInBrowser": "ब्राउज़र में खोलें",
+  "private": "निजी",
+  "title": "Gist स्निपेट"
+}

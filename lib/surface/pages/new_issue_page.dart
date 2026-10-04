@@ -7,7 +7,13 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
+/// 取 `new_issue_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('new_issue_page', key, args: args);
 
 /// 新建议题页。
 class NewIssuePage extends StatefulWidget {
@@ -47,7 +53,7 @@ class _NewIssuePageState extends State<NewIssuePage> {
     }
     final String title = _title.text.trim();
     if (title.isEmpty) {
-      setState(() => _error = '请先填写标题');
+      setState(() => _error = _t('titleRequired'));
       return;
     }
     setState(() {
@@ -60,7 +66,7 @@ class _NewIssuePageState extends State<NewIssuePage> {
         title: title,
         body: _body.text.trim().isEmpty ? null : _body.text.trim(),
       );
-      OgLAppLog.instance.result('议题', '已创建', title);
+      OgLAppLog.instance.result('议题', _t('created'), title);
       if (!mounted) {
         return;
       }
@@ -68,13 +74,13 @@ class _NewIssuePageState extends State<NewIssuePage> {
     } catch (error) {
       OgLAppLog.instance.add(
         '议题',
-        '创建失败：$error',
+        _t('createFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = '创建失败：$error';
+          _error = _t('createFailed', <String, String>{'error': error}));
         });
       }
     }
@@ -83,15 +89,15 @@ class _NewIssuePageState extends State<NewIssuePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('新建议题')),
+      appBar: AppBar(title:  Text(_t('title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           TextField(
             controller: _title,
             autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '标题',
+            decoration:  InputDecoration(
+              labelText: _t('titleLabel'),
               border: OutlineInputBorder(),
             ),
           ),
@@ -99,8 +105,8 @@ class _NewIssuePageState extends State<NewIssuePage> {
           TextField(
             controller: _body,
             maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: '正文（可选，支持 Markdown）',
+            decoration:  InputDecoration(
+              labelText: _t('bodyLabel'),
               border: OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
@@ -123,7 +129,7 @@ class _NewIssuePageState extends State<NewIssuePage> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _busy ? null : _submit,
-            child: Text(_busy ? '提交中…' : '创建议题'),
+            child: Text(_busy ? _t('submitting') : _t('submit')),
           ),
         ],
       ),

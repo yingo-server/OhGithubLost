@@ -1,0 +1,20 @@
+{
+  "back": "Назад",
+  "cancelFailed": "Не удалось отменить: {error}",
+  "cancelRequested": "Отмена запрошена",
+  "cancelRun": "Отменить выполнение",
+  "cancelRunDesc": "Запрос к GitHub на отмену этого выполнения; завершённые шаги не будут отменены.",
+  "durationMinSecs": "Тайм: {mins}м {secs}с",
+  "durationSecs": "Тайм: {secs}с",
+  "jobs": "Задачи",
+  "noJobs": "Нет записей о задачах",
+  "noRunDetail": "Нет деталей выполнения",
+  "openInBrowser": "Открыть в браузере",
+  "rerun": "Повторить",
+  "rerunFailed": "Ошибка повторения: {error}",
+  "rerunTriggered": "Повторный запуск инициирован",
+  "runNumber": "Выполнение #{number}",
+  "status": "Статус: {status}",
+  "title": "Детали выполнения",
+  "viewLogs": "Смотреть журналы"
+}

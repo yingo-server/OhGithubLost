@@ -1,0 +1,12 @@
+{
+  "created": "สร้าง Gist แล้ว",
+  "empty": "ยังไม่มี Gist",
+  "fileCount": "มี {count} ไฟล์ · ",
+  "missingId": "ไม่มี id ใน Gist นี้ จึงไม่สามารถเปิดได้",
+  "new": "สร้างใหม่",
+  "noDescription": "(ไม่มีการอธิบาย)",
+  "noOpenLink": "ไม่มีลิงก์เปิดสำหรับ Gist นี้",
+  "openInBrowser": "เปิดในเบราว์เซอร์",
+  "private": "ส่วนตัว",
+  "title": "Gist"
+}

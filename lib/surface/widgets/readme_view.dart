@@ -12,7 +12,14 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter_markdown/flutter_markdown.dart';
+
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('common', key, args: args);
 
 /// 徽章行：`[![alt](图片)](链接)`（可重复；装饰用，整行删除）。
 final RegExp _badgeRow = RegExp(r'^(\s*\[!\[[^\)]*\)\]\([^)]*\)\s*)+$');
@@ -66,7 +73,9 @@ String simplifyReadme(String source, {int maxChars = 24000}) {
 
     final String swapped = noComment.replaceAllMapped(_image, (Match m) {
       final String alt = m.group(1)?.trim() ?? '';
-      return alt.isEmpty ? '（图，已省略）' : '（图：$alt）';
+      return alt.isEmpty
+          ? _t('readmeImageOmitted')
+          : _t('readmeImageAlt', <String, String>{'alt': alt});
     });
     kept.add(swapped.replaceAll(_htmlTag, '').trimRight());
   }
@@ -95,7 +104,7 @@ String simplifyReadme(String source, {int maxChars = 24000}) {
     cut = maxChars;
   }
   md = md.substring(0, cut).trimRight();
-  return '$md\n\n---\n\n_README 过长，已截断（原文更完整）。_';
+  return '$md\n\n---\n\n${_t('readmeTruncated')}';
 }
 
 /// Markdown 视图：净化 + 主题排版 + 链接回调（由调用方决定怎么打开）。

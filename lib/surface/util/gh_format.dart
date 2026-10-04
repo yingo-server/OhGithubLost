@@ -5,7 +5,12 @@
 /// 这里只保留一组**纯函数**（无 Flutter 依赖，容易单测）。
 library;
 
+import '../i18n/og_l_i18n.dart';
+
 import '../types.dart';
+
+/// 取 `common` 分片文案。
+String _t(String key) => OgLI18n.instance.t('common', key);
 
 /// 取字符串字段（缺省 / 非字符串 → 空串）。
 String ghStr(Map<String, dynamic> node, String key) {
@@ -56,19 +61,19 @@ String ghDate(Map<String, dynamic> node, String key) {
 String ghFileStatusText(String status) {
   switch (status) {
     case 'added':
-      return '新增';
+      return _t('changeAdded');
     case 'removed':
-      return '删除';
+      return _t('changeRemoved');
     case 'modified':
-      return '修改';
+      return _t('changeModified');
     case 'renamed':
-      return '重命名';
+      return _t('changeRenamed');
     case 'copied':
-      return '复制';
+      return _t('changeCopied');
     case 'changed':
-      return '变更';
+      return _t('changeChanged');
     default:
-      return status.isEmpty ? '变更' : status;
+      return status.isEmpty ? _t('changeChanged') : status;
   }
 }
 
@@ -77,7 +82,7 @@ String ghShortSha(String sha) => sha.length >= 7 ? sha.substring(0, 7) : sha;
 
 /// 提交作者显示名（优先 GitHub 登录名，退回本地提交名，再退回"未知"）。
 String ghCommitAuthor(GhCommit commit) =>
-    commit.authorLogin ?? commit.authorName ?? '未知';
+    commit.authorLogin ?? commit.authorName ?? _t('unknown');
 
 /// 内容条目显示名（取 path 最后一段）。
 String ghPathName(String path) {

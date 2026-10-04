@@ -1,11 +1,29 @@
 /// 展示层格式化纯函数的检查（GitHub 字段 → 人话）。
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ohgithublost/surface/i18n/og_l_i18n.dart';
 import 'package:ohgithublost/surface/util/gh_format.dart';
 import 'package:ohgithublost/surface/widgets/readme_view.dart';
 
 void main() {
+  // 这些纯函数的中文来自 `common` 分片，测试里把 zh 分片注入内核。
+  setUpAll(() {
+    final Map<String, String> common = <String, String>{
+      for (final MapEntry<Object?, Object?> e
+          in (jsonDecode(File('assets/i18n/zh/common.json').readAsStringSync())
+                  as Map<Object?, Object?>)
+              .entries)
+        '${e.key}': '${e.value}',
+    };
+    OgLI18n.instance.debugInject('zh', <String, Map<String, String>>{
+      'common': common,
+    });
+  });
+
   group('gh_format', () {
     test('字符串 / 整数容错', () {
       final Map<String, dynamic> node = <String, dynamic>{

@@ -1,0 +1,16 @@
+{
+  "cancel": "取消",
+  "cannotOpenCopied": "無法直接開啟，已複製檔案路徑",
+  "clearFinished": "清理已結束",
+  "copyPath": "複製路徑",
+  "empty": "還沒有下載工作",
+  "emptyHint": "在 Release 附件或儲存庫檔案上點「下載」即可加入",
+  "noAppForFile": "沒有可處理該檔案的應用程式",
+  "open": "開啟",
+  "pathCopied": "已複製檔案路徑",
+  "pause": "暫停",
+  "remove": "移除",
+  "resume": "繼續",
+  "retry": "重試",
+  "title": "下載管理"
+}

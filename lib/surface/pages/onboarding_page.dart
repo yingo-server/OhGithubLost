@@ -15,8 +15,15 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
 import '../app/permissions.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
+
+/// 取 `onboarding` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('onboarding', key, args: args);
 
 /// 首次引导页。
 class OnboardingPage extends StatefulWidget {
@@ -74,8 +81,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       setState(() => _infos = infos);
     } catch (error) {
       OgLAppLog.instance.add(
-        '引导',
-        '权限清单读取失败：$error',
+        _t('title'),
+        _t('permissionListFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.warning,
       );
       if (mounted) {
@@ -90,16 +97,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
     setState(() => _busyPermission = info.permission);
     OgLAppLog.instance.add(
-      '引导',
-      '请求权限：${info.title}（平台=${_gateway.platformLabel}）',
+      _t('title'),
+      _t('requestingPermission', <String, String>{'title': info.title, 'platform': _gateway.platformLabel}),
     );
     OgLPermissionStatus status;
     try {
       status = await _gateway.request(info.permission);
     } catch (error) {
       OgLAppLog.instance.add(
-        '引导',
-        '权限请求失败：$error',
+        _t('title'),
+        _t('permissionRequestFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.warning,
       );
       status = OgLPermissionStatus.needsUserAction;
@@ -123,12 +130,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     switch (status) {
       case OgLPermissionStatus.granted:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${info.title}：已就绪')),
+          SnackBar(content: Text(_t('ready', <String, String>{'title': info.title}))),
         );
         return;
       case OgLPermissionStatus.notRequired:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${info.title}：本平台无需授权')),
+          SnackBar(content: Text(_t('noAuthNeeded', <String, String>{'title': info.title}))),
         );
         return;
       case OgLPermissionStatus.needsUserAction:
@@ -139,13 +146,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
             title: Text(info.title),
             content: Text(
               status == OgLPermissionStatus.unsupported
-                  ? '无法在应用内完成该授权。请到系统设置手动开启。\n\n${info.rationale}'
-                  : '请在系统设置中开启该权限后返回。\n\n${info.rationale}',
+                  ? _t('cannotInApp', <String, String>{'rationale': info.rationale})
+                  : _t('enableInSettings', <String, String>{'rationale': info.rationale}),
             ),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('知道了'),
+                child:  Text(_t('gotIt')),
               ),
               if (_gateway.canOpenSettings)
                 FilledButton(
@@ -154,7 +161,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     await _gateway.request(info.permission);
                     await _load();
                   },
-                  child: const Text('打开系统设置'),
+                  child:  Text(_t('openSettings')),
                 ),
             ],
           ),
@@ -197,7 +204,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: widget.review ? AppBar(title: const Text('权限与引导')) : null,
+      appBar: widget.review ? AppBar(title:  Text(_t('permissionGuide'))) : null,
       body: SafeArea(
         child: Column(
           children: <Widget>[
@@ -248,7 +255,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: Row(
           children: <Widget>[
             if (_step > 0)
-              TextButton(onPressed: _back, child: const Text('上一步')),
+              TextButton(onPressed: _back, child:  Text(_t('previous'))),
             const Spacer(),
             Text('${_step + 1} / $_stepCount', style: theme.textTheme.bodySmall),
             const Spacer(),
@@ -256,8 +263,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
               onPressed: _infos == null ? null : _next,
               child: Text(
                 _step >= _stepCount - 1
-                    ? (widget.review ? '完成' : '开始使用')
-                    : '下一步',
+                    ? (widget.review ? _t('finish') : _t('getStarted'))
+                    : _t('next'),
               ),
             ),
           ],
@@ -274,14 +281,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Icon(Icons.hub_outlined, size: 56, color: theme.colorScheme.primary),
           const SizedBox(height: 16),
           Text(
-            '欢迎使用 OhGithubLost',
+            _t('welcomeTitle'),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'GitHub 仓库管理客户端，手机、平板与桌面可用。'
-            '接下来的几步会说明需要哪些权限、为什么需要，以及你的数据如何保管。',
+            _t('welcomeDesc')
+            _t('welcomeDesc2'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
           ),
@@ -289,8 +296,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.phone_android),
-              title: Text('当前平台：${_gateway.platformLabel}'),
-              subtitle: const Text('不同平台的权限门槛不同，下一页按当前平台给出说明。'),
+              title: Text(_t('currentPlatform', <String, String>{'platform': _gateway.platformLabel})),
+              subtitle:  Text(_t('platformNote')),
             ),
           ),
         ],
@@ -299,7 +306,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _permissionStep(ThemeData theme) => _stepBody(
         theme,
         children: <Widget>[
-          Text('权限说明', style: theme.textTheme.titleMedium),
+          Text(_t('permissionIntro'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           if (_infos == null)
             const Padding(
@@ -341,10 +348,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               : null,
                           child: Text(
                             _busyPermission == info.permission
-                                ? '获取中…'
+                                ? _t('fetching')
                                 : info.ready
-                                    ? '已就绪'
-                                    : '获取 / 去设置',
+                                    ? _t('readyState')
+                                    : _t('fetchOrSettings'),
                           ),
                         ),
                       ),
@@ -358,7 +365,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _privacyStep(ThemeData theme) => _stepBody(
         theme,
         children: <Widget>[
-          Text('数据与隐私', style: theme.textTheme.titleMedium),
+          Text(_t('dataPrivacy'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             color: theme.colorScheme.secondaryContainer,
@@ -374,8 +381,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '令牌只保存在本机安全保险库（Keystore / DPAPI / libsecret），'
-                      '不会上传到任何第三方服务器；仓库数据只与 GitHub 通信。',
+                      _t('tokenVault')
+                      _t('tokenVault2'),
                       style: TextStyle(
                         color: theme.colorScheme.onSecondaryContainer,
                       ),
@@ -386,18 +393,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
           const SizedBox(height: 12),
-          const Card(
+           Card(
             child: ListTile(
               leading: Icon(Icons.folder_outlined),
-              title: Text('文件位置'),
-              subtitle: Text('日志与下载文件写在应用根目录下的 ogl 文件夹，按分类分目录存放。'),
+              title: Text(_t('fileLocation')),
+              subtitle: Text(_t('fileLocationDesc')),
             ),
           ),
-          const Card(
+           Card(
             child: ListTile(
               leading: Icon(Icons.description_outlined),
-              title: Text('可追溯'),
-              subtitle: Text('运行日志落盘，出问题时可在设置里复制用于反馈。'),
+              title: Text(_t('traceable')),
+              subtitle: Text(_t('traceableDesc')),
             ),
           ),
         ],
@@ -414,13 +421,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            widget.review ? '权限回顾完成' : '准备就绪',
+            widget.review ? _t('readyTitle') : _t('readyTitle2'),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            '你可以随时在「设置 → 维护 → 权限与引导」重新查看权限说明。',
+            _t('readyDesc'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
           ),
@@ -430,13 +437,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
   String _statusText(OgLPermissionStatus status) {
     switch (status) {
       case OgLPermissionStatus.granted:
-        return '已具备';
+        return _t('stateGranted');
       case OgLPermissionStatus.needsUserAction:
-        return '需手动开启';
+        return _t('stateManual');
       case OgLPermissionStatus.notRequired:
-        return '本平台无需';
+        return _t('stateNotNeeded');
       case OgLPermissionStatus.unsupported:
-        return '本平台不支持';
+        return _t('stateUnsupported');
     }
   }
 

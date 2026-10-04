@@ -1,0 +1,15 @@
+{
+  "bodyLabel": "Penjelasan (opsional, mendukung Markdown)",
+  "createFailed": "Pembuatan gagal: {error}",
+  "created": "Dibuat",
+  "draft": "Draft",
+  "draftDesc": "Simpan sebagai draft, belum dipublikasikan",
+  "prerelease": "Prerelease",
+  "prereleaseDesc": "Tandai sebagai pre-release",
+  "publish": "Buat Rilis",
+  "publishing": "Sedang mempublikasikan…",
+  "tagLabel": "Tag (tag)",
+  "tagRequired": "Silakan isi tag dulu (seperti v1.0.0)",
+  "title": "Rilis Baru",
+  "titleLabel": "Judul (opsional)"
+}

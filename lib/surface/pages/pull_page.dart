@@ -9,10 +9,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
+
 import '../widgets/readme_view.dart';
+
+/// 取 `pull_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('pull_page', key, args: args);
 
 /// PR 详情页。
 class PullPage extends StatefulWidget {
@@ -62,7 +70,7 @@ class _PullPageState extends State<PullPage> {
       return existing;
     }
     final controller = AsyncController<List<Map<String, dynamic>>>(
-      label: '变更文件',
+      label: _t('changedFiles'),
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
       loader: () =>
           widget.surface.domain.api.pullFiles(widget.fullName, widget.number),
@@ -77,15 +85,15 @@ class _PullPageState extends State<PullPage> {
     final bool merged = widget.pull['merged'] == true;
     final bool draft = widget.pull['draft'] == true;
     if (merged) {
-      return '已合并';
+      return _t('merged');
     }
     if (state == 'closed') {
-      return '已关闭';
+      return _t('closed');
     }
     if (draft) {
-      return '草稿';
+      return _t('draft');
     }
-    return state == 'open' ? '打开中' : state;
+    return state == 'open' ? _t('open') : state;
   }
 
   @override
@@ -126,13 +134,13 @@ class _PullPageState extends State<PullPage> {
               ),
             ),
           const Divider(height: 32),
-          Text('变更文件', style: theme.textTheme.titleMedium),
+          Text(_t('changedFiles'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           AsyncView<List<Map<String, dynamic>>>(
             controller: _filesC(),
             fill: false,
             emptyIcon: Icons.description_outlined,
-            emptyText: '没有变更文件',
+            emptyText: _t('noChangedFiles'),
             builder: (
               BuildContext context,
               List<Map<String, dynamic>> files,

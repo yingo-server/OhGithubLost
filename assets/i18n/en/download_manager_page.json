@@ -1,0 +1,16 @@
+{
+  "cancel": "Cancel",
+  "cannotOpenCopied": "Cannot open directly, file path copied",
+  "clearFinished": "Clear finished",
+  "copyPath": "Copy Path",
+  "empty": "No download tasks yet",
+  "emptyHint": "Tap \"Download\" on Release attachments or repo files to add",
+  "noAppForFile": "No app available to handle this file",
+  "open": "Open",
+  "pathCopied": "File path copied",
+  "pause": "Pause",
+  "remove": "Remove",
+  "resume": "Resume",
+  "retry": "Retry",
+  "title": "Downloads"
+}

@@ -1,0 +1,16 @@
+{
+  "cancel": "取消",
+  "cannotOpenCopied": "无法直接打开，已复制文件路径",
+  "clearFinished": "清理已结束",
+  "copyPath": "复制路径",
+  "empty": "还没有下载任务",
+  "emptyHint": "在 Release 附件或仓库文件上点「下载」即可加入",
+  "noAppForFile": "没有可处理该文件的应用",
+  "open": "打开",
+  "pathCopied": "已复制文件路径",
+  "pause": "暂停",
+  "remove": "移除",
+  "resume": "继续",
+  "retry": "重试",
+  "title": "下载管理"
+}

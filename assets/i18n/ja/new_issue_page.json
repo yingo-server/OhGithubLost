@@ -1,0 +1,10 @@
+{
+  "bodyLabel": "本文（任意、Markdown 対応）",
+  "createFailed": "作成失敗：{error}",
+  "created": "作成しました",
+  "submit": "イッシュを作成",
+  "submitting": "提出中…",
+  "title": "新規イッシュ",
+  "titleLabel": "タイトル",
+  "titleRequired": "まずタイトルを入力してください"
+}

@@ -10,12 +10,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/animations.dart';
+
 import '../app/async.dart';
 import '../app/error_surface.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
 import '../util/gh_format.dart';
+
 import 'repo_page.dart';
+
+/// 取 `search_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('search_page', key, args: args);
 
 /// 一条搜索命中（把两种结果形态收敛成同一种展示）。
 class _SearchHit {
@@ -69,12 +78,12 @@ class _SearchPageState extends State<SearchPage> {
     final AsyncController<List<_SearchHit>> controller;
     if (_mode == 0) {
       controller = AsyncController<List<_SearchHit>>(
-        label: '仓库搜索',
+        label: _t('repoSearch'),
         isEmpty: (List<_SearchHit> value) => value.isEmpty,
         loader: () async {
           final List<GhRepo> repos =
               await widget.surface.domain.api.searchRepos(q, perPage: 30);
-          OgLAppLog.instance.add('搜索', '「$q」仓库结果：${repos.length} 个');
+          OgLAppLog.instance.add(_t('search'), _t('repoResults', <String, String>{'q': q, 'count': repos.length})));
           return repos
               .map(
                 (GhRepo repo) => _SearchHit(
@@ -88,12 +97,12 @@ class _SearchPageState extends State<SearchPage> {
       );
     } else {
       controller = AsyncController<List<_SearchHit>>(
-        label: '代码搜索',
+        label: _t('codeSearch'),
         isEmpty: (List<_SearchHit> value) => value.isEmpty,
         loader: () async {
           final List<Map<String, dynamic>> items =
               await widget.surface.domain.api.searchCode(q, perPage: 30);
-          OgLAppLog.instance.add('搜索', '「$q」代码结果：${items.length} 条');
+          OgLAppLog.instance.add(_t('search'), _t('codeResults', <String, String>{'q': q, 'count': items.length})));
           return items.map(_hitFromCode).toList();
         },
       );
@@ -115,7 +124,7 @@ class _SearchPageState extends State<SearchPage> {
         : GhRepo.fromJson(repoMap);
     return _SearchHit(
       title: path.isEmpty ? name : path,
-      subtitle: fragment.isEmpty ? '点开直达该文件' : fragment,
+      subtitle: fragment.isEmpty ? _t('openFileHint') : fragment,
       repo: repo.fullName.isEmpty ? null : repo,
       initialPath: path.isEmpty ? null : path,
     );
@@ -150,7 +159,7 @@ class _SearchPageState extends State<SearchPage> {
     final GhRepo? repo = hit.repo;
     if (repo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('该结果没有可打开的仓库（可能索引未就绪）')),
+         SnackBar(content: Text(_t('noRepoForResult'))),
       );
       return;
     }
@@ -169,7 +178,7 @@ class _SearchPageState extends State<SearchPage> {
     final List<String> meta = <String>[
       if (repo.language != null && repo.language!.isNotEmpty) repo.language!,
       '★ ${repo.stars}',
-      if (repo.isPrivate) '私有',
+      if (repo.isPrivate) _t('private'),
     ];
     final String? desc = repo.description;
     if (desc == null || desc.isEmpty) {
@@ -182,7 +191,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     final AsyncController<List<_SearchHit>>? controller = _results;
     return Scaffold(
-      appBar: AppBar(title: const Text('搜索')),
+      appBar: AppBar(title:  Text(_t('search'))),
       body: Column(
         children: <Widget>[
           Padding(
@@ -190,9 +199,9 @@ class _SearchPageState extends State<SearchPage> {
             child: Column(
               children: <Widget>[
                 SegmentedButton<int>(
-                  segments: const <ButtonSegment<int>>[
-                    ButtonSegment<int>(value: 0, label: Text('仓库')),
-                    ButtonSegment<int>(value: 1, label: Text('代码')),
+                  segments:  <ButtonSegment<int>>[
+                    ButtonSegment<int>(value: 0, label: Text(_t('tabRepos'))),
+                    ButtonSegment<int>(value: 1, label: Text(_t('tabCode'))),
                   ],
                   selected: <int>{_mode},
                   showSelectedIcon: false,
@@ -214,8 +223,8 @@ class _SearchPageState extends State<SearchPage> {
                 TextField(
                   controller: _input,
                   textInputAction: TextInputAction.search,
-                  decoration: const InputDecoration(
-                    hintText: '关键字（支持 repo:… language:… 等限定符）',
+                  decoration:  InputDecoration(
+                    hintText: _t('queryHint'),
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.search),
                   ),
@@ -228,11 +237,11 @@ class _SearchPageState extends State<SearchPage> {
           ),
           Expanded(
             child: controller == null
-                ? const Center(child: Text('输入关键字开始搜索'))
+                ?  Center(child: Text(_t('startHint')))
                 : AsyncView<List<_SearchHit>>(
                     controller: controller,
                     emptyIcon: Icons.search_off,
-                    emptyText: '「$_query」没有匹配结果',
+                    emptyText: _t('noResults', <String, String>{'query': _query})),
                     builder: (
                       BuildContext context,
                       List<_SearchHit> hits,

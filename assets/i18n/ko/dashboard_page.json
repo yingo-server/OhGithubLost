@@ -1,0 +1,15 @@
+{
+  "downloads": "다운로드 관리",
+  "emptyMine": "아직 저장소가 없습니다.",
+  "emptyStarred": "아직 스타드 저장소가 없습니다.",
+  "home": "홈",
+  "loadMore": "더 불러오기 ({count}개 표시됨)",
+  "mine": "내 저장소",
+  "newRepo": "새 저장소 생성",
+  "notifications": "알림 센터",
+  "private": "비공개",
+  "repoCreated": "저장소 생성 완료",
+  "repoCreatedName": "{name} 생성 완료",
+  "retry": "다시 시도",
+  "starred": "스타드"
+}

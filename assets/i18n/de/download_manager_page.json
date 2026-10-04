@@ -1,0 +1,16 @@
+{
+  "cancel": "Abbrechen",
+  "cannotOpenCopied": "Kann nicht direkt geöffnet werden; Dateipfad kopiert",
+  "clearFinished": "Abgeschlossene aufräumen",
+  "copyPath": "Pfad kopieren",
+  "empty": "Keine Download-Aufgaben",
+  "emptyHint": "Klicken Sie auf \"Herunterladen\" bei Release-Attachements oder Repo-Dateien, um hinzuzufügen",
+  "noAppForFile": "Keine App zur Verarbeitung dieser Datei",
+  "open": "Öffnen",
+  "pathCopied": "Dateipfad kopiert",
+  "pause": "Pausieren",
+  "remove": "Entfernen",
+  "resume": "Fortsetzen",
+  "retry": "Erneut versuchen",
+  "title": "Downloads verwalten"
+}

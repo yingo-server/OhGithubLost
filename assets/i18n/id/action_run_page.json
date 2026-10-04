@@ -1,0 +1,20 @@
+{
+  "back": "Kembali",
+  "cancelFailed": "Pembatalan gagal: {error}",
+  "cancelRequested": "Pembatalan diminta",
+  "cancelRun": "Batalkan Eksekusi",
+  "cancelRunDesc": "Akan meminta GitHub untuk membatalkan eksekusi ini; langkah yang sudah selesai tidak akan dirollback.",
+  "durationMinSecs": "Durasi {mins}m{secs}s",
+  "durationSecs": "Durasi {secs}s",
+  "jobs": "Job",
+  "noJobs": "Tidak ada rekaman job",
+  "noRunDetail": "Tidak ada detail eksekusi",
+  "openInBrowser": "Buka di Browser",
+  "rerun": "Jalankan Ulang",
+  "rerunFailed": "Eksekusi ulang gagal: {error}",
+  "rerunTriggered": "Eksekusi ulang telah dipicu",
+  "runNumber": "Eksekusi #{number}",
+  "status": "Status: {status}",
+  "title": "Detail Eksekusi",
+  "viewLogs": "Lihat Log"
+}

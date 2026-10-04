@@ -1,0 +1,12 @@
+{
+  "created": "已建立 Gist",
+  "empty": "還沒有 Gist 片段",
+  "fileCount": "{count} 個檔案 · ",
+  "missingId": "這條 Gist 缺少 id，無法開啟",
+  "new": "新增",
+  "noDescription": "（無描述）",
+  "noOpenLink": "這條 Gist 沒有可開啟的連結",
+  "openInBrowser": "在瀏覽器開啟",
+  "private": "私人",
+  "title": "Gist 片段"
+}

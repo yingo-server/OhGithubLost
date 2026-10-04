@@ -15,6 +15,7 @@ library;
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter/services.dart';
 
 /// 一个可选语言。
@@ -61,11 +62,33 @@ class OgLI18n extends ChangeNotifier {
 
   /// 需要加载的页面分片（新增页面时在这里补一项即可）。
   static const List<String> pages = <String>[
+    'about_page',
+    'action_log_page',
+    'action_run_page',
+    'code_editor_page',
+    'commit_page',
     'common',
-    'shell',
-    'settings',
-    'repo',
+    'dashboard_page',
+    'download_manager_page',
+    'drafts_page',
+    'gist_detail_page',
+    'gists_page',
+    'issue_page',
     'login',
+    'new_gist_page',
+    'new_issue_page',
+    'new_release_page',
+    'new_repo_page',
+    'notifications_page',
+    'onboarding',
+    'profile_page',
+    'pull_page',
+    'release_detail_page',
+    'repo',
+    'search_page',
+    'settings',
+    'shell',
+    'workflow_dispatch_page',
   ];
 
   String _locale = 'zh';

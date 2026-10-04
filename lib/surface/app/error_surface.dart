@@ -22,9 +22,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../kernel/boot/trust_warnings.dart';
+
 import '../../kernel/diagnostics.dart';
 import '../../kernel/log/og_l_log_file.dart';
+
+import '../i18n/og_l_i18n.dart';
 import 'system_notifier.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);
 
 /// 通知严重级别。
 enum OgLNoticeSeverity {
@@ -114,7 +121,7 @@ class OgLNoticeCenter extends ChangeNotifier {
   }) {
     // 先落盘：通知可能因为"正在弹窗"而延后展示，但**绝不允许**丢失。
     OgLLogFile.line(
-      '通知',
+      _t('notification'),
       detail == null || detail.isEmpty ? title : '$title：$detail',
       level: severity == OgLNoticeSeverity.critical
           ? 'ERR'
@@ -405,13 +412,13 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
             ? notice.title
             : '${notice.title}：${notice.detail}';
     OgLLogFile.line(
-      '通知',
-      '[系统通道] $text',
+      _t('notification'),
+      _t('systemChannel', <String, String>{'text': text})),
       level: notice.severity == OgLNoticeSeverity.critical ? 'ERR' : 'WARN',
     );
     OgLAppLog.instance.add(
-      '通知',
-      '[系统通道] $text',
+      _t('notification'),
+      _t('systemChannel', <String, String>{'text': text})),
       severity: notice.severity,
     );
     unawaited(OgLSystemNotifier.instance.show(
@@ -430,7 +437,7 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
     final BuildContext? navContext = widget.navigatorKey?.currentContext;
     if (navContext == null) {
       OgLLogFile.line(
-        '通知',
+        _t('notification'),
         '根 Navigator 未就绪，critical 降级为横幅：${notice.title}',
         level: 'WARN',
       );
@@ -447,7 +454,7 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('知道了'),
+            child:  Text(_t('gotIt')),
           ),
         ],
       ),

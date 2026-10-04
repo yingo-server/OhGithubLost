@@ -14,14 +14,19 @@
 library;
 
 import 'boot/boot_loader.dart';
+
 import 'boot/trust_policy.dart';
 import 'boot/trust_warnings.dart';
+
 import 'bridge_registry.dart';
 import 'contract/module.dart';
+
 import 'di.dart';
 import 'diagnostics.dart';
+
 import 'environment.dart';
 import 'lifecycle.dart';
+
 import 'module_bus.dart';
 
 /// 内核启动失败（引导被拒绝，或模块注册/启动异常）。

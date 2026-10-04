@@ -10,10 +10,17 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../../kernel/kernel.dart';
+
 import '../app/project_info.dart';
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `about_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('about_page', key, args: args);
 
 /// 关于页。
 class AboutPage extends StatelessWidget {
@@ -31,7 +38,7 @@ class AboutPage extends StatelessWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已复制$label')),
+      SnackBar(content: Text(_t('copied', <String, String>{'label': label})))),
     );
   }
 
@@ -40,7 +47,7 @@ class AboutPage extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final KernelReport? snapshot = report;
     return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
+      appBar: AppBar(title:  Text(_t('title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -53,31 +60,34 @@ class AboutPage extends StatelessWidget {
                     '${OgLProjectInfo.name}（${OgLProjectInfo.abbreviation}）',
                     style: theme.textTheme.titleMedium,
                   ),
-                  subtitle: Text('版本 ${snapshot?.appVersion ?? '未知'}'),
+                  subtitle: Text(_t('version', <String, String>{
+                    'version': snapshot?.appVersion ??
+                        OgLI18n.instance.t('common', 'unknown'),
+                  })),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.person_outline),
-                  title: const Text('主要开发者'),
+                  title:  Text(_t('developer')),
                   subtitle: Text(OgLProjectInfo.mainDeveloper),
                 ),
                 ListTile(
                   leading: const Icon(Icons.link),
-                  title: const Text('代码仓库'),
+                  title:  Text(_t('repo')),
                   subtitle: Text(OgLProjectInfo.repositoryUrl),
                   trailing: IconButton(
                     icon: const Icon(Icons.content_copy, size: 18),
-                    tooltip: '复制仓库地址',
+                    tooltip: _t('copyRepoUrl'),
                     onPressed: () => _copy(
                       context,
                       OgLProjectInfo.repositoryUrl,
-                      '仓库地址',
+                      _t('repoUrl'),
                     ),
                   ),
                 ),
                 ListTile(
                   leading: const Icon(Icons.gavel_outlined),
-                  title: const Text('开源许可'),
+                  title:  Text(_t('license')),
                   subtitle: Text(
                     '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
                   ),
@@ -91,56 +101,56 @@ class AboutPage extends StatelessWidget {
               children: <Widget>[
                 ListTile(
                   leading: const Icon(Icons.auto_awesome_outlined),
-                  title: const Text('未来扩展'),
-                  subtitle: const Text('以下位置预留，后续补充不必调整布局'),
+                  title:  Text(_t('futureExt')),
+                  subtitle:  Text(_t('futureExtDesc')),
                 ),
                 const Divider(height: 1),
-                const ListTile(
+                 ListTile(
                   dense: true,
                   leading: Icon(Icons.people_outline),
-                  title: Text('贡献者名单'),
-                  subtitle: Text('预留给参与代码、翻译与测试的贡献者'),
+                  title: Text(_t('contributors')),
+                  subtitle: Text(_t('contributorsDesc')),
                 ),
-                const ListTile(
+                 ListTile(
                   dense: true,
                   leading: Icon(Icons.favorite_outline),
-                  title: Text('致谢'),
-                  subtitle: Text('预留给上游项目与社区支持'),
+                  title: Text(_t('thanks')),
+                  subtitle: Text(_t('thanksDesc')),
                 ),
               ],
             ),
           ),
           if (snapshot != null) ...<Widget>[
             const SizedBox(height: 16),
-            Text('启动诊断', style: theme.textTheme.titleMedium),
+            Text(_t('bootDiagnostics'), style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             _diagnosticTile(
-              title: '启动报告',
+              title: _t('bootReport'),
               subtitle: snapshot.bootSummary,
               children: <Widget>[
                 for (final MapEntry<String, String> entry
                     in snapshot.moduleStates.entries)
                   _KeyValueRow(label: entry.key, value: entry.value),
                 _KeyValueRow(
-                  label: '层级桥',
+                  label: _t('layerBridges'),
                   value: snapshot.bridges.join('、'),
                 ),
                 _KeyValueRow(
-                  label: '服务',
-                  value: '${snapshot.services.length} 项',
+                  label: _t('services'),
+                  value: _t('servicesCount', <String, String>{'count': snapshot.services.length}),
                 ),
               ],
             ),
             _diagnosticTile(
-              title: '信任告警',
+              title: _t('trustWarnings'),
               subtitle: snapshot.trustWarnings.isEmpty
-                  ? '没有告警：引导清单签名与模块依赖都通过'
-                  : '共 ${snapshot.trustWarnings.length} 条（需要处理）',
+                  ? _t('trustOk')
+                  : _t('trustCount', <String, String>{'count': snapshot.trustWarnings.length}),
               children: <Widget>[
                 if (snapshot.trustWarnings.isEmpty)
-                  const ListTile(
+                   ListTile(
                     leading: Icon(Icons.verified_outlined),
-                    title: Text('信任链正常'),
+                    title: Text(_t('trustChainOk')),
                   )
                 else
                   for (final Object warning in snapshot.trustWarnings)
@@ -154,8 +164,8 @@ class AboutPage extends StatelessWidget {
               ],
             ),
             _diagnosticTile(
-              title: '依赖图',
-              subtitle: '模块之间谁依赖谁（排查"为什么没启动"用）',
+              title: _t('dependencyGraph'),
+              subtitle: _t('dependencyGraphDesc'),
               children: <Widget>[
                 SelectableText(
                   snapshot.moduleGraph,
@@ -164,8 +174,8 @@ class AboutPage extends StatelessWidget {
               ],
             ),
             _diagnosticTile(
-              title: '启动阶段',
-              subtitle: '共 ${snapshot.stages.length} 个阶段',
+              title: _t('bootStages'),
+              subtitle: _t('stagesCount', <String, String>{'count': snapshot.stages.length}),
               children: <Widget>[
                 for (final Object stage in snapshot.stages)
                   SelectableText(
@@ -180,7 +190,7 @@ class AboutPage extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           Text(
-            '日志与开源许可位于设置页。',
+            _t('logsAndLicenseHint'),
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 24),

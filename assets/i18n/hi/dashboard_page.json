@@ -1,0 +1,15 @@
+{
+  "downloads": "डाउनलोड प्रबंधन",
+  "emptyMine": "अभी कोई रिपॉज़िटरी नहीं",
+  "emptyStarred": "अभी कोई स्टारड रिपॉज़िटरी नहीं",
+  "home": "होम",
+  "loadMore": "और लोड करें ({count} आइटम)",
+  "mine": "मेरी",
+  "newRepo": "नया रिपॉज़िटरी",
+  "notifications": "सूचना केंद्र",
+  "private": "निजी",
+  "repoCreated": "रिपॉज़िटरी बनाई गई",
+  "repoCreatedName": "{name} बनाया गया",
+  "retry": "पुनः प्रयास",
+  "starred": "स्टारड"
+}

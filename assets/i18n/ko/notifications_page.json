@@ -1,0 +1,15 @@
+{
+  "cancel": "취소",
+  "copiedEvent": "이 이벤트를 복사했습니다",
+  "copy": "복사",
+  "empty": "조건에 맞는 이벤트가 없습니다",
+  "filterAll": "전체",
+  "filterError": "오류",
+  "filterWarning": "경고",
+  "markAllRead": "모두 읽음",
+  "markRead": "읽음 처리",
+  "reset": "초기화",
+  "resetDesc": "현재 메모리의 모든 이벤트를 지웁니다. (디스크 로그는 유지됩니다.)",
+  "resetTitle": "알림 센터 초기화",
+  "title": "알림 센터"
+}

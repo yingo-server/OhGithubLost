@@ -7,7 +7,13 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
+/// 取 `action_log_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('action_log_page', key, args: args);
 
 /// Actions 日志页。
 class ActionLogPage extends StatefulWidget {
@@ -56,7 +62,7 @@ class _ActionLogPageState extends State<ActionLogPage> {
       return existing;
     }
     final controller = AsyncController<Map<String, String>>(
-      label: '运行日志',
+      label: _t('title'),
       isEmpty: (Map<String, String> value) => value.isEmpty,
       loader: () => widget.surface.domain.actionLogs
           .fetch(widget.fullName, widget.runId),
@@ -70,11 +76,11 @@ class _ActionLogPageState extends State<ActionLogPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('运行日志'),
+        title:  Text(_t('title')),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '重新拉取',
+            tooltip: _t('reload'),
             onPressed: () => _logsC().load(),
           ),
         ],
@@ -85,11 +91,11 @@ class _ActionLogPageState extends State<ActionLogPage> {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
             child: TextField(
               controller: _query,
-              decoration: const InputDecoration(
+              decoration:  InputDecoration(
                 isDense: true,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.search),
-                hintText: '搜索 job 名',
+                hintText: _t('searchJobHint'),
               ),
               onChanged: (String value) => setState(() => _filter = value),
             ),
@@ -98,7 +104,7 @@ class _ActionLogPageState extends State<ActionLogPage> {
             child: AsyncView<Map<String, String>>(
               controller: _logsC(),
               emptyIcon: Icons.receipt_long,
-              emptyText: '没有日志（可能尚未完成，或令牌缺少 Actions 权限）',
+              emptyText: _t('noLogs'),
               builder: (BuildContext context, Map<String, String> logs) {
                 final List<String> keys = logs.keys
                     .where((String k) =>
@@ -107,7 +113,7 @@ class _ActionLogPageState extends State<ActionLogPage> {
                     .toList()
                   ..sort();
                 if (keys.isEmpty) {
-                  return const Center(child: Text('没有匹配的 job'));
+                  return  Center(child: Text(_t('noMatchingJob')));
                 }
                 return ListView(
                   padding: const EdgeInsets.all(12),

@@ -1,0 +1,12 @@
+{
+  "create": "إنشاء مستودع",
+  "createFailed": "فشل الإنشاء: {error}",
+  "created": "تم الإنشاء",
+  "creating": "جارٍ الإنشاء…",
+  "description": "الوصف (اختياري)",
+  "nameLabel": "اسم المستودع",
+  "nameRequired": "يرجى إدخال اسم المستودع أولاً",
+  "private": "مستودع خاص",
+  "privateDesc": "مرئي لنفسك فقط",
+  "title": "مستودع جديد"
+}

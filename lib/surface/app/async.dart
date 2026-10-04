@@ -18,8 +18,14 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../i18n/og_l_i18n.dart';
+
 import 'animations.dart';
 import 'error_surface.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);
 
 /// 通用异步控制器：加载 / 刷新 / 重试，并发抑制、失败保留旧数据。
 class AsyncController<T> extends ChangeNotifier {
@@ -88,11 +94,11 @@ class AsyncController<T> extends ChangeNotifier {
       _data = value;
       _empty = isEmpty(value);
       _error = null;
-      OgLAppLog.instance.result('加载', '$label完成', _summarize(value));
+      OgLAppLog.instance.result(_t('loading'), _t('done', <String, String>{'label': label})), _summarize(value));
     } catch (error) {
       _error = _describe(error);
       OgLAppLog.instance.add(
-        '加载',
+        _t('loading'),
         _error!,
         severity: OgLNoticeSeverity.critical,
       );
@@ -129,16 +135,16 @@ class AsyncController<T> extends ChangeNotifier {
   /// 把加载结果压成一句人话（列表给条数、文本给长度、其它给类型）。
   String _summarize(Object? value) {
     if (value == null) {
-      return '空';
+      return _t('empty');
     }
     if (value is List<Object?>) {
-      return '${value.length} 条';
+      return _t('countItems', <String, String>{'count': value.length});
     }
     if (value is String) {
-      return '${value.length} 字符';
+      return _t('countChars', <String, String>{'count': value.length});
     }
     if (value is Map<Object?, Object?>) {
-      return '${value.length} 键';
+      return _t('countKeys', <String, String>{'count': value.length});
     }
     return value.runtimeType.toString();
   }
@@ -147,20 +153,20 @@ class AsyncController<T> extends ChangeNotifier {
   String _describe(Object error) {
     final String text = error.toString();
     if (text.startsWith('Exception: ')) {
-      return '$label失败：${text.substring(11)}';
+      return _t('failedWith', <String, String>{'label': label, 'text': text.substring(11)}));
     }
-    return '$label失败（$text）';
+    return _t('failedParen', <String, String>{'label': label, 'text': text}));
   }
 }
 
 /// 把 [AsyncController] 的四态渲染成 Material 组件（页面不再自己判状态）。
 class AsyncView<T> extends StatelessWidget {
   /// 创建视图。
-  const AsyncView({
+   AsyncView({
     required this.controller,
     required this.builder,
     this.emptyIcon = Icons.inbox_outlined,
-    this.emptyText = '暂无内容',
+    this.emptyText,
     this.emptyAction,
     this.fill = true,
     super.key,
@@ -176,7 +182,7 @@ class AsyncView<T> extends StatelessWidget {
   final IconData emptyIcon;
 
   /// 空态文案。
-  final String emptyText;
+  final String? emptyText;
 
   /// 空态动作（可选）。
   final Widget? emptyAction;
@@ -230,7 +236,7 @@ class AsyncView<T> extends StatelessWidget {
               'empty',
               _EmptyPane(
                 icon: emptyIcon,
-                text: emptyText,
+                text: emptyText ?? _t('noContent'),
                 action: emptyAction,
               ),
             );
@@ -278,7 +284,7 @@ class _ErrorPane extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton.tonal(
               onPressed: onRetry,
-              child: const Text('重试'),
+              child:  Text(_t('retry')),
             ),
           ],
         ),
@@ -344,7 +350,7 @@ class _SoftErrorBar extends StatelessWidget {
             ),
             IconButton(
               icon: Icon(Icons.close, color: scheme.onErrorContainer),
-              tooltip: '忽略',
+              tooltip: _t('ignore'),
               onPressed: onDismiss,
             ),
           ],

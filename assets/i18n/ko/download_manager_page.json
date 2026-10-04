@@ -1,0 +1,16 @@
+{
+  "cancel": "취소",
+  "cannotOpenCopied": "직접 열 수 없으므로 파일 경로를 복사했습니다",
+  "clearFinished": "완료된 항목 정리",
+  "copyPath": "경로 복사",
+  "empty": "다운로드 작업이 없습니다",
+  "emptyHint": "Release 첨부 파일 또는 저장소 파일에서 '다운로드'를 클릭하면 추가됩니다",
+  "noAppForFile": "해당 파일을 처리할 앱이 없습니다",
+  "open": "열기",
+  "pathCopied": "파일 경로를 복사했습니다",
+  "pause": "일시 정지",
+  "remove": "제거",
+  "resume": "계속",
+  "retry": "다시 시도",
+  "title": "다운로드 관리"
+}

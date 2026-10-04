@@ -18,33 +18,49 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/bash.dart';
+
 import 'package:re_highlight/languages/c.dart';
 import 'package:re_highlight/languages/cpp.dart';
+
 import 'package:re_highlight/languages/csharp.dart';
 import 'package:re_highlight/languages/css.dart';
+
 import 'package:re_highlight/languages/dart.dart';
 import 'package:re_highlight/languages/dockerfile.dart';
+
 import 'package:re_highlight/languages/go.dart';
 import 'package:re_highlight/languages/ini.dart';
+
 import 'package:re_highlight/languages/java.dart';
 import 'package:re_highlight/languages/javascript.dart';
+
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/languages/kotlin.dart';
+
 import 'package:re_highlight/languages/lua.dart';
 import 'package:re_highlight/languages/makefile.dart';
+
 import 'package:re_highlight/languages/markdown.dart';
 import 'package:re_highlight/languages/php.dart';
+
 import 'package:re_highlight/languages/python.dart';
 import 'package:re_highlight/languages/ruby.dart';
+
 import 'package:re_highlight/languages/rust.dart';
 import 'package:re_highlight/languages/sql.dart';
+
 import 'package:re_highlight/languages/swift.dart';
 import 'package:re_highlight/languages/typescript.dart';
+
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
+
 import 'package:re_highlight/re_highlight.dart';
+
+import '../i18n/og_l_i18n.dart';
 
 /// 高亮语言注册的上限（超过即跳过高亮，避免超大文件拖垮渲染）。
 const int kOgLHighlightMaxChars = 400 * 1024;
@@ -65,13 +81,20 @@ const String kOgLCodePresetSoft = 'soft';
 /// 预设：自定义（用户自选每个 token 的颜色）。
 const String kOgLCodePresetCustom = 'custom';
 
-/// 全部预设（id → 展示名）。
+/// 全部预设（id → `common` 分片键）。
 const Map<String, String> kOgLCodePresetLabels = <String, String>{
-  kOgLCodePresetTheme: '跟随主题',
-  kOgLCodePresetHighContrast: '高对比',
-  kOgLCodePresetSoft: '柔和',
-  kOgLCodePresetCustom: '自定义',
+  kOgLCodePresetTheme: 'codePresetTheme',
+  kOgLCodePresetHighContrast: 'codePresetHighContrast',
+  kOgLCodePresetSoft: 'codePresetSoft',
+  kOgLCodePresetCustom: 'codePresetCustom',
 };
+
+/// 预设展示名（`common` 分片）。
+String ogLCodePresetLabel(String id) =>
+    OgLI18n.instance.t('common', kOgLCodePresetLabels[id] ?? id);
+
+/// 取 `common` 分片文案。
+String _t(String key) => OgLI18n.instance.t('common', key);
 
 /// 代码配色方案。
 @immutable
@@ -656,9 +679,9 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
             controller: controller.findInputController,
             focusNode: controller.findInputFocusNode,
             style: const TextStyle(fontSize: 13),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
-              hintText: '查找',
+              hintText: _t('findHint'),
               border: InputBorder.none,
             ),
           ),
@@ -666,35 +689,35 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
         _toggle(
           label: 'Aa',
           checked: value.option.caseSensitive,
-          tooltip: '区分大小写',
+          tooltip: _t('matchCase'),
           onPressed: controller.toggleCaseSensitive,
         ),
         _toggle(
           label: '.*',
           checked: value.option.regex,
-          tooltip: '正则表达式',
+          tooltip: _t('useRegex'),
           onPressed: controller.toggleRegex,
         ),
         Text(result, style: const TextStyle(fontSize: 12)),
         IconButton(
           icon: const Icon(Icons.arrow_upward, size: 18),
-          tooltip: '上一个',
+          tooltip: _t('prevMatch'),
           onPressed: value.result == null ? null : controller.previousMatch,
         ),
         IconButton(
           icon: const Icon(Icons.arrow_downward, size: 18),
-          tooltip: '下一个',
+          tooltip: _t('nextMatch'),
           onPressed: value.result == null ? null : controller.nextMatch,
         ),
         if (!readOnly)
           IconButton(
             icon: const Icon(Icons.swap_vert, size: 18),
-            tooltip: value.replaceMode ? '只查找' : '替换',
+            tooltip: value.replaceMode ? _t('findOnly') : _t('replaceMode'),
             onPressed: value.replaceMode ? controller.findMode : controller.replaceMode,
           ),
         IconButton(
           icon: const Icon(Icons.close, size: 18),
-          tooltip: '关闭',
+          tooltip: _t('closeMin'),
           onPressed: controller.close,
         ),
       ],
@@ -709,21 +732,21 @@ class OgLCodeFindPanel extends StatelessWidget implements PreferredSizeWidget {
               controller: controller.replaceInputController,
               focusNode: controller.replaceInputFocusNode,
               style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                hintText: '替换为',
+                hintText: _t('replaceWithHint'),
                 border: InputBorder.none,
               ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.done, size: 18),
-            tooltip: '替换',
+            tooltip: _t('replaceOne'),
             onPressed: value.result == null ? null : controller.replaceMatch,
           ),
           IconButton(
             icon: const Icon(Icons.done_all, size: 18),
-            tooltip: '全部替换',
+            tooltip: _t('replaceAll'),
             onPressed: value.result == null ? null : controller.replaceAllMatches,
           ),
           const SizedBox(width: 8),

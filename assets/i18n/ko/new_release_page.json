@@ -1,0 +1,15 @@
+{
+  "bodyLabel": "설명 (선택 사항, Markdown 지원)",
+  "createFailed": "생성 실패: {error}",
+  "created": "생성됨",
+  "draft": "DRAFT",
+  "draftDesc": "DRAFT로 저장하고 게시 보류",
+  "prerelease": "사전 릴리스",
+  "prereleaseDesc": "pre-release로 표시",
+  "publish": "릴리스 생성",
+  "publishing": "게시 중...",
+  "tagLabel": "태그",
+  "tagRequired": "태그를 먼저 입력하세요 (예: v1.0.0)",
+  "title": "새 릴리스",
+  "titleLabel": "제목 (선택 사항)"
+}

@@ -16,9 +16,11 @@
 library;
 
 import 'dart:async';
+
 import 'dart:io';
 
 import 'package:background_downloader/background_downloader.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../../kernel/diagnostics.dart';

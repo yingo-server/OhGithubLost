@@ -8,9 +8,16 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/async.dart';
+
+import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
 import '../util/gh_format.dart';
+
+/// 取 `commit_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('commit_page', key, args: args);
 
 /// 提交详情页。
 class CommitPage extends StatefulWidget {
@@ -56,7 +63,7 @@ class _CommitPageState extends State<CommitPage> {
       return existing;
     }
     final controller = AsyncController<List<Map<String, dynamic>>>(
-      label: '变更',
+      label: _t('changes'),
       isEmpty: (List<Map<String, dynamic>> value) => value.isEmpty,
       loader: () {
         final List<String> parents = widget.commit.parentShas;
@@ -114,15 +121,15 @@ class _CommitPageState extends State<CommitPage> {
             ),
           ),
           const Divider(height: 32),
-          Text('变更文件', style: theme.textTheme.titleMedium),
+          Text(_t('changedFiles'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           AsyncView<List<Map<String, dynamic>>>(
             controller: _diffC(),
             fill: false,
             emptyIcon: Icons.history,
             emptyText: widget.commit.parentShas.isEmpty
-                ? '这是初始提交，没有可比对的父提交。'
-                : '没有可显示的变更',
+                ? _t('initialCommit')
+                : _t('noChanges'),
             builder: (
               BuildContext context,
               List<Map<String, dynamic>> files,

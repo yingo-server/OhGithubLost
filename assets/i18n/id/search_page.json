@@ -1,0 +1,15 @@
+{
+  "codeResults": "Hasil kode \"{q}\": {count} item",
+  "codeSearch": "Pencarian Kode",
+  "noRepoForResult": "Hasil ini tidak memiliki repo yang dapat dibuka (mungkin indeks belum siap)",
+  "noResults": "Tidak ada hasil yang cocok untuk \"{query}\"",
+  "openFileHint": "Klik untuk langsung ke file ini",
+  "private": "Privat",
+  "queryHint": "Kata kunci (mendukung qualifier seperti repo:… language:…)",
+  "repoResults": "Hasil repositori \"{q}\": {count}",
+  "repoSearch": "Pencarian Repositori",
+  "search": "Cari",
+  "startHint": "Masukkan kata kunci untuk mulai mencari",
+  "tabCode": "Kode",
+  "tabRepos": "Repositori"
+}

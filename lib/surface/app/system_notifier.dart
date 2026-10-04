@@ -14,7 +14,13 @@ import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../i18n/og_l_i18n.dart';
+
 import 'error_surface.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);
 
 /// 系统通知发送器（单例）。
 class OgLSystemNotifier {
@@ -56,8 +62,8 @@ class OgLSystemNotifier {
       );
     }
     if (Platform.isLinux) {
-      return const InitializationSettings(
-        linux: LinuxInitializationSettings(defaultActionName: '打开'),
+      return  InitializationSettings(
+        linux: LinuxInitializationSettings(defaultActionName: _t('open')),
       );
     }
     if (Platform.isWindows) {
@@ -84,7 +90,7 @@ class OgLSystemNotifier {
         _unavailable = true;
         _unavailableReason = '插件初始化返回 false';
         OgLAppLog.instance.add(
-          '通知',
+          _t('notification'),
           '系统通知初始化失败：插件返回 false',
           severity: OgLNoticeSeverity.warning,
         );
@@ -95,8 +101,8 @@ class OgLSystemNotifier {
       _unavailable = true;
       _unavailableReason = '$error';
       OgLAppLog.instance.add(
-        '通知',
-        '系统通知不可用（后台提示将只落盘）：$error',
+        _t('notification'),
+        _t('systemNotifUnavailable', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.warning,
       );
       return false;
@@ -112,8 +118,8 @@ class OgLSystemNotifier {
       const NotificationDetails details = NotificationDetails(
         android: AndroidNotificationDetails(
           'ogl_events',
-          '应用通知',
-          channelDescription: '下载完成、任务结束与重要错误提醒',
+          _t('appNotifications'),
+          channelDescription: _t('appNotifDesc'),
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
         ),
@@ -126,7 +132,7 @@ class OgLSystemNotifier {
       );
     } catch (error) {
       OgLAppLog.instance.add(
-        '通知',
+        _t('notification'),
         '发送系统通知失败：$error',
         severity: OgLNoticeSeverity.warning,
       );

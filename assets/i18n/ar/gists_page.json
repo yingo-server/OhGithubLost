@@ -1,0 +1,12 @@
+{
+  "created": "تم إنشاء Gist",
+  "empty": "لا توجد مقاطع Gist بعد",
+  "fileCount": "{count} ملف · ",
+  "missingId": "هذا الـ Gist مفقود ID، لا يمكن فتحه",
+  "new": "جديد",
+  "noDescription": "(بدون وصف)",
+  "noOpenLink": "هذا الـ Gist لا يحتوي على رابط قابل للفتح",
+  "openInBrowser": "فتح في المتصفح",
+  "private": "خاص",
+  "title": "مقاطع Gist"
+}

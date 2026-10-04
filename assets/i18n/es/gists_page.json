@@ -1,0 +1,12 @@
+{
+  "created": "Gist creado",
+  "empty": "Aún no hay fragmentos de Gist",
+  "fileCount": "{count} archivos · ",
+  "missingId": "Este Gist no tiene id y no se puede abrir",
+  "new": "Nuevo",
+  "noDescription": "(Sin descripción)",
+  "noOpenLink": "Este Gist no tiene un enlace para abrirlo",
+  "openInBrowser": "Abrir en el navegador",
+  "private": "Privado",
+  "title": "Fragmentos de Gist"
+}

@@ -1,0 +1,10 @@
+{
+  "bodyLabel": "النص الأساسي (اختياري، يدعم Markdown)",
+  "createFailed": "فشل الإنشاء: {error}",
+  "created": "تم الإنشاء",
+  "submit": "إنشاء قضية",
+  "submitting": "جارٍ الإرسال…",
+  "title": "قضية جديدة",
+  "titleLabel": "العنوان",
+  "titleRequired": "يرجى إدخال العنوان أولاً"
+}

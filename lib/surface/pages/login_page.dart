@@ -10,9 +10,15 @@ library;
 import 'package:flutter/material.dart';
 
 import '../app/error_surface.dart';
+
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
+
 import '../types.dart';
+
+/// 取 `login` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('login', key, args: args);
 
 /// 登录页。
 class LoginPage extends StatefulWidget {
@@ -81,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
     final api = widget.surface.domain.api;
     final String pendingId = 'pending-${DateTime.now().millisecondsSinceEpoch}';
     try {
-      OgLAppLog.instance.add('登录', '1/4 暂存待验证账户（$pendingId）');
+      OgLAppLog.instance.add(_t('signIn'), '1/4 暂存待验证账户（$pendingId）');
       await auth.saveAccount(GhAccount(id: pendingId, login: OgLI18n.instance.t('login', 'pendingSuffix')), token);
       await auth.switchTo(pendingId);
 
@@ -91,9 +97,9 @@ class _LoginPageState extends State<LoginPage> {
           _phase = OgLI18n.instance.t('login', 'phaseVerify');
         });
       }
-      OgLAppLog.instance.add('登录', '2/4 验证令牌（GET /user）…');
+      OgLAppLog.instance.add(_t('signIn'), '2/4 验证令牌（GET /user）…');
       final me = await api.currentUser();
-      OgLAppLog.instance.add('登录', '3/4 验证成功：@${me.login}');
+      OgLAppLog.instance.add(_t('signIn'), '3/4 验证成功：@${me.login}');
 
       if (mounted) {
         setState(() {
@@ -116,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
       }
       final readBack = await auth.activeToken();
       OgLAppLog.instance.add(
-        '登录',
+        _t('signIn'),
         '4/4 保险库回读：${readBack?.masked ?? "读取失败（令牌可能未落库）"}',
       );
 
@@ -127,11 +133,11 @@ class _LoginPageState extends State<LoginPage> {
         _step = 5;
         _phase = OgLI18n.instance.t('login', 'phaseDone');
       });
-      OgLAppLog.instance.add('登录', '完成：@${me.login}');
+      OgLAppLog.instance.add(_t('signIn'), '完成：@${me.login}');
       await widget.onLoggedIn();
     } catch (error, stackTrace) {
       OgLAppLog.instance.add(
-        '登录',
+        _t('signIn'),
         '失败（原始异常）：$error\n$stackTrace',
         severity: OgLNoticeSeverity.critical,
       );
@@ -144,7 +150,7 @@ class _LoginPageState extends State<LoginPage> {
         }
       } catch (cleanupError) {
         OgLAppLog.instance.add(
-          '登录',
+          _t('signIn'),
           '清理待验证账户失败：$cleanupError',
           severity: OgLNoticeSeverity.warning,
         );

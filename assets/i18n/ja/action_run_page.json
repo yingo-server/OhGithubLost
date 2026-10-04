@@ -1,0 +1,20 @@
+{
+  "back": "戻る",
+  "cancelFailed": "キャンセル失敗：{error}",
+  "cancelRequested": "キャンセルを要求しました",
+  "cancelRun": "実行をキャンセル",
+  "cancelRunDesc": "GitHub に今回の実行のキャンセルを要求します。完了したステップはロールバックされません。",
+  "durationMinSecs": "所要時間 {mins}分{secs}秒",
+  "durationSecs": "所要時間 {secs}秒",
+  "jobs": "ジョブ",
+  "noJobs": "ジョブの記録がありません",
+  "noRunDetail": "実行の詳細がありません",
+  "openInBrowser": "ブラウザで開く",
+  "rerun": "再実行",
+  "rerunFailed": "再実行失敗：{error}",
+  "rerunTriggered": "再実行をトリガーしました",
+  "runNumber": "実行 #{number}",
+  "status": "状態：{status}",
+  "title": "実行詳細",
+  "viewLogs": "ログを表示"
+}

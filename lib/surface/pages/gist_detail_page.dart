@@ -7,14 +7,23 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 
 import '../app/async.dart';
+
 import '../app/error_surface.dart';
+import '../i18n/og_l_i18n.dart';
+
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
+
 import '../util/link_opener.dart';
 import '../widgets/code_editor_field.dart';
+
+/// 取 `gist_detail_page` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('gist_detail_page', key, args: args);
 
 /// 一个 Gist 文件（内容已解析）。
 class _GistFile {
@@ -87,13 +96,13 @@ class _GistDetailPageState extends State<GistDetailPage> {
       return existing;
     }
     final controller = AsyncController<_GistDetail>(
-      label: 'Gist 详情',
+      label: _t('title'),
       isEmpty: (_GistDetail value) => value.files.isEmpty,
       loader: () async {
         final Map<String, dynamic>? gist =
             await widget.surface.domain.api.gist(widget.gistId);
         if (gist == null) {
-          throw StateError('Gist 不存在或无权访问');
+          throw StateError(_t('notFound'));
         }
         final Object? filesRaw = gist['files'];
         final List<_GistFile> files = <_GistFile>[];
@@ -142,7 +151,7 @@ class _GistDetailPageState extends State<GistDetailPage> {
     final String? updated = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text('编辑 ${file.name}'),
+        title: Text(_t('editFileName', <String, String>{'name': file.name})),
         content: SizedBox(
           width: 480,
           child: TextField(
@@ -156,12 +165,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('保存'),
+            child:  Text(_t('save')),
           ),
         ],
       ),
@@ -176,22 +185,22 @@ class _GistDetailPageState extends State<GistDetailPage> {
         widget.gistId,
         files: <String, String?>{file.name: updated},
       );
-      OgLAppLog.instance.result('Gist', '已更新', file.name);
+      OgLAppLog.instance.result('Gist', _t('updated'), file.name);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存')),
+           SnackBar(content: Text(_t('saved'))),
         );
       }
       await _detailC().load();
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        '更新失败：$error',
+        _t('updateFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败：$error')),
+          SnackBar(content: Text(_t('saveFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -205,19 +214,19 @@ class _GistDetailPageState extends State<GistDetailPage> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('删除 Gist'),
-        content: const Text('将从 GitHub 永久删除该 Gist，操作不可撤销。'),
+        title:  Text(_t('deleteTitle')),
+        content:  Text(_t('deleteDesc')),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child:  Text(_t('cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(dialogContext).colorScheme.error,
             ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child:  Text(_t('delete')),
           ),
         ],
       ),
@@ -228,19 +237,19 @@ class _GistDetailPageState extends State<GistDetailPage> {
     setState(() => _busy = true);
     try {
       await widget.surface.domain.api.deleteGist(widget.gistId);
-      OgLAppLog.instance.result('Gist', '已删除', widget.gistId);
+      OgLAppLog.instance.result('Gist', _t('deleted'), widget.gistId);
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       OgLAppLog.instance.add(
         'Gist',
-        '删除失败：$error',
+        _t('deleteFailed', <String, String>{'error': error})),
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$error')),
+          SnackBar(content: Text(_t('deleteFailed', <String, String>{'error': error})))),
         );
       }
     } finally {
@@ -254,7 +263,7 @@ class _GistDetailPageState extends State<GistDetailPage> {
     await Clipboard.setData(ClipboardData(text: file.content));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已复制 ${file.name}')),
+        SnackBar(content: Text(_t('copiedFile', <String, String>{'name': file.name}))),
       );
     }
   }
@@ -264,11 +273,11 @@ class _GistDetailPageState extends State<GistDetailPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gist 详情'),
+        title:  Text(_t('title')),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: '删除 Gist',
+            tooltip: _t('deleteTitle'),
             onPressed: _busy ? null : _deleteGist,
           ),
         ],
@@ -276,17 +285,17 @@ class _GistDetailPageState extends State<GistDetailPage> {
       body: AsyncView<_GistDetail>(
         controller: _detailC(),
         emptyIcon: Icons.article_outlined,
-        emptyText: '这个 Gist 没有文件',
+        emptyText: _t('noFiles'),
         builder: (BuildContext context, _GistDetail detail) => ListView(
           padding: const EdgeInsets.all(16),
           children: <Widget>[
             Text(
-              detail.description.isEmpty ? '（无描述）' : detail.description,
+              detail.description.isEmpty ? _t('noDescription') : detail.description,
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
             Text(
-              '${detail.isPublic ? '公开' : '私密'} · ${detail.files.length} 个文件',
+              '${detail.isPublic ? '公开' : _t('private')} · ${detail.files.length} 个文件',
               style: theme.textTheme.bodySmall,
             ),
             if (detail.htmlUrl.isNotEmpty) ...<Widget>[
@@ -300,7 +309,7 @@ class _GistDetailPageState extends State<GistDetailPage> {
                     );
                   },
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('在浏览器打开'),
+                  label:  Text(_t('openInBrowser')),
                 ),
               ),
             ],
@@ -339,12 +348,12 @@ class _GistDetailPageState extends State<GistDetailPage> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy_all_outlined),
-                            tooltip: '复制内容',
+                            tooltip: _t('copyContent'),
                             onPressed: () => unawaited(_copy(file)),
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),
-                            tooltip: '编辑',
+                            tooltip: _t('edit'),
                             onPressed:
                                 _busy ? null : () => unawaited(_editFile(file)),
                           ),
@@ -352,9 +361,9 @@ class _GistDetailPageState extends State<GistDetailPage> {
                       ),
                     ),
                     if (file.content.isEmpty)
-                      const Padding(
+                       Padding(
                         padding: EdgeInsets.all(16),
-                        child: Text('（内容为空或无法读取，可在浏览器查看）'),
+                        child: Text(_t('emptyOrUnreadable')),
                       )
                     else
                       OgLCodeViewer(

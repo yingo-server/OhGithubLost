@@ -26,7 +26,14 @@ library;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+
 import 'package:permission_handler/permission_handler.dart';
+
+import '../i18n/og_l_i18n.dart';
+
+/// 取 `shell` 分片文案。
+String _t(String key, [Map<String, String>? args]) =>
+    OgLI18n.instance.t('shell', key, args: args);
 
 /// 权限种类（与业务相关的最小集合）。
 enum OgLPermission {
@@ -206,11 +213,11 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
     return <OgLPermissionInfo>[
       OgLPermissionInfo(
         permission: OgLPermission.storage,
-        title: '存储 / 文件访问',
+        title: _t('storageAccess'),
         rationale: storage.isEmpty
-            ? '当前平台在应用沙箱内运行，无需额外存储权限。'
-            : '授予后日志与下载文件可写到系统可见的 ogl 文件夹；'
-                '不授予时会退回应用私有目录（功能不受影响）。',
+            ? _t('storageSandbox')
+            : _t('storageGrantDesc1')
+                _t('storageGrantDesc2'),
         status: storage.isEmpty
             ? OgLPermissionStatus.notRequired
             : (await _storageOk()
@@ -219,10 +226,10 @@ abstract class _HandlerGateway implements OgLPermissionGateway {
       ),
       OgLPermissionInfo(
         permission: OgLPermission.notifications,
-        title: '通知',
+        title: _t('notification'),
         rationale: notify == null
-            ? '当前平台无需通知授权。'
-            : '开启后可接收限流提醒、下载完成、同步失败等主动提示。',
+            ? _t('notifNoAuth')
+            : _t('notifDesc'),
         status: notify == null
             ? OgLPermissionStatus.notRequired
             : await _statusOf(notify),
@@ -339,17 +346,17 @@ class _DesktopPermissionGateway implements OgLPermissionGateway {
 
   @override
   Future<List<OgLPermissionInfo>> describe() async =>
-      const <OgLPermissionInfo>[
+       <OgLPermissionInfo>[
         OgLPermissionInfo(
           permission: OgLPermission.storage,
-          title: '存储 / 文件访问',
-          rationale: '桌面平台直接使用应用数据目录，无需授权。',
+          title: _t('storageAccess'),
+          rationale: _t('desktopStorageDesc'),
           status: OgLPermissionStatus.notRequired,
         ),
         OgLPermissionInfo(
           permission: OgLPermission.notifications,
-          title: '通知',
-          rationale: '桌面平台无系统级权限门槛。',
+          title: _t('notification'),
+          rationale: _t('desktopNotifDesc'),
           status: OgLPermissionStatus.notRequired,
         ),
       ];
@@ -372,17 +379,17 @@ class _WebPermissionGateway implements OgLPermissionGateway {
 
   @override
   Future<List<OgLPermissionInfo>> describe() async =>
-      const <OgLPermissionInfo>[
+       <OgLPermissionInfo>[
         OgLPermissionInfo(
           permission: OgLPermission.storage,
-          title: '存储 / 文件访问',
-          rationale: '浏览器环境由浏览器自身管理存储配额，应用无法也无需申请。',
+          title: _t('storageAccess'),
+          rationale: _t('webStorageDesc'),
           status: OgLPermissionStatus.unsupported,
         ),
         OgLPermissionInfo(
           permission: OgLPermission.notifications,
-          title: '通知',
-          rationale: 'Web 端不提供本应用所需的通知能力。',
+          title: _t('notification'),
+          rationale: _t('webNotifDesc'),
           status: OgLPermissionStatus.unsupported,
         ),
       ];
