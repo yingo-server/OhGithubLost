@@ -39,6 +39,7 @@ GitHub 仓库管理客户端，手机、平板与桌面可用。仓库地址与�
 
 - [使用说明](docs/USAGE.md)
 - [多语言维护手册](docs/I18N.md)
+- [Release 说明规范](docs/RELEASE_NOTES.md)
 - [更新日志](CHANGELOG.md)
 
 ## 星标与提交历史
