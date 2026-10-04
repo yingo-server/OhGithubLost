@@ -295,6 +295,9 @@ jobs:
         run: |
           # ① Android：工具入库（幂等、带自检），见 tool/inject_android_manifest.py
           python3 tool/inject_android_manifest.py || exit 1
+          # ①-b 图标：**矢量 XML**（透明背景）+ 自适应图标 + label=OGL
+          #     （见 tool/inject_android_icon.py；几何源 assets/icon/ogl_icon.svg）
+          python3 tool/inject_android_icon.py || exit 1
           # ② macOS：沙箱 Release entitlements 需要 network.client
           python3 - <<'PY'
           import os
