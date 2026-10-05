@@ -51,11 +51,10 @@ android {
 flutter {
     source = "../.."
 }
-
-dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-}
 """
+
+# Flutter 3.47.5 的模板**没有**顶层 dependencies 块（默认无依赖可声明），
+# 故上面的夹具刻意不含它 —— 真实路径就是"新建一个 dependencies 块"。
 
 # 旧 Groovy 模板：同样必须能被注入命中（向下兼容，不因模板回退而失效）。
 FAKE_GRADLE_GROOVY = """plugins {
@@ -70,11 +69,13 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 }
-
-dependencies {
-    implementation "androidx.core:core-ktx:1.6.0"
-}
 """
+
+# 模板里**已存在** dependencies 块的情形（部分插件模板 / 用户已有工程）。
+FAKE_GRADLE_WITH_DEPS = FAKE_GRADLE_KTS.replace(
+    'flutter {\n    source = "../.."\n}',
+    'dependencies {\n    implementation("androidx.core:core-ktx:1.13.1")\n}\n'
+    '\nflutter {\n    source = "../.."\n}')
 
 FAKE_MANIFEST = """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -164,6 +165,9 @@ def main():
               gradle_text[:200])
         check('flutter.compileSdkVersion 引用已被替换',
               'flutter.compileSdkVersion' not in gradle_text)
+        check('幂等标记只出现一次',
+              gradle_text.count('OGL_PLATFORM_SPEC compileSdk') == 1,
+              gradle_text[:300])
         # ★ desugaring 依赖必须真的声明（只在 compileOptions 里打开开关不够，
         #   Gradle 仍会报 "requires core library desugaring to be enabled"）。
         check('desugar 依赖已声明',
@@ -321,6 +325,28 @@ def main():
         check('明确指出缺 build.gradle.kts',
               'build.gradle.kts' in (rm.stderr + rm.stdout),
               (rm.stderr + rm.stdout)[:300])
+
+        print('⑫ 模板已存在 dependencies 块时，依赖插进块内而非新建')
+        deps_dir = os.path.join(tmp, 'withdeps')
+        write_fake_tree(deps_dir)
+        deps_gradle = os.path.join(deps_dir, 'android', 'app',
+                                  'build.gradle.kts')
+        with open(deps_gradle, 'w', encoding='utf-8') as fh:
+            fh.write(FAKE_GRADLE_WITH_DEPS)
+        os.makedirs(os.path.join(deps_dir, 'assets', 'icon'), exist_ok=True)
+        shutil.copy(os.path.join(ROOT, 'assets', 'icon', 'ogl_icon.svg'),
+                    os.path.join(deps_dir, 'assets', 'icon', 'ogl_icon.svg'))
+        rd = run(deps_dir, '--target', 'android')
+        check('含 dependencies 模板退出码 0', rd.returncode == 0,
+              rd.stderr[:300])
+        deps_text = read(deps_gradle)
+        check('desugar 依赖已声明',
+              'com.android.tools:desugar_jdk_libs' in deps_text)
+        check('未重复新建 dependencies 块',
+              deps_text.count('dependencies {') == 1,
+              deps_text[-400:])
+        check('原有依赖未被破坏',
+              'androidx.core:core-ktx' in deps_text)
 
         print()
         if FAILURES:

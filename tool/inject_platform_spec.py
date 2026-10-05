@@ -347,16 +347,24 @@ def patch_compile_sdk(root: str, step: dict) -> int:
 
     marker = ' // OGL_PLATFORM_SPEC compileSdk'
     updated = text
-    # ① flutter.compileSdkVersion 引用式
-    updated = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion',
-                     'compileSdkVersion %d%s' % (target, marker), updated)
-    updated = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion',
-                     'compileSdk = %d%s' % (target, marker), updated)
-    # ② 直接写数字
-    updated = re.sub(r'compileSdkVersion\s+\d+',
-                     'compileSdkVersion %d%s' % (target, marker), updated)
-    updated = re.sub(r'compileSdk\s*=\s*\d+',
-                     'compileSdk = %d%s' % (target, marker), updated)
+    # 逐个尝试模板写法；一旦命中就不再往下匹配。
+    # ★ 必须**命中即停**：否则前一条把 `flutter.compileSdkVersion` 换成
+    #   `compileSdk = 37` 后，后一条 `compileSdk\s*=\s*\d+` 会再次命中同一行，
+    #   把标记追加两次（`... // OGL_PLATFORM_SPEC compileSdk // OGL_PLATFORM_SPEC
+    #   compileSdk`）。
+    for pattern, replacement in (
+        (r'compileSdkVersion\s+flutter\.compileSdkVersion',
+         'compileSdkVersion %d%s' % (target, marker)),
+        (r'compileSdk\s*=\s*flutter\.compileSdkVersion',
+         'compileSdk = %d%s' % (target, marker)),
+        (r'compileSdkVersion\s+\d+',
+         'compileSdkVersion %d%s' % (target, marker)),
+        (r'compileSdk\s*=\s*\d+',
+         'compileSdk = %d%s' % (target, marker)),
+    ):
+        if 'OGL_PLATFORM_SPEC compileSdk' in updated:
+            break
+        updated = re.sub(pattern, replacement, updated)
 
     if 'OGL_PLATFORM_SPEC compileSdk' not in updated:
         print('  [失败] %s 里找不到 compileSdk（模板写法可能又变了）' % path)
@@ -426,10 +434,15 @@ def patch_core_library_desugaring(root: str, step: dict) -> int:
         if re.search(r'\n\s*dependencies\s*\{', updated):
             updated = re.sub(r'(\n\s*dependencies\s*\{\n)',
                              r'\1' + dep_line + '\n', updated, count=1)
+            print('  [注入] dependencies 块内补 desugar 依赖')
         else:
-            print('  [失败] %s 里找不到 dependencies 块，请手工确认 '
-                  'coreLibraryDesugaring 依赖' % path)
-            return 1
+            # ★ Flutter 3.47.5 的 Kotlin DSL 模板**根本没有**顶层
+            #   `dependencies {}` 块（模板默认没有任何依赖要声明）。
+            #   所以"往已有块里插"这条路走不通，必须自己建一个块。
+            if not updated.endswith('\n'):
+                updated += '\n'
+            updated += '\ndependencies {\n%s\n}\n' % dep_line
+            print('  [注入] 新建 dependencies 块并声明 desugar 依赖')
 
     _write(path, updated)
     print('  [注入] %s → desugaring 已开启并声明依赖（%s）'
