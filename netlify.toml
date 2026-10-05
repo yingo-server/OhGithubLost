@@ -12,13 +12,17 @@
 # 注意：构建期间不会执行任何仓库脚本，只有 Jekyll 静态编译。
 
 [build]
-  # `changed/` 是仓库根下的子目录，Netlify 默认只把仓库根当站点根，
-  # 故把 base 指向该子目录，_config.yml 与 _posts/ 的相对路径即可保持不变。
+  # `changed/` 是仓库根下的子目录，Netlify 默认把仓库根当站点根，
+  # 故把 base 指向该子目录 —— Jekyll 随后就在 `changed/` 里读到
+  # `_config.yml` 与 `_posts/`，与 GitHub Pages 用的是同一份源。
   base = "changed"
-  publish = "changed/_site"
+  # ★ publish 是「相对 base」的路径（Netlify 官方约定），base 已是 changed/，
+  #   故这里只写 _site；写成 changed/_site 会被拼成 changed/changed/_site。
+  publish = "_site"
   # ★ 必须走 bundle exec：否则 Netlify 会用镜像自带的 Jekyll（版本随镜像漂移），
   #   而 changed/Gemfile 已把 jekyll / minima / Ruby 锁到与 GitHub Pages
   #   `github-pages 232` 完全一致的版本，两个渠道的产物才能保持一致。
+  #   （Gemfile 与 base 同目录，bundler 会自动定位，无需 BUNDLE_GEMFILE）
   command = "bundle exec jekyll build"
 
 [build.environment]
