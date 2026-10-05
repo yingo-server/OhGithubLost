@@ -29,4 +29,8 @@ show_excerpts: false
 exclude:
   - README.md
   - generate_posts.py
+  # Gemfile 只用于 Netlify 构建期解析依赖，不属于站点内容
+  - Gemfile
+  - Gemfile.lock
+  - vendor
   - "*.sh"
