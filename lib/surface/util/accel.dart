@@ -84,17 +84,21 @@ const String kOgLAccelBuiltinId = 'builtin';
 
 /// **内置通道的加速链（按优先级，不可由用户调整）**。
 ///
-/// 1. `gh.344977.xyz` —— **优先**；
-/// 2. `gh.felicity.ac.cn` —— **降级备选**。
+/// 1. `https://gh.felicity.ac.cn/https://github.com/` —— **优先**；
+/// 2. `https://gh.felicity.ac.cn/` —— **降级备选**（旧式镜像前缀）。
 ///
+/// 该代理是「URL 转发」形式：把**完整的 GitHub 链接**拼在前缀之后，
+/// 即 `前缀 + 原始 URL`，例如
+/// `https://gh.felicity.ac.cn/https://github.com/…`。
 /// 下载时按序探测，**静默降级**：前一个不可用就直接用下一个，不打扰用户。
 const List<String> kOgLAccelBuiltinBaseUrls = <String>[
-  'https://gh.344977.xyz/',
+  'https://gh.felicity.ac.cn/https://github.com/',
   'https://gh.felicity.ac.cn/',
 ];
 
 /// 内置通道主前缀（= 链首，供只认单个前缀的旧路径使用）。
-const String kOgLAccelBuiltinBaseUrl = 'https://gh.344977.xyz/';
+const String kOgLAccelBuiltinBaseUrl =
+    'https://gh.felicity.ac.cn/https://github.com/';
 
 /// 内置通道。
 ///

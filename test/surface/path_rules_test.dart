@@ -159,9 +159,10 @@ void main() {
 
     test('内置通道是「优先 + 降级」的固定链（不可由用户调整）', () {
       expect(kOgLAccelBuiltinBaseUrls.length, 2);
-      // 优先：gh.344977.xyz；降级：gh.felicity.ac.cn。
-      expect(kOgLAccelBuiltinBaseUrls.first, contains('gh.344977.xyz'));
-      expect(kOgLAccelBuiltinBaseUrls.last, contains('gh.felicity.ac.cn'));
+      // 优先：gh.felicity.ac.cn 转发完整 GitHub 链接；降级：旧式镜像前缀。
+      expect(kOgLAccelBuiltinBaseUrls.first,
+          'https://gh.felicity.ac.cn/https://github.com/');
+      expect(kOgLAccelBuiltinBaseUrls.last, 'https://gh.felicity.ac.cn/');
       for (final String base in kOgLAccelBuiltinBaseUrls) {
         expect(base.startsWith('https://'), isTrue);
         expect(ogLValidateAccelBaseUrl(base), isNull);

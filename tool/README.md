@@ -20,5 +20,6 @@
 | `stats_chart.py` | 统计曲线自检（CI 门禁 selftest） |
 | `sort_imports.py` | import 分组排序 |
 | `verify_apk_cert.py` | APK 证书校验（发布后验收） |
+| `web_build.py` | Web（wasm）：注入浏览器 API 守卫 → 校验产物 → 清空并重建 `app/` |
 
 > 说明：本机运维脚本（推送 / CI 排障 / 发布触发）不入库，见本地 `_setup/`。
