@@ -8,7 +8,7 @@
 
 - **README 链接可用了**：相对链接（`LICENSE`、`docs/x.md`、`#锚点`、裸域名）先按仓库基址解析成绝对地址再交给系统浏览器；解析不了会明确提示，不再"点了没反应"。
 - **README 图片可以显示了**：图片经 **GitHub Contents API** 取字节后用 `Image.memory` 渲染，不经过 `raw.githubusercontent.com`，避开 DNS 污染；`<img src=…>` 也会渲染成图；单次上限 40 张，超出或失败退化为 alt 文本（不静默丢图）。
-- **glibc ≥ 2.31**（对应 Ubuntu 20.04 一代及以上；Linux 产物在 `ubuntu:20.04` 容器内构建以锁定该下限）
+- **glibc ≥ 2.35**（对应 Ubuntu 22.04 一代及以上；Linux 产物在 `ubuntu-22.04` / `ubuntu-24.04-arm` 宿主上直接构建以锁定该下限）
 
 ### 构建与审计 · Build & audit
 - **CI 新增 AI 审计**（`ci.yml` → `ai_audit` job）：用 Agnes（`agnes-2.5-flash` 高智能）对架构 / 安全 / i18n / 性能 / 变更记录做**补正则盲区**的复核；密钥走 Secret `AGNES_API_KEY`，缺失则跳过并显式标注（不锁死 CI）。
@@ -16,6 +16,7 @@
 - **提示词防假阳性**：判定纪律「宁可漏报、不可误报」——只报**可指行号、可证实**的问题，禁止臆测「可能竞态/可能泄漏」，无确凿问题一律 PASS。
 - **rpm 压缩级别**：保持 `w9.xzdio`（xz 级别上限 9，`w10` 非法）。
 - 发布说明从 `release_notes/v6.0.0.md` 生成（中英对照）。
+- **Linux 构建不再套容器**：x64 腿改到 `ubuntu-22.04`、arm64 腿 `ubuntu-24.04-arm`，**宿主直编**。20.04 容器已 EOL、archive 源超时，且容器失败后的回退等于把全量编译跑两遍——曾把 Linux 腿挂死 5h50m；同时给 `build` job 加 `timeout-minutes: 45` 兜底。glibc 下限随之由 2.31 抬到 **2.35**。
 
 ## v5.9.0（未发布成功 · 构建失败，内容并入 v6.0.0 / never shipped）
 

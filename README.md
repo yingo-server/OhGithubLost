@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | Android | ✅ 支持 | 4 架构 APK + AAB；arm64-v8a / armeabi-v7a / x86_64 / universal |
 | Windows | ✅ 支持 | x64 / arm64；建议开启长路径支持（非必须，超限有收纳回退） |
-| Linux | ✅ 支持 | x64 / arm64；deb / rpm / AppImage；**glibc ≥ 2.31**（Ubuntu 20.04 一代及以上） |
+| Linux | ✅ 支持 | x64 / arm64；deb / rpm / AppImage；**glibc ≥ 2.35**（Ubuntu 22.04 一代及以上） |
 | macOS / iOS | ❌ 弃用 | 最后支持版本 v5.3.0 |
 
 **不要做无用尝试**：桌面 32 位、musl-libc、Windows 7 / 8.1 均不支持。
@@ -52,7 +52,7 @@ flutter pub get
 flutter run              # 开发
 flutter build apk        # Android
 flutter build windows    # Windows
-flutter build linux      # Linux（产物 glibc 下限由构建容器锁定，见 CI）
+flutter build linux      # Linux（宿主直编，glibc 下限见 CI）
 ```
 
 ## 目录结构 / Repository layout

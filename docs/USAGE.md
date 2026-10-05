@@ -12,7 +12,7 @@ OhGithubLost（简称 OGL）是一个 GitHub 仓库管理客户端，手机、�
 | --- | --- | --- |
 | Android | ✅ 支持 | 当前主要目标；4 架构 APK + AAB |
 | Windows | ✅ 支持 | x64 / arm64；长路径建议开启 |
-| Linux | ✅ 支持 | x64 / arm64；deb / rpm / AppImage；glibc ≥ 2.31 |
+| Linux | ✅ 支持 | x64 / arm64；deb / rpm / AppImage；glibc ≥ 2.35（Ubuntu 22.04 一代及以上） |
 | macOS / iOS | ❌ 弃用 | 最后支持版本 v5.3.0 |
 | macOS | 未测试 | 未签名构建，需自备证书或自行构建 |
 | iOS | 未测试 | 未签名构建，需自备证书或自行构建 |
