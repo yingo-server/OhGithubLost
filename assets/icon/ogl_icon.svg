@@ -2,8 +2,9 @@
   <!--
     OGL 应用图标（**背景透明**）。
     这是几何形状的**唯一事实来源**：
-    - Android 由 `tool/inject_android_icon.py` 转成 VectorDrawable（矢量 XML）；
-    - 其它平台由 `tool/inject_desktop_icon.py` 生成对应尺寸的 PNG。
+    - Android：转成 VectorDrawable（矢量 XML）+ 自适应图标；
+    - Windows：256 单帧 ICO；Linux：2048 PNG 母版。
+    转换由 tool/inject_platform_spec.py 依据 tool/platform_spec.yaml 在构建期完成。
   -->
   <defs>
     <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="1">

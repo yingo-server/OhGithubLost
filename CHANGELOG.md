@@ -15,10 +15,25 @@
   > Web lives on its own branch with its own `lib/` and its own workflows — no shared
   > code, no shared actions, and it may fail as often as it needs without ever
   > affecting the five-platform release.
-- **平台能力下沉为原生实现**（下一阶段）：原先由 action 里的 `inject_*.py`
-  改平台工程（gradle / manifest / CMake / rc / icon）的做法，改为**原生 Dart 实现**，
-  action 退化为**可选编译**开关（只挑编译目标，不注入逻辑）。*This is the
-  direction; lands in a follow-up release.*
+- **平台能力下沉：能写 Dart 的写 Dart，写不了的写详细配置**（本次落地）：
+  - **新增 `lib/platform/` 平台实现层** —— 每个平台一份**真实 Dart 实现**
+    （`window_windows.dart` / `window_linux.dart` / `window_macos.dart` /
+    `window_mobile.dart`），契约在 `window_capability.dart`，
+    **选平台只发生在 `platform.dart` 一处**（全项目唯一的 `Platform.isXxx`）。
+  - **`surface/app/desktop_window.dart` 退化为桥接**：函数名 / 枚举 / 常量
+    原样转发，上层调用点**零改动**。
+  - **原生窗口标题不再需要 C++ 注入**：`windowManager.setTitle()` 写的
+    就是窗口管理器读的那个标题，`inject_desktop_shell.py` 是重复劳动，
+    **已删除**。
+  - **物理上写不了 Dart 的部分**（Android 安装期权限、compileSdk /
+    desugaring、Windows 编译宏、ICO/PNG 图标、macOS entitlements）集中声明在
+    **`tool/platform_spec.yaml`**，由 `tool/inject_platform_spec.py` 在构建期注入。
+  - **注入不是逃生舱**：spec 每一条都必须写 `why`（为什么不能用 Dart），
+    脚本强制校验，**缺 `why` 直接拒绝执行**；自检
+    （`inject_platform_spec_selftest.py`，22 项，含幂等性与仓库不被污染）已挂 CI。
+  - 删除 `inject_android_gradle.py` / `inject_android_manifest.py` /
+    `inject_windows_cmake.py` / `inject_desktop_shell.py` / `inject_android_icon.py`
+    五个脚本，由 spec 驱动的注入器统一接管。
 
 ### 变更 · Changed
 - **内置加速通道改走 `gh.felicity.ac.cn` 转发完整 GitHub 链接**

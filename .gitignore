@@ -13,7 +13,17 @@ pubspec.lock
 .DS_Store
 Thumbs.db
 
-# Android
+# 平台工程目录（由 CI 的 `flutter create` 现场生成，永不入库）
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+app/
+!android/.gitkeep
+
+# Android 构建缓存
 android/.gradle/
 android/local.properties
 android/key.properties

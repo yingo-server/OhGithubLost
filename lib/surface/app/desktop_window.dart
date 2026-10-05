@@ -1,59 +1,46 @@
-/// L3 展示级 · 桌面窗口（**自绘标题栏** + 原生标题）。
+/// L3 展示级 · 桌面窗口（**桥接**）。
 ///
-/// ## 为什么不用系统默认装饰
-/// Windows / Linux 的窗口管理器给的外观（标题栏高度、按钮形状、字体）
-/// 与 App 自己的设计语言**完全不是一套**，一眼就能看出"移动端套壳"。
-/// 桌面端改为：**隐藏系统标题栏**，自绘一条与 App 同语言的标题栏。
+/// ## 这一文件现在是"兼容层"，不再是实现
+/// 实现已下沉到平台层 `lib/platform/`：
+/// - 契约：`lib/platform/window_capability.dart`
+/// - Windows / Linux / macOS：各自一份**纯 Dart** 实现
+/// - 移动端 / Web / 未知：空操作实现
+/// - 选平台：`lib/platform/platform.dart`（**全项目唯一** `Platform.isXxx`）
 ///
-/// ## 但原生标题仍然要写对
-/// 任务栏、Alt-Tab、任务管理器读的是**原生标题**（不是 Flutter 画的那条）。
-/// 因此这里同时 `setTitle('OhGithubLost')`，构建期还会由
-/// `tool/inject_desktop_shell.py` 把原生壳的标题也改成同一个值（双保险）。
+/// 这里**只保留**三件事，保证上层调用点零改动：
+/// 1. 原有的函数名 / 枚举 / 常量（原样转发）；
+/// 2. 标题栏与外框两个 Widget（纯展示，属展示层职责）；
+/// 3. 静默降级（桌面环境千差万别，绝不外抛）。
 ///
-/// ## 允许回退
-/// 设置里可以切回**系统默认窗口装饰**（部分 Linux 桌面环境 / 平铺窗口管理器
-/// 下，自绘栏反而别扭）。切换即时生效，不需要重启。
-///
-/// ## 平台
-/// 仅桌面（Windows / Linux / macOS）生效；Android / iOS / Web 上
-/// 所有函数都是空操作，[OgLWindowFrame] 原样返回子组件。
+/// ## 为什么原生标题不再需要 C++ 注入
+/// 原先由 `tool/inject_desktop_shell.py` 改 `Runner.rc` / `main.cpp` 来设置
+/// 任务栏标题。实际上 `windowManager.setTitle()` 写的**就是**窗口管理器读的
+/// 那个标题，注入是重复劳动 —— 现已删除，标题由 Dart 唯一负责。
 library;
 
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../platform/platform.dart';
+import '../../platform/window_capability.dart';
+
+export '../../platform/window_capability.dart' show OgLWindowDecoration;
+
 /// 当前是否为桌面平台（Windows / Linux / macOS）。
-bool get ogLIsDesktopPlatform =>
-    !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+bool get ogLIsDesktopPlatform => ogLWindow.isDesktop;
 
 /// 标题栏高度（自绘）。
 const double kOgLTitleBarHeight = 38;
 
-/// 应用窗口装饰模式。
-enum OgLWindowDecoration {
-  /// 自绘标题栏（默认，外观与 App 一致）。
-  custom,
-
-  /// 交还系统默认窗口装饰（用户可在设置里切回）。
-  system,
-}
-
 /// 首次初始化窗口：标题、装饰模式、最小尺寸。
-Future<void> ogLInitDesktopWindow({OgLWindowDecoration decoration = OgLWindowDecoration.custom}) async {
+Future<void> ogLInitDesktopWindow({
+  OgLWindowDecoration decoration = OgLWindowDecoration.custom,
+}) async {
   if (!ogLIsDesktopPlatform) {
     return;
   }
-  try {
-    await windowManager.ensureInitialized();
-    await windowManager.setTitle('OhGithubLost');
-    await ogLApplyWindowDecoration(decoration);
-  } catch (error) {
-    // 桌面环境千差万别（平铺 WM / 精简会话可能不支持）→ 绝不外抛。
-    debugPrint('OGL 桌面窗口：初始化失败（已降级为系统装饰）：$error');
-  }
+  // 桌面环境千差万别（平铺 WM / 精简会话可能不支持）→ 绝不外抛。
+  await _guard(() => ogLWindow.init(decoration: decoration));
 }
 
 /// 应用（或回退）窗口装饰。切换即时生效。
@@ -61,32 +48,15 @@ Future<void> ogLApplyWindowDecoration(OgLWindowDecoration decoration) async {
   if (!ogLIsDesktopPlatform) {
     return;
   }
+  await _guard(() => ogLWindow.applyDecoration(decoration));
+}
+
+/// 静默执行：把平台差异吞掉，只留日志。
+Future<void> _guard(Future<void> Function() action) async {
   try {
-    if (decoration == OgLWindowDecoration.custom) {
-      // Windows：保留系统阴影 / 圆角 / 贴边（Aero Snap），只是**不画标题栏**；
-      // Linux：整体去掉 GTK 的 CSD，由我们完全自绘。
-      if (Platform.isWindows || Platform.isMacOS) {
-        await windowManager.setTitleBarStyle(
-          TitleBarStyle.hidden,
-          windowButtonVisibility: false,
-        );
-      } else {
-        await windowManager.setAsFrameless();
-      }
-    } else {
-      // 回退：恢复系统默认标题栏与按钮。
-      // 注：`setAsFrameless()` 在 window_manager 0.5.x **不接受参数**，
-      //     所以回退只靠 `setTitleBarStyle(normal)`（它才是跨平台可控的开关）。
-      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-        await windowManager.setTitleBarStyle(
-          TitleBarStyle.normal,
-          windowButtonVisibility: true,
-        );
-      }
-    }
-    await windowManager.setTitle('OhGithubLost');
+    await action();
   } catch (error) {
-    debugPrint('OGL 桌面窗口：切换装饰失败：$error');
+    debugPrint('OGL 桌面窗口：操作失败（已降级为系统装饰）：$error');
   }
 }
 
@@ -129,7 +99,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
 
   Future<void> _sync() async {
     try {
-      final bool value = await windowManager.isMaximized();
+      final bool value = await ogLWindow.isMaximized();
       if (mounted && value != _maximized) {
         setState(() => _maximized = value);
       }
@@ -142,7 +112,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
   void onWindowMaximize() => _sync();
 
   @override
-  void onWindowUnmaximize() => _sync();
+  void onWindowUnimize() => _sync();
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +127,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onPanStart: (_) => windowManager.startDragging(),
+                onPanStart: (_) => ogLWindow.startDragging(),
                 onDoubleTap: () => _toggleMaximize(),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -177,7 +147,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
             _button(
               context,
               icon: Icons.remove,
-              onTap: () => windowManager.minimize(),
+              onTap: ogLWindow.minimize,
             ),
             _button(
               context,
@@ -187,7 +157,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
             _button(
               context,
               icon: Icons.close,
-              onTap: () => windowManager.close(),
+              onTap: ogLWindow.close,
               danger: true,
             ),
           ],
@@ -198,11 +168,7 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
 
   Future<void> _toggleMaximize() async {
     try {
-      if (await windowManager.isMaximized()) {
-        await windowManager.unmaximize();
-      } else {
-        await windowManager.maximize();
-      }
+      await ogLWindow.setMaximized(!_maximized);
       await _sync();
     } catch (_) {
       // 忽略。

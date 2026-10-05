@@ -61,7 +61,7 @@ dependencies:
   # ── 展示层 · 权限（真实系统请求）────────────────────────────────────
   # 成熟库：运行时权限弹窗 + 各平台正确的系统设置入口（Android/iOS/macOS）。
   # 注：permission_handler_android 要求宿主 compileSdk 高于 Flutter 默认值，
-  #    构建期由 tool/inject_android_gradle.py 幂等注入（见 build.yml）。
+  #    构建期由 tool/platform_spec.yaml 声明并在构建期注入（见 build.yml）。
   permission_handler: ^13.0.2
 
   # ── 展示层 · 桌面窗口（自绘标题栏 / 原生标题 / 可回退系统装饰）────────
@@ -82,7 +82,7 @@ dependencies:
   # ── 展示层 · 系统级通知 ─────────────────────────────────────────────
   # 后台时的"系统通知"通道（下载完成 / 任务结束 / 严重错误）。
   # 注：Android 需要 core library desugaring，构建期由
-  #     tool/inject_android_gradle.py 幂等注入（见 build.yml）。
+  #     tool/platform_spec.yaml 声明并在构建期注入（见 build.yml）。
   flutter_local_notifications: ^22.3.1
   # ── 中枢层 · 工作流参数解析 ─────────────────────────────────────────
   # 手动触发工作流前，从 `.github/workflows/*.yml` 解析 `on.workflow_dispatch.inputs`

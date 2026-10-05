@@ -52,6 +52,11 @@ jobs:
       - name: 图表自检（统计曲线的坐标系 / 刻度 / 降采样）
         run: python3 tool/stats_chart.py --selftest
 
+      # 平台私有文件注入器自检：必须在 CI 里守住"注入不是逃生舱"这条纪律
+      # （缺 `why` 的注入项会被拒绝；幂等性也在此验证）。
+      - name: 平台注入器自检（幂等 / 缺 why 拒绝）
+        run: python3 tool/inject_platform_spec_selftest.py
+
       - name: 静态分析（警告即失败）
         run: flutter analyze --fatal-infos --fatal-warnings
 

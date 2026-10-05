@@ -246,18 +246,16 @@ jobs:
           flutter create --platforms=android,ios,linux,macos,windows --org com.yingo --project-name ohgithublost .
           rm -f test/widget_test.dart
 
-      - name: 注入 Android compileSdk（permission_handler 要求）
-        # ★ permission_handler_android 要求宿主 compileSdk 高于 Flutter 模板默认值；
-        #   平台目录由 CI 现场生成，故在构建期对生成物做幂等注入
-        #   （见 tool/inject_android_gradle.py）。
+      # ★ 平台私有文件注入：能写 Dart 的已在 `lib/platform/` 里写完（Dart 实现），
+      #   这里只注入**物理上写不了 Dart** 的部分（安装期权限、编译期属性与宏、
+      #   图标资源）—— 全部由 `tool/platform_spec.yaml` 声明，
+      #   每一条都必须写清 why（脚本会强制校验）。
+      - name: 注入 Android 平台私有文件（权限 / 编译属性 / 图标）
         if: matrix.build == 'apk' || matrix.build == 'appbundle'
         shell: bash
-        run: python3 tool/inject_android_gradle.py || exit 1
+        run: python3 tool/inject_platform_spec.py --target android || exit 1
 
-      - name: 注入 Windows 兼容宏（permission_handler_windows）
-        # ★ permission_handler_windows 使用旧的 <experimental/coroutine>，
-        #   新版 MSVC 把它判为错误；在构建期幂等注入抑制宏
-        #   （见 tool/inject_windows_cmake.py）。
+      - name: 注入 Windows 平台私有文件（编译宏 / 图标）
         # ★ Windows runner 上 `python3` 不一定存在（通常只有 `python`），
         #   故这里探测解释器，避免"命令找不到"直接把整条腿打红。
         if: matrix.build == 'windows'
@@ -270,50 +268,17 @@ jobs:
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
           echo "python: $PY"
-          "$PY" tool/inject_windows_cmake.py || exit 1
+          "$PY" tool/inject_platform_spec.py --target windows || exit 1
 
-      - name: 注入平台网络权限（release 必需）
-        # ★ Android：Flutter 模板的 INTERNET 权限只在 debug/profile 清单里，
-        #   release 主清单**没有** → 不注入则安装包能启动但任何网络请求直接失败。
-        #   （CI 实证：release APK 的 AndroidManifest.xml 中查无 INTERNET ——
-        #    这正是"令牌验证连接失败"的根因。）
-        # ★ macOS：沙箱的 Release entitlements 需要 network.client，
-        #   否则同样拒绝出网。
-        if: matrix.build != 'windows'
-        shell: bash
-        run: |
-          # ① Android：工具入库（幂等、带自检），见 tool/inject_android_manifest.py
-          python3 tool/inject_android_manifest.py || exit 1
-          # ①-b 图标：**矢量 XML**（透明背景）+ 自适应图标 + label=OGL
-          #     （见 tool/inject_android_icon.py；几何源 assets/icon/ogl_icon.svg）
-          python3 tool/inject_android_icon.py || exit 1
-          # ② macOS：沙箱 Release entitlements 需要 network.client
-          python3 - <<'PY'
-          import os
-          for e in ('macos/Runner/Release.entitlements',
-                    'macos/Runner/DebugProfile.entitlements'):
-              if os.path.exists(e):
-                  t = open(e, encoding='utf-8').read()
-                  if 'com.apple.security.network.client' not in t:
-                      t = t.replace('</dict>',
-                                    '\t<key>com.apple.security.network.client</key>\n\t<true/>\n</dict>')
-                      open(e, 'w', encoding='utf-8').write(t)
-                      print(e, 'network.client 已注入')
-          PY
-
-      - name: 注入桌面原生壳（图标 + 原生窗口标题）
-        # ★ 窗口标题与任务栏图标**不是 Flutter 绘制的**，由操作系统读取：
-        #   Windows 看 main.cpp / Runner.rc，Linux 看 my_application.cc。
-        #   图标几何源是 assets/icon/ogl_icon.svg，由 tool/desktop_icon.py
-        #   （零第三方依赖）现场光栅化：Windows 出 256 单帧 ICO，Linux 出 2048 PNG。
-        if: matrix.build == 'windows' || matrix.build == 'linux'
+      - name: 注入 Linux 平台私有文件（图标母版）
+        if: matrix.build == 'linux'
         shell: bash
         env:
           PYTHONIOENCODING: utf-8
         run: |
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
-          "$PY" tool/inject_desktop_shell.py || exit 1
+          "$PY" tool/inject_platform_spec.py --target linux || exit 1
 
       # GTK 工具链：Flutter Linux 桌面构建的**必需**依赖。
       # 缺 libgtk-3-dev 时 CMake 会报

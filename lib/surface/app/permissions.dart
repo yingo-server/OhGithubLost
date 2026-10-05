@@ -12,7 +12,7 @@
 /// ## Android 的编译链注意事项
 /// `permission_handler_android` 要求宿主 `compileSdk` 高于 Flutter 默认值。
 /// 本项目平台目录由 CI 现场生成，故在构建期由
-/// `tool/inject_android_gradle.py` 幂等注入 `compileSdk`（见 build.yml）。
+/// `tool/inject_platform_spec.py` 幂等注入 `compileSdk`（见 build.yml）。
 ///
 /// ## 平台差异
 /// | 平台            | 存储                 | 通知                 |

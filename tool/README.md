@@ -1,15 +1,23 @@
 # tool · 工具目录
 
-本目录全部为**仓库内工具**（随仓库分发，CI 依赖其中审计/构建脚本）。
+> 本目录全部为**仓库内工具**（随仓库分发，CI 依赖其中审计/构建脚本）。
+
+## 平台能力的分工（别再往注入里塞 Dart 能写的东西）
+
+| 类别 | 放哪 | 例 |
+| --- | --- | --- |
+| **能用 Dart 写的** | `lib/platform/`（每平台一份真实实现 + 门面选型） | 窗口标题、标题栏模式、最大化/最小化/关闭、权限网关、存储裁决 |
+| **物理上写不了 Dart 的** | `tool/platform_spec.yaml` → `inject_platform_spec.py` 在构建期注入 | Android 安装期权限、compileSdk/desugaring、Windows 编译宏、ICO/PNG 图标、macOS entitlements |
+
+注入**不是逃生舱**：`platform_spec.yaml` 的每一条都必须写 `why`（为什么不能
+用 Dart），脚本会强制校验，缺 `why` 直接拒绝执行。
 
 | 工具 | 用途 |
 | --- | --- |
-| `desktop_icon.py` | 零依赖 SVG → PNG/ICO 光栅化（CI 用） |
-| `inject_desktop_shell.py` | 桌面原生壳注入：Windows ICO + Runner.rc + 原生标题；Linux PNG 母版 + 原生标题 |
-| `inject_android_gradle.py` | Android Gradle 注入（compileSdk / 架构产物） |
-| `inject_android_manifest.py` | Android Manifest 注入（权限 / 长路径可选） |
-| `inject_android_icon.py` | Android 图标注入（VectorDrawable + 自适应图标） |
-| `inject_windows_cmake.py` | Windows CMake 兼容宏注入（permission_handler） |
+| `platform_spec.yaml` | 平台私有文件规格（`why` 必填，是这个文件存在的理由） |
+| `inject_platform_spec.py` | 按 spec 注入（幂等；`--list` / `--target` / `--job`） |
+| `inject_platform_spec_selftest.py` | 注入器自检（临时目录假脚手架，21 项，可挂 CI） |
+| `desktop_icon.py` | 零依赖 SVG → PNG/ICO 光栅化（被上面的注入器调用） |
 | `linux_packages.py` | Linux 打包：deb / rpm / AppImage |
 | `boot_manifest.py` | 引导清单生成与 Ed25519 签名 |
 | `layer_audit.py` | CI 门禁：四层依赖只能向下 |
