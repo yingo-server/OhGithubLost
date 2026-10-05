@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..'))
 
 # 下载加速域名：把 GitHub 的 assets 域名换成镜像，实测更快。
-ACCEL_HOST = 'gh.344977.xyz'
+ACCEL_HOST = 'gh.felicity.ac.cn/https://github.com'
 
 # 版本 → 发布日期（读取产物清单的 published_at 更准，这里只作兜底）
 FALLBACK_DATES = {
