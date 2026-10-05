@@ -91,7 +91,7 @@ jobs:
       #   - 缺任何 wasm / 网络 / 存储 / 解码前提即**抛错**（CI 变红）。
       - name: 注入浏览器 API 守卫（wasm 与浏览器能力门禁）
         shell: bash
-        run: python3 tool/web_build.py --prepare
+        run: python3 tool/web_build.py --preflight --prepare
 
       # 引导清单注入件与其它平台共用；release 包缺它会拒绝启动。
       # 这里不依赖 build.yml 的 manifest job（避免跨工作流依赖失败传播），

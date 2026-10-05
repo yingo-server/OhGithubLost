@@ -2,6 +2,54 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## v6.0.1（2026-10-05 · 正式版）
+
+> **主题**：内置加速通道换新代理 + 新增**实验性** Web（wasm）构建管线。
+> 加速通道面向所有正式平台；Web 目标为实验性补充，**编译失败不影响发布**。
+
+### 新增 · Added
+- **实验性 Web（wasm）构建管线**（`.github/workflows/web.yml` · `tool/web_build.py`）：
+  独立工作流，`flutter build web --release --wasm`，产物**发布到仓库 `app/`**。
+  - **浏览器 API 守卫（动态注入）**：把 `web_api_guard.js` 写进 `web/` 并把
+    `<script>` **注入** `web/index.html`（幂等），在 Flutter 引擎加载**之前**
+    逐项检查 `WebAssembly` / `instantiateStreaming` / `fetch` / `ReadableStream` /
+    `TextDecoder` / `crypto.getRandomValues` / `indexedDB` / `atob·btoa` / `URL` /
+    `Worker` / `performance.now` 与跨源隔离（`SharedArrayBuffer` + COOP/COEP），
+    **缺任何一项即抛错并给出可读原因**，绝不静默白屏。
+  - **编译期门禁**：`--preflight` 预检已知阻塞 wasm 的依赖（见下"已知限制"），
+    `--verify` 核对产物（`index.html` / `flutter_bootstrap.js` / `main.dart.js` /
+    `.wasm` / 渲染引擎 / 守卫已注入），缺一即抛错。
+  - **`app/` 先清空后重建**：`--publish` 内部 `rmtree` + 重建，每次构建**只保留
+    最新**一套 web 文件，旧 wasm / canvaskit 缓存不会残留；提交走 GitHub REST
+    （Git Data API），与本机 git 不可用的现状兼容。
+  - **与发布完全解耦**：独立工作流 + `continue-on-error`，**不被 `build.yml` 的
+    `release` 任务依赖**，web 失败不阻塞也不污染任何正式发布结果（CI 实证）。
+
+### 变更 · Changed
+- **内置加速通道改走 `gh.felicity.ac.cn` 转发完整 GitHub 链接**
+  （`lib/surface/util/accel.dart`）：
+  - 优先前缀由 `https://gh.344977.xyz/` 改为
+    **`https://gh.felicity.ac.cn/https://github.com/`**，即拼出
+    `https://gh.felicity.ac.cn/https://github.com/…` 这种**转发完整链接**的形式；
+  - `https://gh.felicity.ac.cn/` 保留为降级备选，仍按序探测、**静默降级**，
+    最后永远保留直连兜底；
+  - 对用户仍是**一个**不可删改的「内置通道」；自定义通道与协议同意机制不变。
+  - 断言同步更新（`test/surface/path_rules_test.dart`）。
+
+### 变更 · Changed（文档）
+- 更新日志站（`changed/`）**全部** Release 下载链接由旧式镜像前缀改为
+  `https://gh.felicity.ac.cn/https://github.com/…` 形式；生成器
+  `changed/generate_posts.py` 的 `ACCEL_HOST` 同步更新，保证后续重新生成一致。
+
+### 已知限制 · Known limits
+- **Web（wasm）当前编译不通过（实验性，预期内）**：`saf_util` / `saf_stream`
+  依赖 `jni` 与 `ffi`，而 wasm **不支持 `dart:ffi`**，dart2wasm 因此报
+  `Dart library 'dart:ffi' is not available on this platform`（CI 实证）。
+  `--preflight` 会在编译前点名这些依赖。**此为已知且被容忍的状态**：该腿失败
+  不影响任何正式平台构建与发布；要真正产出 wasm，需为 SAF / 文件系统能力补
+  web 实现。
+- 加速通道仅作用于 **Release 附件**；仓库文件 / Gist 等下载不经过它。
+
 ## v6.0.0（2026-10-05 · 正式版）
 
 > **合并说明**：本版包含 **v5.9.0**（未发布成功 · 构建失败）的全部功能，以及 v5.7.0 / v5.8.0 跳号期间准备的跨平台硬化内容。

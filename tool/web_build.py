@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -271,9 +272,33 @@ def publish(build_dir: str, app_dir: str, keep_stamp: bool = True) -> None:
     print('[publish] 已清空并重建 %s（%d 个文件）' % (app_dir, count))
 
 
+def preflight(deps_lock: str) -> None:
+    """编译前预检：识别**已知阻塞 web/wasm 的依赖**，提前给出可读原因。
+
+    实测（CI 实证，dart2wasm 报 `Dart library 'dart:ffi' is not
+    available on this platform`）：`saf_util` / `saf_stream` 依赖 `jni`
+    与 `ffi`，而 wasm 不支持 `dart:ffi`。这类依赖**无法靠运行时守卫
+    兜底**，只能在编译期说清楚，避免日志里只剩一屏 FFI 报错。
+    """
+    if not os.path.isfile(deps_lock):
+        return
+    text = _read(deps_lock)
+    blockers = sorted({
+        line.split(':', 1)[0].strip()
+        for line in text.splitlines()
+        if re.match(r'^\s{2}(jni|ffi|saf_util|saf_stream):', line)
+    })
+    if blockers:
+        print('[preflight] 警告：以下依赖使用 dart:ffi，wasm 编译会被阻塞：%s'
+              % '、'.join(blockers))
+        print('[preflight] 若 web 为实验性目标，可忽略此腿失败；'
+              '若要真正产出 wasm，需为这些能力补 web 实现。')
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description='OGL web 编译辅助')
     ap.add_argument('--prepare', action='store_true', help='体检 + 注入守卫')
+    ap.add_argument('--preflight', action='store_true', help='预检 wasm 阻塞依赖')
     ap.add_argument('--verify', action='store_true', help='校验编译产物')
     ap.add_argument('--publish', action='store_true', help='清空并重建 app/')
     ap.add_argument('--web', default=os.path.join(ROOT, 'web'))
@@ -282,6 +307,8 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
+        if args.preflight:
+            preflight(os.path.join(ROOT, 'pubspec.lock'))
         if args.prepare:
             ensure_scaffold(args.web)
             write_guard(args.web)
@@ -296,7 +323,7 @@ def main() -> int:
     except WebBuildError as error:
         sys.stderr.write('[web_build] 门禁失败：%s\n' % error)
         return 1
-    if not (args.prepare or args.verify or args.publish):
+    if not (args.prepare or args.preflight or args.verify or args.publish):
         ap.print_help()
         return 2
     return 0
