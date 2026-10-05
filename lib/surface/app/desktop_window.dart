@@ -111,8 +111,11 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
   @override
   void onWindowMaximize() => _sync();
 
+  /// 方法名是 `onWindowUnmaximize`（un-maximize），不是 `onWindowUnimize` ——
+  /// 写错会被 `analyze --fatal-warnings` 当作
+  /// `override_on_non_overriding_member` 直接打红。
   @override
-  void onWindowUnimize() => _sync();
+  void onWindowUnmaximize() => _sync();
 
   @override
   Widget build(BuildContext context) {
