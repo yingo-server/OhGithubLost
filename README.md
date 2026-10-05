@@ -32,11 +32,13 @@
 
 每个版本在 **Releases** 发布，产物仅压缩包（zip + 7z 极限压缩），Linux 额外裸放 deb / rpm / AppImage。
 
-| 平台 | 产物 |
+| 平台 | 产物名（`<version>` 取版本号，如 `v6.0.0`） |
 | --- | --- |
-| Android | `OGL-<version>-android-arm64-v8a.apk.zip` / `-armeabi-v7a` / `-x86_64` / `-universal` / `-aab.zip` |
-| Windows | `OGL-<version>-windows-x64.zip` / `-arm64.zip` |
-| Linux | `OGL-<version>-linux-x64.deb` / `.rpm` / `.AppImage`（arm64 同理） |
+| Android | `OGL-<version>-Android.arm64-v8a.zip` / `.armeabi-v7a` / `.x86_64` / `.universal-APK` / `.AAB` |
+| Windows | `OGL-<version>-Windows.x64.zip` / `.arm64.zip` |
+| Linux | `OGL-<version>-Linux.x64.deb` / `.rpm` / `.AppImage`（`.arm64` 同理） |
+
+每个压缩包都有 **zip 与 7z 两份**（极限压缩），按需选一种即可。
 
 解压后：
 - **Android**：直接安装 APK；
@@ -66,6 +68,7 @@ lib/                 源码（四层架构）
   base/              硬件层：网络（DoH / 镜像 / 重试）+ 磁盘（原子写 / 长路径 / 缓存）
   domain/            逻辑层：GitHub API、本地深层信息
   surface/           交互层：UI、设置、i18n
+changed/             更新日志站点（Jekyll 源，同时发布到 GitHub Pages 与 Netlify）
 release_notes/       发布说明（每版本一个 .md，中英对照）
 test/                测试（base / domain / kernel / surface / screenshots）
 tool/                工具（图标光栅化 / 桌面壳注入 / Linux 打包 / 审计门禁）
@@ -84,6 +87,9 @@ CI 用 `tool/layer_audit.py --fatal` 强制。
 | `docs/I18N.md` | 多语言维护手册（新增文案 / 翻译流程） |
 | `release_notes/v6.0.0.md` | 本版本发布说明（中英对照） |
 | `CHANGELOG.md` | 完整版本历史（含未发布 / 跳过版本的事实标注） |
+
+**更新日志站点**：<https://yingo-server.github.io/OhGithubLost/>
+逐版本的中英对照说明都在这里，比翻 Releases 列表更快；Netlify 镜像同源同内容。
 
 ## 发布节奏 / Release cadence
 
