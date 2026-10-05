@@ -44,7 +44,7 @@ specs:
       高于 Flutter 模板默认值，而该值只能在 Gradle 解析阶段确定；运行时
       拿到的是已编译好的 APK，改它没有任何意义。
     steps:
-      - file: android/app/build.gradle
+      - file: android/app/build.gradle.kts
         # 幂等：已含该标记即视为已注入
         marker: "OGL_PLATFORM_SPEC compileSdk"
         patch: compile_sdk
@@ -54,7 +54,7 @@ specs:
         #     "requires ... compile against version 37 or later"）。
         #   这是本项唯一的耦合点：插件抬高要求时这里必须跟着抬。
         compile_sdk: 37
-      - file: android/app/build.gradle
+      - file: android/app/build.gradle.kts
         marker: "OGL_PLATFORM_SPEC desugaring"
         patch: core_library_desugaring
         # 仅 flutter_local_notifications 需要（java.time）
@@ -120,8 +120,12 @@ specs:
         marker: "OGL_PLATFORM_SPEC coroutine"
         patch: add_compile_definitions
         definitions:
+          # MSVC 14.5x（VS2026）把 `<experimental/coroutine>` 判为**错误**
+          # （STL1011），要求按它点名的宏来抑制，否则编译失败。
+          # 报错文件是插件自己的 vcxproj，故宏必须加在顶层 CMakeLists，
+          # 且要早于所有 add_subdirectory，才能传播到插件子工程。
+          - _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
           - _SILENCE_CXX17_UNCAUGHT_EXCEPTION_DEPRECATION_WARNING
-          - _HAS_EXCEPTIONS=0
 
   - target: windows
     id: windows-icon

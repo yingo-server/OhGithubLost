@@ -31,6 +31,15 @@ SPEC = os.path.join(ROOT, 'tool', 'platform_spec.yaml')
 
 DESUGAR_DEP = 'com.android.tools:desugar_jdk_libs:2.1.4'
 
+# 这些 patch 是**凭空创建**文件，目标本来就不存在；其余 patch 都是**修改已有
+# 文件**，目标缺失即代表 spec 与模板脱节，必须报错（见 main）。
+CREATE_PATCHES = frozenset((
+    'write_vector_xml',
+    'write_adaptive_icon_xml',
+    'write_ico',
+    'write_png',
+))
+
 # Android 自适应图标（几何源 assets/icon/ogl_icon.svg，见 inject_android_icon.py）。
 ADAPTIVE_ICON = """<?xml version="1.0" encoding="utf-8"?>
 <!-- OGL_PLATFORM_SPEC icon -->
@@ -99,7 +108,12 @@ def _scalar(text: str):
     if not text:
         return None
     if text[0] in ('"', "'") and text[-1] == text[0] and len(text) >= 2:
-        return text[1:-1]
+        inner = text[1:-1]
+        if text[0] == '"':
+            # 双引号标量支持反斜杠转义（spec 里用它写 `android:label="OGL"`）。
+            return inner.replace('\\"', '"').replace('\\\\', '\\')
+        # 单引号标量里只有 '' 表示一个引号。
+        return inner.replace("''", "'")
     if text in ('true', 'True'):
         return True
     if text in ('false', 'False'):
@@ -111,96 +125,175 @@ def _scalar(text: str):
     return text
 
 
-def _parse_minimal_yaml(path: str):
-    """兜底解析：够用即可（本文件的结构固定）。"""
-    root: dict = {}
-    items: list = []
-    current_item: dict | None = None
-    current_steps: list | None = None
-    current_step: dict | None = None
-    current_list_key: str | None = None
-    pending_fold = False
+def _split_kv(body: str):
+    """拆 `key: value`。
 
+    YAML 规则：**只有** `:` 后跟空格（或行尾）才是键分隔符。
+    因此 `- android:requestLegacyExternalStorage` 整体是一个标量，
+    不是 `{android: requestLegacyExternalStorage}`。
+    """
+    quote = None
+    for pos, ch in enumerate(body):
+        if quote:
+            if ch == quote:
+                quote = None
+            continue
+        if ch in ('"', "'"):
+            quote = ch
+            continue
+        if ch == ':' and (pos + 1 == len(body) or body[pos + 1] in ' \t'):
+            return body[:pos].strip(), body[pos + 1:].strip()
+    return None, None
+
+
+def _tokenize_yaml(path: str):
+    """把源行折叠成 `(indent, body, folded)` 三元组序列。
+
+    在**词法阶段**就把 `key: >` / `key: |` 的块内容合并进同一行，
+    解析器因此只需面对两种结构：映射与列表（缩进决定归属）。
+    """
+    raw: list = []
     with open(path, encoding='utf-8') as handle:
-        for raw in handle:
-            line = _strip_comment(raw)
-            if not line.strip():
-                continue
+        for line in handle:
+            raw.append(_strip_comment(line).rstrip())
 
-            indent = len(line) - len(line.lstrip())
-            body = line.strip()
-
-            # `key: >` / `key: |` —— 折叠块，直接吞掉后续更深缩进
-            m = re.match(r'^([A-Za-z_][\w]*):\s*([>|])\s*$', body)
-            if m:
-                pending_fold = True
-                if current_step is not None:
-                    current_step[m.group(1)] = ''
-                elif current_item is not None:
-                    current_item[m.group(1)] = ''
-                else:
-                    root[m.group(1)] = ''
-                continue
-            if pending_fold and indent > 0 and body.startswith(' '):
-                continue
-            pending_fold = False
-
-            if body.startswith('- '):
-                item_body = body[2:].strip()
-                if current_steps is not None and current_step is None:
-                    current_step = {}
-                    current_steps.append(current_step)
-                if current_item is None:
-                    current_item = {}
-                    items.append(current_item)
-                    current_steps = None
-                    current_step = None
-                if ':' in item_body:
-                    key, _, value = item_body.partition(':')
-                    current_item[key.strip()] = _scalar(value)
-                    if key.strip() == 'steps':
-                        current_steps = current_item['steps'] = []
-                        current_step = None
-                    current_list_key = None
-                else:
-                    if current_list_key and current_item is not None:
-                        current_item.setdefault(current_list_key, [])
-                        current_item[current_list_key].append(_scalar(item_body))
-                    elif current_step is not None:
-                        current_step.setdefault('_values', []).append(_scalar(item_body))
-                continue
-
-            if current_step is not None:
-                if indent >= 6:
-                    if ':' in body:
-                        key, _, value = body.partition(':')
-                        if body.strip().endswith(':') or value.strip() == '':
-                            current_step[key.strip()] = []
-                            current_list_key = key.strip()
-                        else:
-                            current_step[key.strip()] = _scalar(value)
-                            current_list_key = None
+    out: list = []
+    index = 0
+    total = len(raw)
+    while index < total:
+        body = raw[index]
+        if not body.strip() or body.strip() in ('---', '...'):
+            index += 1
+            continue
+        indent = len(body) - len(body.lstrip())
+        stripped = body.strip()
+        match = re.match(r'^(.+?)\s*:\s*([>|])\s*$', stripped)
+        if match:
+            key = match.group(1)
+            style = match.group(2)
+            cursor = index + 1
+            parts: list = []
+            while cursor < total:
+                nxt = raw[cursor]
+                if not nxt.strip():
+                    cursor += 1
                     continue
-                current_step = None
-                current_steps = None
-                current_list_key = None
+                nindent = len(nxt) - len(nxt.lstrip())
+                if nindent <= indent:
+                    break
+                parts.append(nxt.strip())
+                cursor += 1
+            # YAML 的折叠/保留标量总是以换行结尾，与 PyYAML 保持一致。
+            joined = ('\n' if style == '|' else ' ').join(parts) + '\n'
+            out.append((indent, '%s:' % key.strip(), joined))
+            index = cursor
+            continue
+        out.append((indent, stripped, None))
+        index += 1
+    return out
 
-            if current_item is not None:
-                if indent >= 2:
-                    key, _, value = body.partition(':')
-                    if value.strip() == '':
-                        current_item[key.strip()] = None
-                    else:
-                        current_item[key.strip()] = _scalar(value)
-                    continue
-                current_item = None
 
-            key, _, value = body.partition(':')
-            root[key.strip()] = _scalar(value) if value.strip() else None
+def _parse_block(tokens: list, i: int, indent: int):
+    """解析缩进恰为 `indent` 的块 → `(值, 下一行下标)`。"""
+    if tokens[i][1].startswith('-'):
+        return _parse_seq(tokens, i, indent)
+    return _parse_map(tokens, i, indent)
 
-    if items:
-        root['specs'] = items
-    return root
+
+def _parse_map(tokens: list, i: int, indent: int):
+    out: dict = {}
+    total = len(tokens)
+    while i < total:
+        ind, body, folded = tokens[i]
+        if ind != indent or body.startswith('-'):
+            break
+        key, value = _split_kv(body)
+        if key is None:
+            i += 1
+            continue
+        if folded is not None:
+            out[key] = folded
+            i += 1
+        elif value == '':
+            if i + 1 < total and tokens[i + 1][0] > indent:
+                sub, i = _parse_block(tokens, i + 1, tokens[i + 1][0])
+                out[key] = sub
+            else:
+                out[key] = None
+                i += 1
+        else:
+            out[key] = _scalar(value)
+            i += 1
+    return out, i
+
+
+def _parse_seq(tokens: list, i: int, indent: int):
+    out: list = []
+    total = len(tokens)
+    while i < total:
+        ind, body, folded = tokens[i]
+        if ind != indent or not body.startswith('-'):
+            break
+        inner = body[1:].strip()
+        i += 1
+        if not inner:
+            if i < total and tokens[i][0] > indent:
+                sub, i = _parse_block(tokens, i, tokens[i][0])
+                out.append(sub)
+            else:
+                out.append(None)
+            continue
+        key, value = _split_kv(inner)
+        if key is None:
+            out.append(_scalar(inner))
+            continue
+        # 列表项本身是映射的起始：`- key: value`，同项其余键缩进更深。
+        item: dict = {}
+        if folded is not None:
+            item[key] = folded
+        elif value == '':
+            if i < total and tokens[i][0] > indent:
+                sub, i = _parse_block(tokens, i, tokens[i][0])
+                item[key] = sub
+            else:
+                item[key] = None
+        else:
+            item[key] = _scalar(value)
+        while i < total and tokens[i][0] > indent and not tokens[i][1].startswith('-'):
+            sub_ind, sub_body, sub_folded = tokens[i]
+            k2, v2 = _split_kv(sub_body)
+            if k2 is None:
+                break
+            if sub_folded is not None:
+                item[k2] = sub_folded
+                i += 1
+            elif v2 == '':
+                if i + 1 < total and tokens[i + 1][0] > sub_ind:
+                    s, i = _parse_block(tokens, i + 1, tokens[i + 1][0])
+                    item[k2] = s
+                else:
+                    item[k2] = None
+                    i += 1
+            else:
+                item[k2] = _scalar(v2)
+                i += 1
+        out.append(item)
+    return out, i
+
+
+def _parse_minimal_yaml(path: str):
+    """兜底解析：零依赖地正确解析 `platform_spec.yaml`。
+
+    为什么不能将就：Windows / Linux runner 上未必装有 PyYAML，一旦这份兜底
+    解析结果不完整，spec 会被**静默跳过**（表现为"规格中没有 windows 的条目"），
+    平台编译宏 / 权限 / 图标全部不注入，构建期才炸，且日志里看不出是解析问题。
+    `inject_platform_spec_selftest.py` 会断言它与 PyYAML 的结果一致。
+    """
+    tokens = _tokenize_yaml(path)
+    if not tokens:
+        return {}
+    value, _ = _parse_block(tokens, 0, tokens[0][0])
+    return value if isinstance(value, dict) else {}
 
 
 def _read(path: str) -> str:
@@ -231,6 +324,11 @@ def _resolve(root: str, relative: str) -> str:
 
 
 # ── 各 patch 实现 ────────────────────────────────────────────────────────
+
+def _is_kotlin_dsl(path: str) -> bool:
+    """`build.gradle.kts`（Kotlin DSL）还是 `build.gradle`（Groovy）。"""
+    return str(path).endswith('.kts')
+
 
 def patch_compile_sdk(root: str, step: dict) -> int:
     """把宿主 compileSdk 抬到插件要求的版本。
@@ -264,67 +362,78 @@ def patch_compile_sdk(root: str, step: dict) -> int:
         print('  [失败] %s 里找不到 compileSdk（模板写法可能又变了）' % path)
         return 1
     _write(path, updated)
-    print('  [注入] %s → compileSdk %d' % (path, target))
+    print('  [注入] %s → compileSdk %d（%s）'
+          % (path, target, 'Kotlin DSL' if _is_kotlin_dsl(path) else 'Groovy'))
     return 0
 
 
 def patch_core_library_desugaring(root: str, step: dict) -> int:
     """开启 core library desugaring（`flutter_local_notifications` 硬要求）。
 
-    ⚠️ 坑（CI 实证）：只把 `coreLibraryDesugaringEnabled` 打开**不够**，
-    还必须在 `dependencies { }` 里声明 `coreLibraryDesugaring` 依赖，
-    否则 Gradle 报：
-      `Dependency ':flutter_local_notifications' requires core library
-       desugaring to be enabled for :app`
-    （因为 AAR metadata 检查读的是依赖是否真的存在。）
+    ⚠️ 三个坑（均为 CI 实证）：
+    1. 只把开关打开**不够**，还必须在 `dependencies {}` 里声明
+       `coreLibraryDesugaring` 依赖 —— AAR metadata 检查读的是依赖是否
+       真的存在，否则报
+       `Dependency ':flutter_local_notifications' requires core library
+        desugaring to be enabled for :app`。
+    2. Flutter 3.47.5 的模板已改为 **Kotlin DSL**（`build.gradle.kts`）。
+       Groovy 写法（`coreLibraryDesugaringEnabled true`、单引号依赖）在
+       `.kts` 里是**非法 Kotlin 语法**，必须按扩展名分派。
+    3. 开关在 `android { compileOptions { } }` 里，依赖在**顶层**
+       `dependencies { }` 里 —— 两者位置不同，要分别注入。
     """
     path = step['file']
+    kotlin = _is_kotlin_dsl(path)
+    # Kotlin: isCoreLibraryDesugaringEnabled = true / coreLibraryDesugaring("…")
+    # Groovy: coreLibraryDesugaringEnabled true    / coreLibraryDesugaring '…'
+    enable_line = ('isCoreLibraryDesugaringEnabled = true' if kotlin
+                   else 'coreLibraryDesugaringEnabled true')
+    dep_line = ('    coreLibraryDesugaring("%s")' % DESUGAR_DEP if kotlin
+                else "    coreLibraryDesugaring '%s'" % DESUGAR_DEP)
+
     text = _read(path)
     if 'OGL_PLATFORM_SPEC desugaring' in text:
         print('  [已存在] desugaring（%s）' % path)
         return 0
 
     updated = text
-    # ① 打开开关（两种 DSL 写法都覆盖）
-    if re.search(r'coreLibraryDesugaringEnabled\s*=?\s*(true|True)', updated):
-        updated = re.sub(r'coreLibraryDesugaringEnabled\s*=?\s*(true|True)',
-                         'coreLibraryDesugaringEnabled true '
-                         '// OGL_PLATFORM_SPEC desugaring', updated, count=1)
-    elif re.search(r'coreLibraryDesugaring\s+[\'"]', updated):
-        # 已经有 `coreLibraryDesugaring 'x'` 行：开关多半已开，只补标记。
-        updated = re.sub(r'coreLibraryDesugaring\s+([\'"])',
-                         r'coreLibraryDesugaring \1 // OGL_PLATFORM_SPEC desugaring',
-                         updated, count=1)
-    else:
-        # 模板里两者都没有：在 android {} 块末尾的 compileOptions 里插入。
-        if 'compileOptions' in updated:
-            updated = updated.replace(
-                'compileOptions {',
-                'compileOptions {\n        coreLibraryDesugaringEnabled true '
-                '// OGL_PLATFORM_SPEC desugaring\n        '
-                "coreLibraryDesugaring '%s'" % DESUGAR_DEP,
-                1)
-        else:
-            print('  [跳过] %s 里没有 compileOptions（模板已变？）' % path)
-            return 0
+    # ① 开关：模板里可能已经开了（那就只补标记），也可能压根没有（要插入）。
+    switched = False
+    for pattern in (r'isCoreLibraryDesugaringEnabled\s*=\s*true',
+                    r'coreLibraryDesugaringEnabled\s*=\s*true',
+                    r'coreLibraryDesugaringEnabled\s+true'):
+        if re.search(pattern, updated):
+            updated = re.sub(
+                r'([^\n]*?true)', r'\1  // OGL_PLATFORM_SPEC desugaring',
+                updated, count=1)
+            switched = True
+            break
+    if not switched:
+        if 'compileOptions' not in updated:
+            print('  [失败] %s 里没有 compileOptions（模板已变？）' % path)
+            return 1
+        updated = updated.replace(
+            'compileOptions {',
+            'compileOptions {\n        %s  // OGL_PLATFORM_SPEC desugaring'
+            % enable_line, 1)
 
     if 'OGL_PLATFORM_SPEC desugaring' not in updated:
-        print('  [跳过] desugaring 注入未命中：%s' % path)
-        return 0
+        print('  [失败] desugaring 开关注入未命中：%s' % path)
+        return 1
 
-    # ② 必须同时声明依赖，否则 AAR metadata 检查照样失败。
-    if DESUGAR_DEP not in updated.split('OGL_PLATFORM_SPEC desugaring')[-1]:
-        dep_line = "    coreLibraryDesugaring '%s'" % DESUGAR_DEP
+    # ② 依赖：必须在 dependencies 块里声明（AAR metadata 检查只看它）。
+    if DESUGAR_DEP not in updated:
         if re.search(r'\n\s*dependencies\s*\{', updated):
             updated = re.sub(r'(\n\s*dependencies\s*\{\n)',
                              r'\1' + dep_line + '\n', updated, count=1)
-            print('  [注入] %s → dependencies 里补 desugar 依赖' % path)
-        elif dep_line.strip() not in updated:
-            print('  [警告] %s 里找不到 dependencies 块，请手工确认 '
+        else:
+            print('  [失败] %s 里找不到 dependencies 块，请手工确认 '
                   'coreLibraryDesugaring 依赖' % path)
+            return 1
 
     _write(path, updated)
-    print('  [注入] %s → desugaring 已开启并声明依赖' % path)
+    print('  [注入] %s → desugaring 已开启并声明依赖（%s）'
+          % (path, 'Kotlin DSL' if kotlin else 'Groovy'))
     return 0
 
 
@@ -502,16 +611,30 @@ def main() -> int:
                 continue
             # handler 一律接收**绝对路径**（spec 里写的是相对仓库根的路径）。
             resolved = os.path.join(args.root, step['file'])
-            if not os.path.exists(resolved) and step.get('patch') not in (
-                    'write_vector_xml', 'write_adaptive_icon_xml',
-                    'write_ico', 'write_png'):
-                print('  [跳过] %s 不存在（非该平台构建）' % step['file'])
+            if not os.path.exists(resolved) and step.get('patch') not in CREATE_PATCHES:
+                # ★ 这里必须**报错退出**，不能静默跳过。
+                #   正在构建 --target 指定的平台，就说明该平台的文件一定存在；
+                #   找不到只有一种解释：**spec 与 Flutter 模板脱节**（例如模板
+                #   从 build.gradle 迁到了 build.gradle.kts）。
+                #   曾经就是这里静默跳过，导致 compileSdk 没抬、desugaring
+                #   没开，Android 五条腿全红，而日志里看不出是注入问题。
+                sys.stderr.write(
+                    '  [失败] %s 不存在（正在构建 %s 平台却缺目标文件）：'
+                    '多半是 Flutter 模板改名/迁移了，请同步 tool/platform_spec.yaml\n'
+                    % (step['file'], args.target))
+                failed += 1
                 continue
             step = dict(step, file=resolved)
             failed += handler(args.root, step)
 
     if not ran:
-        print('规格中没有 %s 的条目（跳过）' % args.target)
+        # ★ 同样必须报错：`--target X` 却一条 spec 都没匹配上，说明 spec 里
+        #   没有 X 的条目 —— 这正是"Windows 两条腿全红且日志只显示一行
+        #   '规格中没有 windows 的条目（跳过）'"的成因。
+        sys.stderr.write(
+            '[失败] 规格里没有 %s 的条目：请检查 tool/platform_spec.yaml '
+            '是否被解析器漏读（本文件依赖零依赖兜底解析器）\n' % args.target)
+        failed += 1
     return 1 if failed else 0
 
 
