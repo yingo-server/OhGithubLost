@@ -29,8 +29,7 @@
   JEKYLL_ENV = "production"
   # 与 changed/Gemfile 中的 ruby "3.2.4" 对应；Netlify 依此挑选构建镜像。
   RUBY_VERSION = "3.2.4"
-  # 站点无第三方插件，公开构建不需要任何 token；同时避免误装付费插件。
-  NETLIFY_USE_YARN = false
+  # 站点无第三方插件，公开构建不需要任何 token。
 
 # ── 缓存 ────────────────────────────────────────────────────────────────
 # 页面随每次发布变化，因此 HTML 一律不缓存（must-revalidate 交给浏览器校验），
