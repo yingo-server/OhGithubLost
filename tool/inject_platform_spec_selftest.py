@@ -33,6 +33,17 @@ FAKE_ANDROID_GRADLE = """android {
 }
 """
 
+# Flutter 模板的另一套写法（Groovy / 旧模板）：必须同样能被注入命中。
+FAKE_ANDROID_GRADLE_GROOVY = """android {
+    compileSdkVersion flutter.compileSdkVersion
+
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    }
+}
+"""
+
 FAKE_MANIFEST = """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
@@ -164,6 +175,34 @@ def main():
         print('⑧ 仓库根未被污染（不许建出 android/ linux/ 等）')
         clean, leaked = repo_is_clean(tmp)
         check('仓库根干净', clean, '泄漏：%s' % '、'.join(leaked))
+
+        print('⑨ compileSdk 两种模板写法都能命中')
+        # ⑨-a Groovy 旧写法：`compileSdkVersion flutter.compileSdkVersion`
+        groovy_dir = os.path.join(tmp, 'groovy')
+        os.makedirs(os.path.join(groovy_dir, 'android', 'app'))
+        groovy_gradle = os.path.join(groovy_dir, 'android', 'app', 'build.gradle')
+        with open(groovy_gradle, 'w', encoding='utf-8') as fh:
+            fh.write(FAKE_ANDROID_GRADLE_GROOVY)
+        rg = run(groovy_dir, '--target', 'android')
+        check('Groovy 写法退出码 0', rg.returncode == 0, rg.stderr[:200])
+        groovy_text = open(groovy_gradle, encoding='utf-8').read()
+        check('Groovy 写法已注入',
+              'OGL_PLATFORM_SPEC compileSdk' in groovy_text)
+        check('Groovy 写法已替换为数字',
+              'flutter.compileSdkVersion' not in groovy_text.split('OGL')[0])
+
+        # ⑨-b Kotlin DSL 写法：`compileSdk = flutter.compileSdkVersion`
+        kts_dir = os.path.join(tmp, 'kts')
+        os.makedirs(os.path.join(kts_dir, 'android', 'app'))
+        kts_gradle = os.path.join(kts_dir, 'android', 'app', 'build.gradle')
+        with open(kts_gradle, 'w', encoding='utf-8') as fh:
+            fh.write(FAKE_ANDROID_GRADLE.replace('compileSdk = 35',
+                                                'compileSdk = flutter.compileSdkVersion'))
+        rk = run(kts_dir, '--target', 'android')
+        check('Kotlin DSL 写法退出码 0', rk.returncode == 0, rk.stderr[:200])
+        kts_text = open(kts_gradle, encoding='utf-8').read()
+        check('Kotlin DSL 写法已注入',
+              'OGL_PLATFORM_SPEC compileSdk' in kts_text)
 
         print()
         if FAILURES:

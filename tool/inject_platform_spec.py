@@ -233,19 +233,38 @@ def _resolve(root: str, relative: str) -> str:
 # ── 各 patch 实现 ────────────────────────────────────────────────────────
 
 def patch_compile_sdk(root: str, step: dict) -> int:
+    """把宿主 compileSdk 抬到插件要求的版本。
+
+    必须覆盖 Flutter 模板的**全部**写法，否则会静默不生效：
+      `compileSdkVersion flutter.compileSdkVersion`（Groovy 旧模板）
+      `compileSdk = flutter.compileSdkVersion`（Kotlin DSL 新模板）
+      `compileSdkVersion 35` / `compileSdk = 35`（直接写数字）
+    """
     target = step.get('compile_sdk', 36)
-    text = _read(step['file'])
+    path = step['file']
+    text = _read(path)
     if 'OGL_PLATFORM_SPEC compileSdk' in text:
-        print('  [已存在] compileSdk（%s）' % step['file'])
+        print('  [已存在] compileSdk（%s）' % path)
         return 0
-    updated = re.sub(r'compileSdk\s*=?\s*\w+',
-                     'compileSdk %d // OGL_PLATFORM_SPEC compileSdk' % target,
-                     text, count=1)
+
+    marker = ' // OGL_PLATFORM_SPEC compileSdk'
+    updated = text
+    # ① flutter.compileSdkVersion 引用式
+    updated = re.sub(r'compileSdkVersion\s+flutter\.compileSdkVersion',
+                     'compileSdkVersion %d%s' % (target, marker), updated)
+    updated = re.sub(r'compileSdk\s*=\s*flutter\.compileSdkVersion',
+                     'compileSdk = %d%s' % (target, marker), updated)
+    # ② 直接写数字
+    updated = re.sub(r'compileSdkVersion\s+\d+',
+                     'compileSdkVersion %d%s' % (target, marker), updated)
+    updated = re.sub(r'compileSdk\s*=\s*\d+',
+                     'compileSdk = %d%s' % (target, marker), updated)
+
     if 'OGL_PLATFORM_SPEC compileSdk' not in updated:
-        print('  [失败] %s 里找不到 compileSdk' % step['file'])
+        print('  [失败] %s 里找不到 compileSdk（模板写法可能又变了）' % path)
         return 1
-    _write(step['file'], updated)
-    print('  [注入] %s → compileSdk %d' % (step['file'], target))
+    _write(path, updated)
+    print('  [注入] %s → compileSdk %d' % (path, target))
     return 0
 
 
