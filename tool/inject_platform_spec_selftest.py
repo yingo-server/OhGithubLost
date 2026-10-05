@@ -6,6 +6,7 @@
 退出码 0 = 全部通过（可直接挂 CI）。
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -114,6 +115,16 @@ def main():
         manifest_text = open(manifest, encoding='utf-8').read()
         check('compileSdk 已标记', 'OGL_PLATFORM_SPEC compileSdk' in gradle_text)
         check('desugaring 已标记', 'OGL_PLATFORM_SPEC desugaring' in gradle_text)
+        # ★ 必须是 37：permission_handler_android 要求 37+（CI 实证）。
+        check('compileSdk 已抬到 37',
+              re.search(r'compileSdk\w*\s*=?\s*37', gradle_text) is not None,
+              gradle_text[:200])
+        # ★ desugaring 依赖必须真的声明（只在 compileOptions 里打开开关不够，
+        #   Gradle 仍会报 "requires core library desugaring to be enabled"）。
+        check('desugar 依赖已声明',
+              'com.android.tools:desugar_jdk_libs' in gradle_text)
+        check('desugaring 开关已开',
+              'coreLibraryDesugaringEnabled true' in gradle_text)
         check('INTERNET 已声明', 'android.permission.INTERNET' in manifest_text)
         check('MANAGE_EXTERNAL_STORAGE 已声明',
               'MANAGE_EXTERNAL_STORAGE' in manifest_text)

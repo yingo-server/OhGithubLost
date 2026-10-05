@@ -48,11 +48,12 @@ specs:
         # 幂等：已含该标记即视为已注入
         marker: "OGL_PLATFORM_SPEC compileSdk"
         patch: compile_sdk
-        # ★ 必须**显式给值**：不写就用脚本默认值，而默认值低于某些插件要求，
-        #   表现为 Gradle `:app:checkReleaseAarMetadata` 失败
-        #   （CI 实证：checkReleaseAarMetadata → "requires compileSdk ..."）。
-        #   一旦 Flutter 或插件抬高要求，这里要跟着抬——这是本项唯一的耦合点。
-        compile_sdk: 36
+        # ★ 必须**显式给值**，且要跟着插件要求抬高：
+        #   `permission_handler_android` 要求 compileSdk **37+**
+        #   （CI 实证：低于 37 时 `:app:checkReleaseAarMetadata` 报
+        #     "requires ... compile against version 37 or later"）。
+        #   这是本项唯一的耦合点：插件抬高要求时这里必须跟着抬。
+        compile_sdk: 37
       - file: android/app/build.gradle
         marker: "OGL_PLATFORM_SPEC desugaring"
         patch: core_library_desugaring

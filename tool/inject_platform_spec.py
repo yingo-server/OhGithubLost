@@ -269,26 +269,62 @@ def patch_compile_sdk(root: str, step: dict) -> int:
 
 
 def patch_core_library_desugaring(root: str, step: dict) -> int:
-    text = _read(step['file'])
+    """开启 core library desugaring（`flutter_local_notifications` 硬要求）。
+
+    ⚠️ 坑（CI 实证）：只把 `coreLibraryDesugaringEnabled` 打开**不够**，
+    还必须在 `dependencies { }` 里声明 `coreLibraryDesugaring` 依赖，
+    否则 Gradle 报：
+      `Dependency ':flutter_local_notifications' requires core library
+       desugaring to be enabled for :app`
+    （因为 AAR metadata 检查读的是依赖是否真的存在。）
+    """
+    path = step['file']
+    text = _read(path)
     if 'OGL_PLATFORM_SPEC desugaring' in text:
-        print('  [已存在] coreLibraryDesugaring')
+        print('  [已存在] desugaring（%s）' % path)
         return 0
-    if 'coreLibraryDesugaring' not in text:
-        # 模板版本差异：没有 compileOptions 块就退化为"跳过 + 告警"，
-        # 绝不让这一步把整条构建腿打红（真正的失败会在编译期暴露）。
-        print('  [跳过] %s 里没有 coreLibraryDesugaring 位置（模板已变？）' % step['file'])
-        return 0
-    updated = text.replace(
-        'coreLibraryDesugaring',
-        'coreLibraryDesugaring // OGL_PLATFORM_SPEC desugaring', 1)
-    updated = updated.replace(
-        "'coreLibraryDesugaring'",
-        "'coreLibraryDesugaring' // OGL_PLATFORM_SPEC desugaring", 1)
+
+    updated = text
+    # ① 打开开关（两种 DSL 写法都覆盖）
+    if re.search(r'coreLibraryDesugaringEnabled\s*=?\s*(true|True)', updated):
+        updated = re.sub(r'coreLibraryDesugaringEnabled\s*=?\s*(true|True)',
+                         'coreLibraryDesugaringEnabled true '
+                         '// OGL_PLATFORM_SPEC desugaring', updated, count=1)
+    elif re.search(r'coreLibraryDesugaring\s+[\'"]', updated):
+        # 已经有 `coreLibraryDesugaring 'x'` 行：开关多半已开，只补标记。
+        updated = re.sub(r'coreLibraryDesugaring\s+([\'"])',
+                         r'coreLibraryDesugaring \1 // OGL_PLATFORM_SPEC desugaring',
+                         updated, count=1)
+    else:
+        # 模板里两者都没有：在 android {} 块末尾的 compileOptions 里插入。
+        if 'compileOptions' in updated:
+            updated = updated.replace(
+                'compileOptions {',
+                'compileOptions {\n        coreLibraryDesugaringEnabled true '
+                '// OGL_PLATFORM_SPEC desugaring\n        '
+                "coreLibraryDesugaring '%s'" % DESUGAR_DEP,
+                1)
+        else:
+            print('  [跳过] %s 里没有 compileOptions（模板已变？）' % path)
+            return 0
+
     if 'OGL_PLATFORM_SPEC desugaring' not in updated:
-        print('  [跳过] desugaring 注入未命中')
+        print('  [跳过] desugaring 注入未命中：%s' % path)
         return 0
-    _write(step['file'], updated)
-    print('  [注入] %s → desugaring 标记' % step['file'])
+
+    # ② 必须同时声明依赖，否则 AAR metadata 检查照样失败。
+    if DESUGAR_DEP not in updated.split('OGL_PLATFORM_SPEC desugaring')[-1]:
+        dep_line = "    coreLibraryDesugaring '%s'" % DESUGAR_DEP
+        if re.search(r'\n\s*dependencies\s*\{', updated):
+            updated = re.sub(r'(\n\s*dependencies\s*\{\n)',
+                             r'\1' + dep_line + '\n', updated, count=1)
+            print('  [注入] %s → dependencies 里补 desugar 依赖' % path)
+        elif dep_line.strip() not in updated:
+            print('  [警告] %s 里找不到 dependencies 块，请手工确认 '
+                  'coreLibraryDesugaring 依赖' % path)
+
+    _write(path, updated)
+    print('  [注入] %s → desugaring 已开启并声明依赖' % path)
     return 0
 
 
