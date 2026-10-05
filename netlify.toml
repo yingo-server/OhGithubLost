@@ -5,8 +5,7 @@
 #
 # 接入步骤（在 Netlify 后台）：
 #   1. Add new site → Import an existing project → 选 yingo-server/OhGithubLost
-#   2. Build command 与 Publish directory 保持本文件中的设置（或直接让
-#      Netlify 读取本文件）
+#   2. 本文件会被自动读取，无需手填 build 设置
 #   3. 部署完成后，把 *.netlify.app 域名回填到 changed/_config.yml 的 url 字段
 #
 # 注意：构建期间不会执行任何仓库脚本，只有 Jekyll 静态编译。
