@@ -172,5 +172,4 @@ void main() {
         expect(IxPresign.normalizeDigest(123), isNull);
       });
     });
-  });
 }
