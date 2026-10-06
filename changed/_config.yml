@@ -3,7 +3,7 @@
 
 title: OhGithubLost · 更新日志
 description: >-
-  从 v0.1.0 到 v6.0.0 的逐版本更新日志（GitHub 仓库管理客户端 OGL）。
+  从 v0.1.0 到 v6.2.0 的逐版本更新日志（GitHub 仓库管理客户端 OGL）。
   Changelog for OhGithubLost, a GitHub repository manager client.
 baseurl: ""            # 项目 Pages 子路径（<user>.github.io/<repo>/ 时填 /<repo>）
 url: ""                # 生产域名（Pages 自动注入）

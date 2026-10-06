@@ -22,8 +22,10 @@ import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..'))
 
-# 下载加速域名：把 GitHub 的 assets 域名换成镜像，实测更快。
-ACCEL_HOST = 'gh.felicity.ac.cn/https://github.com'
+# 下载加速域名：与内置加速通道保持一致（前缀 + 完整原始链接）。
+# 内置通道已从 gh.felicity.ac.cn 换为 proxy.344977.xyz，此处必须同步，
+# 否则站点上的下载链接会指向一个已经不再使用的旧代理。
+ACCEL_HOST = 'proxy.344977.xyz/https://github.com'
 
 # 版本 → 发布日期（读取产物清单的 published_at 更准，这里只作兜底）
 FALLBACK_DATES = {
@@ -52,6 +54,8 @@ FALLBACK_DATES = {
     'v5.3.0': '2026-10-04',
     'v5.6.0': '2026-10-04',
     'v6.0.0': '2026-10-05',
+    'v6.0.1': '2026-10-05',
+    'v6.2.0': '2026-10-06',
 }
 
 # 平台归类：按资产名里的平台关键字，顺序即展示顺序。
