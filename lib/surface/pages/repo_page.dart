@@ -415,7 +415,6 @@ class _RepoPageState extends State<RepoPage> {
               ],
             ),
           ),
-          ),
         );
       );
 }

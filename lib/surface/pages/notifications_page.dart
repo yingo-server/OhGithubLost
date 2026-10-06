@@ -217,7 +217,7 @@ class _NotificationTile extends StatelessWidget {
     return Semantics(
       // 通知开关是「可切换项」：屏幕阅读器要能念出标题与开关状态，
       // 否则用户只能看到一行文字，不知道点了会发生什么。
-      toggled: entry.read,
+      toggled: OgLAppLog.instance.isRead(entry),
       button: true,
       label: entry.message,
       child: InkWell(

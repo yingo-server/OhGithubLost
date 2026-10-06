@@ -448,7 +448,8 @@ void main() {
       // ★ 恢复完整矩阵（此前退化成 2 张样本，UI 改动无法自动发现视觉回归）。
       //   三个维度：页面 × 亮/暗 × 横/竖；另加「平台 × 亮/暗」的首页，
       //   因为 Material 的 `platform` 会改变按钮/输入框等控件的外观。
-      const List<(String, String, Size)> matrix =
+      // ★ 不能加 const：collection-for 与 `brightness.name` 都不是常量表达式。
+      final List<(String, String, Size)> matrix =
           <(String, String, Size)>[
         for (final String screen in <String>[
           'login',
