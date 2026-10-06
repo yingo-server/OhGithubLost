@@ -87,5 +87,16 @@
   "unknown": "(Không xác định)",
   "unknownParen": "(Không xác định)",
   "updated": "Đã cập nhật",
-  "useRegex": "Biểu thức chính quy"
+  "useRegex": "Biểu thức chính quy",
+  "openWith": "Mở bằng",
+  "previewTitle": "Xem trước",
+  "previewImage": "Hình ảnh",
+  "previewSvgSource": "SVG (mã nguồn)",
+  "previewXml": "XML",
+  "previewAudio": "Âm thanh",
+  "previewText": "Văn bản",
+  "previewTooLarge": "Tệp quá lớn để tải trong trình xem trước tích hợp",
+  "previewSvgHint": "Kết xuất vector cần thành phần bổ sung; hiện đang hiển thị mã nguồn",
+  "previewAudioHint": "Không thể phát trong ứng dụng do giới hạn API; hãy tải về rồi mở bằng trình phát hệ thống",
+  "openInEditor": "Mở bằng trình soạn thảo"
 }

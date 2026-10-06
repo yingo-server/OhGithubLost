@@ -87,5 +87,16 @@
   "unknown": "(Tidak Diketahui)",
   "unknownParen": "(Tidak diketahui)",
   "updated": "Diperbarui",
-  "useRegex": "Ekspresi Reguler"
+  "useRegex": "Ekspresi Reguler",
+  "openWith": "Buka dengan",
+  "previewTitle": "Pratinjau",
+  "previewImage": "Gambar",
+  "previewSvgSource": "SVG (sumber)",
+  "previewXml": "XML",
+  "previewAudio": "Audio",
+  "previewText": "Teks",
+  "previewTooLarge": "Berkas terlalu besar untuk dimuat di pratinjau bawaan",
+  "previewSvgHint": "Render vektor butuh komponen tambahan; saat ini menampilkan sumber",
+  "previewAudioHint": "Pemutaran bawaan tidak memungkinkan karena batas API; unduh lalu buka dengan pemutar sistem",
+  "openInEditor": "Buka di editor"
 }

@@ -187,5 +187,6 @@
   "typeLabel": "Typ",
   "unstar": "Stern entfernen",
   "unstarred": "Stern entfernt",
-  "workflowTriggered": "Workflow ausgelöst"
+  "workflowTriggered": "Workflow ausgelöst",
+  "defaultAction": "Standard"
 }

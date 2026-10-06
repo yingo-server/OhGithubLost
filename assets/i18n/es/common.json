@@ -87,5 +87,16 @@
   "unknown": "(Desconocido)",
   "unknownParen": "(Desconocido)",
   "updated": "Actualizado",
-  "useRegex": "Expresión regular"
+  "useRegex": "Expresión regular",
+  "openWith": "Abrir con",
+  "previewTitle": "Vista previa",
+  "previewImage": "Imagen",
+  "previewSvgSource": "SVG (código)",
+  "previewXml": "XML",
+  "previewAudio": "Audio",
+  "previewText": "Texto",
+  "previewTooLarge": "El archivo es demasiado grande para la vista previa integrada",
+  "previewSvgHint": "La representación vectorial requiere un componente adicional; se muestra el código fuente",
+  "previewAudioHint": "La reproducción integrada no es posible por límites de la API; descarga y abre con tu reproductor",
+  "openInEditor": "Abrir en el editor"
 }

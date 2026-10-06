@@ -87,5 +87,16 @@
   "unknown": "(ไม่ระบุ)",
   "unknownParen": "(ไม่ทราบ)",
   "updated": "อัปเดตแล้ว",
-  "useRegex": "สัญลักษณ์พิเศษ"
+  "useRegex": "สัญลักษณ์พิเศษ",
+  "openWith": "เปิดด้วย",
+  "previewTitle": "ตัวอย่าง",
+  "previewImage": "รูปภาพ",
+  "previewSvgSource": "SVG (ซอร์ส)",
+  "previewXml": "XML",
+  "previewAudio": "เสียง",
+  "previewText": "ข้อความ",
+  "previewTooLarge": "ไฟล์ใหญ่เกินกว่าจะโหลดในตัวดูตัวอย่าง",
+  "previewSvgHint": "การเรนเดอร์เวกเตอร์ต้องใช้คอมโพเนนต์เพิ่มเติม ขณะนี้แสดงซอร์ส",
+  "previewAudioHint": "ไม่สามารถเล่นในแอปได้เนื่องจากข้อจำกัดของ API โปรดดาวน์โหลดแล้วเปิดด้วยโปรแกรมเล่นของระบบ",
+  "openInEditor": "เปิดในตัวแก้ไข"
 }

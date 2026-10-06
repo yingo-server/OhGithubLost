@@ -25,6 +25,7 @@ import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
 import '../util/file_icons.dart';
+import '../util/file_preview.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
 import '../util/path_rules.dart';
@@ -33,6 +34,7 @@ import '../widgets/readme_view.dart';
 import 'action_run_page.dart';
 import 'code_editor_page.dart';
 import 'commit_page.dart';
+import 'file_preview_page.dart';
 import 'issue_page.dart';
 import 'new_issue_page.dart';
 import 'new_release_page.dart';
@@ -841,6 +843,97 @@ class _CodeTabState extends State<_CodeTab> {
     }
   }
 
+  /// 点击文件的**默认行为**。
+  ///
+  /// 位图与音频「当文本看」毫无意义（二进制是乱码），所以直接进预览；
+  /// SVG / XML / 其它文本仍走既有的内联查看 —— 源码本身是有意义的内容，
+  /// 想渲染的话从「打开方式」里选。
+  void _openEntryDefault(GhContent entry) {
+    final OgLPreviewKind kind = ogLPreviewKindOf(entry.path);
+    if (ogLPreviewFirst(kind)) {
+      unawaited(_openPreview(entry, kind));
+      return;
+    }
+    unawaited(_openFile(entry));
+  }
+
+  /// 打开预览页。
+  Future<void> _openPreview(GhContent entry, OgLPreviewKind kind) =>
+      Navigator.of(context).push<void>(MaterialPageRoute<void>(
+        builder: (BuildContext context) => FilePreviewPage(
+          surface: widget.surface,
+          fullName: widget.fullName,
+          path: entry.path,
+          branch: widget.branch,
+          kind: kind,
+        ),
+      ));
+
+  /// 「打开方式」：同一份文件在不同场景下要用不同方式看。
+  ///
+  /// 默认项排在最前并标出 —— 图片默认就是渲染出来看，SVG 默认看源码。
+  Future<void> _showOpenWith(GhContent entry) async {
+    final ThemeData theme = Theme.of(context);
+    final OgLPreviewKind kind = ogLPreviewKindOf(entry.path);
+    await ogLShowSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.open_in_new),
+              title: Text(_t('openWith')),
+              subtitle: Text(
+                ghPathName(entry.path),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Divider(height: 1),
+            // ① 内置预览（默认项）
+            ListTile(
+              leading: Icon(
+                ogLCanRenderInline(kind)
+                    ? Icons.image_outlined
+                    : Icons.preview_outlined,
+              ),
+              title: Text(_t(ogLPreviewKindKey(kind))),
+              trailing: Chip(
+                label: Text(_t('defaultAction')),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: theme.colorScheme.secondaryContainer,
+              ),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_openPreview(entry, kind));
+              },
+            ),
+            // ② 编辑器
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(_t('openInEditor')),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_openEditor(entry));
+              },
+            ),
+            // ③ 浏览器
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: Text(_t('openInBrowser')),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _openFileInBrowser(entry);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFile(GhContent entry) async {
     if (_busy) {
       return;
@@ -1362,6 +1455,15 @@ class _CodeTabState extends State<_CodeTab> {
             const Divider(height: 1),
             if (!entry.isDirectory)
               ListTile(
+                leading: const Icon(Icons.open_in_new),
+                title:  Text(_t('openWith')),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_showOpenWith(entry));
+                },
+              ),
+            if (!entry.isDirectory)
+              ListTile(
                 leading: const Icon(Icons.download_outlined),
                 title:  Text(_t('download')),
                 onTap: () {
@@ -1821,7 +1923,7 @@ class _CodeTabState extends State<_CodeTab> {
                                     if (shown[index].isDirectory) {
                                       unawaited(_goTo(shown[index].path));
                                     } else {
-                                      unawaited(_openFile(shown[index]));
+                                      _openEntryDefault(shown[index]);
                                     }
                                   },
                                   onLongPress: () => unawaited(_showEntryMenu(shown[index])),

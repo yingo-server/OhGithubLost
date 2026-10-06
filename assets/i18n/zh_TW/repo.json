@@ -187,5 +187,6 @@
   "typeLabel": "類型",
   "unstar": "取消星號",
   "unstarred": "已取消星號",
-  "workflowTriggered": "已觸發工作流"
+  "workflowTriggered": "已觸發工作流",
+  "defaultAction": "預設"
 }

@@ -87,5 +87,16 @@
   "unknown": "(Unknown)",
   "unknownParen": "(Unknown)",
   "updated": "Updated",
-  "useRegex": "Regular Expression"
+  "useRegex": "Regular Expression",
+  "openWith": "Open with",
+  "previewTitle": "Preview",
+  "previewImage": "Image",
+  "previewSvgSource": "SVG (source)",
+  "previewXml": "XML",
+  "previewAudio": "Audio",
+  "previewText": "Text",
+  "previewTooLarge": "File is too large to load in the built-in preview",
+  "previewSvgHint": "Vector rendering needs an extra component; showing source for now",
+  "previewAudioHint": "In-app playback is not possible due to API limits; download and open with your system player",
+  "openInEditor": "Open in editor"
 }

@@ -187,5 +187,6 @@
   "typeLabel": "タイプ",
   "unstar": "スター取消",
   "unstarred": "スターを取消しました",
-  "workflowTriggered": "ワークフローをトリガーしました"
+  "workflowTriggered": "ワークフローをトリガーしました",
+  "defaultAction": "既定"
 }

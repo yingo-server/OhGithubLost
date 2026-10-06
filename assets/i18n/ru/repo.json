@@ -187,5 +187,6 @@
   "typeLabel": "Тип",
   "unstar": "Снять отметку",
   "unstarred": "Отметка снята",
-  "workflowTriggered": "Запущен рабочий процесс"
+  "workflowTriggered": "Запущен рабочий процесс",
+  "defaultAction": "По умолчанию"
 }

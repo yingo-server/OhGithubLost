@@ -87,5 +87,16 @@
   "unknown": "(未知)",
   "unknownParen": "（未知）",
   "updated": "已更新",
-  "useRegex": "正则表达式"
+  "useRegex": "正则表达式",
+  "openWith": "打开方式",
+  "previewTitle": "预览",
+  "previewImage": "图片",
+  "previewSvgSource": "SVG（源码）",
+  "previewXml": "XML",
+  "previewAudio": "音频",
+  "previewText": "文本",
+  "previewTooLarge": "文件过大，无法在内置预览中加载",
+  "previewSvgHint": "矢量渲染需要额外组件；当前以源码显示",
+  "previewAudioHint": "受接口限制无法内置播放；请下载后用系统播放器打开",
+  "openInEditor": "用编辑器打开"
 }

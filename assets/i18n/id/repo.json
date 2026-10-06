@@ -187,5 +187,6 @@
   "typeLabel": "Jenis",
   "unstar": "Cabut bintang",
   "unstarred": "Bintang dicabut",
-  "workflowTriggered": "Workflow dipicu"
+  "workflowTriggered": "Workflow dipicu",
+  "defaultAction": "Bawaan"
 }

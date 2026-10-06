@@ -187,5 +187,6 @@
   "typeLabel": "타입",
   "unstar": "별표 취소",
   "unstarred": "별표 취소됨",
-  "workflowTriggered": "워크플로 트리거됨"
+  "workflowTriggered": "워크플로 트리거됨",
+  "defaultAction": "기본"
 }

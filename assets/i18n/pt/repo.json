@@ -187,5 +187,6 @@
   "typeLabel": "Tipo",
   "unstar": "Remover estrela",
   "unstarred": "Estrela removida",
-  "workflowTriggered": "Workflow disparado"
+  "workflowTriggered": "Workflow disparado",
+  "defaultAction": "Padrão"
 }

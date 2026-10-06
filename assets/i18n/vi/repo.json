@@ -187,5 +187,6 @@
   "typeLabel": "Loại",
   "unstar": "Bỏ ghim",
   "unstarred": "Đã bỏ ghim",
-  "workflowTriggered": "Đã kích hoạt workflow"
+  "workflowTriggered": "Đã kích hoạt workflow",
+  "defaultAction": "Mặc định"
 }

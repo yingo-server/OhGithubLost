@@ -187,5 +187,6 @@
   "typeLabel": "النوع",
   "unstar": "إزالة النجمة",
   "unstarred": "تمت إزالة النجمة",
-  "workflowTriggered": "تم تشغيل سير العمل"
+  "workflowTriggered": "تم تشغيل سير العمل",
+  "defaultAction": "افتراضي"
 }

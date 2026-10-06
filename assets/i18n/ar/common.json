@@ -87,5 +87,16 @@
   "unknown": "(غير معروف)",
   "unknownParen": "(غير معروف)",
   "updated": "تم التحديث",
-  "useRegex": "تعبير منتظم"
+  "useRegex": "تعبير منتظم",
+  "openWith": "فتح باستخدام",
+  "previewTitle": "معاينة",
+  "previewImage": "صورة",
+  "previewSvgSource": "SVG (المصدر)",
+  "previewXml": "XML",
+  "previewAudio": "صوت",
+  "previewText": "نص",
+  "previewTooLarge": "الملف كبير جدًا بحيث لا يمكن تحميله في المعاينة المدمجة",
+  "previewSvgHint": "يتطلب العرض المتجهي مكوّنًا إضافيًا؛ يتم عرض المصدر حاليًا",
+  "previewAudioHint": "التشغيل المدمج غير ممكن بسبب قيود الواجهة؛ نزّل الملف ثم افتحه بمشغل النظام",
+  "openInEditor": "فتح في المحرر"
 }

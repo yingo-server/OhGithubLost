@@ -187,5 +187,6 @@
   "typeLabel": "Type",
   "unstar": "Unstar",
   "unstarred": "Unstarred",
-  "workflowTriggered": "Workflow triggered"
+  "workflowTriggered": "Workflow triggered",
+  "defaultAction": "Default"
 }

@@ -87,5 +87,16 @@
   "unknown": "(알 수 없음)",
   "unknownParen": "(알 수 없음)",
   "updated": "업데이트됨",
-  "useRegex": "정규 표현식"
+  "useRegex": "정규 표현식",
+  "openWith": "열기 방식",
+  "previewTitle": "미리보기",
+  "previewImage": "이미지",
+  "previewSvgSource": "SVG(소스)",
+  "previewXml": "XML",
+  "previewAudio": "오디오",
+  "previewText": "텍스트",
+  "previewTooLarge": "파일이 너무 커서 내장 미리보기로 불러올 수 없습니다",
+  "previewSvgHint": "벡터 렌더링에는 추가 구성 요소가 필요합니다. 지금은 소스를 표시합니다",
+  "previewAudioHint": "API 제한으로 내장 재생이 불가합니다. 다운로드 후 시스템 플레이어로 여세요",
+  "openInEditor": "편집기로 열기"
 }

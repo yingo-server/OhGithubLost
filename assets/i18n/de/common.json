@@ -87,5 +87,16 @@
   "unknown": "(Unbekannt)",
   "unknownParen": "(Unbekannt)",
   "updated": "Aktualisiert",
-  "useRegex": "Regulärer Ausdruck"
+  "useRegex": "Regulärer Ausdruck",
+  "openWith": "Öffnen mit",
+  "previewTitle": "Vorschau",
+  "previewImage": "Bild",
+  "previewSvgSource": "SVG (Quelltext)",
+  "previewXml": "XML",
+  "previewAudio": "Audio",
+  "previewText": "Text",
+  "previewTooLarge": "Datei ist zu groß für die integrierte Vorschau",
+  "previewSvgHint": "Vektordarstellung erfordert eine zusätzliche Komponente; derzeit wird der Quelltext angezeigt",
+  "previewAudioHint": "Integrierte Wiedergabe ist wegen API-Grenzen nicht möglich; herunterladen und mit dem Systemplayer öffnen",
+  "openInEditor": "Im Editor öffnen"
 }

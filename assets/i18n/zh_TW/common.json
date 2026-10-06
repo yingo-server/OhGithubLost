@@ -87,5 +87,16 @@
   "unknown": "(未知)",
   "unknownParen": "（未知）",
   "updated": "已更新",
-  "useRegex": "正則表達式"
+  "useRegex": "正則表達式",
+  "openWith": "開啟方式",
+  "previewTitle": "預覽",
+  "previewImage": "圖片",
+  "previewSvgSource": "SVG（原始碼）",
+  "previewXml": "XML",
+  "previewAudio": "音訊",
+  "previewText": "文字",
+  "previewTooLarge": "檔案過大，無法在內建預覽中載入",
+  "previewSvgHint": "向量渲染需要額外元件；目前以原始碼顯示",
+  "previewAudioHint": "受介面限制無法內建播放；請下載後用系統播放器開啟",
+  "openInEditor": "用編輯器開啟"
 }

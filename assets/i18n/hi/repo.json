@@ -187,5 +187,6 @@
   "typeLabel": "प्रकार",
   "unstar": "स्टार हटाएं",
   "unstarred": "स्टार हटाया गया",
-  "workflowTriggered": "वर्कफ़्लो ट्रिगर किया गया"
+  "workflowTriggered": "वर्कफ़्लो ट्रिगर किया गया",
+  "defaultAction": "डिफ़ॉल्ट"
 }

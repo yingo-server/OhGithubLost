@@ -87,5 +87,16 @@
   "unknown": "(未知)",
   "unknownParen": "（不明）",
   "updated": "更新しました",
-  "useRegex": "正規表現"
+  "useRegex": "正規表現",
+  "openWith": "開き方",
+  "previewTitle": "プレビュー",
+  "previewImage": "画像",
+  "previewSvgSource": "SVG（ソース）",
+  "previewXml": "XML",
+  "previewAudio": "音声",
+  "previewText": "テキスト",
+  "previewTooLarge": "ファイルが大きすぎるため、内蔵プレビューで読み込めません",
+  "previewSvgHint": "ベクター描画には追加コンポーネントが必要です。現在はソースを表示しています",
+  "previewAudioHint": "API の制限により内蔵再生はできません。ダウンロードしてシステムのプレーヤーで開いてください",
+  "openInEditor": "エディターで開く"
 }

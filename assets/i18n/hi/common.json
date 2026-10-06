@@ -87,5 +87,16 @@
   "unknown": "(अज्ञात)",
   "unknownParen": "(अज्ञात)",
   "updated": "अपडेट किया गया",
-  "useRegex": "रेगुलर एक्सप्रेशन"
+  "useRegex": "रेगुलर एक्सप्रेशन",
+  "openWith": "इससे खोलें",
+  "previewTitle": "पूर्वावलोकन",
+  "previewImage": "छवि",
+  "previewSvgSource": "SVG (स्रोत)",
+  "previewXml": "XML",
+  "previewAudio": "ऑडियो",
+  "previewText": "पाठ",
+  "previewTooLarge": "फ़ाइल बहुत बड़ी है, अंतर्निहित पूर्वावलोकन में लोड नहीं हो सकती",
+  "previewSvgHint": "वेक्टर रेंडरिंग के लिए अतिरिक्त घटक चाहिए; अभी स्रोत दिखाया जा रहा है",
+  "previewAudioHint": "API सीमाओं के कारण अंतर्निहित प्लेबैक संभव नहीं; डाउनलोड करके सिस्टम प्लेयर से खोलें",
+  "openInEditor": "संपादक में खोलें"
 }

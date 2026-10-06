@@ -187,5 +187,6 @@
   "typeLabel": "Type",
   "unstar": "Retirer l'étoile",
   "unstarred": "Étoile retirée",
-  "workflowTriggered": "Workflow déclenché"
+  "workflowTriggered": "Workflow déclenché",
+  "defaultAction": "Par défaut"
 }
