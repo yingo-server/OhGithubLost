@@ -210,52 +210,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // ignore: unused_element
-  
-  // ignore: unused_element
-  Future<void> _logout(GhAccount account) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title:  Text(_t('logout')),
-        content: Text(
-          _t('logoutDesc', {'login': account.login}) +
-          _t('logoutDesc2'),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child:  Text(_t('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child:  Text(_t('logout')),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) {
-      return;
-    }
-    try {
-      await widget.surface.domain.auth.removeAccount(account.id);
-      // 多用户安全：移除账号后清空**所有**缓存，避免其它账号看到旧缓存。
-      await widget.surface.clearAllCaches();
-      clearOgLRepoPageCaches();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(_t('loggedOut'))),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('logoutFailed', {'error': error}))),
-        );
-      }
-    }
-  }
-
   Future<void> _reset() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -354,9 +308,6 @@ class _SettingsPageState extends State<SettingsPage> {
   /// 捐赠一颗心：二次确认后，用当前登录令牌给项目仓库加星。
   ///
   /// 已 star 时不重复操作，直接给出提示（幂等，不制造"操作了但没变化"的疑惑）。
-  // ignore: unused_element
-  
-  // ignore: unused_element
   Future<void> _donateStar() async {
     final GhAccount? account = await widget.surface.domain.auth.activeAccount();
     if (!mounted) {
@@ -479,6 +430,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: 12),
               ],
               _accountSection(theme),
+              // 捐赠一颗心：README 一直承诺此项，而实现早已写好却**从未接线**
+              // （靠 `// ignore: unused_element` 压着 analyze）。这里补上入口。
+              Card(
+                clipBehavior: Clip.antiAlias,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const Icon(Icons.favorite_outline),
+                  title: Text(_t('donateHeart')),
+                  subtitle: Text(_t('donateTileDesc', <String, Object?>{
+                    'repo': OgLProjectInfo.repoFullName,
+                  })),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(_donateStar()),
+                ),
+              ),
               _maintenanceSection(theme),
               // 关于：独立于折叠菜单的全屏子页面。
               Card(

@@ -151,17 +151,12 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
     try {
-      await widget.surface.domain.auth.removeAccount(account.id);
+      // 统一走表面桥：注销 + 清**全部**缓存。
+      // 此前这里只清仓库缓存，会留下 DNS 缓存与页面分页快照 ——
+      // 多账号下正是「用 B 账号看到 A 账号内容」的串台来源。
+      await widget.surface.forgetAccount(account.id);
+      clearOgLRepoPageCaches();
       OgLAppLog.instance.result(_t('accounts'), _t('removed'), '@${account.login}');
-      try {
-        await widget.surface.clearRepositoryCache();
-      } catch (error) {
-        OgLAppLog.instance.add(
-          _t('accounts'),
-          _t('clearCacheFailed', {'error': error}),
-          severity: OgLNoticeSeverity.warning,
-        );
-      }
       await _refresh();
     } catch (error) {
       OgLAppLog.instance.add(

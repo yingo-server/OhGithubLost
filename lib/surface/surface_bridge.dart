@@ -139,6 +139,26 @@ class SurfaceBridge {
   /// 由设置/账户页显式调用本方法。
   Future<int> clearRepositoryCache() async => await cache?.purge() ?? 0;
 
+  /// **注销一个账号**（迁移 / 移除 本机凭据），并清空全部本机缓存。
+  ///
+  /// ## 为什么收口在这里
+  /// 这是**同一个操作**，此前却有两份实现在并行：
+  /// · 「我的」页 `_remove`：`removeAccount` + 只清**仓库缓存**
+  /// · 设置页 `_logout`（已被取代、未接线）：`removeAccount` + 清**全部缓存**
+  ///
+  /// 两者清理范围不同 —— 前者会留下 DNS 缓存与页面分页快照。多账号场景下
+  /// 这正是「用 B 账号看到 A 账号内容」的串台来源。而本类的 `clearAllCaches`
+  /// 注释里早就写着「**用户要求：切换 / 移除账号时必须清除所有缓存**」。
+  ///
+  /// 现在统一走这里：注销 + 清全部缓存。调用方只需额外调一次
+  /// `clearOgLRepoPageCaches()`（页面级快照在页面层，桥不反向依赖页面）。
+  ///
+  /// 返回是否成功；失败时**如实抛出**，由调用方呈现。
+  Future<void> forgetAccount(String accountId) async {
+    await domain.auth.removeAccount(accountId);
+    await clearAllCaches();
+  }
+
   /// 清空**全部**本机缓存（仓库缓存 + DNS 缓存 + 页面分页快照）。
   ///
   /// 用户要求：**切换 / 移除账号时必须清除所有缓存**。
