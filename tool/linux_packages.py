@@ -126,11 +126,18 @@ def make_rpm(bundle: str, out: str, version: str, rpm_arch: str) -> str | None:
     规格文件用 `%{buildroot}` 承载整棵 bundle；`.desktop` 与图标通过
     `%install` 阶段的 `install -D` 从**已准备的源文件**复制，避免在 spec 里
     写长串转义字符串（那正是最容易出错的地方）。
+
+    ⚠️ 两个踩过的坑：
+    1. **`_topdir` 必须是绝对路径**。此前传的是相对路径，而 rpmbuild 在
+       `%install` 阶段会切换工作目录，于是 `%{_sourcedir}` 展开后指向别处，
+       报 `cp: cannot stat '.../SOURCES/bundle/.'`。
+    2. **跨架构构建要显式 `--target`**，否则报
+       `No compatible architectures found for build`。
     """
     if shutil.which('rpmbuild') is None:
         print('  [跳过] 没有 rpmbuild')
         return None
-    top = os.path.join(out, '_rpm', rpm_arch)
+    top = os.path.abspath(os.path.join(out, '_rpm', rpm_arch))
     for sub in ('BUILD', 'RPMS', 'SOURCES', 'SPECS', 'SRPMS'):
         os.makedirs(os.path.join(top, sub), exist_ok=True)
 
@@ -178,7 +185,10 @@ def make_rpm(bundle: str, out: str, version: str, rpm_arch: str) -> str | None:
     with open(spec, 'w', encoding='utf-8') as handle:
         handle.write('\n'.join(lines) + '\n')
 
-    run(['rpmbuild', '-bb', '--define', '_topdir ' + top, spec])
+    # `--target` 必须显式给：不指定时 rpmbuild 在 x86_64 宿主上构建 aarch64 包
+    # 会直接报 `No compatible architectures found for build`。
+    run(['rpmbuild', '-bb', '--target', rpm_arch,
+         '--define', '_topdir ' + top, os.path.abspath(spec)])
     rpms = os.path.join(top, 'RPMS', rpm_arch)
     for name in sorted(os.listdir(rpms)):
         if name.endswith('.rpm'):
@@ -189,13 +199,33 @@ def make_rpm(bundle: str, out: str, version: str, rpm_arch: str) -> str | None:
     return None
 
 
+def host_appimage_arch() -> str:
+    """宿主架构（appimagetool 只能运行**与宿主同架构**的二进制）。"""
+    import platform  # noqa: PLC0415 - 仅此处需要
+    machine = platform.machine().lower()
+    if machine in ('aarch64', 'arm64'):
+        return 'aarch64'
+    return 'x86_64'
+
 def make_appimage(bundle: str, out: str, version: str, deb_arch: str) -> str | None:
-    """生成 AppImage（免 FUSE 运行 appimagetool）。"""
-    tool = os.path.join(out, '_appimagetool')
+    """生成 AppImage（免 FUSE 运行 appimagetool）。
+
+    ⚠️ 这里踩过一个很隐蔽的坑：
+    原先按**目标架构**下载 appimagetool，且用 `if not os.path.exists(tool)` 缓存。
+    `Linux · arm64` 在字典序上排在 `Linux · x64` 前面，于是先下载了 **aarch64**
+    的 appimagetool；轮到 x86_64 时发现文件已存在便跳过下载，直接去跑那个
+    aarch64 二进制 —— `Exec format error`。两个架构因此**全都失败**。
+
+    正确做法：**始终下载宿主架构的 appimagetool**（它能运行），再用 `ARCH`
+    环境变量告诉它目标架构，由它选用对应的 AppImage 运行时。
+    缓存文件名带上宿主架构，避免跨架构复用。
+    """
+    host = host_appimage_arch()
+    tool = os.path.abspath(os.path.join(out, '_appimagetool-%s' % host))
     if not os.path.exists(tool):
         url = (
             'https://github.com/AppImage/AppImageKit/releases/download/continuous/'
-            'appimagetool-%s.AppImage' % ('aarch64' if deb_arch == 'arm64' else 'x86_64')
+            'appimagetool-%s.AppImage' % host
         )
         try:
             run(['curl', '-sSL', '-o', tool, url])
@@ -204,7 +234,8 @@ def make_appimage(bundle: str, out: str, version: str, deb_arch: str) -> str | N
             return None
         os.chmod(tool, os.stat(tool).st_mode | stat.S_IEXEC)
 
-    appdir = os.path.join(out, APP_NAME + '.AppDir')
+    out = os.path.abspath(out)
+    appdir = os.path.abspath(os.path.join(out, APP_NAME + '.AppDir'))
     shutil.rmtree(appdir, ignore_errors=True)
     shutil.copytree(bundle, appdir)
 
@@ -220,9 +251,12 @@ def make_appimage(bundle: str, out: str, version: str, deb_arch: str) -> str | N
     os.chmod(app_run, os.stat(app_run).st_mode | stat.S_IEXEC)
 
     target = os.path.join(out, '%s-%s-%s.AppImage' % (APP, version, deb_arch))
+    # AppImage 的运行时架构名与 deb 不同：deb 用 `arm64`，AppImage 用 `aarch64`。
+    # 传错名字会让 appimagetool 找不到对应运行时。
+    appimage_arch = 'aarch64' if deb_arch == 'arm64' else 'x86_64'
     try:
         run([tool, '--appimage-extract-and-run', appdir, target],
-            env=dict(os.environ, ARCH=deb_arch))
+            env=dict(os.environ, ARCH=appimage_arch))
     except Exception as error:  # noqa: BLE001
         print('  [跳过] AppImage 打包失败：%s' % error)
         return None
@@ -267,9 +301,14 @@ def main() -> int:
                 made += 1
                 print('  → ' + result)
 
-    leftover = os.path.join(args.out, '_appimagetool')
-    if os.path.exists(leftover):
-        os.remove(leftover)
+    # 清掉临时下载的 appimagetool：`out/` 目录会被整目录上传为 Release 产物，
+    # 留下它就会把一个几 MB 的工具二进制也发出去。
+    # 名字带宿主架构（见 make_appimage），所以按前缀匹配而不是写死文件名。
+    for name in sorted(os.listdir(args.out)):
+        if name.startswith('_appimagetool'):
+            os.remove(os.path.join(args.out, name))
+    for name in ('_rpm', '_deb_amd64', '_deb_arm64'):
+        shutil.rmtree(os.path.join(args.out, name), ignore_errors=True)
     print('[完成] Linux 安装包 %d 个' % made)
     return 0
 
