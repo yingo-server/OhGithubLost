@@ -188,5 +188,6 @@
   "unstar": "ยกเลิกสตาร์",
   "unstarred": "ยกเลิกสตาร์แล้ว",
   "workflowTriggered": "รัน workflow แล้ว",
-  "defaultAction": "ค่าเริ่มต้น"
+  "defaultAction": "ค่าเริ่มต้น",
+  "selectBranch": "เลือกสาขา"
 }

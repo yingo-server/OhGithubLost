@@ -137,5 +137,6 @@
   "tokenString": "स्ट्रिंग",
   "tokenType": "टाइप",
   "unknown": "अज्ञात",
-  "viewAccelAgreement": "अपगामी चैनल समझौते को देखें"
+  "viewAccelAgreement": "अपगामी चैनल समझौते को देखें",
+  "colorSwatch": "रंग {color}"
 }

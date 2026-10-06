@@ -188,5 +188,6 @@
   "unstar": "Stern entfernen",
   "unstarred": "Stern entfernt",
   "workflowTriggered": "Workflow ausgelöst",
-  "defaultAction": "Standard"
+  "defaultAction": "Standard",
+  "selectBranch": "Branch auswählen"
 }

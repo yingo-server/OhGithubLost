@@ -137,5 +137,6 @@
   "tokenString": "String",
   "tokenType": "Type",
   "unknown": "Unknown",
-  "viewAccelAgreement": "View Acceleration Channel Agreement"
+  "viewAccelAgreement": "View Acceleration Channel Agreement",
+  "colorSwatch": "Colour {color}"
 }

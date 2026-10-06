@@ -57,5 +57,9 @@
   "systemChannel": "[Kênh hệ thống] {text}",
   "systemNotifUnavailable": "Thông báo hệ thống không khả dụng (nhắc nhở nền sẽ chỉ lưu trên đĩa): {error}",
   "webNotifDesc": "Bản Web không cung cấp khả năng thông báo cần thiết cho ứng dụng này.",
-  "webStorageDesc": "Môi trường trình duyệt do chính trình duyệt quản lý hạn mức bộ nhớ, ứng dụng không thể và không cần yêu cầu."
+  "webStorageDesc": "Môi trường trình duyệt do chính trình duyệt quản lý hạn mức bộ nhớ, ứng dụng không thể và không cần yêu cầu.",
+  "minimizeWindow": "Thu nhỏ",
+  "maximizeWindow": "Phóng to",
+  "restoreWindow": "Khôi phục",
+  "closeWindow": "Đóng"
 }

@@ -12,5 +12,6 @@
   "resetDesc": "Akan mengosongkan semua event di memori saat ini (log disk tetap ada).",
   "resetTitle": "Reset Pusat Notifikasi",
   "title": "Pusat Notifikasi",
-  "unread": "Belum dibaca"
+  "unread": "Belum dibaca",
+  "toggleNotification": "Alihkan notifikasi"
 }

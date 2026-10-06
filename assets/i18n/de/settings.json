@@ -137,5 +137,6 @@
   "tokenString": "Zeichenfolge",
   "tokenType": "Typ",
   "unknown": "Unbekannt",
-  "viewAccelAgreement": "Beschleunigungskanal-Vereinbarung anzeigen"
+  "viewAccelAgreement": "Beschleunigungskanal-Vereinbarung anzeigen",
+  "colorSwatch": "Farbe {color}"
 }

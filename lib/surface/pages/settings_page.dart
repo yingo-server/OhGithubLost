@@ -130,24 +130,33 @@ class _SettingsPageState extends State<SettingsPage> {
                 runSpacing: 10,
                 children: <Widget>[
                   for (final int argb in _kCodePalette)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => Navigator.of(dialogContext).pop(argb),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: Color(argb),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: argb == current
-                                ? Theme.of(dialogContext).colorScheme.primary
-                                : const Color(0x33000000),
+                    Semantics(
+                      // 色板是「可选项」：屏幕阅读器要能念出颜色名与选中态，
+                      // 否则用户只能靠肉眼分辨哪个被选中。
+                      button: true,
+                      selected: argb == current,
+                      label: _t('colorSwatch', <String, Object?>{
+                        'color': '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+                      }),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => Navigator.of(dialogContext).pop(argb),
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: Color(argb),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: argb == current
+                                  ? Theme.of(dialogContext).colorScheme.primary
+                                  : const Color(0x33000000),
                             width: argb == current ? 3 : 1,
                           ),
                         ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),

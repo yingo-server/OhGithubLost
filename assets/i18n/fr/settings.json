@@ -137,5 +137,6 @@
   "tokenString": "Chaînes de caractères",
   "tokenType": "Type",
   "unknown": "Inconnu",
-  "viewAccelAgreement": "Voir l'accord des canaux d'accélération"
+  "viewAccelAgreement": "Voir l'accord des canaux d'accélération",
+  "colorSwatch": "Couleur {color}"
 }

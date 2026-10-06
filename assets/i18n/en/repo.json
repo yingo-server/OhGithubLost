@@ -188,5 +188,6 @@
   "unstar": "Unstar",
   "unstarred": "Unstarred",
   "workflowTriggered": "Workflow triggered",
-  "defaultAction": "Default"
+  "defaultAction": "Default",
+  "selectBranch": "Select branch"
 }

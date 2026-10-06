@@ -137,5 +137,6 @@
   "tokenString": "Cadena",
   "tokenType": "Tipo",
   "unknown": "Desconocido",
-  "viewAccelAgreement": "Ver acuerdo de canal de aceleración"
+  "viewAccelAgreement": "Ver acuerdo de canal de aceleración",
+  "colorSwatch": "Color {color}"
 }

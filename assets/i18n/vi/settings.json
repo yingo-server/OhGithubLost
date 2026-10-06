@@ -137,5 +137,6 @@
   "tokenString": "Chuỗi",
   "tokenType": "Kiểu dữ liệu",
   "unknown": "Không rõ",
-  "viewAccelAgreement": "Xem hiệp định kênh tăng tốc"
+  "viewAccelAgreement": "Xem hiệp định kênh tăng tốc",
+  "colorSwatch": "Màu {color}"
 }

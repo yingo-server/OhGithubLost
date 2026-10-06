@@ -57,5 +57,9 @@
   "systemChannel": "[시스템 채널] {text}",
   "systemNotifUnavailable": "시스템 알림 사용 불가 (백그라운드 알림은 로컬에 기록됩니다): {error}",
   "webNotifDesc": "웹에서는 이 앱에 필요한 알림 기능을 지원하지 않습니다.",
-  "webStorageDesc": "브라우저 환경은 브라우저 자체에 의해 저장 용량이 관리되며 앱은 신청하거나 할 수 없습니다."
+  "webStorageDesc": "브라우저 환경은 브라우저 자체에 의해 저장 용량이 관리되며 앱은 신청하거나 할 수 없습니다.",
+  "minimizeWindow": "최소화",
+  "maximizeWindow": "최대화",
+  "restoreWindow": "복원",
+  "closeWindow": "닫기"
 }

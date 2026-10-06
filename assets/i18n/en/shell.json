@@ -57,5 +57,9 @@
   "systemChannel": "[System Channel] {text}",
   "systemNotifUnavailable": "System notifications unavailable (background alerts will only be logged): {error}",
   "webNotifDesc": "Web does not provide notification capabilities required by this app.",
-  "webStorageDesc": "Browser environment manages storage quota itself; no app request needed."
+  "webStorageDesc": "Browser environment manages storage quota itself; no app request needed.",
+  "minimizeWindow": "Minimize",
+  "maximizeWindow": "Maximize",
+  "restoreWindow": "Restore",
+  "closeWindow": "Close"
 }

@@ -12,5 +12,6 @@
   "resetDesc": "将清空当前内存中的全部事件（磁盘日志保留）。",
   "resetTitle": "重置通知中心",
   "title": "通知中心",
-  "unread": "未读"
+  "unread": "未读",
+  "toggleNotification": "切换通知"
 }

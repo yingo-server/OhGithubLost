@@ -57,5 +57,9 @@
   "systemChannel": "[Systemkanal] {text}",
   "systemNotifUnavailable": "Systembenachrichtigung nicht verfügbar (Hintergrundhinweise werden nur lokal gespeichert): {error}",
   "webNotifDesc": "Web-Plattform bietet keine für diese App benötigte Benachrichtigungsfähigkeit.",
-  "webStorageDesc": "Browser-Plattform verwaltet selbst ihre Speicher-Quoten; Anwendung kann und muss nicht darum bitten."
+  "webStorageDesc": "Browser-Plattform verwaltet selbst ihre Speicher-Quoten; Anwendung kann und muss nicht darum bitten.",
+  "minimizeWindow": "Minimieren",
+  "maximizeWindow": "Maximieren",
+  "restoreWindow": "Wiederherstellen",
+  "closeWindow": "Schließen"
 }

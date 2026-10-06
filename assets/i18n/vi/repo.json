@@ -188,5 +188,6 @@
   "unstar": "Bỏ ghim",
   "unstarred": "Đã bỏ ghim",
   "workflowTriggered": "Đã kích hoạt workflow",
-  "defaultAction": "Mặc định"
+  "defaultAction": "Mặc định",
+  "selectBranch": "Chọn nhánh"
 }

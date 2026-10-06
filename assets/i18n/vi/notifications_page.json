@@ -12,5 +12,6 @@
   "resetDesc": "Will xoá tất cả sự kiện trong bộ nhớ hiện tại (nhật ký trên đĩa vẫn được giữ).",
   "resetTitle": "Đặt lại trung tâm thông báo",
   "title": "Trung tâm thông báo",
-  "unread": "Chưa đọc"
+  "unread": "Chưa đọc",
+  "toggleNotification": "Bật/tắt thông báo"
 }

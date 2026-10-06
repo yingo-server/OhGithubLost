@@ -188,5 +188,6 @@
   "unstar": "Cabut bintang",
   "unstarred": "Bintang dicabut",
   "workflowTriggered": "Workflow dipicu",
-  "defaultAction": "Bawaan"
+  "defaultAction": "Bawaan",
+  "selectBranch": "Pilih cabang"
 }

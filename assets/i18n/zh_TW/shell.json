@@ -57,5 +57,9 @@
   "systemChannel": "[系統通道] {text}",
   "systemNotifUnavailable": "系統通知不可用（背景提示將只落碟）：{error}",
   "webNotifDesc": "Web 端不提供本應用程式所需的通知能力。",
-  "webStorageDesc": "瀏覽器環境由瀏覽器自身管理儲存空間配額，應用程式無法也無需申請。"
+  "webStorageDesc": "瀏覽器環境由瀏覽器自身管理儲存空間配額，應用程式無法也無需申請。",
+  "minimizeWindow": "最小化",
+  "maximizeWindow": "最大化",
+  "restoreWindow": "還原",
+  "closeWindow": "關閉"
 }

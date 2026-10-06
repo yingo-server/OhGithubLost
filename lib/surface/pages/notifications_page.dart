@@ -214,10 +214,16 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return InkWell(
-      onTap: onToggle,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+    return Semantics(
+      // 通知开关是「可切换项」：屏幕阅读器要能念出标题与开关状态，
+      // 否则用户只能看到一行文字，不知道点了会发生什么。
+      toggled: entry.read,
+      button: true,
+      label: entry.message,
+      child: InkWell(
+        onTap: onToggle,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -328,6 +334,7 @@ class _NotificationTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -137,5 +137,6 @@
   "tokenString": "文字列",
   "tokenType": "型",
   "unknown": "不明",
-  "viewAccelAgreement": "アクセラレーションチャネル契約を表示"
+  "viewAccelAgreement": "アクセラレーションチャネル契約を表示",
+  "colorSwatch": "色 {color}"
 }

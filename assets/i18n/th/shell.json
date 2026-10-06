@@ -57,5 +57,9 @@
   "systemChannel": "[ระบบ] {text}",
   "systemNotifUnavailable": "ไม่สามารถใช้แจ้งเตือนของระบบ (จะเก็บในบันทึก): {error}",
   "webNotifDesc": "เว็บไม่มี notification แบบนี้",
-  "webStorageDesc": "เว็บมี quota เอง แอปขอไม่ได้และไม่ต้องขอ"
+  "webStorageDesc": "เว็บมี quota เอง แอปขอไม่ได้และไม่ต้องขอ",
+  "minimizeWindow": "ย่อ",
+  "maximizeWindow": "ขยาย",
+  "restoreWindow": "คืนค่า",
+  "closeWindow": "ปิด"
 }

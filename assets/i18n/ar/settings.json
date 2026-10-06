@@ -137,5 +137,6 @@
   "tokenString": "سلسلة نصية",
   "tokenType": "نوع",
   "unknown": "غير معروف",
-  "viewAccelAgreement": "عرض اتفاقية قنوات التسريع"
+  "viewAccelAgreement": "عرض اتفاقية قنوات التسريع",
+  "colorSwatch": "اللون {color}"
 }

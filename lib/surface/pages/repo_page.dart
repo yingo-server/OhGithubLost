@@ -385,10 +385,15 @@ class _RepoPageState extends State<RepoPage> {
 
   Widget _branchBar(ThemeData theme) => Material(
         color: theme.colorScheme.surfaceContainerHighest,
-        child: InkWell(
-          onTap: _pickBranch,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Semantics(
+          // 分支选择条是「打开选择器」的按钮：屏幕阅读器需要可读标签，
+          // 否则用户只看到一行分支名，不知道可以点。
+          button: true,
+          label: _t('selectBranch'),
+          child: InkWell(
+            onTap: _pickBranch,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: <Widget>[
                 const Icon(Icons.account_tree_outlined, size: 18),
@@ -410,7 +415,8 @@ class _RepoPageState extends State<RepoPage> {
               ],
             ),
           ),
-        ),
+          ),
+        );
       );
 }
 

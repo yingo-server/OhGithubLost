@@ -137,5 +137,6 @@
   "tokenString": "String",
   "tokenType": "Tipe",
   "unknown": "Tidak Diketahui",
-  "viewAccelAgreement": "Lihat Persetujuan Saluran Akselerasi"
+  "viewAccelAgreement": "Lihat Persetujuan Saluran Akselerasi",
+  "colorSwatch": "Warna {color}"
 }

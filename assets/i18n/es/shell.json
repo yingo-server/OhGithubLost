@@ -57,5 +57,9 @@
   "systemChannel": "[Canal de sistema] {text}",
   "systemNotifUnavailable": "Las notificaciones del sistema no están disponibles (los avisos en segundo plano solo se guardarán en disco): {error}",
   "webNotifDesc": "El lado web no proporciona las capacidades de notificación necesarias para esta app.",
-  "webStorageDesc": "En el entorno de navegador, el propio navegador gestiona la cuota de almacenamiento; la app no puede ni necesita solicitarlo."
+  "webStorageDesc": "En el entorno de navegador, el propio navegador gestiona la cuota de almacenamiento; la app no puede ni necesita solicitarlo.",
+  "minimizeWindow": "Minimizar",
+  "maximizeWindow": "Maximizar",
+  "restoreWindow": "Restaurar",
+  "closeWindow": "Cerrar"
 }

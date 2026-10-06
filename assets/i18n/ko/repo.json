@@ -188,5 +188,6 @@
   "unstar": "별표 취소",
   "unstarred": "별표 취소됨",
   "workflowTriggered": "워크플로 트리거됨",
-  "defaultAction": "기본"
+  "defaultAction": "기본",
+  "selectBranch": "브랜치 선택"
 }

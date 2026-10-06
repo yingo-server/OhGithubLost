@@ -137,5 +137,6 @@
   "tokenString": "字串",
   "tokenType": "型別",
   "unknown": "未知",
-  "viewAccelAgreement": "檢視加速通道協議"
+  "viewAccelAgreement": "檢視加速通道協議",
+  "colorSwatch": "顏色 {color}"
 }

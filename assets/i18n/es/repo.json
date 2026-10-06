@@ -188,5 +188,6 @@
   "unstar": "Quitar marca",
   "unstarred": "Marca retirada",
   "workflowTriggered": "Flujo de trabajo disparado",
-  "defaultAction": "Predeterminado"
+  "defaultAction": "Predeterminado",
+  "selectBranch": "Seleccionar rama"
 }

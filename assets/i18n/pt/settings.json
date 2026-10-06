@@ -137,5 +137,6 @@
   "tokenString": "String",
   "tokenType": "Tipo",
   "unknown": "Desconhecido",
-  "viewAccelAgreement": "Ver acordo de canal de aceleração"
+  "viewAccelAgreement": "Ver acordo de canal de aceleração",
+  "colorSwatch": "Cor {color}"
 }

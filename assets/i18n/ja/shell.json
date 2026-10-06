@@ -57,5 +57,9 @@
   "systemChannel": "[システムチャネル] {text}",
   "systemNotifUnavailable": "システム通知が利用できません（バックグラウンド通知はディスク保存のみ）：{error}",
   "webNotifDesc": "Web 版は本アプリに必要な通知機能をサポートしていません。",
-  "webStorageDesc": "ブラウザ環境ではブラウザ自身がストレージクォータを管理するため、アプリからの申請は不要です。"
+  "webStorageDesc": "ブラウザ環境ではブラウザ自身がストレージクォータを管理するため、アプリからの申請は不要です。",
+  "minimizeWindow": "最小化",
+  "maximizeWindow": "最大化",
+  "restoreWindow": "元に戻す",
+  "closeWindow": "閉じる"
 }

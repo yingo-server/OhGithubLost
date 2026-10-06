@@ -12,5 +12,6 @@
   "resetDesc": "現在のメモリ内のすべてのイベントをクリアします（ディスクログは保持されます）。",
   "resetTitle": "通知センターをリセット",
   "title": "通知センター",
-  "unread": "未読"
+  "unread": "未読",
+  "toggleNotification": "通知を切り替える"
 }

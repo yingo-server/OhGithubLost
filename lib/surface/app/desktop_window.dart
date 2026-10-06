@@ -150,16 +150,19 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
             _button(
               context,
               icon: Icons.remove,
+              label: _t('minimizeWindow'),
               onTap: ogLWindow.minimize,
             ),
             _button(
               context,
               icon: _maximized ? Icons.filter_none : Icons.crop_square,
+              label: _maximized ? _t('restoreWindow') : _t('maximizeWindow'),
               onTap: _toggleMaximize,
             ),
             _button(
               context,
               icon: Icons.close,
+              label: _t('closeWindow'),
               onTap: ogLWindow.close,
               danger: true,
             ),
@@ -181,19 +184,26 @@ class _OgLTitleBarState extends State<OgLTitleBar> with WindowListener {
   Widget _button(
     BuildContext context, {
     required IconData icon,
+    required String label,
     required VoidCallback onTap,
     bool danger = false,
   }) {
     final ThemeData theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        width: 46,
-        height: kOgLTitleBarHeight,
-        child: Icon(
-          icon,
-          size: 16,
-          color: danger ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
+    return Semantics(
+      // 标题栏窗口控件是**图标按钮**，屏幕阅读器需要可读的标签；
+      // 否则只会念出"按钮"，用户不知道点了会怎样。
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 46,
+          height: kOgLTitleBarHeight,
+          child: Icon(
+            icon,
+            size: 16,
+            color: danger ? theme.colorScheme.error : theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );

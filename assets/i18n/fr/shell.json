@@ -57,5 +57,9 @@
   "systemChannel": "[Canal système] {text}",
   "systemNotifUnavailable": "Notifications système non disponibles (les notifications en arrière-plan seront écrites uniquement sur disque) : {error}",
   "webNotifDesc": "L'interface web ne fournit pas la capacité de notification requise par l'application.",
-  "webStorageDesc": "L'environnement navigateur gère son propre quota de stockage, l'application ne peut ni n'a besoin de demander."
+  "webStorageDesc": "L'environnement navigateur gère son propre quota de stockage, l'application ne peut ni n'a besoin de demander.",
+  "minimizeWindow": "Réduire",
+  "maximizeWindow": "Agrandir",
+  "restoreWindow": "Restaurer",
+  "closeWindow": "Fermer"
 }

@@ -57,5 +57,9 @@
   "webNotifDesc": "Web 端不提供本应用所需的通知能力。",
   "webStorageDesc": "浏览器环境由浏览器自身管理存储配额，应用无法也无需申请。",
   "storageHintModern": "Android 11 及以上需要授予「所有文件访问」才能写到系统可见的 ogl 目录；如果你的系统或 ROM 没有这个开关（只能逐个授权文件夹），文件会退到应用私有目录——功能照常，但文件管理器通常看不到。",
-  "storageWhere": "当前保存位置"
+  "storageWhere": "当前保存位置",
+  "minimizeWindow": "最小化",
+  "maximizeWindow": "最大化",
+  "restoreWindow": "还原",
+  "closeWindow": "关闭"
 }

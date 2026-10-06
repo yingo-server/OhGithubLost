@@ -188,5 +188,6 @@
   "unstar": "Снять отметку",
   "unstarred": "Отметка снята",
   "workflowTriggered": "Запущен рабочий процесс",
-  "defaultAction": "По умолчанию"
+  "defaultAction": "По умолчанию",
+  "selectBranch": "Выбрать ветку"
 }

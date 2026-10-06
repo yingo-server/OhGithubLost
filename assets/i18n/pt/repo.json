@@ -188,5 +188,6 @@
   "unstar": "Remover estrela",
   "unstarred": "Estrela removida",
   "workflowTriggered": "Workflow disparado",
-  "defaultAction": "Padrão"
+  "defaultAction": "Padrão",
+  "selectBranch": "Selecionar branch"
 }

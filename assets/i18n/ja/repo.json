@@ -188,5 +188,6 @@
   "unstar": "スター取消",
   "unstarred": "スターを取消しました",
   "workflowTriggered": "ワークフローをトリガーしました",
-  "defaultAction": "既定"
+  "defaultAction": "既定",
+  "selectBranch": "ブランチを選択"
 }

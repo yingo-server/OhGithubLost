@@ -137,5 +137,6 @@
   "tokenString": "ข้อความ",
   "tokenType": "ประเภท",
   "unknown": "ไม่ระบุ",
-  "viewAccelAgreement": "ดูข้อตกลงช่องทางเร่งความเร็ว"
+  "viewAccelAgreement": "ดูข้อตกลงช่องทางเร่งความเร็ว",
+  "colorSwatch": "สี {color}"
 }

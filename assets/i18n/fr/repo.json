@@ -188,5 +188,6 @@
   "unstar": "Retirer l'étoile",
   "unstarred": "Étoile retirée",
   "workflowTriggered": "Workflow déclenché",
-  "defaultAction": "Par défaut"
+  "defaultAction": "Par défaut",
+  "selectBranch": "Sélectionner la branche"
 }

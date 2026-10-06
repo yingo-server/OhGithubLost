@@ -188,5 +188,6 @@
   "unstar": "取消星號",
   "unstarred": "已取消星號",
   "workflowTriggered": "已觸發工作流",
-  "defaultAction": "預設"
+  "defaultAction": "預設",
+  "selectBranch": "選擇分支"
 }

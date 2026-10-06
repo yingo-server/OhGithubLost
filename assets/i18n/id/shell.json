@@ -57,5 +57,9 @@
   "systemChannel": "[Kanal Sistem] {text}",
   "systemNotifUnavailable": "Notifikasi sistem tidak tersedia (pengingat latar belakang hanya akan persist ke disk): {error}",
   "webNotifDesc": "End Web tidak menyediakan kemampuan notifikasi yang diperlukan aplikasi ini.",
-  "webStorageDesc": "Lingkungan browser dikelola oleh browser sendiri untuk kuota penyimpanan, aplikasi tidak dapat dan tidak perlu mengajukan permohonan."
+  "webStorageDesc": "Lingkungan browser dikelola oleh browser sendiri untuk kuota penyimpanan, aplikasi tidak dapat dan tidak perlu mengajukan permohonan.",
+  "minimizeWindow": "Minimalkan",
+  "maximizeWindow": "Maksimalkan",
+  "restoreWindow": "Pulihkan",
+  "closeWindow": "Tutup"
 }

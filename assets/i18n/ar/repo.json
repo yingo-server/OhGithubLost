@@ -188,5 +188,6 @@
   "unstar": "إزالة النجمة",
   "unstarred": "تمت إزالة النجمة",
   "workflowTriggered": "تم تشغيل سير العمل",
-  "defaultAction": "افتراضي"
+  "defaultAction": "افتراضي",
+  "selectBranch": "اختيار الفرع"
 }

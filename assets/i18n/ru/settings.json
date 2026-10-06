@@ -137,5 +137,6 @@
   "tokenString": "Строки",
   "tokenType": "Типы",
   "unknown": "Неизвестно",
-  "viewAccelAgreement": "Просмотреть соглашение о канале ускорения"
+  "viewAccelAgreement": "Просмотреть соглашение о канале ускорения",
+  "colorSwatch": "Цвет {color}"
 }

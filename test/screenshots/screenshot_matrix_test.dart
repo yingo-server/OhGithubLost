@@ -445,30 +445,66 @@ void main() {
         isPrivate: false,
         stars: 1234,
       ));
-      const List<(String, String, Size)> samples = <(String, String, Size)>[
-        ('portrait__home', 'home', Size(390, 844)),
-        ('landscape__repo', 'repo', Size(844, 390)),
+      // ★ 恢复完整矩阵（此前退化成 2 张样本，UI 改动无法自动发现视觉回归）。
+      //   三个维度：页面 × 亮/暗 × 横/竖；另加「平台 × 亮/暗」的首页，
+      //   因为 Material 的 `platform` 会改变按钮/输入框等控件的外观。
+      const List<(String, String, Size)> matrix =
+          <(String, String, Size)>[
+        for (final String screen in <String>[
+          'login',
+          'home',
+          'repo',
+          'settings',
+          'about',
+        ])
+          for (final Brightness brightness in Brightness.values)
+            for (final (String, Size) shape in <(String, Size)>[
+              ('portrait', Size(390, 844)),
+              ('landscape', Size(844, 390)),
+            ])
+              (screen, brightness.name, shape.$2),
+        // 平台差异只在首页上铺开（其余页面与平台无关，避免用例数爆炸）。
+        for (final TargetPlatform platform in <TargetPlatform>[
+          TargetPlatform.android,
+          TargetPlatform.windows,
+          TargetPlatform.linux,
+        ])
+          for (final Brightness brightness in Brightness.values)
+            ('home@${platform.name}', brightness.name, const Size(390, 844)),
       ];
-      for (final (String name, String screen, Size size) in samples) {
+
+      for (final (String name, String brightnessName, Size size) in matrix) {
+        final Brightness brightness =
+            brightnessName == 'dark' ? Brightness.dark : Brightness.light;
+        final String platformTag = name.contains('@')
+            ? name.substring(name.indexOf('@') + 1)
+            : 'android';
+        final TargetPlatform platform = switch (platformTag) {
+          'windows' => TargetPlatform.windows,
+          'linux' => TargetPlatform.linux,
+          _ => TargetPlatform.android,
+        };
+        final String label = name.replaceAll('@', '__');
         final GlobalKey key = await _pumpScreen(
           tester,
-          screen: screen,
+          screen: name.split('@').first,
           bridge: bridge,
           report: report,
           repo: repo,
-          platform: TargetPlatform.android,
-          brightness: Brightness.light,
+          platform: platform,
+          brightness: brightness,
           size: size,
         );
         final int bytes = await _capture(
           tester,
           key,
           logical: size,
-          writePath: '$kOutRoot/$name.png',
+          writePath: '$kOutRoot/$label.png',
         );
-        expect(bytes, greaterThan(1000), reason: '截屏捕获异常: $name');
-        debugPrint('[截屏] $name ${size.width.toInt()}x${size.height.toInt()} '
-            '($bytes B)');
+        expect(bytes, greaterThan(1000), reason: '截屏捕获异常: $label');
+        debugPrint('[截屏] $label ${size.width.toInt()}x${size.height.toInt()} '
+            '→ ${(bytes / 1024).toStringAsFixed(1)} KB');
+        debugDisableShadows = true;
       }
     } finally {
       debugDisableShadows = true;
