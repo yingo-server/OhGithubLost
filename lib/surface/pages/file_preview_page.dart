@@ -88,9 +88,6 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// 用户已确认「改用 raw 链接」。
   bool _useRaw = false;
 
-  /// 正在等待用户就「>1 MB 怎么取」作出选择。
-  bool _asking = false;
-
   /// raw 直链（`raw.githubusercontent.com`）。
   String get _rawUrl => 'https://raw.githubusercontent.com/${widget.fullName}/'
       '${Uri.encodeComponent(widget.branch)}/'
