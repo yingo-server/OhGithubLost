@@ -44,9 +44,23 @@ def run(cmd, env=None):
     return subprocess.run(cmd, env=env, check=True)
 
 
+def is_linux_dir(name: str) -> bool:
+    """判断 `dist/` 下的条目是否是 Linux 产物目录。
+
+    ★ 这里踩过一个坑，值得写下来：
+    `build.yml` 里 `upload-artifact` 的 `name` 直接取 `${{ matrix.label }}`，
+    而标签形如 **`Linux · x64`**（中间是「空格 + 中点 + 空格」），并不是
+    `Linux.x64`。原先这里只认 `Linux.` 前缀，于是**一个目录都匹配不到**，
+    脚本静默地报「Linux 安装包 0 个」—— 加上发布作业当时又没签出仓库，
+    两个问题叠加，导致 deb / rpm / AppImage 连续若干个版本从未产出。
+
+    所以这里放宽为「以 Linux 开头」，不假设分隔符。
+    """
+    return name.strip().lower().startswith('linux')
+
 def arch_of(name: str) -> tuple[str, str]:
-    """`Linux.x64` → (deb 架构, rpm 架构)。"""
-    if 'arm64' in name:
+    """`Linux · x64` / `Linux.x64` → (deb 架构, rpm 架构)。"""
+    if 'arm64' in name or 'aarch64' in name:
         return 'arm64', 'aarch64'
     return 'amd64', 'x86_64'
 
@@ -234,7 +248,7 @@ def main() -> int:
     os.makedirs(args.out, exist_ok=True)
     made = 0
     for name in sorted(os.listdir(args.dist)):
-        if not name.startswith('Linux.'):
+        if not is_linux_dir(name):
             continue
         bundle = bundle_of(args.dist, name)
         deb_arch, rpm_arch = arch_of(name)
