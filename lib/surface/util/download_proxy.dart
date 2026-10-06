@@ -52,6 +52,12 @@ List<String> ogLAccelCandidates({
   if (url.isEmpty) {
     return const <String>[];
   }
+  // ★ 非 http(s) 一律原样返回：加速前缀拼到 `file://` 之类地址上只会产出
+  //   垃圾，且这里不做检查就等于把「协议白名单」的责任推给调用方。
+  //   入队口另有 `ogLAssertDownloadUrl` 兜底，但**两层都要有**。
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return <String>[url];
+  }
   final bool accelWanted = prefixes.isNotEmpty &&
       family == OgLAccelFamily.signed &&
       (bytes == null || bytes > kOgLAccelMinBytes);
