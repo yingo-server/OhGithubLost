@@ -71,6 +71,11 @@
   `android/app/build.gradle.kts`，而 spec 仍指向 `build.gradle`，注入被静默跳过，
   导致 `compileSdk` 停在 36（插件要求 37）且 desugaring 未开。注入器现在**缺目标
   文件即报错退出**，失败点从编译期前移到注入期，日志直接指出缺哪个文件。
+- **发布 · Linux 的 deb / rpm / AppImage 从未真正发布过**：发布作业**没有
+  `actions/checkout`**，工作目录是空的，`tool/linux_packages.py` 根本找不到；
+  而该步骤带 `|| true`，把错误整个吞掉了。实测 v5.6.0 / v6.0.0 / v6.2.0 的 Release
+  里裸放安装包数量**均为 0**，而 README 一直承诺提供它们。已补上签出步骤，并把
+  「脚本不存在」改为**响亮失败**（单个格式打包失败仍只告警，不拖垮发布）。
 
 ### 移除 · Removed
 - main 上的 Web 残留：`.github/workflows/web.yml`（挂在 `push:[main]`，每次推 main

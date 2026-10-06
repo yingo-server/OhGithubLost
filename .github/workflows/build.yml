@@ -463,6 +463,13 @@ jobs:
       CH: ${{ inputs.channel }}
       VNUM: ${{ inputs.version_number }}
     steps:
+      # ★ 必须签出仓库：下面的 Linux 打包要跑 `tool/linux_packages.py`。
+      #   此前**没有这一步**，工作目录是空的，于是脚本永远找不到；
+      #   而打包步骤带 `|| true`，把错误整个吞掉了 —— 结果是 README 承诺的
+      #   deb / rpm / AppImage **从未真正发布过**（v5.6.0、v6.0.0、v6.2.0 均无）。
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
       - name: 下载全部产物
         uses: actions/download-artifact@v4
         with:
@@ -477,10 +484,22 @@ jobs:
           sudo apt-get install -y rpm file >/dev/null || true
       - name: Linux 安装包（deb / rpm / AppImage · 裸放直传）
         # 三种格式**自身已深度压缩**，不再套外层压缩包。
-        # AppImage 用 `--appimage-extract-and-run` 绕过 CI 无 FUSE 的限制；
-        # 任何一步不可用都只告警、不失败（不让它拖垮整个发布）。
+        # AppImage 用 `--appimage-extract-and-run` 绕过 CI 无 FUSE 的限制。
+        #
+        # 容错边界要分清：
+        #  · **脚本不存在 → 直接失败**（这是配置错误，不是"某个格式不可用"）；
+        #    此前这里写成 `|| true`，把"没签出仓库导致脚本根本不在"这种错误
+        #    也一并吞掉，deb/rpm/AppImage 静默消失了若干个版本。
+        #  · 单个格式打包失败 → 只告警，不让它拖垮整个发布。
         shell: bash
-        run: python3 tool/linux_packages.py --dist dist --out out --version "${VN}" || true
+        run: |
+          set -u
+          if [ ! -f tool/linux_packages.py ]; then
+            echo '::error::tool/linux_packages.py 不存在 —— 发布作业缺少 actions/checkout，或仓库里该文件被删了'
+            exit 1
+          fi
+          python3 tool/linux_packages.py --dist dist --out out --version "${VN}" \
+            || echo '::warning::Linux 安装包未全部生成（见上方输出）'
 
       - name: 整理产物（**只发压缩包** · zip + 7z · 极限压缩）
         shell: bash
