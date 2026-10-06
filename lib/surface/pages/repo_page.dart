@@ -415,9 +415,10 @@ class _RepoPageState extends State<RepoPage> {
               ],
             ),
           ),
-        );
-      );
-}
+        ),
+      ),
+    );
+  }
 
 /// 分支弹层的「默认分支」标记值。
 const String _kDefaultBranchMark = '\u0000default';

@@ -23,8 +23,14 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../platform/platform.dart';
 import '../../platform/window_capability.dart';
+import '../i18n/og_l_i18n.dart';
 
 export '../../platform/window_capability.dart' show OgLWindowDecoration;
+
+/// 取 `shell` 分片文案（标题栏窗口控件的无障碍标签）。
+String _t(String key, [Map<String, Object?>? args]) =>
+    OgLI18n.instance.t('shell', key,
+        args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
 /// 当前是否为桌面平台（Windows / Linux / macOS）。
 bool get ogLIsDesktopPlatform => ogLWindow.isDesktop;
