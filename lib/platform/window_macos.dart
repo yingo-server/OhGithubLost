@@ -21,7 +21,7 @@ class OgLMacosWindow implements OgLWindowCapability {
   String get platformLabel => 'macOS';
 
   /// 原生窗口标题（Dock / 窗口菜单读它）。
-  static const String appTitle = 'OhGithubLost';
+  static const String appTitle = kOgLAppTitle;
 
   @override
   Future<void> init({required OgLWindowDecoration decoration}) async {

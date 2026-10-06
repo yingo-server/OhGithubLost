@@ -16,6 +16,12 @@
 /// 需要新的平台能力时：加契约方法 → 各平台实现 → 门面选型，三步走。
 library;
 
+/// 原生窗口标题的**唯一来源**。
+///
+/// 各平台实现都保留自己的 `appTitle` 常量，但值一律引用这里 —— 否则三份
+/// 字面量各改各的，任务栏 / Alt-Tab / 任务管理器显示的标题会悄悄分叉。
+const String kOgLAppTitle = 'OhGithubLost';
+
 /// 窗口装饰模式。
 enum OgLWindowDecoration {
   /// 自绘标题栏（默认，外观与 App 一致）。

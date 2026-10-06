@@ -25,7 +25,7 @@ class OgLLinuxWindow implements OgLWindowCapability {
   String get platformLabel => 'Linux';
 
   /// 原生窗口标题（GTK 读它显示在任务栏）。
-  static const String appTitle = 'OhGithubLost';
+  static const String appTitle = kOgLAppTitle;
 
   @override
   Future<void> init({required OgLWindowDecoration decoration}) async {

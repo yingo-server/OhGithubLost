@@ -24,13 +24,13 @@ class OgLWindowsWindow implements OgLWindowCapability {
   String get platformLabel => 'Windows';
 
   /// 应用在任务栏 / Alt-Tab / 任务管理器里显示的原生标题。
-static const String appTitle = 'OhGithubLost';
+  static const String appTitle = kOgLAppTitle;
 
-@override
-Future<void> init({required OgLWindowDecoration decoration}) async {
-await windowManager.ensureInitialized();
-await applyDecoration(decoration);
-}
+  @override
+  Future<void> init({required OgLWindowDecoration decoration}) async {
+    await windowManager.ensureInitialized();
+    await applyDecoration(decoration);
+  }
 
   @override
   Future<void> applyDecoration(OgLWindowDecoration decoration) async {

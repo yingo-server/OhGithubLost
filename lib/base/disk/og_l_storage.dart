@@ -61,7 +61,17 @@ class OgLStoragePlan {
   final String? safTreeUri;
 
   /// 用户是否拿得到文件（①② 为真，③ 为假）。
-  bool get userVisible => mode != OgLStorageMode.internal;
+  /// 是否**用户可见**（用户能靠文件管理器 / 电脑找到）。
+  ///
+  /// 判定**统一走 [OgLAppDirs.isUserVisible]**（按实际路径分级），不在这里
+  /// 另写一套「档位 != internal」。两套定义会在「桌面文档目录不可写、最终落到
+  /// 应用支持目录」时给出**相反结论**：按档位说不可见，按路径分级又判成桌面可见。
+  /// 今天没露馅只是因为界面还没接后者 —— 一旦接上就会对用户撒谎。
+  ///
+  /// ② 档（SAF）是例外：那里的 `root` 是应用内回退路径，真正可见的是用户
+  /// 授权的那个文件夹，所以只要用户授权过就算可见。
+  bool get userVisible =>
+      mode == OgLStorageMode.safDir || OgLAppDirs.isUserVisible(root);
 
   /// 诊断用短串。
   String get label => switch (mode) {

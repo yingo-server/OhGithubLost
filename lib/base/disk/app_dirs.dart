@@ -146,7 +146,15 @@ abstract final class OgLAppDirs {
   /// 下载根目录。
   static Future<String> downloads() async => '${await root()}/download';
 
-  /// 下载分类子目录名。
+  /// 下载分类的子目录名（`<下载根>/<分类>/`）。
+  ///
+  /// ## 这是**分类 → 目录名**的唯一映射
+  /// 下载器内部走的是 `IxDownloadCategory.folder`（中枢层），两者必须**逐项一致**。
+  /// 因为底座不能反向依赖中枢（`layer_audit` 会拦），这里以字符串入参独立维护，
+  /// 再由 `test/base/app_dirs_category_test.dart` 把两边**逐个枚举比对** ——
+  /// 新增分类时漏改任一侧，测试立刻失败。
+  ///
+  /// ⚠️ 历史上这里漏过 `artifact`（Action 构建产物），会**静默落到 `other/`**。
   static String categoryFolder(String category) {
     switch (category) {
       case 'release':
@@ -155,6 +163,8 @@ abstract final class OgLAppDirs {
         return 'repo';
       case 'gist':
         return 'gist';
+      case 'artifact':
+        return 'artifact';
       default:
         return 'other';
     }
@@ -170,7 +180,10 @@ abstract final class OgLAppDirs {
       if (await _writable(visible)) {
         return visible;
       }
-      // ② 应用外部目录：无需权限、文件管理器可见。
+      // ② 应用外部目录：无需任何权限即可写，是 ① 失败后的首选退路。
+      //    ⚠️ 但它**不算用户可见**（见 `isUserVisible`）：Android 11+ 起系统会
+      //    隐藏 `Android/data/`，用户在文件管理器里实际上找不到。这里选它只是
+      //    因为「能写」比「不可见但能写」更接近可用，界面会如实标注当前档位。
       try {
         final Directory? ext = await getExternalStorageDirectory();
         if (ext != null) {
