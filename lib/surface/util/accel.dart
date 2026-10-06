@@ -21,8 +21,10 @@ String _t(String key, [Map<String, Object?>? args]) =>
     OgLI18n.instance.t('common', key,
         args: args?.map((String k, Object? v) => MapEntry<String, String>(k, '$v')));
 
-/// 同意协议的版本号：**文本任何实质修改都必须 +1**，以便重新征求同意。
-const int kOgLAccelConsentVersion = 1;
+/// 同意协议的版本号：**文本或通道地址任何实质修改都必须 +1**，以便重新征求同意。
+///
+/// v2：内置通道换为 `proxy.344977.xyz`（地址变更属实质修改，必须重新征求同意）。
+const int kOgLAccelConsentVersion = 2;
 
 /// 一个下载加速通道。
 class OgLAccelChannel {
@@ -84,21 +86,26 @@ const String kOgLAccelBuiltinId = 'builtin';
 
 /// **内置通道的加速链（按优先级，不可由用户调整）**。
 ///
-/// 1. `https://gh.felicity.ac.cn/https://github.com/` —— **优先**；
-/// 2. `https://gh.felicity.ac.cn/` —— **降级备选**（旧式镜像前缀）。
+/// 当前形态：**单前缀**。`https://proxy.344977.xyz/`
 ///
-/// 该代理是「URL 转发」形式：把**完整的 GitHub 链接**拼在前缀之后，
-/// 即 `前缀 + 原始 URL`，例如
-/// `https://gh.felicity.ac.cn/https://github.com/…`。
-/// 下载时按序探测，**静默降级**：前一个不可用就直接用下一个，不打扰用户。
+/// 该代理是「URL 转发」形式：把**完整的原始链接**拼在前缀之后，即
+/// `前缀 + 原始 URL`，例如
+/// `https://proxy.344977.xyz/https://github.com/…`。
+/// 下载时按序探测，**静默降级**；末尾永远保留直连兜底
+/// （见 `util/download_proxy.dart` 的候选地址构造）。
+///
+/// ## 为什么签名族必须先在本地解 302
+/// Release 附件 / Action 日志 / Action 产物都是「302 → 短期签名 URL」的结构，
+/// 代理只会照抄我们给的地址。因此**令牌绝不能交给代理**：由域层
+/// `IxPresign` 在本地把第一跳走完、拿到绑定单对象且约 30 分钟有效的签名
+/// 地址，再把**那个地址**交给代理。令牌不出设备。
 const List<String> kOgLAccelBuiltinBaseUrls = <String>[
-  'https://gh.felicity.ac.cn/https://github.com/',
-  'https://gh.felicity.ac.cn/',
+  'https://proxy.344977.xyz/',
 ];
 
 /// 内置通道主前缀（= 链首，供只认单个前缀的旧路径使用）。
 const String kOgLAccelBuiltinBaseUrl =
-    'https://gh.felicity.ac.cn/https://github.com/';
+    'https://proxy.344977.xyz/';
 
 /// 内置通道。
 ///

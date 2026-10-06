@@ -231,20 +231,37 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       return;
     }
     try {
-      // 加速前缀链（总开关关闭、或未同意协议时为空 = 直连）。
-      // 内置通道是「优先 + 降级」的固定链，命中不了会自动**静默降级**，
-      // 最后一条永远是直连。
-      final List<String> urls = ogLReleaseDownloadUrls(
-        url,
-        widget.surface.settings.settings.activeAccelPrefixes,
+      // ① 本地解 302：把需认证的第一跳换成**短期签名地址**（令牌不出设备）。
+      //    之后即便把地址交给加速通道，也不需要携带任何令牌。
+      final String direct = await widget.surface.resolveDownloadUrl(url);
+      final bool presigned = direct != url;
+      // ② 路由判定：签名族 + 超过阈值才加速；候选地址末尾永远带直连兜底。
+      //
+      //    ⚠️ **预解析失败时必须放弃加速**：此时手上仍是「需要 Authorization 的
+      //    第一跳」，把它交给代理等于把令牌送给第三方。此时改为直连 + 认证头。
+      final List<String> prefixes = presigned
+          ? widget.surface.settings.settings.activeAccelPrefixes
+          : const <String>[];
+      final List<String> urls = ogLAccelCandidates(
+        url: direct,
+        prefixes: prefixes,
+        family: OgLAccelFamily.signed,
+        bytes: asset.size,
       );
+      // ③ 认证头只在「没拿到签名地址」时用，且此时**必定是直连**。
+      final Map<String, String> headers = presigned
+          ? const <String, String>{}
+          : await widget.surface.downloadAuthHeaders();
       await widget.surface.domain.downloads.enqueue(
         url: urls.first,
         fallbackUrls: urls.skip(1).toList(),
+        headers: headers,
         fileName: asset.name,
         category: IxDownloadCategory.release,
         // 大附件优先多连接：服务端不支持 Range 时中枢层自动回退。
         connections: widget.surface.settings.settings.downloadConnections,
+        // GitHub 提供的 sha256；有则下载后校验，没有则如实标记「未校验」。
+        expectedSha256: IxPresign.normalizeDigest(asset.raw['digest']),
       );
       if (mounted) {
         _toast(_t('addedToDownload', {'name': asset.name}));

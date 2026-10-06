@@ -10,6 +10,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ohgithublost/domain/ix/ix_download.dart';
+import 'package:ohgithublost/domain/ix/ix_presign.dart';
 
 void main() {
   group('文件名净化', () {
@@ -87,6 +88,84 @@ void main() {
           throwsArgumentError);
       expect(() => ogLAssertDownloadUrl(''), throwsArgumentError);
       expect(() => ogLAssertDownloadUrl('not a url'), throwsArgumentError);
+    });
+  });
+
+  group('跳转目标校验（拒绝把设备引向内网）', () {
+    test('回环 / 私网 / 链路本地 / 未指定一律拒绝', () {
+      for (final String host in <String>[
+        'localhost',
+        'app.localhost',
+        '127.0.0.1',
+        '127.9.9.9',
+        '0.0.0.0',
+        '10.0.0.5',
+        '172.16.0.1',
+        '172.31.255.255',
+        '192.168.1.1',
+        // 云环境元数据服务：最值得挡的一个。
+        '169.254.169.254',
+        '::1',
+        'fd00::1',
+        'fe80::1',
+        '',
+      ]) {
+        expect(IxPresign.isForbiddenHost(host), isTrue,
+            reason: '应拒绝：$host');
+      }
+    });
+
+    test('公网域名与公网 IP 放行', () {
+      for (final String host in <String>[
+        'github.com',
+        'release-assets.githubusercontent.com',
+        'results-receiver.actions.githubusercontent.com',
+        'productionresultssa9.blob.core.windows.net',
+        'proxy.344977.xyz',
+        '1.1.1.1',
+        // 172.32/173.x 不在私网段内。
+        '172.32.0.1',
+        '172.15.0.1',
+      ]) {
+        expect(IxPresign.isForbiddenHost(host), isFalse,
+            reason: '应放行：$host');
+      }
+    });
+
+    test('相对 Location 按基准补全，绝对地址原样取用', () {
+      final Uri base = Uri.parse('https://api.github.com/x/y');
+      expect(
+        IxPresign.safeRedirectTarget('/a/b', base),
+        'https://api.github.com/a/b',
+      );
+      expect(
+        IxPresign.safeRedirectTarget('https://cdn.example.com/z', base),
+        'https://cdn.example.com/z',
+      );
+      // 危险协议与内网目标一律拒绝。
+      expect(IxPresign.safeRedirectTarget('file:///etc/passwd', base), isNull);
+      expect(IxPresign.safeRedirectTarget('http://127.0.0.1/x', base), isNull);
+      expect(IxPresign.safeRedirectTarget('http://169.254.169.254/', base),
+          isNull);
+    });
+  });
+
+  group('摘要规整（不谎称验过）', () {
+    test('接受规范的小写 sha256', () {
+      const String hex =
+          'a' * 64;
+      expect(IxPresign.normalizeDigest('sha256:$hex'), hex);
+      expect(IxPresign.normalizeDigest('SHA256:${'A' * 64}'), 'a' * 64);
+    });
+
+    test('缺失 / 非 sha256 / 长度不对 → null（= 未校验）', () {
+      expect(IxPresign.normalizeDigest(null), isNull);
+      expect(IxPresign.normalizeDigest(''), isNull);
+      expect(IxPresign.normalizeDigest('md5:${'a' * 32}'), isNull);
+      expect(IxPresign.normalizeDigest('sha256:abc'), isNull);
+      expect(IxPresign.normalizeDigest('sha256:${'z' * 64}'), isNull);
+      expect(IxPresign.normalizeDigest('${'a' * 64}'), isNull);
+      expect(IxPresign.normalizeDigest(123), isNull);
     });
   });
 }

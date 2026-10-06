@@ -125,20 +125,6 @@ void main() {
       expect(ogLNormalizeAccelBase('https://a.com/'), 'https://a.com/');
     });
 
-    test('拼接不会二次加前缀，也不会改写非 http 地址', () {
-      const String base = 'https://a.com/';
-      const String target = 'https://github.com/o/r/releases/download/v1/a.zip';
-      expect(ogLReleaseDownloadUrl(target, accelBase: base), '$base$target');
-      expect(
-        ogLReleaseDownloadUrl('$base$target', accelBase: base),
-        '$base$target',
-      );
-      expect(ogLReleaseDownloadUrl(target, accelBase: null), target);
-      expect(ogLReleaseDownloadUrl(target, accelBase: ''), target);
-      expect(ogLReleaseDownloadUrl('file:///tmp/a.zip', accelBase: base),
-          'file:///tmp/a.zip');
-    });
-
     test('协议文本按通道类型区分，且非空', () {
       expect(ogLAccelAgreementFor(kOgLAccelBuiltinChannel), isNotEmpty);
       expect(
@@ -157,12 +143,9 @@ void main() {
       );
     });
 
-    test('内置通道是「优先 + 降级」的固定链（不可由用户调整）', () {
-      expect(kOgLAccelBuiltinBaseUrls.length, 2);
-      // 优先：gh.felicity.ac.cn 转发完整 GitHub 链接；降级：旧式镜像前缀。
-      expect(kOgLAccelBuiltinBaseUrls.first,
-          'https://gh.felicity.ac.cn/https://github.com/');
-      expect(kOgLAccelBuiltinBaseUrls.last, 'https://gh.felicity.ac.cn/');
+    test('内置通道前缀：proxy.344977.xyz（单前缀，纯转发）', () {
+      expect(kOgLAccelBuiltinBaseUrls.length, 1);
+      expect(kOgLAccelBuiltinBaseUrls.first, 'https://proxy.344977.xyz/');
       for (final String base in kOgLAccelBuiltinBaseUrls) {
         expect(base.startsWith('https://'), isTrue);
         expect(ogLValidateAccelBaseUrl(base), isNull);
@@ -172,6 +155,8 @@ void main() {
       // 对用户仍是**一个**通道（不可删 / 不可改）。
       expect(kOgLAccelBuiltinChannel.builtin, isTrue);
       expect(kOgLAccelBuiltinChannel.baseUrl, kOgLAccelBuiltinBaseUrl);
+      // 协议版本已升到 2（换地址属实质修改，必须重新征求同意）。
+      expect(kOgLAccelConsentVersion, greaterThanOrEqualTo(2));
     });
 
     test('加速前缀链：内置是多前缀，自定义是单前缀', () {
@@ -186,23 +171,105 @@ void main() {
       expect(custom, <String>['https://x.com/']);
     });
 
-    test('候选地址：按优先级排列，**直连永远垫底**', () {
+    test('候选地址：未启用加速 → 直连', () {
       const String target =
           'https://github.com/o/r/releases/download/v1/a.zip';
-      expect(ogLReleaseDownloadUrls(target, const <String>[]), <String>[target]);
       expect(
-        ogLReleaseDownloadUrls(target, const <String>['https://a/', 'https://b/']),
-        <String>['https://a/$target', 'https://b/$target', target],
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>[],
+          family: OgLAccelFamily.signed,
+          bytes: 900 * 1024,
+        ),
+        <String>[target],
       );
-      // 已是加速地址 → 不再重复加前缀，直连仍在最后。
+    });
+
+    test('候选地址：raw 族**一律不加速**（raw 无签名机制）', () {
+      const String target = 'https://raw.githubusercontent.com/o/r/main/a.png';
       expect(
-        ogLReleaseDownloadUrls('https://a/$target',
-            const <String>['https://a/', 'https://b/']),
-        <String>['https://b/https://a/$target', 'https://a/$target'],
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+        ),
+        <String>[target],
       );
-      // 非 http(s) 原样返回。
+    });
+
+    test('候选地址：签名族 + 超过阈值 → 前缀 + 直连兜底', () {
+      const String target =
+          'https://release-assets.githubusercontent.com/x?sig=ab';
       expect(
-        ogLReleaseDownloadUrls('file:///tmp/a.zip', const <String>['https://a/']),
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+          bytes: kOgLAccelMinBytes + 1,
+        ),
+        <String>['https://proxy.344977.xyz/$target', target],
+      );
+    });
+
+    test('候选地址：≤ 500KB 不加速（小文件加速没收益）', () {
+      const String target = 'https://release-assets.githubusercontent.com/x';
+      expect(kOgLAccelMinBytes, 500 * 1024);
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+          bytes: kOgLAccelMinBytes,
+        ),
+        <String>[target],
+      );
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+          bytes: 1,
+        ),
+        <String>[target],
+      );
+    });
+
+    test('候选地址：大小未知（Action 日志/产物）按加速处理', () {
+      const String target = 'https://results-receiver.actions.githubusercontent.com/x';
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+        ),
+        <String>['https://proxy.344977.xyz/$target', target],
+      );
+    });
+
+    test('候选地址：已是加速地址则不重复加前缀，直连仍垫底', () {
+      const String target =
+          'https://release-assets.githubusercontent.com/x';
+      const String base = 'https://a/';
+      expect(
+        ogLAccelCandidates(
+          url: '$base$target',
+          prefixes: const <String>['https://a/', 'https://b/'],
+          family: OgLAccelFamily.signed,
+          bytes: 9 * 1024 * 1024,
+        ),
+        <String>['https://b/$base$target', '$base$target'],
+      );
+    });
+
+    test('候选地址：非 http(s) 原样返回（入队口会拒绝）', () {
+      expect(
+        ogLAccelCandidates(
+          url: 'file:///tmp/a.zip',
+          prefixes: const <String>['https://a/'],
+          family: OgLAccelFamily.signed,
+          bytes: 9 * 1024 * 1024,
+        ),
         <String>['file:///tmp/a.zip'],
       );
     });

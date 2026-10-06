@@ -216,6 +216,41 @@ class SurfaceBridge {
   /// 便捷：记录"已同意当前版本协议"（含时间凭据）。
   Future<void> acceptAccelConsent() => settings.acceptAccelConsent();
 
+  // ── 下载地址解析（加速的前置步骤）────────────────────────────────────
+
+  /// 把「需要认证的第一跳地址」解析为**可直接下载**的地址。
+  ///
+  /// Release 附件 / Action 日志 / Action 产物都是「302 → 短期签名 URL」结构，
+  /// 由域层 `IxPresign` 在**本地**走完第一跳（令牌不出设备），拿到绑定单对象
+  /// 且约 30 分钟有效的签名地址；页面随后才决定是否把它交给加速通道。
+  ///
+  /// 解析失败时**如实回退**到原始地址（宁可慢，也不静默失败）。
+  Future<String> resolveDownloadUrl(String url) async {
+    try {
+      final result = await domain.presign.resolve(url);
+      return result.url ?? url;
+    } catch (_) {
+      return url;
+    }
+  }
+
+  /// 下载用的认证头（**仅在无法预解析时**才需要，例如直连私有仓库的 raw 地址）。
+  ///
+  /// 返回空表表示未登录。令牌不会离开设备，但调用方**不得**把这些头交给
+  /// 加速通道 —— 那等于把令牌送给第三方。
+  Future<Map<String, String>> downloadAuthHeaders() async {
+    try {
+      final token = await domain.auth.activeToken();
+      final String? value = token?.value;
+      if (value == null || value.isEmpty) {
+        return const <String, String>{};
+      }
+      return <String, String>{'authorization': 'Bearer $value'};
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
   // ── 下载能力（交互层**通过桥取用**，不接触逻辑层的管理器实现）──────────
 
   /// 下载状态监听（任务增删 / 进度变化）。

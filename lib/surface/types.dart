@@ -24,6 +24,9 @@ export '../../domain/gh/gh_models.dart';
 export '../../domain/ix/ix_download.dart' hide IxDownloadManager;
 /// 通知：暴露通知模型，**隐藏**通知中心实现。
 export '../../domain/ix/ix_notify.dart' hide IxNotificationCenter;
+
+/// 第一跳解析：页面用它把「需认证的地址」换成短期签名地址（令牌不出设备）。
+export '../../domain/ix/ix_presign.dart' show IxPresign;
 /// 会话与任务：只暴露状态模型。
 export '../../domain/ix/ix_session.dart' hide IxSession;
 export '../../domain/ix/ix_task.dart' hide IxTaskRunner;

@@ -19,6 +19,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:background_downloader/background_downloader.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../kernel/contract/download_engine.dart';
@@ -165,6 +166,7 @@ class IxDownloadTask {
     required this.bytesPerSecond,
     required this.createdAt,
     this.error,
+    this.verified,
   });
 
   /// 任务 id。
@@ -200,6 +202,12 @@ class IxDownloadTask {
   /// 失败原因。
   final String? error;
 
+  /// 完整性校验结果（三态，**不谎称验过**）：
+  /// - `true`：已按期望摘要校验**通过**；
+  /// - `false`：校验过但**不匹配** —— 任务会被置为失败；
+  /// - `null`：**没有摘要可比对**（私有仓库与旧资产常见），界面须如实呈现。
+  final bool? verified;
+
   /// 进度（0–1；总长未知时为 0）。
   double get progress =>
       total <= 0 ? 0 : (received / total).clamp(0, 1).toDouble();
@@ -222,6 +230,7 @@ class IxDownloadTask {
     double? bytesPerSecond,
     String? error,
     String? savePath,
+    bool? verified,
   }) =>
       IxDownloadTask(
         id: id,
@@ -235,6 +244,7 @@ class IxDownloadTask {
         bytesPerSecond: bytesPerSecond ?? this.bytesPerSecond,
         createdAt: createdAt,
         error: error ?? this.error,
+        verified: verified ?? this.verified,
       );
 }
 
@@ -316,6 +326,7 @@ class IxDownloadManager extends ChangeNotifier {
     Map<String, String> headers = const <String, String>{},
     int connections = 1,
     List<String> fallbackUrls = const <String>[],
+    String? expectedSha256,
   }) async {
     // 安全边界收口（详见两个函数的文档）：
     // · 协议白名单 —— 加速通道地址由用户填写，非 http(s) 一律拒绝；
@@ -357,6 +368,10 @@ class IxDownloadManager extends ChangeNotifier {
       bytesPerSecond: 0,
       createdAt: DateTime.now(),
     );
+    // 期望摘要（sha256）；为空表示该资源没有可比对的摘要（如实标记未校验）。
+    if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+      _expectedSha256[id] = expectedSha256;
+    }
     notifyListeners();
 
     // 5.0：并发 > 1 且装配层给了分片引擎 → 走**多连接分片**；
@@ -451,7 +466,8 @@ class IxDownloadManager extends ChangeNotifier {
             _applyRangeProgress(id, received, total),
       );
       _applyRangeProgress(id, probe.total!, probe.total!);
-      _applyStatus(id, IxDownloadStatus.completed);
+      // 先校验完整性再宣告完成（校验不过则判失败，且不导出到 SAF）。
+      await _finishTask(id);
     } on DownloadCanceled {
       _applyStatus(
         id,
@@ -606,6 +622,7 @@ class IxDownloadManager extends ChangeNotifier {
     _tasks.remove(id);
     _snapshots.remove(id);
     _lastSample.remove(id);
+    _expectedSha256.remove(id);
     notifyListeners();
   }
 
@@ -636,6 +653,87 @@ class IxDownloadManager extends ChangeNotifier {
 
   /// 已导出到 SAF 的任务（去重：进度/状态事件会反复到达）。
   final Set<String> _exportedToSaf = <String>{};
+
+  /// 期望摘要（sha256 小写十六进制）→ 任务 id。
+  final Map<String, String> _expectedSha256 = <String, String>{};
+
+  /// 完成后**校验完整性**，返回是否可信。
+  ///
+  /// ## 为什么必须有这一步
+  /// 加速通道把流量交给第三方服务器后，**代理有能力返回被替换的文件**。
+  /// GitHub Release 资产自带 `digest`（`sha256:…`），不比对等于开了一个
+  /// 无验证的内容入口 —— 加速省下的时间不值得换一个来路不明的包。
+  ///
+  /// 没有摘要时（私有仓库与旧资产常见）**如实标记为「未校验」**，绝不谎称验过。
+  Future<bool> _verifyIntegrity(String id) async {
+    final IxDownloadTask? snap = _snapshots[id];
+    if (snap == null) {
+      return false;
+    }
+    final String? expected = _expectedSha256[id];
+    if (expected == null || expected.isEmpty) {
+      _diagnostics?.info(
+        'DL',
+        '该资源没有可校验的摘要，已如实标记为未校验：${snap.fileName}',
+        code: 'OGL-DL-401',
+      );
+      return true;
+    }
+    try {
+      final File file = File(snap.savePath);
+      if (!await file.exists()) {
+        return false;
+      }
+      final String actual =
+          (await sha256.bind(file.openRead()).first).toString();
+      final bool ok = actual == expected;
+      _snapshots[id] = snap.copyWith(verified: ok);
+      if (ok) {
+        _diagnostics?.info(
+          'DL',
+          '完整性校验通过：${snap.fileName}',
+          code: 'OGL-DL-402',
+        );
+      } else {
+        _diagnostics?.error(
+          'DL',
+          '完整性校验不匹配，判定为失败：${snap.fileName}',
+          code: 'OGL-DL-403',
+          data: <String, Object?>{'expected': expected, 'actual': actual},
+        );
+      }
+      notifyListeners();
+      return ok;
+    } catch (error) {
+      _diagnostics?.warn(
+        'DL',
+        '完整性校验无法完成：$error',
+        code: 'OGL-DL-404',
+      );
+      return false;
+    }
+  }
+
+  /// 下载真正结束的收尾：**先校验，再宣告完成**。
+  ///
+  /// 顺序很重要：校验不通过时必须**跳过 SAF 导出**，否则被替换的文件会落到
+  /// 用户可见的目录里。
+  Future<void> _finishTask(String id) async {
+    final bool ok = await _verifyIntegrity(id);
+    if (!ok) {
+      final IxDownloadTask? snap = _snapshots[id];
+      if (snap != null) {
+        _snapshots[id] = snap.copyWith(
+          status: IxDownloadStatus.failed,
+          error: 'integrityMismatch',
+        );
+        notifyListeners();
+      }
+      return;
+    }
+    _applyStatus(id, IxDownloadStatus.completed); // 内部会触发 SAF 导出。
+    unawaited(_fillCompletedSize(id));
+  }
 
   /// 下载完成后，把成品**导出**到用户授权的 SAF 文件夹（存储②档）。
   ///
@@ -687,11 +785,8 @@ class IxDownloadManager extends ChangeNotifier {
       );
       notifyListeners();
       if (status == IxDownloadStatus.completed) {
-        // 库对小文件可能一次进度事件都不发 → 界面会一直显示 "0 B"（截图实证）。
-        // 完成时以磁盘上的真实文件大小回填。
-        unawaited(_fillCompletedSize(id));
-        // 存储②档：成品自动**导出**到用户选的文件夹（去重、失败不阻断）。
-        unawaited(_maybeExportToSaf(id));
+        // 先校验完整性，再回填大小与导出 SAF（校验不过则判失败、不导出）。
+        unawaited(_finishTask(id));
       }
       return;
     }
