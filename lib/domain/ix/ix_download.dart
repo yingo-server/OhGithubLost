@@ -87,6 +87,68 @@ enum IxDownloadStatus {
       };
 }
 
+/// Windows 保留设备名（大小写不敏感，带任意扩展名都危险）。
+const Set<String> _kReservedDeviceNames = <String>{
+  'con', 'prn', 'aux', 'nul', //
+  'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+  'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9',
+};
+
+/// 落盘文件名的**安全净化**（下载器必须自己守住的边界）。
+///
+/// ## 为什么不能交给库
+/// `fileName` 的来源之一是 Release 附件名（**仓库所有者完全可控**），另一来源
+/// 是仓库路径末段。若直接交给 `DownloadTask.filename`，等于把路径构造的责任
+/// 外包给 `background_downloader` 的内部实现 —— 而那不在本仓库内、无法审计。
+/// 所以在这里收口：只取末段、剔除控制字符与路径分隔符、拒掉 `.`/`..`、
+/// 绕开 Windows 保留设备名、限长并**保住扩展名**（用户靠它判断文件类型）。
+String ogLSafeDownloadFileName(String raw, {String fallback = 'download'}) {
+  // ① 只取末段：任何路径分隔符都在此切断（`\` 在 Windows 上同样是分隔符）。
+  String name = raw.trim();
+  final int cut = name.lastIndexOf(RegExp(r'[/\\]'));
+  if (cut >= 0) {
+    name = name.substring(cut + 1);
+  }
+  // ② 剔除控制字符、Shell/Windows 非法字符，并把连续空白收敛成一个空格。
+  name = name.replaceAll(RegExp(r'[\x00-\x1F\x7F<>:"/\\|?*]'), '');
+  name = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+  // ③ 去掉前导点（隐藏文件）与尾部的点/空格（Windows 不允许尾随点与空格）。
+  name = name.replaceAll(RegExp(r'^[.]+'), '').replaceAll(RegExp(r'[. ]+$'), '');
+  if (name.isEmpty) {
+    return fallback;
+  }
+  // ④ 拆扩展名；限长时优先保住扩展名。
+  final int dot = name.lastIndexOf('.');
+  final String stem = dot > 0 ? name.substring(0, dot) : name;
+  final String ext = dot > 0 ? name.substring(dot) : '';
+  const int limit = 120;
+  String safeStem = stem.length > limit ? stem.substring(0, limit) : stem;
+  if (safeStem.isEmpty) {
+    safeStem = fallback;
+  }
+  // ⑤ Windows 保留设备名：改名，而不是放任它在 Windows 上失败。
+  if (_kReservedDeviceNames.contains(safeStem.toLowerCase())) {
+    safeStem = '_$safeStem';
+  }
+  // 扩展名本身也可能是攻击面（超长后缀会撑爆路径），过长就整个丢掉。
+  return '$safeStem${ext.length > 16 ? '' : ext}';
+}
+
+/// 只允许 `http` / `https`，其余一律拒绝。
+///
+/// ## 为什么
+/// 加速通道的地址由**用户填写**：一旦允许 `file://`，等于让远端内容指定去读
+/// 本机任意文件；非 http 协议在浏览器端也无法走 CORS（与「web 分支强制开启」
+/// 的前提冲突）。
+String ogLAssertDownloadUrl(String url) {
+  final Uri? parsed = Uri.tryParse(url);
+  if (parsed == null ||
+      (parsed.scheme != 'http' && parsed.scheme != 'https')) {
+    throw ArgumentError.value(url, 'url', '只允许 http/https 地址');
+  }
+  return url;
+}
+
 /// 一个下载任务的可读快照（不可变）。
 @immutable
 class IxDownloadTask {
@@ -255,9 +317,19 @@ class IxDownloadManager extends ChangeNotifier {
     int connections = 1,
     List<String> fallbackUrls = const <String>[],
   }) async {
+    // 安全边界收口（详见两个函数的文档）：
+    // · 协议白名单 —— 加速通道地址由用户填写，非 http(s) 一律拒绝；
+    // · 文件名净化 —— Release 附件名由仓库所有者完全可控，不能直接落盘。
+    ogLAssertDownloadUrl(url);
+    for (final String alt in fallbackUrls) {
+      if (alt.isNotEmpty && alt != url) {
+        ogLAssertDownloadUrl(alt);
+      }
+    }
+    final String safeName = ogLSafeDownloadFileName(fileName);
     final DownloadTask task = DownloadTask(
       url: url,
-      filename: fileName.isEmpty ? null : fileName,
+      filename: safeName,
       directory: 'ogl/download/${category.folder}',
       baseDirectory: BaseDirectory.applicationDocuments,
       headers: headers,
@@ -270,13 +342,13 @@ class IxDownloadManager extends ChangeNotifier {
     try {
       savePath = await task.filePath();
     } catch (_) {
-      savePath = fileName;
+      savePath = safeName;
     }
     _tasks[id] = task;
     _snapshots[id] = IxDownloadTask(
       id: id,
       url: url,
-      fileName: fileName,
+      fileName: safeName,
       category: category,
       savePath: savePath,
       status: IxDownloadStatus.queued,
