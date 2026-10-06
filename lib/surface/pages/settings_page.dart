@@ -1118,7 +1118,31 @@ const Divider(height: 1),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
-              child: Text(ogLAccelAgreementFor(channel)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(ogLAccelAgreementFor(channel)),
+                  const Divider(height: 28),
+                  // 通道的法律定位：它是**本应用提供的网络服务**，
+                  // 不保证可用性、也不保证不收集数据。开启后不再重复提示。
+                  Text(
+                    _t('accelServiceTitle'),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(_t('accelServiceBody')),
+                  const Divider(height: 28),
+                  // 语言效力：以中文文本为准。放在正文最后、勾选之前。
+                  Text(
+                    _t('accelLangNote'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: <Widget>[
@@ -1164,7 +1188,20 @@ const Divider(height: 1),
         title:  Text(_t('addCustomChannel')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            // 先讲清约束再让人填：自定义通道**只支持前缀式代理**
+            // （如 GHproxy 项目），且可能缺失部分代理端点。
+            Text(
+              _t('accelPrefixOnlyTitle'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _t('accelPrefixOnlyBody'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const Divider(height: 20),
             TextField(
               controller: name,
               decoration:  InputDecoration(

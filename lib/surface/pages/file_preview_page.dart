@@ -22,10 +22,12 @@ import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/download_proxy.dart';
 import '../util/file_preview.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
 import '../widgets/code_editor_field.dart';
+import 'settings_page.dart';
 
 /// 取 `common` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
@@ -82,6 +84,40 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
 
   /// 内容超过 Contents API 的单文件上限（1 MB）时为 true。
   bool _tooLarge = false;
+
+  /// 用户已确认「改用 raw 链接」。
+  bool _useRaw = false;
+
+  /// 正在等待用户就「>1 MB 怎么取」作出选择。
+  bool _asking = false;
+
+  /// raw 直链（`raw.githubusercontent.com`）。
+  String get _rawUrl => 'https://raw.githubusercontent.com/${widget.fullName}/'
+      '${Uri.encodeComponent(widget.branch)}/'
+      '${widget.path.split('/').map(Uri.encodeComponent).join('/')}';
+
+  /// 加速是否已开启（内置或自定义任一）。
+  ///
+  /// 判定只看**是否启用**，不看选的是哪个通道 —— 按产品要求：
+  /// 开启加速（无论内置还是自定义）后**不再弹窗**；只有**加速关闭**时才问。
+  bool get _accelOn =>
+      widget.surface.settings.settings.activeAccelPrefixes.isNotEmpty;
+
+  /// 加速已开启时的 raw 地址候选（含直连兜底）；未开启时只给直连。
+  List<String> get _rawCandidates {
+    final List<String> prefixes = _accelOn
+        ? widget.surface.settings.settings.activeAccelPrefixes
+        : const <String>[];
+    return ogLAccelCandidates(
+      url: _rawUrl,
+      prefixes: prefixes,
+      family: OgLAccelFamily.raw,
+      builtinChannel:
+          widget.surface.settings.settings.activeAccelChannel.builtin,
+      repoPrivate: widget.repoPrivate,
+      // 大小未知：raw 族的加速判定已有「仅内置 + 公开」的门槛。
+    );
+  }
 
   @override
   void initState() {
@@ -168,13 +204,9 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       return OgLAsyncErrorPane(message: error, onRetry: _load);
     }
     if (_tooLarge) {
-      // 大文件：按类型给出**可用的动作**，而不是丢一句「太大」就完了。
-      // 音频必然落在这里（Contents API 对 >1 MB 不回内容），而这正是最需要
-      // 给出出路的一类 —— 见 [_audioCard]。
-      if (widget.kind == OgLPreviewKind.audio) {
-        return _audioCard(theme);
-      }
-      return _notice(theme, Icons.info_outline, _t('previewTooLarge'));
+      // 大文件（Contents API 对 > 1 MB 不回内容）：按类型给出**可用的动作**，
+      // 而不是丢一句「太大」就完了。取法见 [_tooLargePane]。
+      return _tooLargePane(theme);
     }
     final Uint8List? bytes = _bytes;
     if (bytes == null || bytes.isEmpty) {
@@ -270,12 +302,126 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
     );
   }
 
+  /// > 1 MB 时的取法面板。
+  ///
+  /// ## 产品规则（用户明确要求）
+  /// - **加速已开启**（内置或自定义任一）→ **不弹窗**，直接用 raw 链接；
+  /// - **加速关闭** → 弹窗让用户选：改用 raw 链接 / 前往设置调整加速方式。
+  ///
+  /// 之所以要问：raw 直链对**私有仓库取不到内容**（必须带令牌），而且走的是
+  /// 与 API 不同的链路；用户有权知道自己换了取法。
+  Widget _tooLargePane(ThemeData theme) {
+    if (_useRaw || _accelOn) {
+      return _rawView(theme);
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.data_usage, size: 40, color: theme.colorScheme.outline),
+            const SizedBox(height: 12),
+            Text(
+              _t('fileTooLargeTitle'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _t('fileTooLargeBody'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => setState(() => _useRaw = true),
+              icon: const Icon(Icons.link),
+              label: Text(_t('useRawLink')),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => unawaited(_openSettings()),
+              icon: const Icon(Icons.settings_outlined),
+              label: Text(_t('goToSettings')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 跳转设置页（用户去调整加速方式）。
+  Future<void> _openSettings() async {
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(
+      builder: (BuildContext context) => SettingsPage(surface: widget.surface),
+    ));
+    // 回来时按新的加速设置重判一次取法。
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  /// 用 raw 链接渲染（图片直接显示；音频交系统播放器）。
+  ///
+  /// 私有仓库的 raw 需要认证头 —— 但**加速路径下不能带**（代理拿不到令牌，
+  /// 带了等于送令牌），所以这里按是否走了加速决定要不要认证头。
+  Widget _rawView(ThemeData theme) {
+    final List<String> urls = _rawCandidates;
+    if (urls.isEmpty) {
+      return _notice(theme, Icons.link_off, _t('fileTooLargeTitle'));
+    }
+    final String url = urls.first;
+    final bool proxied = url != _rawUrl;
+
+    switch (widget.kind) {
+      case OgLPreviewKind.image:
+        return InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 6,
+          child: Center(
+            child: Image.network(
+              url,
+              // 走代理时**不带任何令牌**；未走代理且是私有仓库才带。
+              headers: proxied || !widget.repoPrivate
+                  ? null
+                  : const <String, String>{},
+              fit: BoxFit.contain,
+              loadingBuilder: (BuildContext context, Widget child,
+                      ImageChunkEvent? progress) =>
+                  progress == null
+                      ? child
+                      : const Center(child: CircularProgressIndicator()),
+              errorBuilder: (BuildContext context, Object error,
+                      StackTrace? stack) =>
+                  _notice(theme, Icons.broken_image_outlined,
+                      _t('fileTooLargeTitle')),
+            ),
+          ),
+        );
+      case OgLPreviewKind.audio:
+        // 音频必然超限：默认就给出「用系统播放器打开」这条唯一可行的路。
+        return _audioCard(theme, rawUrl: url);
+      case OgLPreviewKind.svg:
+      case OgLPreviewKind.xml:
+      case OgLPreviewKind.text:
+      case OgLPreviewKind.unknown:
+        // 文本类 > 1 MB 不在预览页展开（编辑器才是它的去处）。
+        return _notice(theme, Icons.description_outlined,
+            _t('fileTooLargeTitle'));
+    }
+  }
+
   /// 音频：**给动作，不给空话**。
   ///
   /// 内置播放做不到（Contents API 对 >1 MB 不回内容，音频必然超限），所以这里
   /// 直接把"下载"这条唯一可行的路摆出来。取法与仓库页完全一致
   /// （`SurfaceBridge.planRepoFileDownload`）：不加速走 API 带认证，加速走代理 + raw。
-  Widget _audioCard(ThemeData theme) => Center(
+  Widget _audioCard(ThemeData theme, {String? rawUrl}) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -294,8 +440,21 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: (_busy || _queued) ? null : () => unawaited(_enqueueFile()),
+              // 有 raw 地址时优先给「播放」：这是**真的能听到声音**的那条路
+              // （走系统播放器；应用内播放需要额外音频依赖且音频必然超过
+              //  Contents API 的 1 MB 上限，内置播放本就不成立）。
+              if (rawUrl != null && rawUrl.isNotEmpty)
+                FilledButton.icon(
+                  onPressed: () =>
+                      unawaited(openLinkOrCopy(context, rawUrl, tag: 'Audio')),
+                  icon: const Icon(Icons.play_arrow),
+                  label: Text(_t('previewAudioPlay')),
+                ),
+              if (rawUrl != null && rawUrl.isNotEmpty)
+                const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed:
+                    (_busy || _queued) ? null : () => unawaited(_enqueueFile()),
                 icon: const Icon(Icons.download_outlined),
                 label: Text(_t('download')),
               ),

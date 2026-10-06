@@ -24,7 +24,10 @@ String _t(String key, [Map<String, Object?>? args]) =>
 /// 同意协议的版本号：**文本或通道地址任何实质修改都必须 +1**，以便重新征求同意。
 ///
 /// v2：内置通道换为 `proxy.344977.xyz`（地址变更属实质修改，必须重新征求同意）。
-const int kOgLAccelConsentVersion = 2;
+/// v3：新增「加速通道属于本应用提供的网络服务」（不保证可用性、不保证不收集
+///     数据）、「仅支持前缀式代理」与「以中文文本为准」三段说明 —— 协议正文
+///     的实质修改同样必须重新征求同意。
+const int kOgLAccelConsentVersion = 3;
 
 /// 一个下载加速通道。
 class OgLAccelChannel {
