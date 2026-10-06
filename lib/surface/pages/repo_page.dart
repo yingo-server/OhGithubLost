@@ -268,6 +268,8 @@ class _RepoPageState extends State<RepoPage> {
         fullName: _full,
         branch: _branch,
         canWrite: canWrite,
+        // 这里在 _RepoPageState 内部，`widget.repo` 才是有效的。
+        repoPrivate: widget.repo.isPrivate,
         initialPath: widget.initialPath,
       ),
       _IssuesTab(surface: widget.surface, fullName: _full),
@@ -689,6 +691,7 @@ class _CodeTab extends StatefulWidget {
     required this.fullName,
     required this.branch,
     required this.canWrite,
+    required this.repoPrivate,
     this.initialPath,
     super.key,
   });
@@ -696,6 +699,10 @@ class _CodeTab extends StatefulWidget {
   final SurfaceBridge surface;
   final String fullName;
   final String branch;
+
+  /// 仓库是否私有 —— 决定仓库文件的取法：私有只能走 API 带认证
+  /// （raw 没有签名机制，交给代理等于送令牌）。
+  final bool repoPrivate;
 
   /// 当前用户是否对该仓库有写权限（`permissions.push`，不允许降级猜测）。
   final bool canWrite;
@@ -866,7 +873,7 @@ class _CodeTabState extends State<_CodeTab> {
           path: entry.path,
           branch: widget.branch,
           kind: kind,
-          repoPrivate: widget.repo.isPrivate,
+          repoPrivate: widget.repoPrivate,
           size: entry.size,
         ),
       ));
@@ -1361,7 +1368,7 @@ class _CodeTabState extends State<_CodeTab> {
         fullName: widget.fullName,
         path: entry.path,
         branch: widget.branch,
-        repoPrivate: widget.repo.isPrivate,
+        repoPrivate: widget.repoPrivate,
         size: entry.size,
       );
       await widget.surface.domain.downloads.enqueue(
@@ -1556,7 +1563,7 @@ class _CodeTabState extends State<_CodeTab> {
   ///   这也是私有仓库唯一可行的取法（raw 没有签名机制，不能交给代理）。
   ({Uri? base, String? proxy}) _readmeImagePlan(String dir) {
     final bool accel = widget.surface.repoFileAccelerated(
-      repoPrivate: widget.repo.isPrivate,
+      repoPrivate: widget.repoPrivate,
       size: null,
     );
     final List<String> prefixes =
