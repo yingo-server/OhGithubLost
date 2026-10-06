@@ -138,5 +138,8 @@
   "tokenType": "نوع",
   "unknown": "غير معروف",
   "viewAccelAgreement": "عرض اتفاقية قنوات التسريع",
-  "colorSwatch": "اللون {color}"
+  "colorSwatch": "اللون {color}",
+  "legalLanguages": "لغة النص القانوني",
+  "legalText": "النص القانوني (كل اللغات)",
+  "legalTextEmpty": "لا يوجد نص بهذه اللغة بعد (النص الصيني هو المعتمد، واللغات الأخرى للاطلاع فقط)."
 }

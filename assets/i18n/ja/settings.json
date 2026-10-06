@@ -138,5 +138,8 @@
   "tokenType": "型",
   "unknown": "不明",
   "viewAccelAgreement": "アクセラレーションチャネル契約を表示",
-  "colorSwatch": "色 {color}"
+  "colorSwatch": "色 {color}",
+  "legalLanguages": "法的文書の言語",
+  "legalText": "法的文書（全言語）",
+  "legalTextEmpty": "この言語の本文は未収録です（本アプリは中国語本文が正文であり、他言語は参考のみです）。"
 }

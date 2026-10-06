@@ -138,5 +138,8 @@
   "tokenType": "Tipe",
   "unknown": "Tidak Diketahui",
   "viewAccelAgreement": "Lihat Persetujuan Saluran Akselerasi",
-  "colorSwatch": "Warna {color}"
+  "colorSwatch": "Warna {color}",
+  "legalLanguages": "Bahasa teks hukum",
+  "legalText": "Teks hukum (semua bahasa)",
+  "legalTextEmpty": "Belum ada teks untuk bahasa ini (teks bahasa Mandarin yang berlaku; bahasa lain hanya untuk rujukan)."
 }

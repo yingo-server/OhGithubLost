@@ -138,5 +138,8 @@
   "tokenType": "Type",
   "unknown": "Unknown",
   "viewAccelAgreement": "View Acceleration Channel Agreement",
-  "colorSwatch": "Colour {color}"
+  "colorSwatch": "Colour {color}",
+  "legalLanguages": "Legal text language",
+  "legalText": "Legal text (all languages)",
+  "legalTextEmpty": "No text available for this language yet (this application is governed by the Chinese text; other languages are for reference only)."
 }

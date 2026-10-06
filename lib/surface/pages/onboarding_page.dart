@@ -520,6 +520,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
   ///
   /// 正文很长（1100+ 字符），故用可滚动的 `ListView` 承载（`_stepBody` 本身
   /// 就是 ListView），并用 `SelectableText` 让用户能复制条款全文。
+  /// 最后一页：**开源许可与隐私承诺**。
+  ///
+  /// ## 版式取舍（用户明确要求）
+  /// - **上面只放「重点（人话版）」**：一眼能读完的要点，不放细节；
+  /// - **细节不丢**：完整法律文本原样保留，但**默认折叠**在下方 ——
+  ///   想看的人点开就能看到全文，不想看的人不会被一屏法务术语劝退；
+  /// - **显著声明以中文为准**：其他语言的译本只有解释作用，不构成权利义务依据。
+  ///
+  /// 正文分节对齐业界通行的「无追踪」隐私政策结构（开源许可 / 数据收集承诺 /
+  /// 数据位置 / 第三方服务 / Web 例外 / 儿童 / 安全 / 事件通知 / 权利与删除 /
+  /// 变更与生效 / 同意 / 联系方式），避免漏掉标准条款。
   Widget _licenseStep(ThemeData theme) => _stepBody(
         theme,
         children: <Widget>[
@@ -551,9 +562,61 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
           const SizedBox(height: 16),
+          // ── 重点（人话版）：只放要点，不放细节 ──
+          Text(
+            _t('licenseHighlights'),
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
           SelectableText(
-            _t('licenseBody'),
-            style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+            _t('onboardingLicenseHighlights'),
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.7),
+          ),
+          const SizedBox(height: 16),
+          // ── 语言效力声明：必须在正文之前，且视觉上醒目 ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(Icons.translate,
+                    size: 16, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _t('licenseAuthoritative'),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 完整法律文本：默认折叠，细节一条不少 ──
+          Card(
+            margin: EdgeInsets.zero,
+            child: ExpansionTile(
+              // 刻意**不加** `initiallyExpanded`：默认收起。
+              leading: Icon(Icons.description_outlined,
+                  color: theme.colorScheme.onSurfaceVariant),
+              title: Text(
+                _t('licenseFullText'),
+                style: theme.textTheme.titleSmall,
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: <Widget>[
+                SelectableText(
+                  _t('onboardingLicenseBody'),
+                  style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
         ],

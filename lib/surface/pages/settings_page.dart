@@ -38,6 +38,7 @@ import '../types.dart';
 import '../util/accel.dart';
 import '../widgets/code_editor_field.dart';
 import 'about_page.dart';
+import 'legal_text_page.dart';
 import 'network_page.dart';
 import 'onboarding_page.dart';
 import 'repo_page.dart';
@@ -1319,12 +1320,34 @@ const Divider(height: 1),
   Widget _licenseSection(ThemeData theme) => Card(
         clipBehavior: Clip.antiAlias,
         margin: const EdgeInsets.only(bottom: 12),
-        child: ListTile(
-          leading: const Icon(Icons.gavel_outlined),
-          title: Text(_t('licenses')),
-          subtitle:  Text(_t('licensesDesc')),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _showLicenses,
+        child: Column(
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.gavel_outlined),
+              title: Text(_t('licenses')),
+              subtitle:  Text(_t('licensesDesc')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showLicenses,
+            ),
+            const Divider(height: 1),
+            // 法律文本：**逐语言对照查看**。引导页那份面向首次阅读（重点 +
+            // 折叠全文），这里面向查阅 —— 可以把全部可用语言逐个调出来。
+            // 效力以中文为准的声明在该页顶部常驻。
+            ListTile(
+              leading: const Icon(Icons.translate),
+              title: Text(_t('legalText')),
+              subtitle:  Text(_t('legalLanguages')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => unawaited(
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) =>
+                        LegalTextPage(surface: widget.surface),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
 

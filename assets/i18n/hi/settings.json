@@ -138,5 +138,8 @@
   "tokenType": "टाइप",
   "unknown": "अज्ञात",
   "viewAccelAgreement": "अपगामी चैनल समझौते को देखें",
-  "colorSwatch": "रंग {color}"
+  "colorSwatch": "रंग {color}",
+  "legalLanguages": "कानूनी पाठ की भाषा",
+  "legalText": "कानूनी पाठ (सभी भाषाएँ)",
+  "legalTextEmpty": "इस भाषा में अभी पाठ उपलब्ध नहीं है (चीनी पाठ मान्य है; अन्य भाषाएँ केवल संदर्भ के लिए हैं)।"
 }

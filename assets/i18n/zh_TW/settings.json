@@ -138,5 +138,8 @@
   "tokenType": "型別",
   "unknown": "未知",
   "viewAccelAgreement": "檢視加速通道協議",
-  "colorSwatch": "顏色 {color}"
+  "colorSwatch": "顏色 {color}",
+  "legalLanguages": "法律文字語言",
+  "legalText": "法律文字（多語言）",
+  "legalTextEmpty": "該語言的正文暫缺（本應用以中文文字為準，其他語言僅供參考）。"
 }

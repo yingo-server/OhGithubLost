@@ -138,5 +138,8 @@
   "tokenType": "Tipo",
   "unknown": "Desconocido",
   "viewAccelAgreement": "Ver acuerdo de canal de aceleración",
-  "colorSwatch": "Color {color}"
+  "colorSwatch": "Color {color}",
+  "legalLanguages": "Idioma del texto legal",
+  "legalText": "Texto legal (todos los idiomas)",
+  "legalTextEmpty": "Aún no hay texto en este idioma (rige el texto en chino; los demás idiomas son solo informativos)."
 }

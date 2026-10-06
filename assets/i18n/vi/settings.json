@@ -138,5 +138,8 @@
   "tokenType": "Kiểu dữ liệu",
   "unknown": "Không rõ",
   "viewAccelAgreement": "Xem hiệp định kênh tăng tốc",
-  "colorSwatch": "Màu {color}"
+  "colorSwatch": "Màu {color}",
+  "legalLanguages": "Ngôn ngữ văn bản pháp lý",
+  "legalText": "Toàn văn pháp lý (mọi ngôn ngữ)",
+  "legalTextEmpty": "Chưa có văn bản cho ngôn ngữ này (bản tiếng Trung là bản chính; các ngôn ngữ khác chỉ để tham khảo)."
 }

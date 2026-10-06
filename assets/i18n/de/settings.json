@@ -138,5 +138,8 @@
   "tokenType": "Typ",
   "unknown": "Unbekannt",
   "viewAccelAgreement": "Beschleunigungskanal-Vereinbarung anzeigen",
-  "colorSwatch": "Farbe {color}"
+  "colorSwatch": "Farbe {color}",
+  "legalLanguages": "Sprache des Rechtstexts",
+  "legalText": "Rechtstext (alle Sprachen)",
+  "legalTextEmpty": "Für diese Sprache liegt noch kein Text vor (maßgeblich ist der chinesische Text; andere Sprachen dienen nur zur Information)."
 }
