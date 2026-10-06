@@ -16,5 +16,13 @@
   "runNumber": "Execução #{number}",
   "status": "Status: {status}",
   "title": "Detalhes da execução",
-  "viewLogs": "Ver logs"
+  "viewLogs": "Ver logs",
+  "artifacts": "Artefatos de build",
+  "noArtifacts": "Esta execução não gerou artefatos",
+  "artifactExpired": "Expirado",
+  "artifactExpiresAt": "Expira em {at}",
+  "downloadArtifact": "Baixar artefato",
+  "artifactAdded": "Adicionado aos downloads: {name}",
+  "artifactAddFailed": "Falha ao adicionar download: {error}",
+  "artifactNoUrl": "Este artefato não tem URL de download"
 }

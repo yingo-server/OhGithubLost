@@ -13,5 +13,19 @@
   "remove": "हटाएँ",
   "resume": "जारी रखें",
   "retry": "पुनः प्रयास",
-  "title": "डाउनलोड प्रबंधन"
+  "title": "डाउनलोड प्रबंधन",
+  "statusQueued": "कतार में",
+  "statusRunning": "डाउनलोड हो रहा है",
+  "statusPaused": "रोका गया",
+  "statusCompleted": "पूर्ण",
+  "statusFailed": "विफल",
+  "statusCanceled": "रद्द",
+  "categoryRelease": "रिलीज़ अनुलग्नक",
+  "categoryRepo": "रिपॉज़िटरी फ़ाइल",
+  "categoryGist": "Gist",
+  "categoryArtifact": "बिल्ड आर्टिफ़ैक्ट",
+  "categoryOther": "अन्य",
+  "verified": "सत्यापित",
+  "unverified": "असत्यापित",
+  "verifyFailed": "अखंडता जाँच विफल"
 }

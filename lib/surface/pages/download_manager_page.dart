@@ -109,7 +109,7 @@ class DownloadManagerPage extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  task.status.label,
+                  _statusLabel(task.status),
                   style: theme.textTheme.bodySmall,
                 ),
               ],
@@ -238,7 +238,32 @@ class DownloadManagerPage extends StatelessWidget {
         IxDownloadCategory.release => Icons.new_releases_outlined,
         IxDownloadCategory.repo => Icons.folder_zip_outlined,
         IxDownloadCategory.gist => Icons.article_outlined,
+        IxDownloadCategory.artifact => Icons.inventory_2_outlined,
         IxDownloadCategory.other => Icons.download_outlined,
+      };
+
+  /// 分类展示名（**走 i18n**）。
+  ///
+  /// 注意：`IxDownloadCategory.label` 是域层的开发者可读串（中文），**不能直接
+  /// 显示在界面上** —— 那会让非中文用户在下载管理页看到中文。域层不参与 i18n
+  /// 扫描（`i18n_scan` 只看 `lib/surface/`），所以这类问题门禁抓不到，只能靠
+  /// 「界面文案一律经 `_t`」这条纪律守住。
+  static String _categoryLabel(IxDownloadCategory category) => switch (category) {
+        IxDownloadCategory.release => _t('categoryRelease'),
+        IxDownloadCategory.repo => _t('categoryRepo'),
+        IxDownloadCategory.gist => _t('categoryGist'),
+        IxDownloadCategory.artifact => _t('categoryArtifact'),
+        IxDownloadCategory.other => _t('categoryOther'),
+      };
+
+  /// 状态展示名（**走 i18n**，理由同上）。
+  static String _statusLabel(IxDownloadStatus status) => switch (status) {
+        IxDownloadStatus.queued => _t('statusQueued'),
+        IxDownloadStatus.running => _t('statusRunning'),
+        IxDownloadStatus.paused => _t('statusPaused'),
+        IxDownloadStatus.completed => _t('statusCompleted'),
+        IxDownloadStatus.failed => _t('statusFailed'),
+        IxDownloadStatus.canceled => _t('statusCanceled'),
       };
 
   /// 副标题（分类 · 大小 · 速率）。
@@ -256,7 +281,7 @@ class DownloadManagerPage extends StatelessWidget {
     final String speed = task.status == IxDownloadStatus.running
         ? ' · ${ghSizeText(task.bytesPerSecond.round())}/s'
         : '';
-    return '${task.category.label} · $size$speed';
+    return '${_categoryLabel(task.category)} · $size$speed';
   }
 
   Future<void> _openLocal(BuildContext context, IxDownloadTask task) async {

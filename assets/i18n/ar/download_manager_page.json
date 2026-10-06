@@ -13,5 +13,19 @@
   "remove": "إزالة",
   "resume": "استئناف",
   "retry": "إعادة المحاولة",
-  "title": "إدارة التنزيلات"
+  "title": "إدارة التنزيلات",
+  "statusQueued": "في الانتظار",
+  "statusRunning": "جارٍ التنزيل",
+  "statusPaused": "متوقف مؤقتًا",
+  "statusCompleted": "مكتمل",
+  "statusFailed": "فشل",
+  "statusCanceled": "ملغى",
+  "categoryRelease": "مرفق الإصدار",
+  "categoryRepo": "ملف المستودع",
+  "categoryGist": "Gist",
+  "categoryArtifact": "مخرجات البناء",
+  "categoryOther": "أخرى",
+  "verified": "تم التحقق",
+  "unverified": "لم يتم التحقق",
+  "verifyFailed": "فشل التحقق من السلامة"
 }

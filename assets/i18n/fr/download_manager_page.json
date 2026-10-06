@@ -13,5 +13,19 @@
   "remove": "Retirer",
   "resume": "Reprendre",
   "retry": "Réessayer",
-  "title": "Gestion des téléchargements"
+  "title": "Gestion des téléchargements",
+  "statusQueued": "En attente",
+  "statusRunning": "Téléchargement",
+  "statusPaused": "En pause",
+  "statusCompleted": "Terminé",
+  "statusFailed": "Échec",
+  "statusCanceled": "Annulé",
+  "categoryRelease": "Fichier de version",
+  "categoryRepo": "Fichier du dépôt",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Artefact de build",
+  "categoryOther": "Autre",
+  "verified": "Vérifié",
+  "unverified": "Non vérifié",
+  "verifyFailed": "Échec du contrôle d’intégrité"
 }

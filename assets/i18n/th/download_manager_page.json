@@ -13,5 +13,19 @@
   "remove": "ลบออก",
   "resume": "ดำเนินการต่อ",
   "retry": "ลองใหม่",
-  "title": "จัดการดาวน์โหลด"
+  "title": "จัดการดาวน์โหลด",
+  "statusQueued": "อยู่ในคิว",
+  "statusRunning": "กำลังดาวน์โหลด",
+  "statusPaused": "หยุดชั่วคราว",
+  "statusCompleted": "เสร็จสิ้น",
+  "statusFailed": "ล้มเหลว",
+  "statusCanceled": "ยกเลิกแล้ว",
+  "categoryRelease": "ไฟล์แนบ Release",
+  "categoryRepo": "ไฟล์ในรีโพ",
+  "categoryGist": "Gist",
+  "categoryArtifact": "อาร์ติแฟกต์บิลด์",
+  "categoryOther": "อื่น ๆ",
+  "verified": "ตรวจสอบแล้ว",
+  "unverified": "ยังไม่ตรวจสอบ",
+  "verifyFailed": "การตรวจสอบความสมบูรณ์ล้มเหลว"
 }

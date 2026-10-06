@@ -13,5 +13,19 @@
   "remove": "Remove",
   "resume": "Resume",
   "retry": "Retry",
-  "title": "Downloads"
+  "title": "Downloads",
+  "statusQueued": "Queued",
+  "statusRunning": "Downloading",
+  "statusPaused": "Paused",
+  "statusCompleted": "Completed",
+  "statusFailed": "Failed",
+  "statusCanceled": "Cancelled",
+  "categoryRelease": "Release asset",
+  "categoryRepo": "Repository file",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Build artifact",
+  "categoryOther": "Other",
+  "verified": "Verified",
+  "unverified": "Not verified",
+  "verifyFailed": "Integrity check failed"
 }

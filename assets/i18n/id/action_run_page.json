@@ -16,5 +16,13 @@
   "runNumber": "Eksekusi #{number}",
   "status": "Status: {status}",
   "title": "Detail Eksekusi",
-  "viewLogs": "Lihat Log"
+  "viewLogs": "Lihat Log",
+  "artifacts": "Artefak build",
+  "noArtifacts": "Proses ini tidak menghasilkan artefak",
+  "artifactExpired": "Kedaluwarsa",
+  "artifactExpiresAt": "Kedaluwarsa {at}",
+  "downloadArtifact": "Unduh artefak",
+  "artifactAdded": "Ditambahkan ke unduhan: {name}",
+  "artifactAddFailed": "Gagal menambahkan unduhan: {error}",
+  "artifactNoUrl": "Artefak ini tidak memiliki URL unduhan"
 }

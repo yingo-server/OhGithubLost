@@ -37,6 +37,9 @@ enum IxDownloadCategory {
   /// Gist 文件。
   gist,
 
+  /// Actions 构建产物。
+  artifact,
+
   /// 其它。
   other;
 
@@ -45,6 +48,7 @@ enum IxDownloadCategory {
         IxDownloadCategory.release => 'release',
         IxDownloadCategory.repo => 'repo',
         IxDownloadCategory.gist => 'gist',
+        IxDownloadCategory.artifact => 'artifact',
         IxDownloadCategory.other => 'other',
       };
 
@@ -53,6 +57,7 @@ enum IxDownloadCategory {
         IxDownloadCategory.release => 'Release',
         IxDownloadCategory.repo => '仓库文件',
         IxDownloadCategory.gist => 'Gist',
+        IxDownloadCategory.artifact => '构建产物',
         IxDownloadCategory.other => '其它',
       };
 }

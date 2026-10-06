@@ -16,5 +16,13 @@
   "runNumber": "Ejecución #{number}",
   "status": "Estado: {status}",
   "title": "Detalles de ejecución",
-  "viewLogs": "Ver registros"
+  "viewLogs": "Ver registros",
+  "artifacts": "Artefactos de compilación",
+  "noArtifacts": "Esta ejecución no produjo artefactos",
+  "artifactExpired": "Caducado",
+  "artifactExpiresAt": "Caduca el {at}",
+  "downloadArtifact": "Descargar artefacto",
+  "artifactAdded": "Añadido a descargas: {name}",
+  "artifactAddFailed": "No se pudo añadir a descargas: {error}",
+  "artifactNoUrl": "Este artefacto no tiene URL de descarga"
 }

@@ -17,6 +17,8 @@
 /// [CodeHighlightThemeMode.maxLineLength]）：超过阈值自动跳过高亮。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/bash.dart';
@@ -424,7 +426,7 @@ CodeHighlightTheme? ogLHighlightThemeFor({
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 编辑器 / 查看器共用的代码字段（库 [CodeEditor] 的项目薄封装）。
-class OgLCodeField extends StatelessWidget {
+class OgLCodeField extends StatefulWidget {
   /// 创建字段。
   const OgLCodeField({
     required this.controller,
@@ -441,6 +443,9 @@ class OgLCodeField extends StatelessWidget {
     this.padding = const EdgeInsets.all(12),
     super.key,
   });
+
+  @override
+  State<OgLCodeField> createState() => _OgLCodeFieldState();
 
   /// 内容控制器（由调用方持有，便于保存 / 撤销）。
   final CodeLineEditingController controller;
@@ -478,40 +483,6 @@ class OgLCodeField extends StatelessWidget {
   /// 内容内边距。
   final EdgeInsetsGeometry padding;
 
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final OgLCodeTheme palette =
-        codeTheme ?? OgLCodeTheme.fromScheme(theme.colorScheme);
-    final String lang = language.isNotEmpty ? language : ogLDetectLanguage(path);
-    return CodeEditor(
-      controller: controller,
-      readOnly: readOnly,
-      showCursorWhenReadOnly: false,
-      wordWrap: wrap,
-      focusNode: focusNode,
-      findController: findController,
-      padding: padding,
-      style: CodeEditorStyle(
-        fontSize: fontSize,
-        fontFamily: 'monospace',
-        fontHeight: 1.5,
-        backgroundColor: palette.background,
-        textColor: palette.foreground,
-        cursorColor: theme.colorScheme.primary,
-        cursorLineColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-        selectionColor: theme.colorScheme.primary.withValues(alpha: 0.24),
-        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.38),
-        codeTheme: ogLHighlightThemeFor(
-          language: lang,
-          highlight: highlight,
-          palette: palette,
-        ),
-      ),
-      indicatorBuilder: showLineNumbers ? _lineNumbers : null,
-      findBuilder: findController == null ? null : _findPanel,
-    );
-  }
 
   static Widget _lineNumbers(
     BuildContext context,
@@ -530,6 +501,113 @@ class OgLCodeField extends StatelessWidget {
     bool readOnly,
   ) =>
       OgLCodeFindPanel(controller: controller, readOnly: readOnly);
+}
+
+/// 字段的状态：**持有长按菜单控制器**。
+///
+/// ## 为什么必须有它
+/// `re_editor` 的 `CodeEditor` **没有 `contextMenuBuilder`**：它只接受一个
+/// `SelectionToolbarController`，而那是抽象类 —— 不传就**不会出现任何菜单**，
+/// 这正是「长按没有复制菜单」的根因。
+///
+/// 控制器必须跨重建存活：编辑器每次输入都会 `setState`，若在 `build` 里现建
+/// 实例，正在显示的浮动菜单会与新实例脱钩（残留或闪烁）。
+class _OgLCodeFieldState extends State<OgLCodeField> {
+  late final SelectionToolbarController _toolbar =
+      MobileSelectionToolbarController(builder: _selectionMenu);
+
+  /// 长按选择时的浮动菜单。
+  ///
+  /// ## 文案为什么不用新增 i18n 键
+  /// 四项标签全部取自 `MaterialLocalizations`（`cutButtonLabel` 等），由 Flutter
+  /// 官方为全部 15 种语言提供，与系统菜单口径一致 —— 既不必手工翻译 15 份，
+  /// 也不会与系统行为不一致。
+  Widget _selectionMenu({
+    required BuildContext context,
+    required TextSelectionToolbarAnchors anchors,
+    required CodeLineEditingController controller,
+    required VoidCallback onDismiss,
+    required VoidCallback onRefresh,
+  }) {
+    final MaterialLocalizations l10n = MaterialLocalizations.of(context);
+    final bool readOnly = widget.readOnly;
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: anchors,
+      buttonItems: <ContextMenuButtonItem>[
+        // 只读时不提供"剪切/粘贴"：给了也没意义，反而误导。
+        if (!readOnly)
+          ContextMenuButtonItem(
+            label: l10n.cutButtonLabel,
+            onPressed: () {
+              controller.cut();
+              onDismiss();
+            },
+          ),
+        ContextMenuButtonItem(
+          label: l10n.copyButtonLabel,
+          onPressed: () {
+            unawaited(controller.copy());
+            onDismiss();
+          },
+        ),
+        if (!readOnly)
+          ContextMenuButtonItem(
+            label: l10n.pasteButtonLabel,
+            onPressed: () {
+              controller.paste();
+              onDismiss();
+            },
+          ),
+        ContextMenuButtonItem(
+          label: l10n.selectAllButtonLabel,
+          onPressed: () {
+            controller.selectAll();
+            // 选中范围变化 → 让菜单按新范围重算位置。
+            onRefresh();
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final OgLCodeTheme palette =
+        widget.codeTheme ?? OgLCodeTheme.fromScheme(theme.colorScheme);
+    final String lang =
+        widget.language.isNotEmpty ? widget.language : ogLDetectLanguage(widget.path);
+    return CodeEditor(
+      controller: widget.controller,
+      readOnly: widget.readOnly,
+      showCursorWhenReadOnly: false,
+      wordWrap: widget.wrap,
+      focusNode: widget.focusNode,
+      findController: widget.findController,
+      padding: widget.padding,
+      // ★ 长按选择菜单：库只认这个控制器，不传就完全没有菜单
+      //   （`CodeEditor` 没有 `contextMenuBuilder`）。
+      toolbarController: _toolbar,
+      style: CodeEditorStyle(
+        fontSize: widget.fontSize,
+        fontFamily: 'monospace',
+        fontHeight: 1.5,
+        backgroundColor: palette.background,
+        textColor: palette.foreground,
+        cursorColor: theme.colorScheme.primary,
+        cursorLineColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+        selectionColor: theme.colorScheme.primary.withValues(alpha: 0.24),
+        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.38),
+        codeTheme: ogLHighlightThemeFor(
+          language: lang,
+          highlight: widget.highlight,
+          palette: palette,
+        ),
+      ),
+      indicatorBuilder: widget.showLineNumbers ? OgLCodeField._lineNumbers : null,
+      findBuilder: widget.findController == null ? null : OgLCodeField._findPanel,
+    );
+  }
 }
 
 /// 只读代码查看器：内部自建控制器，交给 [OgLCodeField] 渲染。

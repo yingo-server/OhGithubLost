@@ -16,5 +16,13 @@
   "runNumber": "実行 #{number}",
   "status": "状態：{status}",
   "title": "実行詳細",
-  "viewLogs": "ログを表示"
+  "viewLogs": "ログを表示",
+  "artifacts": "ビルド成果物",
+  "noArtifacts": "この実行にはビルド成果物がありません",
+  "artifactExpired": "期限切れ",
+  "artifactExpiresAt": "有効期限 {at}",
+  "downloadArtifact": "成果物をダウンロード",
+  "artifactAdded": "ダウンロードに追加しました：{name}",
+  "artifactAddFailed": "ダウンロードに追加できませんでした：{error}",
+  "artifactNoUrl": "この成果物にはダウンロード先がありません"
 }

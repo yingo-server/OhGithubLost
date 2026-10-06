@@ -13,5 +13,19 @@
   "remove": "Удалить",
   "resume": "Продолжить",
   "retry": "Повторить",
-  "title": "Управление загрузками"
+  "title": "Управление загрузками",
+  "statusQueued": "В очереди",
+  "statusRunning": "Загрузка",
+  "statusPaused": "Приостановлено",
+  "statusCompleted": "Завершено",
+  "statusFailed": "Ошибка",
+  "statusCanceled": "Отменено",
+  "categoryRelease": "Вложение релиза",
+  "categoryRepo": "Файл репозитория",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Артефакт сборки",
+  "categoryOther": "Другое",
+  "verified": "Проверено",
+  "unverified": "Не проверено",
+  "verifyFailed": "Проверка целостности не пройдена"
 }

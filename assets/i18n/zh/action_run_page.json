@@ -16,5 +16,13 @@
   "runNumber": "运行 #{number}",
   "status": "状态：{status}",
   "title": "运行详情",
-  "viewLogs": "查看日志"
+  "viewLogs": "查看日志",
+  "artifacts": "构建产物",
+  "noArtifacts": "本次运行没有构建产物",
+  "artifactExpired": "已过期",
+  "artifactExpiresAt": "有效期至 {at}",
+  "downloadArtifact": "下载产物",
+  "artifactAdded": "已加入下载：{name}",
+  "artifactAddFailed": "加入下载失败：{error}",
+  "artifactNoUrl": "该产物没有可用的下载地址"
 }

@@ -16,5 +16,13 @@
   "runNumber": "การรัน #{number}",
   "status": "สถานะ: {status}",
   "title": "รายละเอียดการรัน",
-  "viewLogs": "ดูบันทึก"
+  "viewLogs": "ดูบันทึก",
+  "artifacts": "อาร์ติแฟกต์บิลด์",
+  "noArtifacts": "การรันนี้ไม่มีอาร์ติแฟกต์",
+  "artifactExpired": "หมดอายุ",
+  "artifactExpiresAt": "หมดอายุ {at}",
+  "downloadArtifact": "ดาวน์โหลดอาร์ติแฟกต์",
+  "artifactAdded": "เพิ่มไปยังรายการดาวน์โหลดแล้ว: {name}",
+  "artifactAddFailed": "เพิ่มรายการดาวน์โหลดไม่สำเร็จ: {error}",
+  "artifactNoUrl": "อาร์ติแฟกต์นี้ไม่มี URL สำหรับดาวน์โหลด"
 }

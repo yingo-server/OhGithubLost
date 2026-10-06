@@ -13,5 +13,19 @@
   "remove": "Quitar",
   "resume": "Reanudar",
   "retry": "Reintentar",
-  "title": "Gestión de descargas"
+  "title": "Gestión de descargas",
+  "statusQueued": "En cola",
+  "statusRunning": "Descargando",
+  "statusPaused": "En pausa",
+  "statusCompleted": "Completado",
+  "statusFailed": "Fallido",
+  "statusCanceled": "Cancelado",
+  "categoryRelease": "Adjunto de versión",
+  "categoryRepo": "Archivo del repositorio",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Artefacto de compilación",
+  "categoryOther": "Otros",
+  "verified": "Verificado",
+  "unverified": "Sin verificar",
+  "verifyFailed": "Falló la verificación de integridad"
 }

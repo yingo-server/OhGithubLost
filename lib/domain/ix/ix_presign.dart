@@ -142,6 +142,9 @@ class IxPresign {
       }
       await response.drain<void>();
       // 200：第一跳本身就是直链，原样返回。
+      // 注意这里**不能** drain —— 200 意味着后面是真实的文件字节，
+      // 把它们读掉再丢弃纯属浪费（调用方随后会自己完整下载一次）。
+      // 连接由 finally 里的 force close 收尾。
       if (status >= 200 && status < 300) {
         return IxPresignResult(
           url: url,

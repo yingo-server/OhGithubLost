@@ -13,5 +13,19 @@
   "remove": "Xoá",
   "resume": "Tiếp tục",
   "retry": "Thử lại",
-  "title": "Quản lý tải xuống"
+  "title": "Quản lý tải xuống",
+  "statusQueued": "Đang chờ",
+  "statusRunning": "Đang tải",
+  "statusPaused": "Tạm dừng",
+  "statusCompleted": "Hoàn tất",
+  "statusFailed": "Thất bại",
+  "statusCanceled": "Đã hủy",
+  "categoryRelease": "Tệp đính kèm bản phát hành",
+  "categoryRepo": "Tệp trong kho",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Sản phẩm build",
+  "categoryOther": "Khác",
+  "verified": "Đã xác minh",
+  "unverified": "Chưa xác minh",
+  "verifyFailed": "Kiểm tra toàn vẹn thất bại"
 }

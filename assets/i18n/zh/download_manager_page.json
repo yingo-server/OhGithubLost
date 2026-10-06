@@ -13,5 +13,19 @@
   "remove": "移除",
   "resume": "继续",
   "retry": "重试",
-  "title": "下载管理"
+  "title": "下载管理",
+  "statusQueued": "排队中",
+  "statusRunning": "下载中",
+  "statusPaused": "已暂停",
+  "statusCompleted": "已完成",
+  "statusFailed": "失败",
+  "statusCanceled": "已取消",
+  "categoryRelease": "Release 附件",
+  "categoryRepo": "仓库文件",
+  "categoryGist": "Gist 片段",
+  "categoryArtifact": "构建产物",
+  "categoryOther": "其它",
+  "verified": "已校验",
+  "unverified": "未校验",
+  "verifyFailed": "完整性校验未通过"
 }

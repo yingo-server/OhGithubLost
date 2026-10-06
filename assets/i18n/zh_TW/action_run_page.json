@@ -16,5 +16,13 @@
   "runNumber": "執行 #{number}",
   "status": "狀態：{status}",
   "title": "執行詳情",
-  "viewLogs": "檢視日誌"
+  "viewLogs": "檢視日誌",
+  "artifacts": "建置產物",
+  "noArtifacts": "本次執行沒有建置產物",
+  "artifactExpired": "已過期",
+  "artifactExpiresAt": "有效期限至 {at}",
+  "downloadArtifact": "下載產物",
+  "artifactAdded": "已加入下載：{name}",
+  "artifactAddFailed": "加入下載失敗：{error}",
+  "artifactNoUrl": "該產物沒有可用的下載位址"
 }

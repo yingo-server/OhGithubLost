@@ -16,5 +16,13 @@
   "runNumber": "التشغيل #{number}",
   "status": "الحالة: {status}",
   "title": "تفاصيل التشغيل",
-  "viewLogs": "عرض السجلات"
+  "viewLogs": "عرض السجلات",
+  "artifacts": "مخرجات البناء",
+  "noArtifacts": "لم ينتج هذا التشغيل أي مخرجات",
+  "artifactExpired": "منتهي الصلاحية",
+  "artifactExpiresAt": "ينتهي في {at}",
+  "downloadArtifact": "تنزيل المخرجات",
+  "artifactAdded": "أُضيف إلى التنزيلات: {name}",
+  "artifactAddFailed": "فشل إضافة التنزيل: {error}",
+  "artifactNoUrl": "لا يوجد رابط تنزيل لهذه المخرجات"
 }

@@ -16,5 +16,13 @@
   "runNumber": "Lauf #{number}",
   "status": "Status: {status}",
   "title": "Laufdetails",
-  "viewLogs": "Protokolle anzeigen"
+  "viewLogs": "Protokolle anzeigen",
+  "artifacts": "Build-Artefakte",
+  "noArtifacts": "Dieser Lauf hat keine Artefakte erzeugt",
+  "artifactExpired": "Abgelaufen",
+  "artifactExpiresAt": "Läuft ab am {at}",
+  "downloadArtifact": "Artefakt herunterladen",
+  "artifactAdded": "Zu Downloads hinzugefügt: {name}",
+  "artifactAddFailed": "Hinzufügen zum Download fehlgeschlagen: {error}",
+  "artifactNoUrl": "Dieses Artefakt hat keine Download-URL"
 }

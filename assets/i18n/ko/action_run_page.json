@@ -16,5 +16,13 @@
   "runNumber": "실행 #{number}",
   "status": "상태: {status}",
   "title": "실행 세부 정보",
-  "viewLogs": "로그 보기"
+  "viewLogs": "로그 보기",
+  "artifacts": "빌드 아티팩트",
+  "noArtifacts": "이 실행에는 빌드 아티팩트가 없습니다",
+  "artifactExpired": "만료됨",
+  "artifactExpiresAt": "만료 {at}",
+  "downloadArtifact": "아티팩트 다운로드",
+  "artifactAdded": "다운로드에 추가됨: {name}",
+  "artifactAddFailed": "다운로드 추가 실패: {error}",
+  "artifactNoUrl": "이 아티팩트에는 다운로드 URL이 없습니다"
 }

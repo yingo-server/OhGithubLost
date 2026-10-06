@@ -13,5 +13,19 @@
   "remove": "Remover",
   "resume": "Retomar",
   "retry": "Tentar novamente",
-  "title": "Gerenciador de downloads"
+  "title": "Gerenciador de downloads",
+  "statusQueued": "Na fila",
+  "statusRunning": "Baixando",
+  "statusPaused": "Pausado",
+  "statusCompleted": "Concluído",
+  "statusFailed": "Falhou",
+  "statusCanceled": "Cancelado",
+  "categoryRelease": "Anexo de versão",
+  "categoryRepo": "Arquivo do repositório",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Artefato de build",
+  "categoryOther": "Outros",
+  "verified": "Verificado",
+  "unverified": "Não verificado",
+  "verifyFailed": "Falha na verificação de integridade"
 }

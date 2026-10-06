@@ -13,5 +13,19 @@
   "remove": "削除",
   "resume": "再開",
   "retry": "再試行",
-  "title": "ダウンロード管理"
+  "title": "ダウンロード管理",
+  "statusQueued": "待機中",
+  "statusRunning": "ダウンロード中",
+  "statusPaused": "一時停止",
+  "statusCompleted": "完了",
+  "statusFailed": "失敗",
+  "statusCanceled": "キャンセル",
+  "categoryRelease": "Release の添付ファイル",
+  "categoryRepo": "リポジトリのファイル",
+  "categoryGist": "Gist",
+  "categoryArtifact": "ビルド成果物",
+  "categoryOther": "その他",
+  "verified": "検証済み",
+  "unverified": "未検証",
+  "verifyFailed": "整合性チェックに失敗"
 }

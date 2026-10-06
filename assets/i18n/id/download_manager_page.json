@@ -13,5 +13,19 @@
   "remove": "Hapus",
   "resume": "Lanjutkan",
   "retry": "Coba Lagi",
-  "title": "Manajemen Unduhan"
+  "title": "Manajemen Unduhan",
+  "statusQueued": "Dalam antrean",
+  "statusRunning": "Mengunduh",
+  "statusPaused": "Dijeda",
+  "statusCompleted": "Selesai",
+  "statusFailed": "Gagal",
+  "statusCanceled": "Dibatalkan",
+  "categoryRelease": "Lampiran Rilis",
+  "categoryRepo": "Berkas repositori",
+  "categoryGist": "Gist",
+  "categoryArtifact": "Artefak build",
+  "categoryOther": "Lainnya",
+  "verified": "Terverifikasi",
+  "unverified": "Belum diverifikasi",
+  "verifyFailed": "Pemeriksaan integritas gagal"
 }

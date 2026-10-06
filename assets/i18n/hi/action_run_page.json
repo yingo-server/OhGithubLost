@@ -16,5 +16,13 @@
   "runNumber": "रन #{number}",
   "status": "स्थिति: {status}",
   "title": "रन विवरण",
-  "viewLogs": "लॉग देखें"
+  "viewLogs": "लॉग देखें",
+  "artifacts": "बिल्ड आर्टिफ़ैक्ट",
+  "noArtifacts": "इस रन ने कोई आर्टिफ़ैक्ट नहीं बनाया",
+  "artifactExpired": "समाप्त",
+  "artifactExpiresAt": "{at} को समाप्त",
+  "downloadArtifact": "आर्टिफ़ैक्ट डाउनलोड करें",
+  "artifactAdded": "डाउनलोड में जोड़ा गया: {name}",
+  "artifactAddFailed": "डाउनलोड जोड़ना विफल: {error}",
+  "artifactNoUrl": "इस आर्टिफ़ैक्ट का कोई डाउनलोड URL नहीं है"
 }

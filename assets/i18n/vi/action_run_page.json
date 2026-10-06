@@ -16,5 +16,13 @@
   "runNumber": "Chạy #{number}",
   "status": "Trạng thái: {status}",
   "title": "Chi tiết chạy",
-  "viewLogs": "Xem nhật ký"
+  "viewLogs": "Xem nhật ký",
+  "artifacts": "Sản phẩm build",
+  "noArtifacts": "Lần chạy này không tạo ra sản phẩm nào",
+  "artifactExpired": "Đã hết hạn",
+  "artifactExpiresAt": "Hết hạn {at}",
+  "downloadArtifact": "Tải sản phẩm",
+  "artifactAdded": "Đã thêm vào mục tải xuống: {name}",
+  "artifactAddFailed": "Không thêm được vào tải xuống: {error}",
+  "artifactNoUrl": "Sản phẩm này không có URL tải xuống"
 }
