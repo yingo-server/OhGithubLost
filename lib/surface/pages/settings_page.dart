@@ -1088,7 +1088,7 @@ const Divider(height: 1),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // 先定性：本文不产生法律效力，唯一生效的是 AGPL。
+                  // 先定性：本文不产生法律效力，唯一生效的是 Apache-2.0。
                   Text(
                     OgLI18n.instance.t('onboarding', 'legalStatementOnly'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1332,10 +1332,11 @@ const Divider(height: 1),
         ),
       );
 
-  /// 展示 **AGPL-3.0 全文**（从打进资源的 `LICENSE` 读取）。
+  /// 展示 **Apache-2.0 全文**（从打进资源的 `LICENSE` 读取）。
   ///
-  /// 为什么不只显示标识：AGPL-3.0 第 4 条要求"向接收者提供本许可的副本"。
-  /// 只写 `AGPL-3.0` 三个字不构成提供副本 —— 该许可全文现在随构建产物分发，
+  /// 为什么不只显示标识：Apache-2.0 第 4 条要求随分发提供本许可的副本
+  /// （并在存在 NOTICE 时一并提供）。只写 `Apache-2.0` 几个字不构成提供副本
+  /// —— 许可全文与 NOTICE 现在都随构建产物分发，
   /// 这一层负责把它呈现给用户。
   Future<void> _showFullLicense() async {
     String text = '';
@@ -1397,7 +1398,7 @@ const Divider(height: 1),
                     '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
                   ),
                   trailing: const Icon(Icons.chevron_right),
-                  // ★ 提供**全文**，而不是只给标识：AGPL-3.0 第 4 条要求
+                  // ★ 提供**全文**，而不是只给标识：Apache-2.0 第 4 条要求
                   //   向接收者提供许可副本。此时 `LICENSE` 已打进资源，
                   //   随构建产物一起分发。
                   onTap: () => unawaited(_showFullLicense()),

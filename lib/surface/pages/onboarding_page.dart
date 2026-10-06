@@ -562,7 +562,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
           const SizedBox(height: 12),
-          // ── 定性说明：本文不产生法律效力，唯一生效的是 AGPL ──
+          // ── 定性说明：本文不产生法律效力，唯一生效的是 Apache-2.0 ──
           //    放在最前，因为它是整页的性质界定，读者有权先知道这一点。
           Container(
             width: double.infinity,

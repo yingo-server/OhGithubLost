@@ -130,4 +130,4 @@ macOS 与 iOS 的构建产物为未签名包，设备上不能直接安装使用
 
 ## 十六、许可
 
-本项目使用 GNU Affero General Public License v3.0（AGPL-3.0），条款见仓库根目录 `LICENSE`。
+本项目使用 Apache License 2.0（Apache-2.0），条款见仓库根目录 `LICENSE`，第三方组件声明见 `NOTICE`。

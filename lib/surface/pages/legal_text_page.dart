@@ -84,7 +84,7 @@ class _LegalTextPageState extends State<LegalTextPage> {
       appBar: AppBar(title: Text(_t('legalText'))),
       body: Column(
         children: <Widget>[
-          // ── 定性说明：**唯一具有法律效力的是 AGPL**，本文只是说明 ──
+          // ── 定性说明：**唯一具有法律效力的是 Apache-2.0**，本文只是说明 ──
           //    放在最顶：读者应当先知道本文不产生法律效力，再读内容。
           Container(
             width: double.infinity,

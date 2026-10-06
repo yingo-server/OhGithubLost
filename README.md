@@ -99,4 +99,4 @@ CI 用 `tool/layer_audit.py --fatal` 强制。
 
 ## 许可证 / License
 
-**AGPL-3.0**（见 `LICENSE`）。第三方依赖许可见应用内「许可」页面。
+**Apache-2.0**（见 `LICENSE` 与 `NOTICE`）。第三方依赖许可见应用内「许可」页面。

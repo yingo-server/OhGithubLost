@@ -45,10 +45,10 @@ abstract final class OgLProjectInfo {
   static const String issuesUrl = '$repositoryUrl/issues';
 
   /// 本项目许可标识。
-  static const String licenseId = 'AGPL-3.0';
+  static const String licenseId = 'Apache-2.0';
 
   /// 本项目许可名称。
-  static const String licenseName = 'GNU Affero General Public License v3.0';
+  static const String licenseName = 'Apache License 2.0';
 
   /// 本项目许可地址。
   static const String licenseUrl =

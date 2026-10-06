@@ -159,7 +159,7 @@ def make_rpm(bundle: str, out: str, version: str, rpm_arch: str) -> str | None:
         'Version: ' + version,
         'Release: 1',
         'Summary: ' + APP_NAME + ' desktop client',
-        'License: AGPL-3.0',
+        'License: Apache-2.0',
         'BuildArch: ' + rpm_arch,
         '%define _binary_payload w9.xzdio',
         '',
