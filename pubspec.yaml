@@ -51,6 +51,13 @@ dependencies:
   flutter_markdown: ^0.7.7+1       # README / 议题 / 评论渲染
   url_launcher: ^6.3.2             # 外链 / 打开文件
 
+  # ── 展示层 · 矢量图预览（SVG）───────────────────────────────────────
+  # 只有 SVG 需要它：位图直接用 Flutter 自带的 Image，XML 走 re_highlight 的
+  # 语法高亮即可，音频交给系统播放器（见 file_preview.dart 的说明）。
+  # 纯 Dart 实现（底层是 vector_graphics），不引入原生代码，
+  # 因此不会给九条构建腿增添平台依赖。
+  flutter_svg: ^2.0.0
+
   # ── 展示层 · 代码编辑与高亮（**成熟库**）──────────────────────────────
   # 编辑器内核：行号 / 查找替换 / 撤销重做 / 折叠 / 快捷键 / 大文本；
   # 语法高亮：highlight.js 的 Dart 移植（近百种语言与主题）。

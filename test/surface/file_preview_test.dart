@@ -66,9 +66,11 @@ void main() {
       expect(ogLPreviewFirst(OgLPreviewKind.unknown), isFalse);
     });
 
-    test('当前只有位图能内置渲染（SVG 需额外依赖，列为预留）', () {
+    test('位图与 SVG 可内置渲染；音频与 XML 不可', () {
       expect(ogLCanRenderInline(OgLPreviewKind.image), isTrue);
-      expect(ogLCanRenderInline(OgLPreviewKind.svg), isFalse);
+      // SVG 由 flutter_svg 渲染（纯 Dart，无原生依赖）。
+      expect(ogLCanRenderInline(OgLPreviewKind.svg), isTrue);
+      // 音频受接口限制无法内置播放；XML 走文本查看器而非「渲染」。
       expect(ogLCanRenderInline(OgLPreviewKind.audio), isFalse);
       expect(ogLCanRenderInline(OgLPreviewKind.xml), isFalse);
     });

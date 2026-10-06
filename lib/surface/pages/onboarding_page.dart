@@ -56,7 +56,7 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  static const int _stepCount = 5;
+  static const int _stepCount = 6;
 
   late final OgLPermissionGateway _gateway = ogLPermissionGateway(
     storageProbe: widget.surface.ensureStorage,
@@ -228,6 +228,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _permissionStep(theme),
                   _privacyStep(theme),
                   _doneStep(theme),
+                  // 最后一页：开源许可与隐私承诺。
+                  // 放在最后是刻意的 —— 它包含一段**明确的法律承诺**与一处
+                  // **排除项**（可选 Web 功能），用户应当在点「完成」之前读到。
+                  _licenseStep(theme),
                 ],
               ),
             ),
@@ -503,6 +507,55 @@ class _OnboardingPageState extends State<OnboardingPage> {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
           ),
+        ],
+      );
+
+  /// 最后一页：**开源许可与隐私承诺**。
+  ///
+  /// 两件事必须让用户在点「完成」之前看到：
+  /// 1. **保证**：不收集数据 —— 无遥测/分析/广告，令牌只在本机；
+  /// 2. **排除项**：可选的 Web（浏览器）版本**不在这项保证之内** —— 它跑在
+  ///    浏览器与托管方的环境里，本应用无法替那些环节作出承诺。该功能默认关闭，
+  ///    只有用户主动开启才受此例外约束。
+  ///
+  /// 正文很长（1100+ 字符），故用可滚动的 `ListView` 承载（`_stepBody` 本身
+  /// 就是 ListView），并用 `SelectableText` 让用户能复制条款全文。
+  Widget _licenseStep(ThemeData theme) => _stepBody(
+        theme,
+        children: <Widget>[
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              Icon(Icons.gavel_outlined, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _t('licenseTitle'),
+                  style: theme.textTheme.headlineSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _t('licenseIntro'),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSecondaryContainer),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SelectableText(
+            _t('licenseBody'),
+            style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+          ),
+          const SizedBox(height: 24),
         ],
       );
 

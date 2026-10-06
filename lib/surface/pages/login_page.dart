@@ -53,7 +53,6 @@ class _LoginPageState extends State<LoginPage> {
   String _phase = '';
 
   /// 向导进度：0 = 还没开始；1..4 = 当前正在做的第几步；5 = 全部完成。
-  int _step = 0;
 
   @override
   void dispose() {
@@ -82,7 +81,6 @@ class _LoginPageState extends State<LoginPage> {
       _busy = true;
       _error = null;
       _phase = OgLI18n.instance.t('login', 'verifying');
-      _step = 1;
     });
 
     final auth = widget.surface.domain.auth;
@@ -95,7 +93,6 @@ class _LoginPageState extends State<LoginPage> {
 
       if (mounted) {
         setState(() {
-          _step = 2;
           _phase = OgLI18n.instance.t('login', 'phaseVerify');
         });
       }
@@ -105,7 +102,6 @@ class _LoginPageState extends State<LoginPage> {
 
       if (mounted) {
         setState(() {
-          _step = 3;
           _phase = OgLI18n.instance.t('login', 'phasePromote');
         });
       }
@@ -118,7 +114,6 @@ class _LoginPageState extends State<LoginPage> {
 
       if (mounted) {
         setState(() {
-          _step = 4;
           _phase = OgLI18n.instance.t('login', 'phaseVault');
         });
       }
@@ -132,7 +127,6 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
       setState(() {
-        _step = 5;
         _phase = OgLI18n.instance.t('login', 'phaseDone');
       });
       OgLAppLog.instance.add(_t('signIn'), '完成：@${me.login}');
@@ -170,34 +164,6 @@ class _LoginPageState extends State<LoginPage> {
         _busy = false;
       }
     }
-  }
-
-  /// 四步中的一行：已完成 / 进行中 / 待做。
-  Widget _stepTile({
-    required int index,
-    required String title,
-    required String detail,
-  }) {
-    final bool done = _step > index;
-    final bool current = _step == index;
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: Icon(
-        done
-            ? Icons.check_circle
-            : current
-                ? Icons.radio_button_checked
-                : Icons.radio_button_unchecked,
-        color: done
-            ? scheme.primary
-            : current
-                ? scheme.primary
-                : scheme.outline,
-      ),
-      title: Text('$index/4 $title'),
-      subtitle: Text(detail),
-      trailing: Text(done ? OgLI18n.instance.t('login', 'statusDone') : (current ? OgLI18n.instance.t('login', 'statusRunning') : OgLI18n.instance.t('login', 'statusPending'))),
-    );
   }
 
   /// 打开引导页（**回顾模式**：不改动"已引导"标志，也不影响登录状态）。
@@ -261,8 +227,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(OgLI18n.instance.t('login', 'pasteToken'), style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
           TextField(
             controller: _input,
             obscureText: _obscure,
@@ -330,60 +294,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ],
-          const SizedBox(height: 24),
-          Text(OgLI18n.instance.t('login', 'progressTitle'), style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: <Widget>[
-                _stepTile(
-                  index: 1,
-                  title: OgLI18n.instance.t('login', 'stepStageTitle'),
-                  detail: OgLI18n.instance.t('login', 'stepStageDesc'),
-                ),
-                _stepTile(
-                  index: 2,
-                  title: OgLI18n.instance.t('login', 'stepVerifyTitle'),
-                  detail: OgLI18n.instance.t('login', 'stepVerifyDesc'),
-                ),
-                _stepTile(
-                  index: 3,
-                  title: OgLI18n.instance.t('login', 'stepPromoteTitle'),
-                  detail: OgLI18n.instance.t('login', 'stepPromoteDesc'),
-                ),
-                _stepTile(
-                  index: 4,
-                  title: OgLI18n.instance.t('login', 'stepVaultTitle'),
-                  detail: OgLI18n.instance.t('login', 'stepVaultDesc'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(OgLI18n.instance.t('login', 'howToTitle'), style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: <Widget>[
-                ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text(OgLI18n.instance.t('login', 'howToWeb')),
-                  subtitle: Text(OgLI18n.instance.t('login', 'howToAvatar')),
-                ),
-                ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('Developer settings'),
-                  subtitle: Text(OgLI18n.instance.t('login', 'howToDeveloper')),
-                ),
-                ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('Personal access tokens'),
-                  subtitle: Text(OgLI18n.instance.t('login', 'howToScope')),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
         ],
       )),
     );

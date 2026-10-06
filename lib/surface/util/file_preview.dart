@@ -16,7 +16,7 @@ enum OgLPreviewKind {
   /// 位图：内置渲染（默认方式）。
   image,
 
-  /// 矢量图：可渲染，也可看源码。渲染需额外依赖，暂列为预留。
+  /// 矢量图：可渲染（flutter_svg），也可看源码。
   svg,
 
   /// XML 家族：按文本 + 语法高亮看。
@@ -85,9 +85,10 @@ bool ogLPreviewFirst(OgLPreviewKind kind) =>
 
 /// 判定能否**内置渲染**。
 ///
-/// SVG 需要矢量渲染依赖（当前未引入，列为预留），故此处返回 `false`；
-/// 判定与渲染分开，界面才能如实告诉用户「这一项需要额外能力」而不是默默失败。
-bool ogLCanRenderInline(OgLPreviewKind kind) => kind == OgLPreviewKind.image;
+/// 位图与 SVG 都能渲染：位图用 Flutter 自带的 `Image`，SVG 由 `flutter_svg`
+/// （纯 Dart，无原生依赖）。音频不能内置播放（见文件头的接口约束说明）。
+bool ogLCanRenderInline(OgLPreviewKind kind) =>
+    kind == OgLPreviewKind.image || kind == OgLPreviewKind.svg;
 
 /// i18n 键（`common` 分片）→ 打开方式的展示名。
 String ogLPreviewKindKey(OgLPreviewKind kind) => switch (kind) {

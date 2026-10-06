@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
@@ -185,6 +186,8 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       case OgLPreviewKind.audio:
         return _audioCard(theme);
       case OgLPreviewKind.svg:
+        // SVG 优先按矢量渲染；渲染失败时**如实退化为源码**（见 [_svg]）。
+        return _svg(bytes);
       case OgLPreviewKind.xml:
       case OgLPreviewKind.text:
       case OgLPreviewKind.unknown:
@@ -207,7 +210,32 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         ),
       );
 
-  /// 文本族（SVG / XML / 其它）：复用既有代码查看器（自带语法高亮与查找）。
+  /// SVG：矢量渲染（可缩放），失败或超限时退化为源码。
+  ///
+  /// 为什么给退化路径：SVG 也可能是超大文件或被 Contents API 截断的内容，
+  /// 渲染不出来时**让用户看到源码**比显示一句「加载失败」有用得多。
+  Widget _svg(Uint8List bytes) {
+    final String source = utf8.decode(bytes, allowMalformed: true);
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 8,
+            child: Center(
+              child: SvgPicture.string(
+                source,
+                fit: BoxFit.contain,
+                placeholderBuilder: (BuildContext context) => _text(bytes),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 文本族（XML / 其它）：复用既有代码查看器（自带语法高亮与查找）。
   Widget _text(Uint8List bytes) {
     final String source = utf8.decode(bytes, allowMalformed: true);
     return Column(
