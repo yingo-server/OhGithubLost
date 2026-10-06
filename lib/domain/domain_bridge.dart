@@ -302,6 +302,7 @@ class IxModule extends OgLModule {
   late final IxNotificationCenter notifications;
   late final IxDownloadManager downloads;
   late final IxActionLogs actionLogs;
+  late final IxPresign presign;
 
   @override
   Future<void> onRegister(KernelContext context) async {

@@ -151,21 +151,26 @@ void main() {
   });
 
   group('摘要规整（不谎称验过）', () {
-    test('接受规范的小写 sha256', () {
-      const String hex =
-          'a' * 64;
-      expect(IxPresign.normalizeDigest('sha256:$hex'), hex);
-      expect(IxPresign.normalizeDigest('SHA256:${'A' * 64}'), 'a' * 64);
-    });
+      // 注意：字符串的 `*` 重复是**运行期**运算，不能出现在 const 里。
+      final String hex64 = List<String>.filled(64, 'a').join();
+      final String hex64Upper = List<String>.filled(64, 'A').join();
+      final String hex32 = List<String>.filled(32, 'a').join();
+      final String notHex64 = List<String>.filled(64, 'z').join();
 
-    test('缺失 / 非 sha256 / 长度不对 → null（= 未校验）', () {
-      expect(IxPresign.normalizeDigest(null), isNull);
-      expect(IxPresign.normalizeDigest(''), isNull);
-      expect(IxPresign.normalizeDigest('md5:${'a' * 32}'), isNull);
-      expect(IxPresign.normalizeDigest('sha256:abc'), isNull);
-      expect(IxPresign.normalizeDigest('sha256:${'z' * 64}'), isNull);
-      expect(IxPresign.normalizeDigest('${'a' * 64}'), isNull);
-      expect(IxPresign.normalizeDigest(123), isNull);
+      test('接受规范的小写 sha256', () {
+        expect(IxPresign.normalizeDigest('sha256:$hex64'), hex64);
+        expect(IxPresign.normalizeDigest('SHA256:$hex64Upper'), hex64);
+      });
+
+      test('缺失 / 非 sha256 / 长度不对 → null（= 未校验）', () {
+        expect(IxPresign.normalizeDigest(null), isNull);
+        expect(IxPresign.normalizeDigest(''), isNull);
+        expect(IxPresign.normalizeDigest('md5:$hex32'), isNull);
+        expect(IxPresign.normalizeDigest('sha256:abc'), isNull);
+        expect(IxPresign.normalizeDigest('sha256:$notHex64'), isNull);
+        expect(IxPresign.normalizeDigest(hex64), isNull);
+        expect(IxPresign.normalizeDigest(123), isNull);
+      });
     });
   });
 }
