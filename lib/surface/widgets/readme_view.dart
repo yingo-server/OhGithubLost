@@ -221,6 +221,7 @@ class ReadmeView extends StatelessWidget {
     this.loadImages = true,
     this.maxImages = 40,
     this.imageLoader,
+    this.imageProxyPrefix,
     super.key,
   });
 
@@ -235,6 +236,16 @@ class ReadmeView extends StatelessWidget {
 
   /// 图片基址（例如 `https://raw.githubusercontent.com/o/r/main/`）。
   final Uri? imageBase;
+
+  /// 图片**加速前缀**（非空 = 仓库内图片走 `前缀 + raw 地址`）。
+  ///
+  /// 为什么不直接用 Contents API：`.imageLoader` 那条路会消耗 API 配额
+  /// （认证后 5000 次/小时），而一次 README 就可能要几十张图；`raw` 端点
+  /// 则不限流。因此**内置通道 + 公开仓库**时改走 raw + 代理。
+  ///
+  /// 私有仓库**不能用这条路**：`raw` 没有签名机制，必须直接带令牌，交给代理
+  /// 就等于泄露令牌 —— 那时这里保持 `null`，退回 `imageLoader`（API 取字节）。
+  final String? imageProxyPrefix;
 
   /// 截断阈值（字符数）。
   final int maxChars;
@@ -292,7 +303,20 @@ class ReadmeView extends StatelessWidget {
         final String label =
             (alt == null || alt.trim().isEmpty) ? uri.path : alt.trim();
         final TextStyle fallback = body.copyWith(color: scheme.onSurfaceVariant);
-        // ① 仓库内相对路径 → 走 API 取字节（不过 raw 域名，避开 DNS 污染）。
+        // ① 加速路径：内置通道 + 公开仓库时，仓库内图片走 **raw + 代理**。
+        //    比 API 取字节更好：raw 不限流（API 认证后也只有 5000 次/小时）。
+        final String proxy = imageProxyPrefix ?? '';
+        if (proxy.isNotEmpty && !uri.hasScheme) {
+          final Uri? raw = resolveReadmeImageUri(uri.toString(), base: imgBase);
+          if (raw != null) {
+            return _ReadmeImage.net(
+              url: Uri.parse('$proxy$raw'),
+              alt: label,
+              fallbackStyle: fallback,
+            );
+          }
+        }
+        // ② 仓库内相对路径 → 走 API 取字节（私有仓库唯一可行；也不碰 raw 域名）。
         if (!uri.hasScheme && loader != null) {
           final String path = repoRelativePathOf(uri);
           if (path.isNotEmpty) {

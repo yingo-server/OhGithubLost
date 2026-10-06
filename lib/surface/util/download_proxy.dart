@@ -5,15 +5,20 @@
 /// 通道是第三方），属于信任边界外的行为，因此必须由用户显式开启并同意协议
 /// （`util/accel.dart`，含版本号）。本文件只做**纯判定**，不碰 IO，便于单测。
 ///
-/// ## 两条族：能不能加速，取决于「能不能拿到签名地址」
-/// | 族       | 资源                          | 能否加速 |
-/// |----------|-------------------------------|---------|
-/// | 签名族   | Release 附件 / Action 日志 / 产物 | ✅ 能（先本地解 302） |
-/// | raw 族   | README 仓库内图片 / 仓库文件     | ❌ 不能 |
+/// ## 两条族：能不能加速，取决于「怎么拿到内容」
+/// | 族       | 资源                              | 加速条件 |
+/// |----------|-----------------------------------|---------|
+/// | 签名族   | Release 附件 / Action 日志 / 产物 | 大小未知或超过阈值 |
+/// | raw 族   | 仓库文件 / README 仓库内图片      | **仅内置通道 + 公开仓库** |
 ///
 /// raw 族走 `raw.githubusercontent.com`，该端点**没有签名机制**：私有内容必须
-/// 直接带 `Authorization` 头。交给代理就等于把令牌送出去，因此**一律不加速**
-/// —— 这一格与「加速是否开启、选哪个通道」无关。
+/// 直接带 `Authorization` 头。交给代理就等于把令牌送出去 —— 所以**私有仓库的
+/// raw 内容永远不加速**，只能走 API 带认证（与「加速开关」无关，是硬约束）。
+///
+/// 反过来，**不加速时仓库文件也必须走 API**
+/// （`/repos/{o}/{r}/contents/{path}` + `Accept: application/vnd.github.raw`）：
+/// raw 直链对私有仓库根本取不到内容，而该 API 端点带上令牌就可用，且实测
+/// 支持 Range（多连接分片不受影响）。
 ///
 /// ## 为什么还要阈值
 /// 小文件加速没有收益（延迟主导，多一跳反而更慢），却要多经一次第三方。
@@ -38,16 +43,22 @@ enum OgLAccelFamily {
 /// 返回列表的语义与下载器一致：**首项是首选，其余用于静默降级，末尾永远带一个
 /// 直连兜底**。这样即便加速通道整体不可用，下载依然能完成。
 ///
+/// ## 判定规则
 /// - [prefixes] 为空（未启用、或未同意当前版本协议）→ 只返回直连；
-/// - [family] 为 [OgLAccelFamily.raw] → 只返回直连；
-/// - [bytes] 已知且 ≤ [kOgLAccelMinBytes] → 只返回直连；
-/// - [bytes] 为 `null`（拿不到大小，如 Action 日志 zip）→ **加速**：
-///   这类资源本就是大 blob，保守起见按「值得加速」处理。
+/// - **签名族**（Release 附件 / Action 日志 / 产物）：`bytes` 未知或超过
+///   [kOgLAccelMinBytes] 即加速。未知时按「值得加速」处理 —— 这类资源本就是
+///   大 blob，且大小要先下才知道；
+/// - **raw 族**（仓库文件 / README 仓库内图片）：**只有内置通道 + 公开仓库**
+///   才加速。理由是 raw 端点压根没有签名机制 —— 私有内容的 raw 必须直接带
+///   `Authorization`，交给代理就等于把令牌送出去，所以私有仓库没有这条路。
+/// - `bytes` 已知且 ≤ 阈值 → 不加速（小文件加速没有收益，却要多经一次第三方）。
 List<String> ogLAccelCandidates({
   required String url,
   required List<String> prefixes,
   required OgLAccelFamily family,
   int? bytes,
+  bool builtinChannel = true,
+  bool repoPrivate = false,
 }) {
   if (url.isEmpty) {
     return const <String>[];
@@ -58,10 +69,10 @@ List<String> ogLAccelCandidates({
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return <String>[url];
   }
-  final bool accelWanted = prefixes.isNotEmpty &&
-      family == OgLAccelFamily.signed &&
-      (bytes == null || bytes > kOgLAccelMinBytes);
-  if (!accelWanted) {
+  final bool bigEnough = bytes == null || bytes > kOgLAccelMinBytes;
+  final bool familyOk = family == OgLAccelFamily.signed ||
+      (builtinChannel && !repoPrivate);
+  if (prefixes.isEmpty || !familyOk || !bigEnough) {
     return <String>[url];
   }
   final List<String> out = <String>[];

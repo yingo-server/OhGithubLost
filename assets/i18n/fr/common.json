@@ -98,5 +98,7 @@
   "previewTooLarge": "Fichier trop volumineux pour l’aperçu intégré",
   "previewSvgHint": "Le rendu vectoriel nécessite un composant supplémentaire ; affichage du code source",
   "previewAudioHint": "Lecture intégrée impossible en raison des limites de l’API ; téléchargez puis ouvrez avec votre lecteur",
-  "openInEditor": "Ouvrir dans l’éditeur"
+  "openInEditor": "Ouvrir dans l’éditeur",
+  "addedToDownload": "Ajouté aux téléchargements : {name}",
+  "addDownloadFailed": "Échec de l’ajout au téléchargement : {error}"
 }

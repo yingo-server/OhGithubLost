@@ -98,5 +98,7 @@
   "previewTooLarge": "ファイルが大きすぎるため、内蔵プレビューで読み込めません",
   "previewSvgHint": "ベクター描画には追加コンポーネントが必要です。現在はソースを表示しています",
   "previewAudioHint": "API の制限により内蔵再生はできません。ダウンロードしてシステムのプレーヤーで開いてください",
-  "openInEditor": "エディターで開く"
+  "openInEditor": "エディターで開く",
+  "addedToDownload": "ダウンロードに追加しました：{name}",
+  "addDownloadFailed": "ダウンロードに追加できませんでした：{error}"
 }

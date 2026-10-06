@@ -185,14 +185,54 @@ void main() {
       );
     });
 
-    test('候选地址：raw 族**一律不加速**（raw 无签名机制）', () {
+    test('候选地址：raw 族只在「内置 + 公开」时加速', () {
       const String target = 'https://raw.githubusercontent.com/o/r/main/a.png';
+      const List<String> prefixes = <String>['https://proxy.344977.xyz/'];
+      // 内置 + 公开 → 加速（raw 不限流，比 API 配额划算）。
       expect(
         ogLAccelCandidates(
           url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
+          prefixes: prefixes,
           family: OgLAccelFamily.raw,
           bytes: 9 * 1024 * 1024,
+          builtinChannel: true,
+          repoPrivate: false,
+        ),
+        <String>['https://proxy.344977.xyz/$target', target],
+      );
+      // 自定义通道 → 不加速（按既定路由：非内置一律走 API）。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+          builtinChannel: false,
+          repoPrivate: false,
+        ),
+        <String>[target],
+      );
+      // 私有仓库 → **永远不加速**：raw 没有签名机制，交给代理等于送令牌。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+          builtinChannel: true,
+          repoPrivate: true,
+        ),
+        <String>[target],
+      );
+      // 已知小于阈值 → 不加速（小文件多一跳没收益）。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: kOgLAccelMinBytes,
+          builtinChannel: true,
+          repoPrivate: false,
         ),
         <String>[target],
       );

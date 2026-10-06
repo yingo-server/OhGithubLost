@@ -98,5 +98,7 @@
   "previewTooLarge": "Berkas terlalu besar untuk dimuat di pratinjau bawaan",
   "previewSvgHint": "Render vektor butuh komponen tambahan; saat ini menampilkan sumber",
   "previewAudioHint": "Pemutaran bawaan tidak memungkinkan karena batas API; unduh lalu buka dengan pemutar sistem",
-  "openInEditor": "Buka di editor"
+  "openInEditor": "Buka di editor",
+  "addedToDownload": "Ditambahkan ke unduhan: {name}",
+  "addDownloadFailed": "Gagal menambahkan unduhan: {error}"
 }

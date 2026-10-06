@@ -98,5 +98,7 @@
   "previewTooLarge": "Arquivo grande demais para a pré-visualização integrada",
   "previewSvgHint": "A renderização vetorial exige um componente extra; exibindo o código-fonte",
   "previewAudioHint": "A reprodução integrada não é possível devido a limites da API; baixe e abra no player do sistema",
-  "openInEditor": "Abrir no editor"
+  "openInEditor": "Abrir no editor",
+  "addedToDownload": "Adicionado aos downloads: {name}",
+  "addDownloadFailed": "Falha ao adicionar download: {error}"
 }

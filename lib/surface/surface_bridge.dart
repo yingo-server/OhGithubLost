@@ -33,6 +33,7 @@ import 'settings.dart';
 import 'theme.dart';
 import 'types.dart';
 import 'util/accel.dart';
+import 'util/download_proxy.dart';
 
 /// 表面桥：展示层对外的唯一入口。
 class SurfaceBridge {
@@ -249,6 +250,64 @@ class SurfaceBridge {
     } catch (_) {
       return const <String, String>{};
     }
+  }
+
+  /// 仓库文件的**下载方案**：地址候选 + 请求头（两条路，收口在这里）。
+  ///
+  /// - **不加速** → `/repos/…/contents/…` 加 `Accept: application/vnd.github.raw`
+  ///   并带 Bearer。这是私有仓库**唯一可行**的取法；该端点实测支持 Range，
+  ///   所以多连接分片下载照常可用。
+  /// - **加速**（仅内置通道 + 公开仓库）→ 把 **raw 链接**交给代理。
+  ///   raw 只在公开仓库才有意义：不需要令牌，且不限流。
+  ///
+  /// 私有仓库**没有加速这条路**：raw 端点没有签名机制，代理拿不到令牌。
+  /// 判定规则见 `util/download_proxy.dart`。
+  Future<({List<String> urls, Map<String, String> headers})>
+      planRepoFileDownload({
+    required String fullName,
+    required String path,
+    required String branch,
+    required bool repoPrivate,
+    int? size,
+  }) async {
+    final OgLSettings current = settings.settings;
+    final String encodedPath =
+        path.split('/').map(Uri.encodeComponent).join('/');
+    final String rawUrl = 'https://raw.githubusercontent.com/$fullName/'
+        '${Uri.encodeComponent(branch)}/$encodedPath';
+    final List<String> candidates = ogLAccelCandidates(
+      url: rawUrl,
+      prefixes: current.activeAccelPrefixes,
+      builtinChannel: current.activeAccelChannel.builtin,
+      family: OgLAccelFamily.raw,
+      bytes: size,
+      repoPrivate: repoPrivate,
+    );
+    if (candidates.first != rawUrl) {
+      // 走加速：地址已带前缀，且**不携带任何令牌**。
+      return (urls: candidates, headers: const <String, String>{});
+    }
+    final String apiUrl = 'https://api.github.com/repos/$fullName/contents/'
+        '$encodedPath?ref=${Uri.encodeComponent(branch)}';
+    return (
+      urls: <String>[apiUrl],
+      headers: <String, String>{
+        ...await downloadAuthHeaders(),
+        'accept': 'application/vnd.github.raw',
+      },
+    );
+  }
+
+  /// 仓库文件是否会走加速（供界面如实说明当前取法）。
+  ///
+  /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：**内置通道 + 公开仓库**，
+  /// 且大小未知或超过阈值。
+  bool repoFileAccelerated({required bool repoPrivate, int? size}) {
+    final OgLSettings current = settings.settings;
+    return current.activeAccelPrefixes.isNotEmpty &&
+        current.activeAccelChannel.builtin &&
+        !repoPrivate &&
+        (size == null || size > kOgLAccelMinBytes);
   }
 
   // ── 下载能力（交互层**通过桥取用**，不接触逻辑层的管理器实现）──────────

@@ -40,6 +40,8 @@ class FilePreviewPage extends StatefulWidget {
     required this.path,
     this.branch = 'main',
     this.kind = OgLPreviewKind.image,
+    this.repoPrivate = false,
+    this.size = 0,
     super.key,
   });
 
@@ -58,6 +60,12 @@ class FilePreviewPage extends StatefulWidget {
   /// 预览方式（由调用方用 `ogLPreviewKindOf` 判定后传入）。
   final OgLPreviewKind kind;
 
+  /// 仓库是否私有（决定仓库文件的取法：私有只能走 API 带认证）。
+  final bool repoPrivate;
+
+  /// 文件大小（0 = 未知；决定是否值得走加速）。
+  final int size;
+
   @override
   State<FilePreviewPage> createState() => _FilePreviewPageState();
 }
@@ -66,6 +74,10 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   bool _loading = true;
   String? _error;
   Uint8List? _bytes;
+
+  /// 已加入下载（按钮改文案，避免重复点）。
+  bool _queued = false;
+  bool _busy = false;
 
   /// 内容超过 Contents API 的单文件上限（1 MB）时为 true。
   bool _tooLarge = false;
@@ -155,6 +167,12 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       return OgLAsyncErrorPane(message: error, onRetry: _load);
     }
     if (_tooLarge) {
+      // 大文件：按类型给出**可用的动作**，而不是丢一句「太大」就完了。
+      // 音频必然落在这里（Contents API 对 >1 MB 不回内容），而这正是最需要
+      // 给出出路的一类 —— 见 [_audioCard]。
+      if (widget.kind == OgLPreviewKind.audio) {
+        return _audioCard(theme);
+      }
       return _notice(theme, Icons.info_outline, _t('previewTooLarge'));
     }
     final Uint8List? bytes = _bytes;
@@ -165,9 +183,7 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       case OgLPreviewKind.image:
         return _image(bytes);
       case OgLPreviewKind.audio:
-        // 音频其实走不到这里（上面大概率已 _tooLarge 命中），保留分支以防
-        // 小体积音频文件被确实取回时给出明确指引。
-        return _notice(theme, Icons.music_note_outlined, _t('previewAudioHint'));
+        return _audioCard(theme);
       case OgLPreviewKind.svg:
       case OgLPreviewKind.xml:
       case OgLPreviewKind.text:
@@ -224,6 +240,89 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         ),
       ],
     );
+  }
+
+  /// 音频：**给动作，不给空话**。
+  ///
+  /// 内置播放做不到（Contents API 对 >1 MB 不回内容，音频必然超限），所以这里
+  /// 直接把"下载"这条唯一可行的路摆出来。取法与仓库页完全一致
+  /// （`SurfaceBridge.planRepoFileDownload`）：不加速走 API 带认证，加速走代理 + raw。
+  Widget _audioCard(ThemeData theme) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.music_note_outlined,
+                size: 40,
+                color: theme.colorScheme.outline,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _t('previewAudioHint'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: (_busy || _queued) ? null : () => unawaited(_enqueueFile()),
+                icon: const Icon(Icons.download_outlined),
+                label: Text(_t('download')),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// 把当前文件加入下载（音频预览的出路）。
+  Future<void> _enqueueFile() async {
+    setState(() => _busy = true);
+    try {
+      final ({List<String> urls, Map<String, String> headers}) plan =
+          await widget.surface.planRepoFileDownload(
+        fullName: widget.fullName,
+        path: widget.path,
+        branch: widget.branch,
+        repoPrivate: widget.repoPrivate,
+        size: widget.size > 0 ? widget.size : null,
+      );
+      await widget.surface.domain.downloads.enqueue(
+        url: plan.urls.first,
+        fallbackUrls: plan.urls.skip(1).toList(),
+        headers: plan.headers,
+        fileName: ghPathName(widget.path),
+        category: IxDownloadCategory.repo,
+        connections: widget.surface.settings.settings.downloadConnections,
+      );
+      if (mounted) {
+        setState(() => _queued = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _t('addedToDownload', <String, Object?>{
+                'name': ghPathName(widget.path),
+              }),
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _t('addDownloadFailed', <String, Object?>{'error': error}),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 
   Widget _notice(ThemeData theme, IconData icon, String message) => Center(

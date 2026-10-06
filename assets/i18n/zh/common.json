@@ -98,5 +98,7 @@
   "previewTooLarge": "文件过大，无法在内置预览中加载",
   "previewSvgHint": "矢量渲染需要额外组件；当前以源码显示",
   "previewAudioHint": "受接口限制无法内置播放；请下载后用系统播放器打开",
-  "openInEditor": "用编辑器打开"
+  "openInEditor": "用编辑器打开",
+  "addedToDownload": "已加入下载：{name}",
+  "addDownloadFailed": "加入下载失败：{error}"
 }

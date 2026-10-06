@@ -866,6 +866,8 @@ class _CodeTabState extends State<_CodeTab> {
           path: entry.path,
           branch: widget.branch,
           kind: kind,
+          repoPrivate: widget.repo.isPrivate,
+          size: entry.size,
         ),
       ));
 
@@ -1346,29 +1348,26 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   /// 原始下载直链（路径分段做 URL 编码）。
-  String? _downloadUrlOf(GhContent entry) {
-    final String? direct = entry.downloadUrl;
-    if (direct != null && direct.isNotEmpty) {
-      return direct;
-    }
-    if (entry.isDirectory) {
-      return null;
-    }
-    final String encodedPath =
-        entry.path.split('/').map(Uri.encodeComponent).join('/');
-    return 'https://raw.githubusercontent.com/${widget.fullName}/'
-        '${Uri.encodeComponent(widget.branch)}/$encodedPath';
-  }
-
   Future<void> _downloadEntry(GhContent entry) async {
-    final String? url = _downloadUrlOf(entry);
-    if (url == null || url.isEmpty) {
+    if (entry.isDirectory) {
       _toast(_t('noDownloadLink'));
       return;
     }
     try {
+      // 取法由表面桥统一决定（见 `SurfaceBridge.planRepoFileDownload`）：
+      // 不加速 → API + 认证；加速（仅内置 + 公开）→ 代理 + raw 链接。
+      final ({List<String> urls, Map<String, String> headers}) plan =
+          await widget.surface.planRepoFileDownload(
+        fullName: widget.fullName,
+        path: entry.path,
+        branch: widget.branch,
+        repoPrivate: widget.repo.isPrivate,
+        size: entry.size,
+      );
       await widget.surface.domain.downloads.enqueue(
-        url: url,
+        url: plan.urls.first,
+        fallbackUrls: plan.urls.skip(1).toList(),
+        headers: plan.headers,
         fileName: ghPathName(entry.path),
         category: IxDownloadCategory.repo,
         connections: widget.surface.settings.settings.downloadConnections,
@@ -1381,7 +1380,7 @@ class _CodeTabState extends State<_CodeTab> {
 
   void _showEntryDetails(GhContent entry) {
     final ThemeData theme = Theme.of(context);
-    final String url = _downloadUrlOf(entry) ?? '';
+    final String url = _rawUrlOf(entry) ?? '';
     showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
@@ -1533,6 +1532,49 @@ class _CodeTabState extends State<_CodeTab> {
   ///
   /// 走 **GitHub Contents API**（同一套 DoH / 镜像传输层），
   /// 因此不碰 `raw.githubusercontent.com`，避开 DNS 污染。
+  /// 仓库文件的 **raw 直链**（仅用于**展示**：详情弹窗里的"直链"、内联图片兜底）。
+  ///
+  /// ⚠️ 它**不是**下载用的地址：私有仓库的 raw 直链取不到内容（必须带令牌），
+  /// 且内联图片分支在「图片默认进预览页」之后已不可达。真正的下载取法一律走
+  /// [SurfaceBridge.planRepoFileDownload]（不加速 → API + 认证；加速 → 代理 + raw）。
+  String? _rawUrlOf(GhContent entry) {
+    if (entry.isDirectory) {
+      return null;
+    }
+    final String encodedPath =
+        entry.path.split('/').map(Uri.encodeComponent).join('/');
+    return 'https://raw.githubusercontent.com/${widget.fullName}/'
+        '${Uri.encodeComponent(widget.branch)}/$encodedPath';
+  }
+
+  /// README 图片的取法参数（基址 + 加速前缀）。
+  ///
+  /// - **加速（内置 + 公开）** → 给 `raw` 基址 + 代理前缀，图片走 `代理 + raw`：
+  ///   raw 不限流，而 Contents API 认证后也只有 5000 次/小时，一次 README
+  ///   几十张图很容易吃掉配额。
+  /// - **否则** → 两者都不给，界面退回 `imageLoader`（Contents API 取字节）——
+  ///   这也是私有仓库唯一可行的取法（raw 没有签名机制，不能交给代理）。
+  ({Uri? base, String? proxy}) _readmeImagePlan(String dir) {
+    final bool accel = widget.surface.repoFileAccelerated(
+      repoPrivate: widget.repo.isPrivate,
+      size: null,
+    );
+    final List<String> prefixes =
+        widget.surface.settings.settings.activeAccelPrefixes;
+    if (!accel || prefixes.isEmpty) {
+      return (base: null, proxy: null);
+    }
+    final String encodedDir = dir
+        .split('/')
+        .where((String seg) => seg.isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+    final String base = 'https://raw.githubusercontent.com/${widget.fullName}/'
+        '${Uri.encodeComponent(widget.branch)}/'
+        '${encodedDir.isEmpty ? '' : '$encodedDir/'}';
+    return (base: Uri.parse(base), proxy: prefixes.first);
+  }
+
   Future<Uint8List?> _readImageBytes(String path) async {
     if (path.isEmpty) {
       return null;
@@ -1601,6 +1643,8 @@ class _CodeTabState extends State<_CodeTab> {
       children: <Widget>[
         ReadmeView(
           markdown: md,
+          imageBase: _readmeImagePlan('').base,
+          imageProxyPrefix: _readmeImagePlan('').proxy,
           imageLoader: (String p) => _readImageBytes(_repoPath('', p)),
           onOpenLink: (Uri uri) {
             unawaited(openExternalLink(uri, tag: 'README'));
@@ -1698,7 +1742,7 @@ class _CodeTabState extends State<_CodeTab> {
 
   Widget _buildViewer(GhContent file, TextStyle codeStyle, OgLCodeTheme theme) {
     if (_isImage(file.path)) {
-      final String? url = _downloadUrlOf(file);
+      final String? url = _rawUrlOf(file);
       if (url == null) {
         return _MessagePane(
           icon: Icons.image_not_supported_outlined,
@@ -1756,6 +1800,8 @@ class _CodeTabState extends State<_CodeTab> {
         padding: const EdgeInsets.all(16),
         child: ReadmeView(
           markdown: text,
+          imageBase: _readmeImagePlan(_dirOf(file.path)).base,
+          imageProxyPrefix: _readmeImagePlan(_dirOf(file.path)).proxy,
           imageLoader: (String p) =>
               _readImageBytes(_repoPath(_dirOf(file.path), p)),
           onOpenLink: (Uri uri) {

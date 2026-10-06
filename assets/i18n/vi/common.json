@@ -98,5 +98,7 @@
   "previewTooLarge": "Tệp quá lớn để tải trong trình xem trước tích hợp",
   "previewSvgHint": "Kết xuất vector cần thành phần bổ sung; hiện đang hiển thị mã nguồn",
   "previewAudioHint": "Không thể phát trong ứng dụng do giới hạn API; hãy tải về rồi mở bằng trình phát hệ thống",
-  "openInEditor": "Mở bằng trình soạn thảo"
+  "openInEditor": "Mở bằng trình soạn thảo",
+  "addedToDownload": "Đã thêm vào mục tải xuống: {name}",
+  "addDownloadFailed": "Không thêm được vào tải xuống: {error}"
 }

@@ -98,5 +98,7 @@
   "previewTooLarge": "File is too large to load in the built-in preview",
   "previewSvgHint": "Vector rendering needs an extra component; showing source for now",
   "previewAudioHint": "In-app playback is not possible due to API limits; download and open with your system player",
-  "openInEditor": "Open in editor"
+  "openInEditor": "Open in editor",
+  "addedToDownload": "Added to downloads: {name}",
+  "addDownloadFailed": "Failed to add download: {error}"
 }
