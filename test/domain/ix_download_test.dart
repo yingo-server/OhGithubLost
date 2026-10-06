@@ -53,14 +53,14 @@ void main() {
         ogLSafeDownloadFileName('OGL-v6.0.0-Android.arm64-v8a.zip'),
         'OGL-v6.0.0-Android.arm64-v8a.zip',
       );
-      expect(ogLSafeDownloadFileName('name.' + 'e' * 30), 'name');
+      expect(ogLSafeDownloadFileName('name.${'e' * 30}'), 'name');
     });
 
     test('超长名限长 120 且保住扩展名', () {
-      expect(ogLSafeDownloadFileName('x' * 200 + '.zip'), 'x' * 120 + '.zip');
+      expect(ogLSafeDownloadFileName('${'x' * 200}.zip'), '${'x' * 120}.zip');
       expect(ogLSafeDownloadFileName('a' * 200), 'a' * 120);
-      expect(ogLSafeDownloadFileName('.' + 'x' * 200 + '.zip'),
-          'x' * 120 + '.zip');
+      expect(ogLSafeDownloadFileName('.${'x' * 200}.zip'),
+          '${'x' * 120}.zip');
     });
 
     test('非 ASCII 文件名原样保留', () {
