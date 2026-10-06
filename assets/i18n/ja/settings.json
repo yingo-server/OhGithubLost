@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "内蔵チャネルのセキュリティ宣言",
   "accelChannels": "アクセラレーションチャネル",
   "accelDesc": "Release 添付ファイルのダウンロードに影響のみ。無効時は常に直接接続",
-  "accelThirdPartyTitle": "サードパーティサービス責任受諾契約",
+  "accelThirdPartyTitle": "外部サービスの免責事項",
   "accelTitle": "Release ダウンロード加速",
   "account": "アカウント",
   "accountId": "アカウント ID：{id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "カスタムチャネルを追加",
   "agreeContinue": "同意して続行",
   "agreeRead": "上記の条項を読み、同意しました",
-  "agreedAccel": "アクセラレーションチャネル契約に同意済み",
+  "agreedAccel": "加速チャネルの説明に同意済み",
   "alreadyStarred": "このアカウントは既に star 済みです。お気持ち感謝いたします",
   "appearance": "外観",
   "appearanceDesc": "テーマ、スケーリングとアニメーション",
@@ -137,9 +137,10 @@
   "tokenString": "文字列",
   "tokenType": "型",
   "unknown": "不明",
-  "viewAccelAgreement": "アクセラレーションチャネル契約を表示",
+  "viewAccelAgreement": "加速チャネルの説明を見る",
   "colorSwatch": "色 {color}",
   "legalLanguages": "法的文書の言語",
   "legalText": "法的文書（全言語）",
-  "legalTextEmpty": "この言語の本文は未収録です（本アプリは中国語本文が正文であり、他言語は参考のみです）。"
+  "legalTextEmpty": "この言語の本文は未収録です（本アプリは中国語本文が正文であり、他言語は参考のみです）。",
+  "licenseTextMissing": "ライセンス全文を読み込めませんでした（リソース欠落）"
 }

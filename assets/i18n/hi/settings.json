@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "बिल्ट-इन चैनल सुरक्षा घोषणा",
   "accelChannels": "अपगामी चैनल",
   "accelDesc": "केवल Release संलग्नक डाउनलोड पर प्रभाव; बंद होने पर हमेशा सीधा कनेक्शन",
-  "accelThirdPartyTitle": "बाहरी सेवा का उत्तरदायित्व आप पर है",
+  "accelThirdPartyTitle": "तृतीय-पक्ष सेवा अस्वीकरण",
   "accelTitle": "Release डाउनलोड अपगमन",
   "account": "अकाउंट",
   "accountId": "अकाउंट ID: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "कस्टम चैनल जोड़ें",
   "agreeContinue": "सहमत होकर जारी रखें",
   "agreeRead": "मैंने उपरोक्त शर्तें पढ़ीं और सहमत हूँ",
-  "agreedAccel": "अपगामी चैनल समझौते को स्वीकार किया गया",
+  "agreedAccel": "त्वरण कथन स्वीकृत",
   "alreadyStarred": "यह अकाउंट पहले से ही star कर चुका है, सहयोग दर्ज हुआ",
   "appearance": "दिखावट",
   "appearanceDesc": "थीम, स्केल और मोशन",
@@ -137,9 +137,10 @@
   "tokenString": "स्ट्रिंग",
   "tokenType": "टाइप",
   "unknown": "अज्ञात",
-  "viewAccelAgreement": "अपगामी चैनल समझौते को देखें",
+  "viewAccelAgreement": "त्वरण कथन देखें",
   "colorSwatch": "रंग {color}",
   "legalLanguages": "कानूनी पाठ की भाषा",
   "legalText": "कानूनी पाठ (सभी भाषाएँ)",
-  "legalTextEmpty": "इस भाषा में अभी पाठ उपलब्ध नहीं है (चीनी पाठ मान्य है; अन्य भाषाएँ केवल संदर्भ के लिए हैं)।"
+  "legalTextEmpty": "इस भाषा में अभी पाठ उपलब्ध नहीं है (चीनी पाठ मान्य है; अन्य भाषाएँ केवल संदर्भ के लिए हैं)।",
+  "licenseTextMissing": "लाइसेंस का पूरा पाठ पढ़ा नहीं जा सका (संसाधन अनुपलब्ध)"
 }

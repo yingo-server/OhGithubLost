@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "內建通道安全聲明",
   "accelChannels": "加速通道",
   "accelDesc": "僅影響 Release 附件下載；關閉時始終直連",
-  "accelThirdPartyTitle": "外來服務自負責任協議",
+  "accelThirdPartyTitle": "外來服務自負責任說明",
   "accelTitle": "Release 下載加速",
   "account": "帳戶",
   "accountId": "帳號 ID：{id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "新增自訂通道",
   "agreeContinue": "同意並繼續",
   "agreeRead": "我已閱讀並同意上述條款",
-  "agreedAccel": "已同意加速通道協議",
+  "agreedAccel": "已同意加速通道說明",
   "alreadyStarred": "此帳號已 star 過，心意已收到",
   "appearance": "外觀",
   "appearanceDesc": "主題、縮放與動效",
@@ -137,9 +137,10 @@
   "tokenString": "字串",
   "tokenType": "型別",
   "unknown": "未知",
-  "viewAccelAgreement": "檢視加速通道協議",
+  "viewAccelAgreement": "查看加速通道說明",
   "colorSwatch": "顏色 {color}",
   "legalLanguages": "法律文字語言",
   "legalText": "法律文字（多語言）",
-  "legalTextEmpty": "該語言的正文暫缺（本應用以中文文字為準，其他語言僅供參考）。"
+  "legalTextEmpty": "該語言的正文暫缺（本應用以中文文字為準，其他語言僅供參考）。",
+  "licenseTextMissing": "未能讀取授權全文（資源缺失）"
 }

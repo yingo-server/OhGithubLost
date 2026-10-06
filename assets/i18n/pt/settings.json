@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "Declaração de Segurança do Canal Integrado",
   "accelChannels": "Canais de Aceleração",
   "accelDesc": "Afeta apenas o download de anexos de Release; quando desativado, sempre conecta diretamente",
-  "accelThirdPartyTitle": "Acordo de Responsabilidade por Serviços de Terceiros",
+  "accelThirdPartyTitle": "Aviso sobre serviços de terceiros",
   "accelTitle": "Aceleração de Download de Release",
   "account": "Conta",
   "accountId": "ID da conta: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "Adicionar canal personalizado",
   "agreeContinue": "Concordar e continuar",
   "agreeRead": "Li e concordo com os termos acima",
-  "agreedAccel": "Concordância com o acordo de canal de aceleração registrada",
+  "agreedAccel": "Declaração de aceleração aceita",
   "alreadyStarred": "Esta conta já deu star, agradecemos seu apoio",
   "appearance": "Aparência",
   "appearanceDesc": "Tema, escala e animações",
@@ -137,9 +137,10 @@
   "tokenString": "String",
   "tokenType": "Tipo",
   "unknown": "Desconhecido",
-  "viewAccelAgreement": "Ver acordo de canal de aceleração",
+  "viewAccelAgreement": "Ver declaração de aceleração",
   "colorSwatch": "Cor {color}",
   "legalLanguages": "Idioma do texto jurídico",
   "legalText": "Texto jurídico (todos os idiomas)",
-  "legalTextEmpty": "Ainda não há texto neste idioma (prevalece o texto em chinês; os demais idiomas são apenas informativos)."
+  "legalTextEmpty": "Ainda não há texto neste idioma (prevalece o texto em chinês; os demais idiomas são apenas informativos).",
+  "licenseTextMissing": "Não foi possível ler o texto completo da licença (recurso ausente)"
 }

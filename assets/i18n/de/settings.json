@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "Sicherheitsbelehrung für integrierte Kanäle",
   "accelChannels": "Beschleunigungskanäle",
   "accelDesc": "Betrifft nur den Download von Release-Dateianhängen; bei Deaktivierung immer direkte Verbindung",
-  "accelThirdPartyTitle": "Verantwortungsausschluss für externe Dienste",
+  "accelThirdPartyTitle": "Haftungshinweis für Drittdienste",
   "accelTitle": "Beschleunigung des Release-Downloads",
   "account": "Konto",
   "accountId": "Konto-ID: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "Eigener Kanal hinzufügen",
   "agreeContinue": "Zustimmen und fortfahren",
   "agreeRead": "Ich habe die oben genannten Bedingungen gelesen und akzeptiere sie",
-  "agreedAccel": "Beschleunigungskanal-Vereinbarung akzeptiert",
+  "agreedAccel": "Beschleunigungshinweis akzeptiert",
   "alreadyStarred": "Dieses Konto hat bereits einen Star vergeben, wir schätzen Ihre Unterstützung",
   "appearance": "Darstellung",
   "appearanceDesc": "Thema, Zoom und Animationen",
@@ -137,9 +137,10 @@
   "tokenString": "Zeichenfolge",
   "tokenType": "Typ",
   "unknown": "Unbekannt",
-  "viewAccelAgreement": "Beschleunigungskanal-Vereinbarung anzeigen",
+  "viewAccelAgreement": "Beschleunigungshinweis ansehen",
   "colorSwatch": "Farbe {color}",
   "legalLanguages": "Sprache des Rechtstexts",
   "legalText": "Rechtstext (alle Sprachen)",
-  "legalTextEmpty": "Für diese Sprache liegt noch kein Text vor (maßgeblich ist der chinesische Text; andere Sprachen dienen nur zur Information)."
+  "legalTextEmpty": "Für diese Sprache liegt noch kein Text vor (maßgeblich ist der chinesische Text; andere Sprachen dienen nur zur Information).",
+  "licenseTextMissing": "Lizenztext konnte nicht gelesen werden (Ressource fehlt)"
 }

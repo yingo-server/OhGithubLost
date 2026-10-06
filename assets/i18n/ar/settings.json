@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "إشعار أمان القناة المدمجة",
   "accelChannels": "قنوات التسريع",
   "accelDesc": "يؤثر على تنزيل مرفقات Release فقط؛ عند الإيقاف يتم الاتصال المباشر دائمًا",
-  "accelThirdPartyTitle": "اتفاقية المسؤولية عن الخدمات الخارجية",
+  "accelThirdPartyTitle": "إخلاء مسؤولية عن الخدمات الخارجية",
   "accelTitle": "تسريع تنزيل Release",
   "account": "الحساب",
   "accountId": "معرف الحساب: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "إضافة قناة مخصصة",
   "agreeContinue": "الموافقة والمتابعة",
   "agreeRead": "لقد قرأت وأوافق على الشروط المذكورة أعلاه",
-  "agreedAccel": "تمت الموافقة على اتفاقية قنوات التسريع",
+  "agreedAccel": "تم قبول بيان التسريع",
   "alreadyStarred": "هذا الحساب سبق أن أجرى star، تم استلام الدعم",
   "appearance": "المظهر",
   "appearanceDesc": "السمة والحجم والتأثيرات الحركية",
@@ -137,9 +137,10 @@
   "tokenString": "سلسلة نصية",
   "tokenType": "نوع",
   "unknown": "غير معروف",
-  "viewAccelAgreement": "عرض اتفاقية قنوات التسريع",
+  "viewAccelAgreement": "عرض بيان التسريع",
   "colorSwatch": "اللون {color}",
   "legalLanguages": "لغة النص القانوني",
   "legalText": "النص القانوني (كل اللغات)",
-  "legalTextEmpty": "لا يوجد نص بهذه اللغة بعد (النص الصيني هو المعتمد، واللغات الأخرى للاطلاع فقط)."
+  "legalTextEmpty": "لا يوجد نص بهذه اللغة بعد (النص الصيني هو المعتمد، واللغات الأخرى للاطلاع فقط).",
+  "licenseTextMissing": "تعذّر قراءة نص الرخصة الكامل (المورد مفقود)"
 }

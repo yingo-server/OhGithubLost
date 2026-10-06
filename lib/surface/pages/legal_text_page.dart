@@ -84,24 +84,74 @@ class _LegalTextPageState extends State<LegalTextPage> {
       appBar: AppBar(title: Text(_t('legalText'))),
       body: Column(
         children: <Widget>[
-          // ── 效力声明：常驻顶部 ──
+          // ── 定性说明：**唯一具有法律效力的是 AGPL**，本文只是说明 ──
+          //    放在最顶：读者应当先知道本文不产生法律效力，再读内容。
           Container(
             width: double.infinity,
-            color: theme.colorScheme.secondaryContainer,
+            color: theme.colorScheme.errorContainer,
             padding: const EdgeInsets.all(12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Icon(Icons.gavel_outlined,
-                    size: 18, color: theme.colorScheme.onSecondaryContainer),
+                Icon(Icons.info_outline,
+                    size: 18, color: theme.colorScheme.onErrorContainer),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    OgLI18n.instance.t('onboarding', 'licenseAuthoritative'),
+                    OgLI18n.instance
+                        .t('onboarding', 'legalStatementOnly'),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSecondaryContainer,
+                      color: theme.colorScheme.onErrorContainer,
                     ),
                   ),
+                ),
+              ],
+            ),
+          ),
+          // ── 效力声明（语言与官方副本）──
+          Container(
+            width: double.infinity,
+            color: theme.colorScheme.secondaryContainer,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(Icons.translate,
+                        size: 18,
+                        color: theme.colorScheme.onSecondaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        OgLI18n.instance
+                            .t('onboarding', 'licenseAuthoritative'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(Icons.verified_outlined,
+                        size: 18,
+                        color: theme.colorScheme.onSecondaryContainer),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        OgLI18n.instance
+                            .t('onboarding', 'licenseOfficialCopy'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

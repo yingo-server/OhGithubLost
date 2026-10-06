@@ -1088,6 +1088,14 @@ const Divider(height: 1),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  // 先定性：本文不产生法律效力，唯一生效的是 AGPL。
+                  Text(
+                    OgLI18n.instance.t('onboarding', 'legalStatementOnly'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  ),
+                  const Divider(height: 24),
                   Text(ogLAccelAgreementFor(channel)),
                   const Divider(height: 28),
                   // 通道的法律定位：它是**本应用提供的网络服务**，
@@ -1102,6 +1110,14 @@ const Divider(height: 1),
                   // 语言效力：以中文文本为准。放在正文最后、勾选之前。
                   Text(
                     _t('accelLangNote'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    OgLI18n.instance.t('onboarding', 'licenseOfficialCopy'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontStyle: FontStyle.italic,
@@ -1316,6 +1332,51 @@ const Divider(height: 1),
         ),
       );
 
+  /// 展示 **AGPL-3.0 全文**（从打进资源的 `LICENSE` 读取）。
+  ///
+  /// 为什么不只显示标识：AGPL-3.0 第 4 条要求"向接收者提供本许可的副本"。
+  /// 只写 `AGPL-3.0` 三个字不构成提供副本 —— 该许可全文现在随构建产物分发，
+  /// 这一层负责把它呈现给用户。
+  Future<void> _showFullLicense() async {
+    String text = '';
+    try {
+      text = await rootBundle.loadString('LICENSE');
+    } catch (error) {
+      debugPrint('OGL 许可：读取 LICENSE 失败：$error');
+    }
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text('${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}'),
+        content: SizedBox(
+          width: 520,
+          height: 460,
+          child: text.isEmpty
+              ? Text(_t('licenseTextMissing'))
+              : SingleChildScrollView(
+                  child: SelectableText(
+                    text,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(_t('close')),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 许可弹窗：本项目许可 + 第三方依赖清单（**合并为一个入口**）。
   Future<void> _showLicenses() async {
     await showDialog<void>(
@@ -1335,6 +1396,11 @@ const Divider(height: 1),
                   subtitle: Text(
                     '${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}',
                   ),
+                  trailing: const Icon(Icons.chevron_right),
+                  // ★ 提供**全文**，而不是只给标识：AGPL-3.0 第 4 条要求
+                  //   向接收者提供许可副本。此时 `LICENSE` 已打进资源，
+                  //   随构建产物一起分发。
+                  onTap: () => unawaited(_showFullLicense()),
                 ),
                 const Divider(height: 1),
                 ListTile(

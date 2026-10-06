@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "Tuyên bố an toàn kênh tích hợp",
   "accelChannels": "Kênh tăng tốc",
   "accelDesc": "Chỉ ảnh hưởng đến việc tải xuống tệp đính kèm Release; khi tắt luôn kết nối trực tiếp",
-  "accelThirdPartyTitle": "Hiệp định tự chịu trách nhiệm dịch vụ bên ngoài",
+  "accelThirdPartyTitle": "Tuyên bố miễn trách cho dịch vụ bên thứ ba",
   "accelTitle": "Tăng tốc tải xuống Release",
   "account": "Tài khoản",
   "accountId": "ID tài khoản: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "Thêm kênh tùy chỉnh",
   "agreeContinue": "Đồng ý và tiếp tục",
   "agreeRead": "Tôi đã đọc và đồng ý với các điều khoản trên",
-  "agreedAccel": "Đã đồng ý với hiệp định kênh tăng tốc",
+  "agreedAccel": "Đã chấp nhận tuyên bố tăng tốc",
   "alreadyStarred": "Tài khoản này đã star, cảm ơn sự ủng hộ",
   "appearance": "Giao diện",
   "appearanceDesc": "Chủ đề, tỷ lệ thu phóng và hiệu ứng chuyển động",
@@ -137,9 +137,10 @@
   "tokenString": "Chuỗi",
   "tokenType": "Kiểu dữ liệu",
   "unknown": "Không rõ",
-  "viewAccelAgreement": "Xem hiệp định kênh tăng tốc",
+  "viewAccelAgreement": "Xem tuyên bố tăng tốc",
   "colorSwatch": "Màu {color}",
   "legalLanguages": "Ngôn ngữ văn bản pháp lý",
   "legalText": "Toàn văn pháp lý (mọi ngôn ngữ)",
-  "legalTextEmpty": "Chưa có văn bản cho ngôn ngữ này (bản tiếng Trung là bản chính; các ngôn ngữ khác chỉ để tham khảo)."
+  "legalTextEmpty": "Chưa có văn bản cho ngôn ngữ này (bản tiếng Trung là bản chính; các ngôn ngữ khác chỉ để tham khảo).",
+  "licenseTextMissing": "Không đọc được toàn văn giấy phép (thiếu tài nguyên)"
 }

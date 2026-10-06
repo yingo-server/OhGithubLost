@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "Pernyataan Keamanan Saluran Bawaan",
   "accelChannels": "Saluran Akselerasi",
   "accelDesc": "Hanya memengaruhi unduhan lampiran Release; jika nonaktif, selalu koneksi langsung",
-  "accelThirdPartyTitle": "Persetujuan Tanggung Jawab Layanan Pihak Ketiga",
+  "accelThirdPartyTitle": "Penafian layanan pihak ketiga",
   "accelTitle": "Akselerasi Unduhan Release",
   "account": "Akun",
   "accountId": "ID Akun: {id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "Tambahkan saluran kustom",
   "agreeContinue": "Setuju dan lanjutkan",
   "agreeRead": "Saya telah membaca dan menyetujui ketentuan di atas",
-  "agreedAccel": "Persetujuan saluran akselerasi diterima",
+  "agreedAccel": "Pernyataan akselerasi diterima",
   "alreadyStarred": "Akun ini sudah melakukan star, apresiasi diterima",
   "appearance": "Tampilan",
   "appearanceDesc": "Tema, skala, dan animasi",
@@ -137,9 +137,10 @@
   "tokenString": "String",
   "tokenType": "Tipe",
   "unknown": "Tidak Diketahui",
-  "viewAccelAgreement": "Lihat Persetujuan Saluran Akselerasi",
+  "viewAccelAgreement": "Lihat pernyataan akselerasi",
   "colorSwatch": "Warna {color}",
   "legalLanguages": "Bahasa teks hukum",
   "legalText": "Teks hukum (semua bahasa)",
-  "legalTextEmpty": "Belum ada teks untuk bahasa ini (teks bahasa Mandarin yang berlaku; bahasa lain hanya untuk rujukan)."
+  "legalTextEmpty": "Belum ada teks untuk bahasa ini (teks bahasa Mandarin yang berlaku; bahasa lain hanya untuk rujukan).",
+  "licenseTextMissing": "Tidak dapat membaca teks lisensi lengkap (sumber daya tidak ada)"
 }

@@ -3,7 +3,7 @@
   "accelBuiltinTitle": "内置通道安全声明",
   "accelChannels": "加速通道",
   "accelDesc": "仅影响 Release 附件下载；关闭时始终直连",
-  "accelThirdPartyTitle": "外来服务自负责任协议",
+  "accelThirdPartyTitle": "外来服务自负责任说明",
   "accelTitle": "Release 下载加速",
   "account": "账户",
   "accountId": "账号 ID：{id}",
@@ -12,7 +12,7 @@
   "addCustomChannel": "添加自定义通道",
   "agreeContinue": "同意并继续",
   "agreeRead": "我已阅读并同意上述条款",
-  "agreedAccel": "已同意加速通道协议",
+  "agreedAccel": "已同意加速通道说明",
   "alreadyStarred": "这个账号已经 star 过，心意已收到",
   "appearance": "外观",
   "appearanceDesc": "主题、缩放与动效",
@@ -137,9 +137,10 @@
   "tokenString": "字符串",
   "tokenType": "类型",
   "unknown": "未知",
-  "viewAccelAgreement": "查看加速通道协议",
+  "viewAccelAgreement": "查看加速通道说明",
   "colorSwatch": "颜色 {color}",
   "legalLanguages": "法律文本语言",
   "legalText": "法律文本（多语言）",
-  "legalTextEmpty": "该语言的正文暂缺（本应用以中文文本为准，其他语言仅供参考）。"
+  "legalTextEmpty": "该语言的正文暂缺（本应用以中文文本为准，其他语言仅供参考）。",
+  "licenseTextMissing": "未能读取许可全文（资源缺失）"
 }

@@ -561,6 +561,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ?.copyWith(color: theme.colorScheme.onSecondaryContainer),
             ),
           ),
+          const SizedBox(height: 12),
+          // ── 定性说明：本文不产生法律效力，唯一生效的是 AGPL ──
+          //    放在最前，因为它是整页的性质界定，读者有权先知道这一点。
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _t('legalStatementOnly'),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onErrorContainer),
+            ),
+          ),
           const SizedBox(height: 16),
           // ── 重点（人话版）：只放要点，不放细节 ──
           Text(
