@@ -1,8 +1,0 @@
-{
-  "linesCount": "{count} linhas",
-  "noLogs": "Nenhum log (talvez não tenha concluído, ou o Token não tenha permissão de Actions)",
-  "noMatchingJob": "Nenhum job correspondente",
-  "reload": "Atualizar",
-  "searchJobHint": "Pesquisar nome do job",
-  "title": "Logs de execução"
-}

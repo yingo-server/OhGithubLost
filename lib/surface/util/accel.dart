@@ -10,7 +10,7 @@
 /// - 自定义（第三方）通道 → **外来服务自负责任协议**；
 /// - 内置通道 → **内置通道安全声明**。
 /// 协议**正文**收敛在 i18n 分片（`common` 页 `accelThirdPartyBody` /
-/// `accelBuiltinBody`，15 语言），标题与版本号见本文件与 `kOgLAccelConsentVersion`；
+/// `accelBuiltinBody`，6 语言），标题与版本号见本文件与 `kOgLAccelConsentVersion`；
 /// 用户同意后会记录版本号与时间，文本升版必须重新同意。
 library;
 

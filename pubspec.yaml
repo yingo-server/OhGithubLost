@@ -18,7 +18,7 @@
 name: ohgithublost
 description: "OGL · OhGithubLost — GitHub 仓库管理器（Flutter 多平台重构版）"
 publish_to: 'none'
-version: 6.3.0+60300
+version: 6.4.0+60400
 
 homepage: https://github.com/yingo-server/OhGithubLost
 repository: https://github.com/yingo-server/OhGithubLost
@@ -119,10 +119,15 @@ flutter:
   uses-material-design: true
 
   # ── 唯一声明的外部资源：i18n 语言包 ────────────────────────────────────
-  # 例外说明：产品要求"界面可切换约 15 种语言、翻译以 JSON 分片维护"，
-  # 因此这里**只**声明 assets/i18n 下的语言 JSON；其余（图标/主题/引导清单）
-  # 仍全部由框架字形与代码生成，仓库不引入其它资源文件。
+  # 例外说明：产品要求"界面语言由 JSON 分片维护"，因此这里**只**声明
+  # assets/i18n 下的语言 JSON；其余（图标/主题/引导清单）仍全部由框架字形与
+  # 代码生成，仓库不引入其它资源文件。
   # 目录按语言分别声明：Flutter 只会把声明到的目录打进包。
+  #
+  # ★ 本清单必须与 `OgLI18n.locales`（lib/surface/i18n/og_l_i18n.dart）逐项一致。
+  #   两边不一致会分别造成两种故障：这里多声明 → 构建期资源缺失报错；
+  #   这里少声明 → 运行时该语言全是键名。v6.4.0 由 15 种收敛为 6 种时，
+  #   语言目录删了而这里没同步，正是第一种故障。
   assets:
     # ★ 许可全文必须**随程序分发**：Apache-2.0 第 4 条要求随分发提供
     #   许可副本，并在存在 NOTICE 文件时一并提供。
@@ -134,15 +139,6 @@ flutter:
     - assets/i18n/zh/
     - assets/i18n/zh_TW/
     - assets/i18n/en/
-    - assets/i18n/ja/
-    - assets/i18n/ko/
     - assets/i18n/fr/
     - assets/i18n/de/
-    - assets/i18n/es/
-    - assets/i18n/pt/
     - assets/i18n/ru/
-    - assets/i18n/ar/
-    - assets/i18n/hi/
-    - assets/i18n/th/
-    - assets/i18n/vi/
-    - assets/i18n/id/

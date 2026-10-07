@@ -51,8 +51,13 @@ abstract final class OgLProjectInfo {
   static const String licenseName = 'Apache License 2.0';
 
   /// 本项目许可地址。
+  ///
+  /// v6.4.0 前这里仍指向 `gnu.org/licenses/agpl-3.0.html` —— 常量名与
+  /// `licenseId` 一起换了、值却漏改。任何一处将来用它生成「查看许可」链接，
+  /// 都会把用户送到一份**与实际许可无关**的全文。许可标识、名称、地址三者
+  /// 必须同时改，由新增测试锁死（见 `test/surface/license_meta_test.dart`）。
   static const String licenseUrl =
-      'https://www.gnu.org/licenses/agpl-3.0.html';
+      'https://www.apache.org/licenses/LICENSE-2.0';
 }
 
 /// 第三方依赖与其许可（开源许可栏目展示用）。

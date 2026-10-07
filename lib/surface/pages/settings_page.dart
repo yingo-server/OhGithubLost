@@ -1352,11 +1352,19 @@ const Divider(height: 1),
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
         title: Text('${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}'),
-        content: SizedBox(
-          width: 520,
-          height: 460,
+        content: ConstrainedBox(
+          // ★ 不写死 `height: 460`：小屏（如 480×800 的设备、被系统放大
+          //   字体、或横屏）上 460 会超出 AlertDialog 可用高度，直接溢出。
+          //   按视口比例给上限，宽度同样受约束，内容内部自己滚。
+          constraints: BoxConstraints(
+            maxWidth: 520,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+          ),
           child: text.isEmpty
-              ? Text(_t('licenseTextMissing'))
+              ? Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(_t('licenseTextMissing')),
+                )
               : SingleChildScrollView(
                   child: SelectableText(
                     text,

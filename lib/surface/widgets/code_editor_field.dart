@@ -520,8 +520,13 @@ class _OgLCodeFieldState extends State<OgLCodeField> {
   ///
   /// ## 文案为什么不用新增 i18n 键
   /// 四项标签全部取自 `MaterialLocalizations`（`cutButtonLabel` 等），由 Flutter
-  /// 官方为全部 15 种语言提供，与系统菜单口径一致 —— 既不必手工翻译 15 份，
-  /// 也不会与系统行为不一致。
+  /// 官方提供本地化，与系统菜单口径一致 —— 既不必手工翻译，也不会与系统行为
+  /// 不一致。
+  ///
+  /// ## 为什么这里不必担心语种收敛
+  /// v6.4.0 把界面语言由 15 种收敛到 6 种，但这份菜单**不受影响**：它走的是
+  /// Flutter 自己的本地化委托，覆盖范围由 Flutter 决定，与本项目的语言清单无关。
+  /// 这也是当初不自己写这四条文案的真正收益。
   Widget _selectionMenu({
     required BuildContext context,
     required TextSelectionToolbarAnchors anchors,

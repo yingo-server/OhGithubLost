@@ -1,8 +1,0 @@
-{
-  "linesCount": "{count} पंक्तियाँ",
-  "noLogs": "कोई लॉग नहीं (संभवतः पूरा नहीं हुआ या टोकन में Actions अनुमति नहीं है)",
-  "noMatchingJob": "कोई मेल खाता job नहीं",
-  "reload": "फिर से लोड करें",
-  "searchJobHint": "job नाम खोजें",
-  "title": "रन लॉग"
-}

@@ -176,7 +176,7 @@ Future<OgLPermissionSelfTestReport> ogLRunPermissionSelfTest({
   return report;
 }
 
-/// 问题条目的用户可读说明（界面文案 → `shell` 分片，15 语言）。
+/// 问题条目的用户可读说明（界面文案 → `shell` 分片，6 语言）。
 String _problemMessage(OgLPermissionInfo info) {
   switch (info.permission) {
     case OgLPermission.storage:

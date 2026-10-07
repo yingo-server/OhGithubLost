@@ -1,8 +1,0 @@
-{
-  "linesCount": "{count} baris",
-  "noLogs": "Tidak ada log (mungkin belum selesai, atau Token tidak memiliki izin Actions)",
-  "noMatchingJob": "Tidak ada job yang cocok",
-  "reload": "Ambil ulang",
-  "searchJobHint": "Cari nama job",
-  "title": "Log Eksekusi"
-}

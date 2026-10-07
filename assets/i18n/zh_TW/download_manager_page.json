@@ -22,7 +22,7 @@
   "statusCanceled": "已取消",
   "categoryRelease": "Release 附件",
   "categoryRepo": "倉庫檔案",
-  "categoryGist": "Gist 片段",
+  "categoryGist": "Gist 程式碼片段",
   "categoryArtifact": "建置產物",
   "categoryOther": "其他",
   "verified": "已校驗",

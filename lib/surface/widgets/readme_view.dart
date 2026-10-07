@@ -298,6 +298,11 @@ class ReadmeView extends StatelessWidget {
         }
         open(uri);
       },
+      // 说明：`imageBuilder` 在当前 flutter_markdown 版本已标记 deprecated，
+      // 但本项目**尚未迁移**到替代方案（`builders` + 自定义
+      // MarkdownElementBuilder），而这里需要的是"按 URI 决定取字节还是直连"
+      // 这一层钩子 —— 迁移需单独批次评估，故暂留并显式说明理由，
+      // 而不是让一个无注释的 ignore 留在代码里。
       // ignore: deprecated_member_use
       imageBuilder: (Uri uri, String? title, String? alt) {
         final String label =

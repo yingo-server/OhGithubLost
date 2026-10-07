@@ -67,23 +67,26 @@ class OgLI18n extends ChangeNotifier {
   /// 基线语言（任何缺失键的最终兜底）。
   static const String baseLocale = 'en';
 
-  /// 全部可选语言（约 15 种常用语言）。
+  /// 全部可选语言（v6.4.0 起收敛为 6 种；此前为 15 种）。
+  ///
+  /// ## 为什么砍掉 9 种
+  /// 15 种里有 12 种的法律类正文（`onboardingLicenseBody`、`accelServiceBody`
+  /// 等）实际是**英文占位**：语言目录存在、键存在、值与英文相同。用户在自己的
+  /// 语言里读到的是自己看不懂的法律说明，而这恰恰是本项目最不容含糊的部分。
+  ///
+  /// 一位负责任的维护者宁可少 9 种语言，也不肯让 9 种语言的人读到自己读不懂
+  /// 的条款。剩下的 6 种——简中（原始表述）／繁中／英／德／法／俄——每一份都是
+  /// 逐句写出来的，可以对读。
+  ///
+  /// 将来若要把某个语种加回来，前提是**它的全部键都是真译文**，而不是复制
+  /// 英文。键集合由 `tool/i18n_scan.py --check` 强制与 `zh` 一致。
   static const List<OgLLocale> locales = <OgLLocale>[
     OgLLocale('zh', '简体中文'),
     OgLLocale('zh_TW', '繁體中文'),
     OgLLocale('en', 'English'),
-    OgLLocale('ja', '日本語'),
-    OgLLocale('ko', '한국어'),
-    OgLLocale('fr', 'Français'),
     OgLLocale('de', 'Deutsch'),
-    OgLLocale('es', 'Español'),
-    OgLLocale('pt', 'Português'),
+    OgLLocale('fr', 'Français'),
     OgLLocale('ru', 'Русский'),
-    OgLLocale('ar', 'العربية'),
-    OgLLocale('hi', 'हिन्दी'),
-    OgLLocale('th', 'ไทย'),
-    OgLLocale('vi', 'Tiếng Việt'),
-    OgLLocale('id', 'Bahasa Indonesia'),
   ];
 
   /// 需要加载的页面分片（新增页面时在这里补一项即可）。

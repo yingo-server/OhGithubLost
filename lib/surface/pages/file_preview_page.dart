@@ -305,10 +305,18 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// - **加速已开启**（内置或自定义任一）→ **不弹窗**，直接用 raw 链接；
   /// - **加速关闭** → 弹窗让用户选：改用 raw 链接 / 前往设置调整加速方式。
   ///
-  /// 之所以要问：raw 直链对**私有仓库取不到内容**（必须带令牌），而且走的是
-  /// 与 API 不同的链路；用户有权知道自己换了取法。
+  /// 之所以要问：raw 直链走的是与 Contents API 不同的链路；用户有权知道
+  /// 自己换了取法。
+  ///
+  /// ## ⚠️ 私有仓库的例外（v6.4.0 修正）
+  /// 「加速已开启 → 不弹窗」这条规则**只对公开仓库成立**。
+  /// raw 族的加速门槛是「内置通道 + 公开仓库」（见
+  /// `ogLAccelCandidates` / `SurfaceBridge.repoFileAccelerated`），
+  /// 私有仓库的 raw **永远不加速**、也不存在加速可开。所以私有仓库若照搬
+  /// 「不弹窗直接走 raw」，结果就是：用户什么提示都没看到，直接进到一个
+  /// 必然失败的分支。此处显式排除私有仓库，让它照常弹窗。
   Widget _tooLargePane(ThemeData theme) {
-    if (_useRaw || _accelOn) {
+    if (_useRaw || (_accelOn && !widget.repoPrivate)) {
       return _rawView(theme);
     }
     return Center(
@@ -365,8 +373,19 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
 
   /// 用 raw 链接渲染（图片直接显示；音频交系统播放器）。
   ///
-  /// 私有仓库的 raw 需要认证头 —— 但**加速路径下不能带**（代理拿不到令牌，
-  /// 带了等于送令牌），所以这里按是否走了加速决定要不要认证头。
+  /// ## 认证头：这里曾有一个必然失败的分支
+  /// 私有仓库的 raw 直链**必须带 `Authorization`**（raw 没有签名机制）。
+  /// 原实现写成：
+  /// ```dart
+  /// headers: proxied || !widget.repoPrivate ? null : const <String, String>{},
+  /// ```
+  /// 注释说「未走代理且是私有仓库才带」，但那个分支给的是**空 map** ——
+  /// 一个头都没带。于是私有仓库的大图预览 100% 404，而界面把它显示成
+  /// 「文件过大，无法在内置预览中加载」，把**认证失败**误报成**文件过大**。
+  ///
+  /// 现在改为：未走代理且私有 → 真的取一次令牌（`downloadAuthHeaders`，
+  /// 取不到就退化成空 map，那才是「匿名访问」的诚实表达）；走代理 → 一律
+  /// 不带（把令牌交给代理等于送令牌）。
   Widget _rawView(ThemeData theme) {
     final List<String> urls = _rawCandidates;
     if (urls.isEmpty) {
@@ -377,28 +396,40 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
 
     switch (widget.kind) {
       case OgLPreviewKind.image:
-        return InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 6,
-          child: Center(
-            child: Image.network(
-              url,
-              // 走代理时**不带任何令牌**；未走代理且是私有仓库才带。
-              headers: proxied || !widget.repoPrivate
-                  ? null
-                  : const <String, String>{},
-              fit: BoxFit.contain,
-              loadingBuilder: (BuildContext context, Widget child,
-                      ImageChunkEvent? progress) =>
-                  progress == null
-                      ? child
-                      : const Center(child: CircularProgressIndicator()),
-              errorBuilder: (BuildContext context, Object error,
-                      StackTrace? stack) =>
-                  _notice(theme, Icons.broken_image_outlined,
-                      _t('fileTooLargeTitle')),
-            ),
-          ),
+        return FutureBuilder<Map<String, String>>(
+          future: proxied || !widget.repoPrivate
+              // 公开仓库 / 走代理：不需要令牌，也不该有令牌。
+              ? Future<Map<String, String>>.value(const <String, String>{})
+              : widget.surface.downloadAuthHeaders(),
+          builder: (BuildContext context,
+              AsyncSnapshot<Map<String, String>> snap) {
+            final Map<String, String> headers =
+                snap.data ?? const <String, String>{};
+            return InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 6,
+              child: Center(
+                child: Image.network(
+                  url,
+                  // 空 map 等同不带头；这里只在私有仓库且未走代理时才有内容。
+                  headers: headers.isEmpty ? null : headers,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (BuildContext context, Widget child,
+                          ImageChunkEvent? progress) =>
+                      progress == null
+                          ? child
+                          : const Center(child: CircularProgressIndicator()),
+                  errorBuilder: (BuildContext context, Object error,
+                          StackTrace? stack) =>
+                      // ★ 这里**不能**说「文件过大」：>1 MB 已经由
+                      //   `_tooLargePane` 处理过了，走到这里说明是加载失败
+                      //   （认证、限流、网络），说成文件过大会让人白折腾。
+                      _notice(theme, Icons.broken_image_outlined,
+                          _t('previewLoadFailed')),
+                ),
+              ),
+            );
+          },
         );
       case OgLPreviewKind.audio:
         // 音频必然超限：默认就给出「用系统播放器打开」这条唯一可行的路。
@@ -416,8 +447,13 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// 音频：**给动作，不给空话**。
   ///
   /// 内置播放做不到（Contents API 对 >1 MB 不回内容，音频必然超限），所以这里
-  /// 直接把"下载"这条唯一可行的路摆出来。取法与仓库页完全一致
+  /// 直接把出路摆出来。取法与仓库页完全一致
   /// （`SurfaceBridge.planRepoFileDownload`）：不加速走 API 带认证，加速走代理 + raw。
+  ///
+  /// ## 私有仓库不给「播放」（v6.4.0 修正）
+  /// 「播放」是把 raw 地址交给**系统播放器**——进程之外的程序，它没有本应用的
+  /// 令牌，私有仓库的 raw 一律 404。此前私有仓库也会显示这个按钮，等于给一个
+  /// 点了必然失败的动作。私有仓库只给「下载」（下载走本应用的传输层，带认证）。
   Widget _audioCard(ThemeData theme, {String? rawUrl}) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -440,14 +476,15 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
               // 有 raw 地址时优先给「播放」：这是**真的能听到声音**的那条路
               // （走系统播放器；应用内播放需要额外音频依赖且音频必然超过
               //  Contents API 的 1 MB 上限，内置播放本就不成立）。
-              if (rawUrl != null && rawUrl.isNotEmpty)
+              // ★ 私有仓库不给：系统播放器没有本应用的令牌，点了必然 404。
+              if (rawUrl != null && rawUrl.isNotEmpty && !widget.repoPrivate)
                 FilledButton.icon(
                   onPressed: () =>
                       unawaited(openLinkOrCopy(context, rawUrl, tag: 'Audio')),
                   icon: const Icon(Icons.play_arrow),
                   label: Text(_t('previewAudioPlay')),
                 ),
-              if (rawUrl != null && rawUrl.isNotEmpty)
+              if (rawUrl != null && rawUrl.isNotEmpty && !widget.repoPrivate)
                 const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed:

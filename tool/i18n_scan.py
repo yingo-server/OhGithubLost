@@ -142,6 +142,46 @@ def load_shard(locale_dir, page):
         return json.load(handle)
 
 
+CONSISTENCY = 'consistency'
+
+
+def parse_dart_locales(lib_root):
+    """从 og_l_i18n.dart 里读出 `OgLI18n.locales` 声明的语言代码集合。
+
+    读不到文件返回 None（不因此误报失败）。
+    """
+    path = os.path.join(lib_root, 'surface', 'i18n', 'og_l_i18n.dart')
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    marker = 'static const List<OgLLocale> locales'
+    idx = text.find(marker)
+    if idx < 0:
+        return None
+    # 取到该列表结束的分号为止。
+    end = text.find('];', idx)
+    if end < 0:
+        return None
+    block = text[idx:end]
+    return set(re.findall(r"OgLLocale\(\s*'([A-Za-z_0-9]+)'", block))
+
+
+def find_pubspec(lib_root):
+    """向上找 pubspec.yaml（lib 的兄弟）。"""
+    parent = os.path.dirname(os.path.abspath(lib_root))
+    candidate = os.path.join(parent, 'pubspec.yaml')
+    return candidate if os.path.exists(candidate) else None
+
+
+def parse_pubspec_i18n(pubspec_path):
+    """读出 pubspec.yaml 里 `- assets/i18n/<code>/` 形式的语言目录集合。"""
+    with open(pubspec_path, encoding='utf-8') as handle:
+        text = handle.read()
+    return set(re.findall(r'-?\s*assets/i18n/([A-Za-z_0-9]+)/\s*$',
+                          text, re.M))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lib', default='lib')
@@ -202,6 +242,49 @@ def main():
             print('分片校验：%d 语言 × %d 页面，键集合与 zh 完全一致'
                   % (len(locales), len(all_pages)))
 
+    # ── 三处语言清单必须一致 ──────────────────────────────────────────
+    # OgLI18n.locales（Dart 运行时清单）× assets/i18n/ 下的目录
+    #                                  × pubspec.yaml 的 assets 声明
+    # 三者任一不同步都会出问题，而且两种故障方向相反、都很难在排查时想到是这里：
+    #   · pubspec 多声明了目录   → 构建期「资源不存在」直接失败
+    #   · pubspec 少声明了目录   → 构建通过，运行时该语言全是裸键名
+    # v6.4.0 删了 9 个语言目录却忘了改 pubspec，踩的正是第一种。
+    consistency = []
+    i18n_dirs = set()
+    if os.path.isdir(args.i18n):
+        i18n_dirs = set(d for d in os.listdir(args.i18n)
+                        if os.path.isdir(os.path.join(args.i18n, d)))
+    dart_locales = parse_dart_locales(args.lib)
+    if dart_locales is not None:
+        only_dart = sorted(dart_locales - i18n_dirs)
+        only_dir = sorted(i18n_dirs - dart_locales)
+        if only_dart:
+            consistency.append(
+                'OgLI18n.locales 声明但没有语言包目录：%s' % '、'.join(only_dart))
+        if only_dir:
+            consistency.append(
+                '有语言包目录但 OgLI18n.locales 未声明：%s' % '、'.join(only_dir))
+    pubspec = find_pubspec(args.lib)
+    if pubspec:
+        declared = parse_pubspec_i18n(pubspec)
+        only_pub = sorted(declared - i18n_dirs)
+        missing_in_pub = sorted(i18n_dirs - declared)
+        if only_pub:
+            consistency.append(
+                'pubspec.yaml 声明但目录不存在（构建必失败）：%s'
+                % '、'.join(only_pub))
+        if missing_in_pub:
+            consistency.append(
+                'pubspec.yaml 漏声明（运行时该语言全是键名）：%s'
+                % '、'.join(missing_in_pub))
+    if consistency:
+        print('\n语言清单不一致（%d）：' % len(consistency))
+        for row in consistency:
+            print('  ' + row)
+    elif dart_locales is not None and pubspec:
+        print('语言清单一致：locales / 目录 / pubspec 三处均为 %d 种'
+              % len(i18n_dirs))
+
     if args.json_out:
         with open(args.json_out, 'w', encoding='utf-8') as handle:
             json.dump(items, handle, ensure_ascii=False, indent=2)
@@ -220,10 +303,16 @@ def main():
             failed = True
             print('\n[check] 分片键集合不一致：%d 处' % len(shard_problems),
                   file=sys.stderr)
+        if consistency:
+            failed = True
+            print('\n[check] 语言清单三处不一致：%d 处' % len(consistency),
+                  file=sys.stderr)
+            for row in consistency:
+                print('  ' + row, file=sys.stderr)
         if failed:
             return 1
         print('\n[check] 通过：界面文案 0 处未本地化；分片键集合一致；'
-              '（日志/有意保留 %d 处不计）' % len(log_items))
+              '语言清单三处一致；（日志/有意保留 %d 处不计）' % len(log_items))
     return 0
 
 
