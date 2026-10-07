@@ -111,5 +111,6 @@
   "useRawLink": "改用 raw 連結",
   "accelPrefixOnlyTitle": "僅支援前綴式代理",
   "previewAudioPlay": "播放",
-  "previewLoadFailed": "預覽載入失敗（可能是網路、限流或權限問題）"
+  "previewLoadFailed": "預覽載入失敗（可能是網路、限流或權限問題）",
+  "fileTooLargeBodyPrivate": "GitHub 的 Contents API 對超過 1 MB 的檔案不回傳內容，因此內建預覽取不到位元組。\n這是私有倉庫：加速通道對它不生效（私有倉庫的 raw 必須帶權杖才能取得，交給代理等於把權杖送出去），所以開啟加速也不會改變這裡的取法。\n你可以改用 raw 連結開啟，或下載後檢視。"
 }

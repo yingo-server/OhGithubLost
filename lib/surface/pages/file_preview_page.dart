@@ -334,7 +334,8 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              _t('fileTooLargeBody'),
+              // 私有仓库多给一句实话：加速对它不生效，别让人白去设置里找。
+              widget.repoPrivate ? _t('fileTooLargeBodyPrivate') : _t('fileTooLargeBody'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),

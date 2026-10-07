@@ -238,6 +238,39 @@ void main() {
       );
     });
 
+    test('候选地址：签名族与仓库公私无关（私有也能加速）', () {
+      // 这是签名族与 raw 族的根本区别，也是"先解签名再交给代理"的收益所在：
+      // 私有仓库的 Release 附件同样能拿到 302 的短期签名地址，那个地址
+      // 不需要令牌 —— 所以私有仓库的这一类**可以**加速。
+      // 对比：raw 族在 repoPrivate=true 时永远不加速（见上面的用例）。
+      const String target =
+          'https://release-assets.githubusercontent.com/x?sig=ab';
+      const String proxied = 'https://proxy.344977.xyz/$target';
+      // 私有仓库：签名族照样加速。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+          bytes: 9 * 1024 * 1024,
+          repoPrivate: true,
+        ),
+        <String>[proxied, target],
+      );
+      // 公开仓库：同上。两者结论必须一致 —— 若将来有人在签名族里加了
+      // repoPrivate 判断，这条用例会立刻红。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: const <String>['https://proxy.344977.xyz/'],
+          family: OgLAccelFamily.signed,
+          bytes: 9 * 1024 * 1024,
+          repoPrivate: false,
+        ),
+        <String>[proxied, target],
+      );
+    });
+
     test('候选地址：签名族 + 超过阈值 → 前缀 + 直连兜底', () {
       const String target =
           'https://release-assets.githubusercontent.com/x?sig=ab';

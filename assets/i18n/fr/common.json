@@ -111,5 +111,6 @@
   "accelPrefixOnlyBody": "Un canal personnalisé **n’autorise que les proxys à préfixe** (comme le projet GHproxy) : le lien d’origine complet est ajouté après le préfixe du proxy.\n\nLes formes de proxy qui nécessitent de réécrire les en-têtes de requête, de réécrire les chemins d’URL ou d’implémenter leur propre logique d’authentification ne sont pas prises en charge.\n\n**Remarque** : un proxy à préfixe peut **ne pas disposer de certains points d’accès**. Si une fonction se comporte mal ou si le chargement réseau échoue, essayez de passer au proxy intégré ou de désactiver l’accélération.",
   "accelLangNote": "Le **texte chinois constitue la version originale** de cette déclaration. Les traductions ne servent qu’à la compréhension ; en cas de divergence, **l’original chinois prévaut**.",
   "previewAudioPlay": "Lire",
-  "previewLoadFailed": "Échec du chargement de l’aperçu (réseau, limitation de débit ou autorisation)"
+  "previewLoadFailed": "Échec du chargement de l’aperçu (réseau, limitation de débit ou autorisation)",
+  "fileTooLargeBodyPrivate": "L'API Contents de GitHub ne renvoie aucun contenu pour les fichiers de plus de 1 Mo ; l'aperçu intégré ne peut donc pas récupérer les octets.\nIl s'agit d'un dépôt privé : l'accélération ne s'y applique pas (le raw d'un dépôt privé exige un jeton, et le confier à un proxy revient à céder le jeton). Activer l'accélération ne change donc rien à la méthode de récupération.\nVous pouvez ouvrir le fichier via un lien raw, ou le télécharger pour le consulter."
 }

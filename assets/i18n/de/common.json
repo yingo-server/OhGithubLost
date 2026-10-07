@@ -111,5 +111,6 @@
   "accelPrefixOnlyBody": "Ein eigener Kanal **erlaubt ausschließlich Präfix-Proxys** (wie das Projekt GHproxy): der vollständige Originallink wird nach dem Proxy-Präfix angehängt.\n\nProxy-Formen, die das Umschreiben von Anfrage-Headern oder URL-Pfaden erfordern oder eine eigene Authentifizierungslogik implementieren, werden nicht unterstützt.\n\n**Hinweis**: ein Präfix-Proxy kann **einige Proxy-Endpunkte nicht haben**. Falls eine Funktion fehlerhaft ist oder das Laden übers Netzwerk fehlschlägt, kannst du zum integrierten Proxy wechseln oder die Beschleunigung ausschalten.",
   "accelLangNote": "Der **chinesische Text ist die Originalfassung** dieser Darstellung. Übersetzungen dienen nur dem Verständnis; bei Abweichungen **hat der chinesische Originaltext Vorrang**.",
   "previewAudioPlay": "Abspielen",
-  "previewLoadFailed": "Vorschau konnte nicht geladen werden (Netzwerk, Ratenbegrenzung oder Berechtigung)"
+  "previewLoadFailed": "Vorschau konnte nicht geladen werden (Netzwerk, Ratenbegrenzung oder Berechtigung)",
+  "fileTooLargeBodyPrivate": "Die Contents API von GitHub liefert für Dateien über 1 MB keinen Inhalt, daher kann die integrierte Vorschau die Bytes nicht abrufen.\nDies ist ein privates Repository: Die Beschleunigung greift hier nicht (das raw eines privaten Repos benötigt ein Token, und es einem Proxy zu übergeben bedeutet, das Token weiterzugeben). Die Beschleunigung zu aktivieren ändert daher nichts an der Abrufart.\nDu kannst stattdessen einen raw-Link öffnen oder die Datei herunterladen."
 }
