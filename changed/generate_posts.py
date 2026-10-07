@@ -156,6 +156,18 @@ def main() -> int:
     posts_dir = os.path.join(HERE, '_posts')
     os.makedirs(posts_dir, exist_ok=True)
 
+    # ★ 先清掉**同一 tag** 的旧文章（文件名可能是别的日期）。
+    #   文件名是 `日期-tag.md`，而发布日期会随产物清单被修正 —— 只写不删
+    #   就会留下两份同版本文章，站点上同一个版本出现两遍。
+    #   本次就是这么发现 v0.2.0-beta / v1.0.0 / v1.1.0 各有两份的。
+    existing_by_tag = {}
+    for old in glob.glob(os.path.join(posts_dir, '*.md')):
+        with open(old, encoding='utf-8') as fh:
+            head = fh.read(600)
+        match = re.search(r'^version:\s*(\S+)\s*$', head, re.M)
+        if match:
+            existing_by_tag.setdefault(match.group(1), []).append(old)
+
     written = 0
     for path in sorted(glob.glob(os.path.join(args.release_notes_dir, 'v*.md'))):
         tag = os.path.basename(path)[:-3]
@@ -179,6 +191,10 @@ def main() -> int:
         content = front + strip_leading_title(body) + '\n' + '\n'.join(tail) + '\n'
 
         out = os.path.join(posts_dir, '%s-%s.md' % (date, tag))
+        for stale in existing_by_tag.get(tag, []):
+            if os.path.abspath(stale) != os.path.abspath(out):
+                os.remove(stale)
+                print('[清理] 同版本旧文章 %s' % os.path.basename(stale))
         with open(out, 'w', encoding='utf-8') as handle:
             handle.write(content)
         print('[ok] %s-%s.md  %s' % (date, tag, title))
