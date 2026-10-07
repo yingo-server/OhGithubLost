@@ -238,6 +238,52 @@ void main() {
       );
     });
 
+    test('私有 + raw 族：未知情接受时永不加速；接受后才加速', () {
+      // 这是「令牌不出设备」的守卫线。默认 false 必须锁死 —— 一旦有人
+      // 把默认值改成 true，等于替所有私有仓库用户默认同意送令牌。
+      const String target = 'https://raw.githubusercontent.com/o/r/main/a.png';
+      const List<String> prefixes = <String>['https://proxy.344977.xyz/'];
+      // 未接受 → 不加速（与开关无关）。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+          builtinChannel: true,
+          repoPrivate: true,
+          privateAccelAccepted: false,
+        ),
+        <String>[target],
+      );
+      // 已接受 → 加速（用户已看过 3 秒警告）。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+          builtinChannel: true,
+          repoPrivate: true,
+          privateAccelAccepted: true,
+        ),
+        <String>['https://proxy.344977.xyz/$target', target],
+      );
+      // 公开仓库不受这个开关影响：即便没接受也照常加速。
+      expect(
+        ogLAccelCandidates(
+          url: target,
+          prefixes: prefixes,
+          family: OgLAccelFamily.raw,
+          bytes: 9 * 1024 * 1024,
+          builtinChannel: true,
+          repoPrivate: false,
+          privateAccelAccepted: false,
+        ),
+        <String>['https://proxy.344977.xyz/$target', target],
+      );
+    });
+
     test('候选地址：签名族与仓库公私无关（私有也能加速）', () {
       // 这是签名族与 raw 族的根本区别，也是"先解签名再交给代理"的收益所在：
       // 私有仓库的 Release 附件同样能拿到 302 的短期签名地址，那个地址

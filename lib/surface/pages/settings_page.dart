@@ -992,6 +992,19 @@ const Divider(height: 1),
       return tiles;
     }
     tiles.add(_subTitle(theme, _t('accelChannels')));
+    // 私有仓库加速 = 把令牌交给第三方代理。这里给一个**永久开关**：
+    // 关掉 = 不再询问**且**不再加速（而不是"别问了但照旧送令牌"）。
+    tiles.add(
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Icons.privacy_tip_outlined),
+        title: Text(_t('accelPrivateRepo')),
+        subtitle: Text(_t('accelPrivateRepoDesc')),
+        value: value.accelPrivateRepoAccepted,
+        onChanged: (bool on) =>
+            unawaited(_setPrivateAccelAccepted(on)),
+      ),
+    );
     for (final OgLAccelChannel channel in value.allAccelChannels) {
       final bool selected = channel.id == value.activeAccelChannel.id;
       tiles.add(
@@ -1068,6 +1081,128 @@ const Divider(height: 1),
       }
     }
     await widget.surface.setReleaseProxyEnabled(true);
+  }
+
+  /// 切换「私有仓库是否允许走加速」。
+  ///
+  /// ## 两个方向不对称，是刻意的
+  /// - **关掉**：直接生效，不再询问。语义是「我不要这个风险」 =
+  ///   「不要加速」，所以关掉之后私有仓库回退到 API 直取（不加速）。
+  /// - **打开**：必须先过警告弹窗 —— 这是**唯一一次**让人看清
+  ///   「令牌会离开设备」的机会，不能一键滑过去。
+  Future<void> _setPrivateAccelAccepted(bool on) async {
+    if (!on) {
+      await widget.surface.setAccelPrivateRepoAccepted(false);
+      return;
+    }
+    final bool ok = await _showPrivateAccelWarning();
+    if (ok) {
+      await widget.surface.setAccelPrivateRepoAccepted(true);
+    }
+  }
+
+  /// 私有仓库加速的**知情警告**。
+  ///
+  /// ## 为什么强制 3 秒
+  /// 这不是普通确认框，而是「把令牌交给第三方」这件事的**唯一一道闸门**。
+  /// 手滑连点就能通过的话，这道闸门等于没有。前 3 秒按钮禁用，并在按钮上
+  /// 显示剩余秒数 —— 让人看得见自己在等什么，而不是干瞪眼。
+  ///
+  /// ## 文案必须讲清的事实（都是实测结论）
+  /// 内置通道会**原样转发** `Authorization` 头给 GitHub（带令牌 200 /
+  /// 不带 404），所以这确实是「令牌离开设备」，不是理论风险。
+  Future<bool> _showPrivateAccelWarning() async {
+    const int holdSeconds = 3;
+    int remain = holdSeconds;
+    // 本次弹窗是否已启动倒计时（builder 会被 setState 重建，不能每次都起）。
+    bool timerStarted = false;
+    final bool? ok = await showDialog<bool>(
+      barrierDismissible: false,
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setLocal) {
+          void tick() {
+            Future<void>.delayed(const Duration(seconds: 1), () {
+              // setState 在弹窗销毁后会抛，不能让它炸掉。这不是"静默吞错"：
+              // 弹窗都没了，再改它的状态没有任何用户可见的意义。
+              try {
+                if (remain > 0) {
+                  setLocal(() => remain -= 1);
+                  tick(); // 继续下一秒，直到归零。
+                }
+              } catch (_) {
+                // 弹窗已销毁：停止倒计时。
+              }
+            });
+          }
+
+          // 只在第一次构建时启动（builder 会因 setState 重建，不能每次都起一个）。
+          if (remain == holdSeconds && !timerStarted) {
+            timerStarted = true;
+            tick();
+          }
+          final bool ready = remain <= 0;
+          return PopScope<Object?>(
+            canPop: false,
+            child: AlertDialog(
+              icon: const Icon(Icons.privacy_tip_outlined),
+              title: Text(_t('accelPrivateWarnTitle')),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        _t('accelPrivateWarnBody'),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      for (final String key in <String>[
+                        'accelPrivateWarnPoint1',
+                        'accelPrivateWarnPoint2',
+                        'accelPrivateWarnPoint3',
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const Text('· '),
+                              Expanded(child: Text(_t(key))),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(_t('cancel')),
+                ),
+                FilledButton(
+                  // 没到时间就是禁用 —— 防手滑，也防"不看就点"。
+                  onPressed: ready
+                      ? () => Navigator.of(dialogContext).pop(true)
+                      : null,
+                  child: Text(
+                    ready
+                        ? _t('accelPrivateWarnAccept')
+                        : _t('accelPrivateWarnWait', <String, Object?>{
+                            'seconds': remain,
+                          }),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    return ok == true;
   }
 
   /// 展示协议；[requireConsent] 为真时返回"是否勾选并同意"。

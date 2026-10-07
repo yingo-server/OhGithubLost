@@ -88,7 +88,22 @@ void main() {
       expect(s.codeThemePreset, 'theme');
       expect(s.codeColorKeyword, 0xFF569CD6);
       expect(s.releaseProxyEnabled, isFalse);
+      // ★ 默认必须 false：一旦改成 true，等于替所有私有仓库用户默认同意
+      //   把令牌交给第三方代理。这条断言就是防那次改动。
+      expect(s.accelPrivateRepoAccepted, isFalse);
       expect(s.onboardingDone, isFalse);
+    });
+
+    test('私有仓库加速：知情开关往返 JSON 不丢失', () {
+      final OgLSettings on =
+          OgLSettings.defaults.copyWith(accelPrivateRepoAccepted: true);
+      final OgLSettings back = OgLSettings.fromJson(on.toJson());
+      expect(back.accelPrivateRepoAccepted, isTrue);
+      // 坏值回落到默认（安全侧），而不是落到 true。
+      final OgLSettings junk = OgLSettings.fromJson(<String, Object?>{
+        'accelPrivateRepoAccepted': 'yes',
+      });
+      expect(junk.accelPrivateRepoAccepted, isFalse);
     });
 
     test('新增字段：坏值与越界被修正（不抛）', () {

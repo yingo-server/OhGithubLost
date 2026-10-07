@@ -112,7 +112,10 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       builtinChannel:
           widget.surface.settings.settings.activeAccelChannel.builtin,
       repoPrivate: widget.repoPrivate,
-      // 大小未知：raw 族的加速判定已有「仅内置 + 公开」的门槛。
+      // 私有 + 加速：需用户已在设置页知情接受（否则令牌绝不出设备）。
+      privateAccelAccepted:
+          widget.surface.settings.settings.accelPrivateRepoAccepted,
+      // 大小未知：raw 族的加速判定已有「内置通道」的门槛。
     );
   }
 
@@ -393,15 +396,19 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
       return _notice(theme, Icons.link_off, _t('fileTooLargeTitle'));
     }
     final String url = urls.first;
-    final bool proxied = url != _rawUrl;
 
     switch (widget.kind) {
       case OgLPreviewKind.image:
         return FutureBuilder<Map<String, String>>(
-          future: proxied || !widget.repoPrivate
-              // 公开仓库 / 走代理：不需要令牌，也不该有令牌。
-              ? Future<Map<String, String>>.value(const <String, String>{})
-              : widget.surface.downloadAuthHeaders(),
+          // ★ 判据是「私有仓库」，不是「是否走代理」。
+          //   私有仓库的 raw 一律需要令牌 —— 即便走了代理也一样
+          //   （实测：代理会原样转发 Authorization 头，没有它代理自己也取不到）。
+          //   公开仓库则相反：一个头都不该带。
+          //   旧写法 `proxied || !repoPrivate` 会在「私有 + 已接受加速」时
+          //   给出空头，于是代理拿到一个取不到内容的地址 —— 必然 404。
+          future: widget.repoPrivate
+              ? widget.surface.downloadAuthHeaders()
+              : Future<Map<String, String>>.value(const <String, String>{}),
           builder: (BuildContext context,
               AsyncSnapshot<Map<String, String>> snap) {
             final Map<String, String> headers =

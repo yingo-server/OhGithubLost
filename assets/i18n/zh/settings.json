@@ -142,5 +142,14 @@
   "legalLanguages": "法律文本语言",
   "legalText": "法律文本（多语言）",
   "legalTextEmpty": "该语言的正文暂缺（本应用以中文文本为准，其他语言仅供参考）。",
-  "licenseTextMissing": "未能读取许可全文（资源缺失）"
+  "licenseTextMissing": "未能读取许可全文（资源缺失）",
+  "accelPrivateRepo": "私有仓库也走加速",
+  "accelPrivateRepoDesc": "关闭＝不再询问，也不再加速（令牌不出设备）",
+  "accelPrivateWarnTitle": "私有仓库加速：令牌将离开本机",
+  "accelPrivateWarnBody": "私有仓库的文件必须带令牌才能取到（raw 端点没有签名机制）。开启后，本应用会把这个令牌一并交给加速通道，由它代为请求 GitHub。这与内置通道「令牌不出设备」的承诺不同。",
+  "accelPrivateWarnPoint1": "实测：内置通道会原样转发令牌给 GitHub（带令牌 200／不带 404）",
+  "accelPrivateWarnPoint2": "令牌进入第三方服务器，其留存与用途不在本项目控制范围内",
+  "accelPrivateWarnPoint3": "随时可在设置里关掉；关掉即恢复「不加速」，不会保留任何例外",
+  "accelPrivateWarnAccept": "我已了解风险，仍然开启",
+  "accelPrivateWarnWait": "请阅读…（{seconds}s）"
 }

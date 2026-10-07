@@ -142,5 +142,14 @@
   "legalLanguages": "法律文字語言",
   "legalText": "法律文字（多語言）",
   "legalTextEmpty": "該語言的正文暫缺（本應用以中文文字為準，其他語言僅供參考）。",
-  "licenseTextMissing": "未能讀取授權全文（資源缺失）"
+  "licenseTextMissing": "未能讀取授權全文（資源缺失）",
+  "accelPrivateRepo": "私有倉庫也走加速",
+  "accelPrivateRepoDesc": "關閉＝不再詢問，也不再加速（權杖不出裝置）",
+  "accelPrivateWarnTitle": "私有倉庫加速：權杖將離開本機",
+  "accelPrivateWarnBody": "私有倉庫的檔案必須帶權杖才能取得（raw 端點沒有簽章機制）。開啟後，本應用會把這個權杖一併交給加速通道，由它代為請求 GitHub。這與內建通道「權杖不出裝置」的承諾不同。",
+  "accelPrivateWarnPoint1": "實測：內建通道會原樣轉發權杖給 GitHub（帶權杖 200／不帶 404）",
+  "accelPrivateWarnPoint2": "權杖進入第三方伺服器，其留存與用途不在本專案控制範圍內",
+  "accelPrivateWarnPoint3": "隨時可在設定裡關掉；關掉即恢復「不加速」，不會保留任何例外",
+  "accelPrivateWarnAccept": "我已了解風險，仍然開啟",
+  "accelPrivateWarnWait": "請閱讀…（{seconds}s）"
 }

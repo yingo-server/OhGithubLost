@@ -76,6 +76,7 @@ class OgLSettings {
     this.dnsPreferDoh = true,
     this.downloadConnections = OgLSettings.kOgLDefaultDownloadConnections,
     this.releaseProxyEnabled = false,
+    this.accelPrivateRepoAccepted = false,
     this.releaseProxyChannels = const <OgLAccelChannel>[],
     this.releaseProxySelectedId = kOgLAccelBuiltinId,
     this.releaseProxyConsentVersion = 0,
@@ -140,6 +141,8 @@ class OgLSettings {
       downloadConnections: _asDownloadConnections(raw['downloadConnections']),
       releaseProxyEnabled:
           _asBool(raw['releaseProxyEnabled'], fallback: false),
+      accelPrivateRepoAccepted:
+          _asBool(raw['accelPrivateRepoAccepted'], fallback: false),
       releaseProxyChannels: _asAccelChannels(raw['releaseProxyChannels']),
       releaseProxySelectedId: _asAccelSelectedId(raw['releaseProxySelectedId']),
       releaseProxyConsentVersion:
@@ -311,6 +314,16 @@ class OgLSettings {
   /// 通道地址属实现细节，**不出现在界面文案中**。
   final bool releaseProxyEnabled;
 
+  /// 用户是否已知情并接受「私有仓库走加速 = 令牌交给第三方代理」。
+  ///
+  /// ## 语义很关键：true 表示**接受风险**，false 表示**不加速**
+  /// 本项目不留「别再问我、但照旧送令牌」这种选项 —— 那等于把一次性的
+  /// 知情同意悄悄变成永久授权。用户在弹窗里关掉问询，得到的就是退回
+  /// 不加速的默认行为。
+  ///
+  /// 默认 `false`：私有仓库的 raw 一律不加速（令牌不出设备）。
+  final bool accelPrivateRepoAccepted;
+
   /// 用户自定义的加速通道（**不含**内置通道；内置通道是常量）。
   final List<OgLAccelChannel> releaseProxyChannels;
 
@@ -415,6 +428,7 @@ class OgLSettings {
     bool? dnsPreferDoh,
     int? downloadConnections,
     bool? releaseProxyEnabled,
+    bool? accelPrivateRepoAccepted,
     List<OgLAccelChannel>? releaseProxyChannels,
     String? releaseProxySelectedId,
     int? releaseProxyConsentVersion,
@@ -447,6 +461,8 @@ class OgLSettings {
         downloadConnections:
             downloadConnections ?? this.downloadConnections,
         releaseProxyEnabled: releaseProxyEnabled ?? this.releaseProxyEnabled,
+        accelPrivateRepoAccepted:
+            accelPrivateRepoAccepted ?? this.accelPrivateRepoAccepted,
         releaseProxyChannels:
             releaseProxyChannels ?? this.releaseProxyChannels,
         releaseProxySelectedId:
@@ -484,6 +500,7 @@ class OgLSettings {
         'dnsPreferDoh': dnsPreferDoh,
         'downloadConnections': downloadConnections,
         'releaseProxyEnabled': releaseProxyEnabled,
+        'accelPrivateRepoAccepted': accelPrivateRepoAccepted,
         'releaseProxyChannels': <Object?>[
           for (final OgLAccelChannel channel in releaseProxyChannels)
             channel.toJson(),
@@ -630,6 +647,10 @@ class OgLSettingsController extends ChangeNotifier {
   /// 便捷：选择生效的加速通道。
   Future<void> setReleaseProxySelected(String channelId) =>
       apply(_settings.copyWith(releaseProxySelectedId: channelId));
+
+  /// 便捷：私有仓库是否允许走加速（**知情接受**才置 true）。
+  Future<void> setAccelPrivateRepoAccepted(bool on) =>
+      apply(_settings.copyWith(accelPrivateRepoAccepted: on));
 
   /// 便捷：新增/更新一个自定义加速通道。
   Future<void> upsertAccelChannel(OgLAccelChannel channel) {

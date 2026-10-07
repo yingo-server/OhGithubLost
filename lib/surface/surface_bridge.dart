@@ -226,6 +226,13 @@ class SurfaceBridge {
   Future<void> setReleaseProxySelected(String channelId) =>
       settings.setReleaseProxySelected(channelId);
 
+  /// 便捷：设置「私有仓库是否允许走加速」。
+  ///
+  /// 语义见 `OgLSettings.accelPrivateRepoAccepted`：
+  /// `true` = 用户知情接受（令牌会交给第三方代理）；`false` = 不加速。
+  Future<void> setAccelPrivateRepoAccepted(bool on) =>
+      settings.setAccelPrivateRepoAccepted(on);
+
   /// 便捷：新增 / 更新一个自定义加速通道。
   Future<void> upsertAccelChannel(OgLAccelChannel channel) =>
       settings.upsertAccelChannel(channel);
@@ -302,10 +309,20 @@ class SurfaceBridge {
       family: OgLAccelFamily.raw,
       bytes: size,
       repoPrivate: repoPrivate,
+      // 私有 + 加速：只有在用户已知情接受时才允许（令牌会交给代理）。
+      privateAccelAccepted: current.accelPrivateRepoAccepted,
     );
     if (candidates.first != rawUrl) {
-      // 走加速：地址已带前缀，且**不携带任何令牌**。
-      return (urls: candidates, headers: const <String, String>{});
+      // 走加速。
+      //
+      // ★ 私有仓库加速时**必须带令牌**：raw 匿名 404，代理没有令牌同样取不到
+      //   （实测：代理会原样转发 Authorization 头）。这正是用户在那道 3 秒
+      //   警告里被告知、并显式接受的那件事。
+      //   公开仓库则相反 —— 一个头都不带，代理没必要也不需要令牌。
+      return (
+        urls: candidates,
+        headers: repoPrivate ? await downloadAuthHeaders() : const <String, String>{},
+      );
     }
     final String apiUrl = 'https://api.github.com/repos/$fullName/contents/'
         '$encodedPath?ref=${Uri.encodeComponent(branch)}';

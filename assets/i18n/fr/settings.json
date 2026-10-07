@@ -142,5 +142,14 @@
   "legalLanguages": "Langue du texte juridique",
   "legalText": "Texte juridique (toutes langues)",
   "legalTextEmpty": "Aucun texte pour cette langue pour le moment (le texte chinois fait foi ; les autres langues sont indicatives).",
-  "licenseTextMissing": "Impossible de lire le texte intégral de la licence (ressource manquante)"
+  "licenseTextMissing": "Impossible de lire le texte intégral de la licence (ressource manquante)",
+  "accelPrivateRepo": "Accélérer aussi les dépôts privés",
+  "accelPrivateRepoDesc": "Désactivé = plus de demande et pas d'accélération (le jeton ne quitte jamais l'appareil)",
+  "accelPrivateWarnTitle": "Accélération des dépôts privés : votre jeton quittera cet appareil",
+  "accelPrivateWarnBody": "Les fichiers d'un dépôt privé ne peuvent être récupérés qu'avec un jeton (le point d'accès raw n'a aucun mécanisme de signature). Une fois activé, cette application confie ce jeton au canal d'accélération, qui interroge alors GitHub pour vous. Cela diffère de la promesse du canal intégré selon laquelle le jeton ne quitte jamais votre appareil.",
+  "accelPrivateWarnPoint1": "Mesuré : le canal intégré transmet le jeton tel quel à GitHub (200 avec jeton / 404 sans)",
+  "accelPrivateWarnPoint2": "Le jeton atteint un serveur tiers ; sa conservation et son usage échappent au contrôle de ce projet",
+  "accelPrivateWarnPoint3": "Vous pouvez désactiver ceci à tout moment dans les paramètres ; cela revient à « aucune accélération » sans conserver d'exception",
+  "accelPrivateWarnAccept": "Je comprends le risque, activer quand même",
+  "accelPrivateWarnWait": "Veuillez lire… ({seconds}s)"
 }

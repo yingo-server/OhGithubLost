@@ -68,7 +68,11 @@ List<String> ogLAccelCandidates({
   required OgLAccelFamily family,
   int? bytes,
   bool builtinChannel = true,
-  bool repoPrivate = false,
+  /// [privateAccelAccepted]：私有仓库 + raw 族时，用户是否已**知情接受**
+  /// 「令牌会交给第三方代理」。默认 `false` → 不加速（令牌不出设备）。
+  /// 该开关由用户在警告弹窗里显式确认，并可在加速设置页改回
+  /// （改回 = 不再询问**且**不再加速，而不是"别问了但照旧送"）。
+  bool privateAccelAccepted = false,
 }) {
   if (url.isEmpty) {
     return const <String>[];
@@ -80,8 +84,10 @@ List<String> ogLAccelCandidates({
     return <String>[url];
   }
   final bool bigEnough = bytes == null || bytes > kOgLAccelMinBytes;
-  final bool familyOk = family == OgLAccelFamily.signed ||
-      (builtinChannel && !repoPrivate);
+  // 私有 + raw：只有在用户知情接受后才放行（否则令牌绝不出设备）。
+  final bool privateOk = !repoPrivate || privateAccelAccepted;
+  final bool familyOk =
+      family == OgLAccelFamily.signed || (builtinChannel && privateOk);
   if (prefixes.isEmpty || !familyOk || !bigEnough) {
     return <String>[url];
   }
