@@ -61,7 +61,7 @@ flutter build linux      # Linux（宿主直编，glibc 下限见 CI）
 
 ```
 .github/workflows/   CI：质量门（5 项审计 + analyze + test）、构建矩阵（9 条腿）、发布
-assets/              资源：icon（唯一事实来源 SVG）/ i18n（6 语言）/ boot / mods / theme_packs
+assets/              资源：icon（唯一事实来源 SVG → 三端派生）/ i18n（6 语言）/ boot / mods / theme_packs
 docs/                文档：使用说明 USAGE.md、多语言维护手册 I18N.md
 lib/                 源码（四层架构）
   kernel/            启动层：引导清单 / 签名 / 信任根
@@ -71,7 +71,7 @@ lib/                 源码（四层架构）
 changed/             更新日志站点（Jekyll 源，同时发布到 GitHub Pages 与 Netlify）
 release_notes/       发布说明（每版本一个 .md，中英对照）
 test/                测试（base / domain / kernel / surface / screenshots）
-tool/                工具（图标光栅化 / 桌面壳注入 / Linux 打包 / 审计门禁）
+tool/                工具（SVG→矢量/光栅图标 / 平台规格注入 / Linux 打包 / 审计门禁）
 ```
 
 ## 架构纪律 / Architecture

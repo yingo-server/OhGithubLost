@@ -25,8 +25,12 @@ import zlib
 SVG_SIZE = 512.0
 
 
-def _parse_svg(path: str) -> tuple[list[dict], dict[str, list[tuple[float, str]]]]:
-    """从 SVG 里解析出多边形与渐变（不引依赖，纯正则）。"""
+def parse_svg(path: str) -> tuple[list[dict], dict[str, list[tuple[float, str]]]]:
+    """从 SVG 里解析出多边形与线性渐变（不引依赖，纯正则）。
+
+    **公开**：Android 的矢量转换（`svg_vector.py`）也用它 —— 两个平台必须
+    从同一份解析结果出发，否则"同一个图标"会各处一个样。
+    """
     with open(path, encoding="utf-8") as handle:
         text = handle.read()
 
@@ -113,15 +117,20 @@ def _gradient_at(grad: dict, x: float, y: float, bbox: tuple[float, float, float
     return _hex(stops[-1][1])
 
 
-def _coverage(points: list[tuple[float, float]], size: int, scale: float, sub_rows: int = 4) -> list[float]:
-    """扫描线填充，返回每个像素的抗锯齿覆盖度（0..1）。"""
+def _coverage(points: list[tuple[float, float]], size: int, scale: float,
+              sub_rows: int = 4, offset: float = 0.0) -> list[float]:
+    """扫描线填充，返回每个像素的抗锯齿覆盖度（0..1）。
+
+    [offset] 是像素单位的画布留白（与 `render_rgba` 的 padding 对应）——
+    少了它就会把图形画到错误的位置，留白与图形对不上。
+    """
     cover = [0.0] * (size * size)
     count = len(points)
     step = scale / sub_rows
     for py in range(size):
         acc = [0.0] * size
         for s in range(sub_rows):
-            y = py * scale + (s + 0.5) * step
+            y = (py + (s + 0.5) / sub_rows - offset) * scale
             crossings: list[float] = []
             for i in range(count):
                 x1, y1 = points[i]
@@ -130,8 +139,8 @@ def _coverage(points: list[tuple[float, float]], size: int, scale: float, sub_ro
                     crossings.append(x1 + (y - y1) * (x2 - x1) / (y2 - y1))
             crossings.sort()
             for j in range(0, len(crossings) - 1, 2):
-                xa = crossings[j] / scale
-                xb = crossings[j + 1] / scale
+                xa = crossings[j] / scale + offset
+                xb = crossings[j + 1] / scale + offset
                 if xb <= 0 or xa >= size:
                     continue
                 xa = 0.0 if xa < 0 else xa
@@ -152,29 +161,65 @@ def _coverage(points: list[tuple[float, float]], size: int, scale: float, sub_ro
     return cover
 
 
-def render_rgba(svg_path: str, size: int) -> bytes:
-    """渲染为 RGBA（背景透明）。"""
-    layers, grads = _parse_svg(svg_path)
-    scale = SVG_SIZE / float(size)
+def _resolve_paint(ref: str, grads: dict) -> dict | None:
+    """把 SVG 的 fill 引用解析成渐变定义。
+
+    ## 这个函数为什么必须存在（真实缺陷修复）
+    解析出的图层里存的是 **`url(#bodyGrad)`** 这种引用串，而 `grads` 的键是
+    **`bodyGrad`**。早期实现直接 `grads.get(layer["fill"].strip())` —— 永远
+    查不到，于是每个图层都被 `continue` 跳过，**整张图标渲染成全透明**。
+    症状不是报错，而是一个看不见的图标：Windows 的 ICO 与 Linux 的 PNG
+    自 v5.6.0 起一直是空白的，而构建全程"成功"。
+
+    顺带支持 `#RRGGBB` 纯色（用同色双停靠点表示），这样源 SVG 换写法也不会
+    再静默变空。
+    """
+    value = (ref or '').strip()
+    if not value:
+        return None
+    if value.startswith('url('):
+        inner = value[4:].rstrip(')').strip().strip('\'"')
+        if inner.startswith('#'):
+            inner = inner[1:]
+        return grads.get(inner)
+    if value.startswith('#') and len(value) in (4, 7):
+        return {'x1': 0.0, 'y1': 0.0, 'x2': 1.0, 'y2': 0.0,
+                'stops': [(0.0, value), (1.0, value)]}
+    return grads.get(value)
+
+
+def render_rgba(svg_path: str, size: int, padding_ratio: float = 0.0) -> bytes:
+    """渲染为 RGBA（背景透明）。
+
+    [padding_ratio]：四周留白比例（0.0–0.4）。自适应图标的**安全区**要求
+    前景图形落在中心约 66% 范围内，否则被 Launcher 的遮罩裁掉边角；
+    传统图标也留一点边距更好看。传 0 表示铺满（默认，与旧行为一致）。
+    """
+    layers, grads = parse_svg(svg_path)
+    inset = max(0.0, min(0.4, padding_ratio)) * size
+    span = float(size) - 2.0 * inset
+    if span <= 0:
+        raise ValueError('padding_ratio 过大，画布没有剩余空间')
+    scale = SVG_SIZE / span
     out = bytearray(size * size * 4)  # 全透明
 
     for layer in layers:
         points = layer["points"]
-        grad = grads.get(layer["fill"].strip())
+        grad = _resolve_paint(layer["fill"], grads)
         if grad is None:
             continue
         xs = [p[0] for p in points]
         ys = [p[1] for p in points]
         bbox = (min(xs), min(ys), max(xs), max(ys))
-        cover = _coverage(points, size, scale)
+        cover = _coverage(points, size, scale, offset=inset)
         for py in range(size):
             base = py * size
             for px in range(size):
                 a = cover[base + px]
                 if a <= 0.0:
                     continue
-                sx = (px + 0.5) * scale
-                sy = (py + 0.5) * scale
+                sx = (px + 0.5 - inset) * scale
+                sy = (py + 0.5 - inset) * scale
                 r, g, b = _gradient_at(grad, sx, sy, bbox)
                 idx = (base + px) * 4
                 sr, sg, sb = a, a, a
@@ -189,6 +234,16 @@ def render_rgba(svg_path: str, size: int) -> bytes:
                 out[idx + 1] = int(round(255 * (g / 255.0 * sr + dg * da * (1 - sr)) / oa))
                 out[idx + 2] = int(round(255 * (b / 255.0 * sr + db * da * (1 - sr)) / oa))
                 out[idx + 3] = int(round(255 * oa))
+    # ★ 守卫：全透明永远不是合法图标。
+    #   这里必须**响亮失败**，而不是交出一张空白图 —— 早期版本的渐变引用
+    #   解析错误（查 `url(#id)` 而表里键是 `id`）导致每个图层都被跳过，
+    #   于是 Windows 的 ICO 与 Linux 的 PNG **从 v5.6.0 起一直是空白的**，
+    #   而构建全程"成功"。这个守卫就是为了让这类问题再也无法静默出厂。
+    if size >= 16 and not any(out[i] for i in range(3, len(out), 4)):
+        raise ValueError(
+            '图标渲染结果**全透明**：%s 的图形没有被绘制。'
+            '多半是 SVG 结构变了（本工具只认 polygon + linearGradient），'
+            '或渐变引用解析失败。' % svg_path)
     return bytes(out)
 
 

@@ -2,6 +2,49 @@
 
 本项目各版本的变更记录，新版本在前。
 
+## v6.4.2（2026-10-07 · 正式版）
+
+> **主题**：图标终于真的来自 `assets/icon` —— 顺手挖出两个一直在出厂的缺陷。
+>
+> 起因是「更新图标为 assets/icon 的，全平台自动适配」。查管线时发现：
+> 声明是声明，实际是另一回事。一个是**从来没跟过源图**，一个是**整张图是空的**。
+
+### 修复 · Fixed
+- **Windows 的 ICO 与 Linux 的 PNG 自 v5.6.0 起一直是空白图标**（本版最严重）：
+  `desktop_icon.render_rgba` 解析出的图层里存的是 `url(#bodyGrad)` 这样的引用串，
+  而渐变表的键是 `bodyGrad`，查表写成 `grads.get(layer["fill"].strip())` ——
+  **永远查不到**，于是每个图层都被 `continue` 跳过，输出是一张**全透明**的图。
+  症状不是报错，而是一个看不见的图标；构建全程"成功"。
+  - 修法：新增 `_resolve_paint()` 正确解析 `url(#id)` 引用，并顺带支持
+    `#RRGGBB` 纯色（用同色双停靠点表示），避免源 SVG 换写法又静默变空。
+  - **加守卫**：渲染结果若全透明则**直接抛错**，不允许再交出空白图。
+- **Android 图标从来没有跟过源图**：`inject_platform_spec.py` 里是一段
+  **硬编码的矢量前景**（盾牌 + 蓝色三角），与 `assets/icon/ogl_icon.svg`
+  （深色多边形 + 金色双眼）完全不同 ——"唯一事实来源"名不副实。
+  注释还指向一个早已删除的脚本。
+  - 修法：删掉硬编码常量，新增 `tool/svg_vector.py` 把源 SVG **转成
+    VectorDrawable**，Android 改为真实转换。
+- **自适应图标纵向偏移 3%**：矢量居中只按 X 算了横向平移，Y 直接套用了同一个
+  值。源图重心是 (256, 272)，于是图形在安全区里整体下移约 3%。已改为 X/Y 分别计算。
+
+### 变更 · Changed
+- **图标全平台统一从同一份 SVG 派生**（`assets/icon/ogl_icon.svg` 是唯一来源）：
+  - **Android**：矢量 `VectorDrawable`（自适应前景收在安全区内 + 传统图标矢量
+    放 `mipmap-anydpi/`），不再有手写 XML；
+  - **Windows**：256 ICO；**Linux**：2048 PNG 母版（两者共用同一套光栅器）。
+- 传统启动图标放在 `mipmap-anydpi/`：`anydpi` 的优先级高于具体密度，因此会
+  盖过 `flutter create` 生成的五套模板 PNG —— 无需删除那些文件，也不会在
+  API < 26 的设备上残留 Flutter 默认图标。
+- `desktop_icon._parse_svg` 更名公开为 `parse_svg`：Android 的矢量转换也用它，
+  两个平台必须从同一份解析结果出发，否则"同一个图标"会各处一个样。
+
+### 新增 · Added
+- `tool/svg_vector.py`：SVG → Android VectorDrawable（`polygon` + `linearGradient`，
+  纯标准库；渐变按 SVG 的 `objectBoundingBox` 语义换算成 Android 的绝对坐标）。
+- 注入器自检新增第 ⑬ 节「图标管线」，13 项断言：桌面渲染非空白且占比合理、
+  全透明必须报错、矢量含真实几何与渐变、安全区生效、五个 Android 图标文件
+  均写出、前景确实是源图转换（而非旧硬编码盾牌）。
+
 ## v6.4.1（2026-10-07 · 正式版）
 
 > **主题**：私有仓库也可以加速了 —— 但必须先过一道**知情警告**。

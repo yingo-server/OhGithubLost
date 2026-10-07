@@ -348,6 +348,56 @@ def main():
         check('原有依赖未被破坏',
               'androidx.core:core-ktx' in deps_text)
 
+        print('⑬ 图标管线（源图 → 三端）')
+        # ★ 这一节守的是一次真实的静默故障：`desktop_icon.render_rgba` 早先
+        #   用 `grads.get('url(#id)')` 去查以 `id` 为键的表，永远查不到，
+        #   于是每个图层都被跳过 —— Windows 的 ICO 与 Linux 的 PNG **从
+        #   v5.6.0 起一直是全透明的空白图**，而构建全程"成功"。
+        #   下面的断言让这类问题再也无法静默出厂。
+        sys.path.insert(0, os.path.join(ROOT, 'tool'))
+        import desktop_icon  # noqa: PLC0415
+        import svg_vector  # noqa: PLC0415
+
+        src_svg = os.path.join(ROOT, 'assets', 'icon', 'ogl_icon.svg')
+        rgba = desktop_icon.render_rgba(src_svg, 64)
+        painted = sum(1 for i in range(3, len(rgba), 4) if rgba[i] > 0)
+        check('桌面渲染不是空白（透明像素 < 全部）', painted > 0, str(painted))
+        check('桌面渲染图形占比合理（5%–95%）',
+              0.05 * 64 * 64 < painted < 0.95 * 64 * 64, str(painted))
+
+        blank = os.path.join(tmp, 'blank.svg')
+        with open(blank, 'w', encoding='utf-8') as fh:
+            fh.write('<svg viewBox="0 0 512 512">'
+                     '<polygon fill="url(#nope)" points="0,0 512,0 512,512"/>'
+                     '</svg>')
+        try:
+            desktop_icon.render_rgba(blank, 64)
+            check('全透明必须报错而不是交出空白图', False, '未抛异常')
+        except ValueError:
+            check('全透明必须报错而不是交出空白图', True)
+
+        vec = svg_vector.to_vector_drawable(src_svg,
+                                            width_dp=108, height_dp=108,
+                                            safe_ratio=0.66)
+        check('矢量含真实几何（源图多边形）', 'M128,96' in vec, vec[:200])
+        check('矢量含渐变填充', 'aapt:attr' in vec and 'gradient' in vec)
+        check('安全区生效（外层 group 缩放）', '<group' in vec)
+        vec_full = svg_vector.to_vector_drawable(src_svg,
+                                                 width_dp=48, height_dp=48)
+        check('铺满模式不加 group', '<group' not in vec_full)
+
+        res = os.path.join(tmp, 'android', 'app', 'src', 'main', 'res')
+        for rel in ('drawable/ic_launcher_foreground.xml',
+                    'mipmap-anydpi-v26/ic_launcher.xml',
+                    'mipmap-anydpi-v26/ic_launcher_round.xml',
+                    'mipmap-anydpi/ic_launcher.xml',
+                    'mipmap-anydpi/ic_launcher_round.xml'):
+            check('Android 图标已写出：%s' % rel,
+                  os.path.isfile(os.path.join(res, rel)))
+        fg = read(os.path.join(res, 'drawable', 'ic_launcher_foreground.xml'))
+        check('前景是源图转换而来，不是硬编码盾牌',
+              'M128,96' in fg and 'M54,26' not in fg, fg[:200])
+
         print()
         if FAILURES:
             print('自检失败 %d 项：' % len(FAILURES))

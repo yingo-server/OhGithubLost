@@ -89,17 +89,32 @@ specs:
     id: android-icon
     job: android-icon
     why: >
-      启动图标是**资源文件**（矢量 XML / 自适应图标），由 Launcher 在安装
-      时读取；运行时无法替换已安装应用的图标。
+      启动图标是**资源文件**（矢量 drawable + 自适应图标），由 Launcher 在安装
+      时读取；运行时无法替换已安装应用的图标。矢量由
+      `assets/icon/ogl_icon.svg` 现场转换 —— 此前这里写死过一份与源图完全
+      不同的 XML（盾牌 + 蓝色三角），「唯一事实来源」名不副实。
     steps:
+      # ① 自适应图标的前景（矢量，图形收在中心安全区内，避免被遮罩裁边）
       - file: android/app/src/main/res/drawable/ic_launcher_foreground.xml
         marker: "<!-- OGL_PLATFORM_SPEC icon -->"
         patch: write_vector_xml
         source: assets/icon/ogl_icon.svg
+        size_dp: 108
+        safe_ratio: 0.66
+      # ② 自适应图标本体（API 26+）
       - file: android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
         patch: write_adaptive_icon_xml
       - file: android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
         patch: write_adaptive_icon_xml
+      # ③ 传统图标（API < 26）：矢量放 `mipmap-anydpi/`。
+      #    `anydpi` 的优先级高于具体密度，因此会盖过 flutter create 生成的
+      #    五套模板 PNG —— 无需删除那些文件，也不会残留 Flutter 默认图标。
+      - file: android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
+        patch: write_launcher_vector
+        source: assets/icon/ogl_icon.svg
+      - file: android/app/src/main/res/mipmap-anydpi/ic_launcher_round.xml
+        patch: write_launcher_vector
+        source: assets/icon/ogl_icon.svg
       - file: android/app/src/main/AndroidManifest.xml
         marker: "android:label=\"OGL\""
         patch: set_app_label

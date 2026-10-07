@@ -35,6 +35,7 @@ DESUGAR_DEP = 'com.android.tools:desugar_jdk_libs:2.1.4'
 # 文件**，目标缺失即代表 spec 与模板脱节，必须报错（见 main）。
 CREATE_PATCHES = frozenset((
     'write_vector_xml',
+    'write_launcher_vector',
     'write_adaptive_icon_xml',
     'write_ico',
     'write_png',
@@ -49,21 +50,10 @@ ADAPTIVE_ICON = """<?xml version="1.0" encoding="utf-8"?>
 </adaptive-icon>
 """
 
-FOREGROUND_ICON = """<?xml version="1.0" encoding="utf-8"?>
-<!-- OGL_PLATFORM_SPEC icon -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M54,26 L78,36 L78,56 C78,70 68,80 54,86 C40,80 30,70 30,56 L30,36 Z" />
-    <path
-        android:fillColor="#FF3A7AFE"
-        android:pathData="M46,48 L46,68 L64,58 Z" />
-</vector>
-"""
+# 前景矢量**不再硬编码**：由 tool/svg_vector.py 从 assets/icon/ogl_icon.svg
+# 现转换。此前这里写死过一份盾牌 + 蓝色三角的 XML，与源图（深色多边形 +
+# 金色双眼）完全不同 —— "唯一事实来源"名不副实，Android 图标其实从没跟过
+# 源图。删掉常量，源图成为唯一来源。
 
 PERMISSION_BLOCK = """    <!-- OGL_PLATFORM_SPEC permissions -->
 {perms}"""
@@ -475,10 +465,41 @@ def patch_android_permissions(root: str, step: dict) -> int:
     return 0
 
 
-def patch_write_vector_xml(root: str, step: dict) -> int:
-    _write(step['file'], FOREGROUND_ICON)
-    print('  [写入] %s（矢量前景）' % step['file'])
+def _write_svg_vector(root: str, step: dict, *, default_dp: float,
+                      default_safe: float) -> int:
+    """把源 SVG 转成 Android VectorDrawable 并写出（共用实现）。"""
+    import svg_vector  # noqa: PLC0415 - 同目录模块
+
+    source = step.get('source') or 'assets/icon/ogl_icon.svg'
+    svg = _resolve(root, source)
+    if not os.path.isfile(svg):
+        print('  [失败] 图标源文件不存在：%s' % svg)
+        return 1
+    dp = float(step.get('size_dp', default_dp))
+    safe = float(step.get('safe_ratio', default_safe))
+    try:
+        xml = svg_vector.to_vector_drawable(
+            svg, width_dp=dp, height_dp=dp, safe_ratio=safe)
+    except ValueError as error:
+        print('  [失败] 矢量生成失败：%s' % error)
+        return 1
+    _write(step['file'], xml)
+    print('  [写入] %s（矢量 %gdp，图形占比 %g）' % (step['file'], dp, safe))
     return 0
+
+
+def patch_write_vector_xml(root: str, step: dict) -> int:
+    """自适应图标的**前景**矢量（图形收在安全区内）。"""
+    return _write_svg_vector(root, step, default_dp=108.0, default_safe=0.66)
+
+
+def patch_write_launcher_vector(root: str, step: dict) -> int:
+    """传统启动图标（API < 26）的矢量。
+
+    放在 `mipmap-anydpi/`：`anydpi` 比具体密度**优先**，因此会盖过
+    `flutter create` 生成的默认 PNG，不必去删那五套模板文件。
+    """
+    return _write_svg_vector(root, step, default_dp=48.0, default_safe=1.0)
 
 
 def patch_write_adaptive_icon_xml(root: str, step: dict) -> int:
@@ -565,6 +586,7 @@ PATCHES = {
     'core_library_desugaring': patch_core_library_desugaring,
     'android_permissions': patch_android_permissions,
     'write_vector_xml': patch_write_vector_xml,
+    'write_launcher_vector': patch_write_launcher_vector,
     'write_adaptive_icon_xml': patch_write_adaptive_icon_xml,
     'set_app_label': patch_set_app_label,
     'add_compile_definitions': patch_add_compile_definitions,
