@@ -58,9 +58,11 @@ enum OgLAccelFamily {
 /// - **签名族**（Release 附件 / Action 日志 / 产物）：`bytes` 未知或超过
 ///   [kOgLAccelMinBytes] 即加速。未知时按「值得加速」处理 —— 这类资源本就是
 ///   大 blob，且大小要先下才知道；
-/// - **raw 族**（仓库文件 / README 仓库内图片）：**只有内置通道 + 公开仓库**
-///   才加速。理由是 raw 端点压根没有签名机制 —— 私有内容的 raw 必须直接带
-///   `Authorization`，交给代理就等于把令牌送出去，所以私有仓库没有这条路。
+/// - **raw 族**（仓库文件 / README 仓库内图片）：默认只有**内置通道 + 公开仓库**
+///   才加速。私有仓库需要用户先**知情接受**「令牌会交给第三方代理」
+///   （[privateAccelAccepted]），才会走加速；否则一律不加速。
+///   理由：raw 端点没有签名机制，私有内容的 raw 必须带 `Authorization`，
+///   交给代理就等于把令牌送出去 —— 所以默认不送，接受后才送。
 /// - `bytes` 已知且 ≤ 阈值 → 不加速（小文件加速没有收益，却要多经一次第三方）。
 List<String> ogLAccelCandidates({
   required String url,
@@ -68,6 +70,7 @@ List<String> ogLAccelCandidates({
   required OgLAccelFamily family,
   int? bytes,
   bool builtinChannel = true,
+  bool repoPrivate = false,
   /// [privateAccelAccepted]：私有仓库 + raw 族时，用户是否已**知情接受**
   /// 「令牌会交给第三方代理」。默认 `false` → 不加速（令牌不出设备）。
   /// 该开关由用户在警告弹窗里显式确认，并可在加速设置页改回

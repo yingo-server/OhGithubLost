@@ -337,13 +337,14 @@ class SurfaceBridge {
 
   /// 仓库文件是否会走加速（供界面如实说明当前取法）。
   ///
-  /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：**内置通道 + 公开仓库**，
-  /// 且大小未知或超过阈值。
+  /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：**内置通道**，且
+  /// （公开仓库）或（私有仓库且用户已[知情接受]），大小未知或超过阈值。
   bool repoFileAccelerated({required bool repoPrivate, int? size}) {
     final OgLSettings current = settings.settings;
+    final bool privateOk = !repoPrivate || current.accelPrivateRepoAccepted;
     return current.activeAccelPrefixes.isNotEmpty &&
         current.activeAccelChannel.builtin &&
-        !repoPrivate &&
+        privateOk &&
         (size == null || size > kOgLAccelMinBytes);
   }
 

@@ -311,15 +311,15 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// 之所以要问：raw 直链走的是与 Contents API 不同的链路；用户有权知道
   /// 自己换了取法。
   ///
-  /// ## ⚠️ 私有仓库的例外（v6.4.0 修正）
-  /// 「加速已开启 → 不弹窗」这条规则**只对公开仓库成立**。
-  /// raw 族的加速门槛是「内置通道 + 公开仓库」（见
-  /// `ogLAccelCandidates` / `SurfaceBridge.repoFileAccelerated`），
-  /// 私有仓库的 raw **永远不加速**、也不存在加速可开。所以私有仓库若照搬
-  /// 「不弹窗直接走 raw」，结果就是：用户什么提示都没看到，直接进到一个
-  /// 必然失败的分支。此处显式排除私有仓库，让它照常弹窗。
+  /// ## 私有仓库（v6.4.0 修正，v6.4.1 放宽）
+  /// 「加速已开启 → 不弹窗」原先只对公开仓库成立：私有仓库的 raw 默认不加速，
+  /// 照搬「不弹窗直接走 raw」会让用户掉进一个必然失败的分支。
+  /// v6.4.1 起，私有仓库若用户已在设置页**知情接受**「令牌交给第三方代理」，
+  /// 则与公开仓库一样静默走 raw + 加速；未接受则照常弹窗如实说明。
   Widget _tooLargePane(ThemeData theme) {
-    if (_useRaw || (_accelOn && !widget.repoPrivate)) {
+    final bool privateOk = !widget.repoPrivate ||
+        widget.surface.settings.settings.accelPrivateRepoAccepted;
+    if (_useRaw || (_accelOn && privateOk)) {
       return _rawView(theme);
     }
     return Center(
@@ -337,8 +337,12 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              // 私有仓库多给一句实话：加速对它不生效，别让人白去设置里找。
-              widget.repoPrivate ? _t('fileTooLargeBodyPrivate') : _t('fileTooLargeBody'),
+              // 私有仓库 + 未接受加速：多给一句实话，别让人白去设置里找开关。
+              // 已接受的私有仓库与公开仓库同等待遇，不需要这句解释。
+              (widget.repoPrivate && !widget.surface.settings.settings
+                      .accelPrivateRepoAccepted)
+                  ? _t('fileTooLargeBodyPrivate')
+                  : _t('fileTooLargeBody'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
