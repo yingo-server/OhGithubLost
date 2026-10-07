@@ -549,20 +549,41 @@ jobs:
           NOTES: ${{ inputs.release_notes }}
         run: |
           set -u
+          # ★ 正文优先级（v6.4.2 起）：
+          #   ① 显式传入的 release_notes 输入；
+          #   ② 仓库里的 release_notes/v<版本>.md（**这是正规来源**）；
+          #   ③ 预发布另有 <版本>-<通道>.md；
+          #   ④ 兜底的自动模板。
+          #
+          #   此前只有 ① 和 ④，于是仓库里写好的发布说明**根本不会出现在
+          #   Release 页上**，用户在线上看到的是信息量最少的那一份模板
+          #   （263 字符 vs 仓库里的 1500+）。每个版本都得事后手工 PATCH 一次，
+          #   漏了就一直错下去。现在发布作业自己读笔记，这一步不必再手工补。
           if [ -n "$NOTES" ]; then
             printf '%s\n' "$NOTES" > notes.md
-          else
-            {
-              echo "OGL（OhGithubLost）自动构建发布。"
-              echo ""
-              echo "- 通道：**$CH**"
-              echo "- 版本：**${VN}**（build ${VNUM}）"
-              echo "- 产物（**仅压缩包**，zip 与 7z 双份、极限压缩）："
-              echo "  Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）、Windows（x64 / arm64）、Linux（x64 / arm64）"
-              echo ""
-              echo "> macOS / iOS 自 5.6.0 起**不再提供**；最后支持的版本是 **v5.3.0**。"
-            } > notes.md
+            echo "→ 正文来源：workflow 输入"
+            exit 0
           fi
+          for candidate in "release_notes/v${VN}.md" "release_notes/v${VN}-${CH}.md"; do
+            if [ -f "$candidate" ]; then
+              cp "$candidate" notes.md
+              echo "→ 正文来源：$candidate（$(wc -c < notes.md) 字节）"
+              exit 0
+            fi
+          done
+          echo "::warning::release_notes/v${VN}.md 不存在，退回自动模板。正经发版应当补上该文件（见 release_notes/README.md）"
+          {
+            echo "OGL（OhGithubLost）自动构建发布。"
+            echo ""
+            echo "> ⚠️ 本版**缺少 release_notes/v${VN}.md**，以下为自动生成的摘要。"
+            echo ""
+            echo "- 通道：**$CH**"
+            echo "- 版本：**${VN}**（build ${VNUM}）"
+            echo "- 产物（**仅压缩包**，zip 与 7z 双份、极限压缩）："
+            echo "  Android（arm64-v8a / armeabi-v7a / x86_64 / universal APK / AAB）、Windows（x64 / arm64）、Linux（x64 / arm64）"
+            echo ""
+            echo "> macOS / iOS 自 5.6.0 起**不再提供**；最后支持的版本是 **v5.3.0**。"
+          } > notes.md
 
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2

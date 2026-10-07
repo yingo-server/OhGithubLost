@@ -6,6 +6,24 @@
 - 未发布成功 / 跳过的版本**不建文件**，在 `CHANGELOG.md` 里标注；
 - 发布时正文由 `release_notes/v<版本>.md` 写入 GitHub Release。
 
+## 正文是怎么进到 Release 页的（v6.4.2 起自动化）
+
+发布作业 `build.yml` → `release` job 的「生成发布说明」步骤按**优先级**取正文：
+
+| 顺序 | 来源 | 说明 |
+| --- | --- | --- |
+| ① | workflow 输入 `release_notes` | 手工 dispatch 时显式传入 |
+| ② | `release_notes/v<版本>.md` | **正规来源** |
+| ③ | `release_notes/v<版本>-<通道>.md` | 预发布（如 `v7.0.0-beta.md`） |
+| ④ | 自动模板 | 兜底；同时发 warning 提示缺文件 |
+
+在此之前只有 ① 和 ④ —— 仓库里写好的发布说明**不会**出现在 Release 页上，
+线上看到的是信息量最少的模板（263 字符 vs 笔记的 1500+），于是每个版本都得
+事后手工 PATCH 一次，漏了就一直是错的。现在发布作业自己读笔记。
+
+> 若某版 Release 正文明显偏短（只有通道/版本/产物三行），说明当时用的是
+> 兜底模板：检查 `release_notes/v<版本>.md` 是否存在，然后 PATCH 补上。
+
 ## 跳版本核查结论（2026-10-06 全量比对）
 
 把 CHANGELOG、本目录、`changed/_posts/`、线上 Release 四处清单逐版本比对后：
