@@ -1,0 +1,64 @@
+name: Web
+
+# Web（wasm/JS）构建与校验。
+#
+# ## 为什么单独一条工作流
+# Web 适配在**独立分支 web** 上进行，与五平台正式发布互不影响：
+#   · 不共用 actions：本工作流只在 web 分支跑，不参与 build.yml 的发布；
+#   · 允许失败：Web 构建失败**不影响**五平台发布（两者互不依赖）；
+#   · 不部署 gh-pages：那个分支目前由更新日志站点（Jekyll）使用，
+#     不能拿构建产物覆盖它。产物走 artifact（需要发布时再加部署步骤）。
+#
+# ## 当前状态
+# 这个分支的 lib/ 仍是 main 的副本，尚未做 Web 适配：19 个文件直接 import
+# `dart:io`，而浏览器里没有该库。因此本工作流现在**会失败** —— 这不是配置
+# 问题，而是待办本身。它存在的意义就是把「还差多少」变成可观测的结果：
+# 每推一次就能在 Actions 里看到编译停在哪一个文件。
+
+on:
+  push:
+    branches: [web]
+  workflow_dispatch:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  build-web:
+    name: 构建 Web（wasm + js）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 取依赖
+        run: flutter pub get
+
+      # 平台目录不提交，由 CI 现场生成。web/ 已在仓库里（PWA 脚手架 +
+      # 图标），`flutter create` 只会补齐缺失项，不会覆盖已有文件。
+      - name: 生成平台目录
+        run: flutter create --platforms=web --org com.yingo --project-name ohgithublost .
+
+      - name: 构建（release）
+        run: flutter build web --release
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ogl-web
+          path: build/web
+          if-no-files-found: warn
+          retention-days: 14
