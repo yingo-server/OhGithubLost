@@ -40,6 +40,7 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
     super.initState();
     FocusManager.instance.addListener(_onFocusChanged);
     WidgetsBinding.instance.addObserver(this);
+    // i18n-allow: 开发者日志的上下文标签（启动时的键盘度量），不是界面文案。
     WidgetsBinding.instance.addPostFrameCallback((_) => _logMetrics('初始'));
   }
 
@@ -51,6 +52,7 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
   }
 
   @override
+  // i18n-allow: 同上 —— 键盘度量变化时的日志标签，不是界面文案。
   void didChangeMetrics() => _logMetrics('变化');
 
   void _onFocusChanged() {
