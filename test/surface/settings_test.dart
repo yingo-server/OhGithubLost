@@ -9,8 +9,8 @@ library;
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ohgithublost/surface/util/accel.dart';
 import 'package:ohgithublost/surface/settings.dart';
+import 'package:ohgithublost/surface/util/accel.dart';
 
 /// 读取必抛（模拟磁盘故障）。
 class _ThrowingReadPersistence implements OgLSettingsPersistence {
