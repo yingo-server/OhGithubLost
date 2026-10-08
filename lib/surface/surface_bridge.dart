@@ -226,6 +226,10 @@ class SurfaceBridge {
   Future<void> setReleaseProxySelected(String channelId) =>
       settings.setReleaseProxySelected(channelId);
 
+  /// 便捷：开关某个加速适用范围。
+  Future<void> setAccelScope(OgLAccelScope scope, bool enabled) =>
+      settings.setAccelScope(scope, enabled);
+
   /// 便捷：设置「私有仓库是否允许走加速」。
   ///
   /// 语义见 `OgLSettings.accelPrivateRepoAccepted`：
@@ -304,8 +308,8 @@ class SurfaceBridge {
         '${Uri.encodeComponent(branch)}/$encodedPath';
     final List<String> candidates = ogLAccelCandidates(
       url: rawUrl,
-      prefixes: current.activeAccelPrefixes,
-      builtinChannel: current.activeAccelChannel.builtin,
+      // 本处是「仓库文件」这一类的唯一入口（仓库页下载 / 预览页加入下载共用）。
+      prefixes: current.accelPrefixesFor(OgLAccelScope.repoFile),
       family: OgLAccelFamily.raw,
       bytes: size,
       repoPrivate: repoPrivate,
@@ -339,11 +343,16 @@ class SurfaceBridge {
   ///
   /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：**内置通道**，且
   /// （公开仓库）或（私有仓库且用户已[知情接受]），大小未知或超过阈值。
-  bool repoFileAccelerated({required bool repoPrivate, int? size}) {
+  bool repoFileAccelerated({
+    required bool repoPrivate,
+    int? size,
+    OgLAccelScope scope = OgLAccelScope.repoFile,
+  }) {
     final OgLSettings current = settings.settings;
     final bool privateOk = !repoPrivate || current.accelPrivateRepoAccepted;
-    return current.activeAccelPrefixes.isNotEmpty &&
-        current.activeAccelChannel.builtin &&
+    // v6.4.3：不再有"内置通道"这一概念；有自建通道、协议在有效期、且**该类资源
+    // 的适用范围开着**才加速。私有仓库还需用户知情接受。
+    return current.accelPrefixesFor(scope).isNotEmpty &&
         privateOk &&
         (size == null || size > kOgLAccelMinBytes);
   }

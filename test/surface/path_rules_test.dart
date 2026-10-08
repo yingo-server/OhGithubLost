@@ -104,20 +104,10 @@ void main() {
     });
   });
 
-  group('加速通道规则', () {
+  group('加速通道规则（v6.4.3：无内置通道、无降级兜底）', () {
     test('只接受 https（http 明文会被拦截）', () {
-      expect(ogLValidateAccelBaseUrl('https://example.com/'), isNull);
-      expect(ogLValidateAccelBaseUrl('http://example.com/'), isNotNull);
-      expect(ogLValidateAccelBaseUrl('ftp://example.com/'), isNotNull);
-      expect(ogLValidateAccelBaseUrl('https://example.com'), isNotNull);
-      expect(ogLValidateAccelBaseUrl('https://例.com/'), isNotNull);
-      expect(ogLValidateAccelBaseUrl(''), isNotNull);
-    });
-
-    test('内置通道是 https 且被标记为 builtin', () {
-      expect(kOgLAccelBuiltinChannel.builtin, isTrue);
-      expect(kOgLAccelBuiltinChannel.baseUrl.startsWith('https://'), isTrue);
-      expect(ogLValidateAccelBaseUrl(kOgLAccelBuiltinBaseUrl), isNull);
+      expect(ogLValidateAccelBaseUrl('http://a.com/'), isNotNull);
+      expect(ogLValidateAccelBaseUrl('https://a.com/'), isNull);
     });
 
     test('地址归一化补 /', () {
@@ -125,50 +115,31 @@ void main() {
       expect(ogLNormalizeAccelBase('https://a.com/'), 'https://a.com/');
     });
 
-    test('协议文本按通道类型区分，且非空', () {
-      expect(ogLAccelAgreementFor(kOgLAccelBuiltinChannel), isNotEmpty);
-      expect(
-        ogLAccelAgreementFor(const OgLAccelChannel(
-          id: 'x',
-          name: 'x',
-          baseUrl: 'https://x/',
-        )),
-        isNotEmpty,
-      );
-      expect(
-        ogLAccelAgreementFor(kOgLAccelBuiltinChannel),
-        isNot(ogLAccelAgreementFor(
-          const OgLAccelChannel(id: 'x', name: 'x', baseUrl: 'https://x/'),
-        )),
-      );
+    test('协议文本非空（只有一种：外来服务自负责任）', () {
+      _loadZh();
+      expect(ogLAccelAgreement(), isNotEmpty);
     });
 
-    test('内置通道前缀：proxy.344977.xyz（单前缀，纯转发）', () {
-      expect(kOgLAccelBuiltinBaseUrls.length, 1);
-      expect(kOgLAccelBuiltinBaseUrls.first, 'https://proxy.344977.xyz/');
-      for (final String base in kOgLAccelBuiltinBaseUrls) {
-        expect(base.startsWith('https://'), isTrue);
-        expect(ogLValidateAccelBaseUrl(base), isNull);
-      }
-      // 主前缀 = 链首。
-      expect(kOgLAccelBuiltinBaseUrl, kOgLAccelBuiltinBaseUrls.first);
-      // 对用户仍是**一个**通道（不可删 / 不可改）。
-      expect(kOgLAccelBuiltinChannel.builtin, isTrue);
-      expect(kOgLAccelBuiltinChannel.baseUrl, kOgLAccelBuiltinBaseUrl);
-      // 协议版本已升到 2（换地址属实质修改，必须重新征求同意）。
-      expect(kOgLAccelConsentVersion, greaterThanOrEqualTo(2));
+    test('自定义通道前缀：单个，没有"链"', () {
+      const OgLAccelChannel channel =
+          OgLAccelChannel(id: 'c1', name: '我的', baseUrl: 'https://a.com/');
+      expect(ogLAccelPrefixesFor(channel), <String>['https://a.com/']);
+      expect(ogLAccelPrefixesFor(channel).length, 1);
     });
 
-    test('加速前缀链：内置是多前缀，自定义是单前缀', () {
-      final List<String> builtin = ogLAccelPrefixChain(kOgLAccelBuiltinChannel);
-      expect(builtin.length, kOgLAccelBuiltinBaseUrls.length);
-      for (final String prefix in builtin) {
-        expect(prefix.endsWith('/'), isTrue);
+    test('适用范围清单与枚举一致（防漂移）', () {
+      // kOgLAccelAllScopeIds 是**落盘默认值**，写成显式列表；
+      // 新增枚举值却忘了加进清单，会让新范围默认关闭 —— 这条断言拦住它。
+      expect(kOgLAccelAllScopeIds.toSet(),
+          OgLAccelScope.values.map((OgLAccelScope s) => s.id).toSet());
+      expect(kOgLAccelAllScopeIds.length, OgLAccelScope.values.length);
+      // id 解析往返。
+      for (final OgLAccelScope s in OgLAccelScope.values) {
+        expect(OgLAccelScope.fromId(s.id), s);
+        expect(s.labelKey, startsWith('accelScope'));
       }
-      final List<String> custom = ogLAccelPrefixChain(
-        const OgLAccelChannel(id: 'x', name: 'x', baseUrl: 'https://x.com'),
-      );
-      expect(custom, <String>['https://x.com/']);
+      expect(OgLAccelScope.fromId('nope'), isNull);
+      expect(OgLAccelScope.fromId(null), isNull);
     });
 
     test('候选地址：未启用加速 → 直连', () {
@@ -185,199 +156,118 @@ void main() {
       );
     });
 
-    test('候选地址：raw 族只在「内置 + 公开」时加速', () {
+    test('候选地址：加速时**只有一项**（不再垫直连兜底）', () {
+      const String target =
+          'https://release-assets.githubusercontent.com/x?sig=ab';
+      final List<String> out = ogLAccelCandidates(
+        url: target,
+        prefixes: const <String>['https://proxy.example/'],
+        family: OgLAccelFamily.signed,
+        bytes: 9 * 1024 * 1024,
+      );
+      expect(out, <String>['https://proxy.example/$target']);
+      // 关键：结果里**不含**原始地址 —— 静默回落直连已按要求移除。
+      expect(out.contains(target), isFalse);
+    });
+
+    test('候选地址：raw 族（公开仓库）走自定义通道', () {
       const String target = 'https://raw.githubusercontent.com/o/r/main/a.png';
-      const List<String> prefixes = <String>['https://proxy.344977.xyz/'];
-      // 内置 + 公开 → 加速（raw 不限流，比 API 配额划算）。
       expect(
         ogLAccelCandidates(
           url: target,
-          prefixes: prefixes,
+          prefixes: const <String>['https://proxy.example/'],
           family: OgLAccelFamily.raw,
           bytes: 9 * 1024 * 1024,
-          builtinChannel: true,
           repoPrivate: false,
         ),
-        <String>['https://proxy.344977.xyz/$target', target],
-      );
-      // 自定义通道 → 不加速（按既定路由：非内置一律走 API）。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: prefixes,
-          family: OgLAccelFamily.raw,
-          bytes: 9 * 1024 * 1024,
-          builtinChannel: false,
-          repoPrivate: false,
-        ),
-        <String>[target],
-      );
-      // 私有仓库 → **永远不加速**：raw 没有签名机制，交给代理等于送令牌。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: prefixes,
-          family: OgLAccelFamily.raw,
-          bytes: 9 * 1024 * 1024,
-          builtinChannel: true,
-          repoPrivate: true,
-        ),
-        <String>[target],
-      );
-      // 已知小于阈值 → 不加速（小文件多一跳没收益）。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: prefixes,
-          family: OgLAccelFamily.raw,
-          bytes: kOgLAccelMinBytes,
-          builtinChannel: true,
-          repoPrivate: false,
-        ),
-        <String>[target],
+        <String>['https://proxy.example/$target'],
       );
     });
 
-    test('私有 + raw 族：未知情接受时永不加速；接受后才加速', () {
-      // 这是「令牌不出设备」的守卫线。默认 false 必须锁死 —— 一旦有人
-      // 把默认值改成 true，等于替所有私有仓库用户默认同意送令牌。
+    test('私有 + raw：未知情接受时直连；接受后加速', () {
       const String target = 'https://raw.githubusercontent.com/o/r/main/a.png';
-      const List<String> prefixes = <String>['https://proxy.344977.xyz/'];
-      // 未接受 → 不加速（与开关无关）。
+      const List<String> prefixes = <String>['https://proxy.example/'];
       expect(
         ogLAccelCandidates(
           url: target,
           prefixes: prefixes,
           family: OgLAccelFamily.raw,
           bytes: 9 * 1024 * 1024,
-          builtinChannel: true,
           repoPrivate: true,
           privateAccelAccepted: false,
         ),
         <String>[target],
       );
-      // 已接受 → 加速（用户已看过 3 秒警告）。
       expect(
         ogLAccelCandidates(
           url: target,
           prefixes: prefixes,
           family: OgLAccelFamily.raw,
           bytes: 9 * 1024 * 1024,
-          builtinChannel: true,
           repoPrivate: true,
           privateAccelAccepted: true,
         ),
-        <String>['https://proxy.344977.xyz/$target', target],
-      );
-      // 公开仓库不受这个开关影响：即便没接受也照常加速。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: prefixes,
-          family: OgLAccelFamily.raw,
-          bytes: 9 * 1024 * 1024,
-          builtinChannel: true,
-          repoPrivate: false,
-          privateAccelAccepted: false,
-        ),
-        <String>['https://proxy.344977.xyz/$target', target],
+        <String>['https://proxy.example/$target'],
       );
     });
 
     test('候选地址：签名族与仓库公私无关（私有也能加速）', () {
-      // 这是签名族与 raw 族的根本区别，也是"先解签名再交给代理"的收益所在：
-      // 私有仓库的 Release 附件同样能拿到 302 的短期签名地址，那个地址
-      // 不需要令牌 —— 所以私有仓库的这一类**可以**加速。
-      // 对比：raw 族在 repoPrivate=true 时永远不加速（见上面的用例）。
       const String target =
           'https://release-assets.githubusercontent.com/x?sig=ab';
-      const String proxied = 'https://proxy.344977.xyz/$target';
-      // 私有仓库：签名族照样加速。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
-          family: OgLAccelFamily.signed,
-          bytes: 9 * 1024 * 1024,
-          repoPrivate: true,
-        ),
-        <String>[proxied, target],
-      );
-      // 公开仓库：同上。两者结论必须一致 —— 若将来有人在签名族里加了
-      // repoPrivate 判断，这条用例会立刻红。
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
-          family: OgLAccelFamily.signed,
-          bytes: 9 * 1024 * 1024,
-          repoPrivate: false,
-        ),
-        <String>[proxied, target],
-      );
+      const List<String> prefixes = <String>['https://proxy.example/'];
+      for (final bool priv in <bool>[false, true]) {
+        expect(
+          ogLAccelCandidates(
+            url: target,
+            prefixes: prefixes,
+            family: OgLAccelFamily.signed,
+            bytes: 9 * 1024 * 1024,
+            repoPrivate: priv,
+          ),
+          <String>['https://proxy.example/$target'],
+          reason: 'repoPrivate=$priv',
+        );
+      }
     });
 
-    test('候选地址：签名族 + 超过阈值 → 前缀 + 直连兜底', () {
-      const String target =
-          'https://release-assets.githubusercontent.com/x?sig=ab';
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
-          family: OgLAccelFamily.signed,
-          bytes: kOgLAccelMinBytes + 1,
-        ),
-        <String>['https://proxy.344977.xyz/$target', target],
-      );
-    });
-
-    test('候选地址：≤ 500KB 不加速（小文件加速没收益）', () {
+    test('候选地址：≤ 阈值不加速（小文件加速没收益）', () {
       const String target = 'https://release-assets.githubusercontent.com/x';
       expect(kOgLAccelMinBytes, 500 * 1024);
       expect(
         ogLAccelCandidates(
           url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
+          prefixes: const <String>['https://a/'],
           family: OgLAccelFamily.signed,
           bytes: kOgLAccelMinBytes,
-        ),
-        <String>[target],
-      );
-      expect(
-        ogLAccelCandidates(
-          url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
-          family: OgLAccelFamily.signed,
-          bytes: 1,
         ),
         <String>[target],
       );
     });
 
     test('候选地址：大小未知（Action 日志/产物）按加速处理', () {
-      const String target = 'https://results-receiver.actions.githubusercontent.com/x';
+      const String target =
+          'https://results-receiver.actions.githubusercontent.com/x';
       expect(
         ogLAccelCandidates(
           url: target,
-          prefixes: const <String>['https://proxy.344977.xyz/'],
+          prefixes: const <String>['https://a/'],
           family: OgLAccelFamily.signed,
         ),
-        <String>['https://proxy.344977.xyz/$target', target],
+        <String>['https://a/$target'],
       );
     });
 
-    test('候选地址：已是加速地址则不重复加前缀，直连仍垫底', () {
-      const String target =
-          'https://release-assets.githubusercontent.com/x';
+    test('候选地址：已是加速地址则不二次加前缀', () {
+      const String target = 'https://release-assets.githubusercontent.com/x';
       const String base = 'https://a/';
       expect(
         ogLAccelCandidates(
           url: '$base$target',
-          prefixes: const <String>['https://a/', 'https://b/'],
+          prefixes: const <String>[base],
           family: OgLAccelFamily.signed,
           bytes: 9 * 1024 * 1024,
         ),
-        <String>['https://b/$base$target', '$base$target'],
+        <String>['$base$target'],
       );
     });
 

@@ -13,6 +13,7 @@ import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/accel.dart';
 import '../util/download_proxy.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
@@ -252,8 +253,10 @@ class _ActionRunPageState extends State<ActionRunPage> {
       final List<String> urls = ogLAccelCandidates(
         url: direct,
         // 预解析失败时**放弃加速**：否则等于把令牌送给代理。
+        // 适用范围：Action 构建产物（运行日志不走加速，见 OgLAccelScope）。
         prefixes: presigned
-            ? widget.surface.settings.settings.activeAccelPrefixes
+            ? widget.surface.settings.settings
+                .accelPrefixesFor(OgLAccelScope.actionArtifact)
             : const <String>[],
         family: OgLAccelFamily.signed,
       );

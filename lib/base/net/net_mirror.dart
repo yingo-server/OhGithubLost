@@ -142,21 +142,23 @@ class MirrorSelector {
   }
 }
 
-/// 内置通道：GitHub 常用加速（默认全部关闭，由设置 / 主题包启用）。
+/// 内置镜像通道列表 —— **v6.4.3 起为空，且刻意保持为空**。
 ///
-/// 之所以默认关闭：加速域名属于**第三方信任边界**，
-/// 未经用户同意不应把仓库流量导向外部（见 `docs/BOOT.md` 信任策略）。
-final List<MirrorChannel> defaultMirrorChannels = <MirrorChannel>[
-  const MirrorChannel(
-    id: 'ghproxy',
-    pattern: r'^https://raw\.githubusercontent\.com/(.*)$',
-    replacement: r'https://ghproxy.net/https://raw.githubusercontent.com/$1',
-    enabled: false,
-  ),
-  const MirrorChannel(
-    id: 'ghproxy-api',
-    pattern: r'^https://api\.github\.com/(.*)$',
-    replacement: r'https://ghproxy.net/https://api.github.com/$1',
-    enabled: false,
-  ),
-];
+/// ## 这里曾经有什么
+/// 两条把 GitHub 主机改写成第三方代理的规则（`ghproxy.net` 换
+/// `raw.githubusercontent.com` / `api.github.com`）。它们默认关闭，可由
+/// 主题包启用。
+///
+/// ## 为什么删掉
+/// 它们是**内置的第三方代理地址**：一旦启用，你的仓库流量就经过一台与本项目
+/// 无关的服务器，而它从哪来、由谁运营、是否记录请求，本项目都无从担保。
+/// 本项目的定位是本地工具（不收集数据、令牌不出设备），把"某个第三方代理"
+/// 预置进代码与这个定位相冲突 —— 即使它默认关闭，它仍然是**我们替你选的**。
+///
+/// 现在：**要加速就自己填通道地址**（见 `lib/surface/util/accel.dart` 的
+/// 自定义加速通道）。选择权与知情权都在用户手上。
+///
+/// 镜像**机制**本身（[MirrorChannel] / [MirrorSelector]）予以保留：它是纯
+/// 基础设施，不含任何具体地址；留着是为了不必在同一处改动里拆掉整条链路。
+/// 但由于这里为空，它当前**完全不生效**。
+final List<MirrorChannel> defaultMirrorChannels = <MirrorChannel>[];

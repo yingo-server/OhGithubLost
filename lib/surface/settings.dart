@@ -77,8 +77,9 @@ class OgLSettings {
     this.downloadConnections = OgLSettings.kOgLDefaultDownloadConnections,
     this.releaseProxyEnabled = false,
     this.accelPrivateRepoAccepted = false,
+    this.accelScopes = kOgLAccelAllScopeIds,
     this.releaseProxyChannels = const <OgLAccelChannel>[],
-    this.releaseProxySelectedId = kOgLAccelBuiltinId,
+    this.releaseProxySelectedId = '',
     this.releaseProxyConsentVersion = 0,
     this.releaseProxyConsentAt,
     this.foldersFirst = true,
@@ -143,6 +144,7 @@ class OgLSettings {
           _asBool(raw['releaseProxyEnabled'], fallback: false),
       accelPrivateRepoAccepted:
           _asBool(raw['accelPrivateRepoAccepted'], fallback: false),
+      accelScopes: _asAccelScopes(raw['accelScopes']),
       releaseProxyChannels: _asAccelChannels(raw['releaseProxyChannels']),
       releaseProxySelectedId: _asAccelSelectedId(raw['releaseProxySelectedId']),
       releaseProxyConsentVersion:
@@ -210,7 +212,7 @@ class OgLSettings {
     final Set<String> seen = <String>{};
     for (final Object? item in value) {
       final OgLAccelChannel? channel = OgLAccelChannel.fromJson(item);
-      if (channel == null || channel.builtin) {
+      if (channel == null) {
         continue;
       }
       if (seen.add(channel.id)) {
@@ -220,8 +222,26 @@ class OgLSettings {
     return result;
   }
 
+  /// 解析加速适用范围：只保留认识的 id；字段缺失 → 全开（= 历史行为）。
+  static List<String> _asAccelScopes(Object? value) {
+    if (value is! List) {
+      return kOgLAccelAllScopeIds;
+    }
+    final List<String> out = <String>[];
+    for (final Object? item in value) {
+      final OgLAccelScope? scope = OgLAccelScope.fromId('$item');
+      if (scope != null && !out.contains(scope.id)) {
+        out.add(scope.id);
+      }
+    }
+    // 显式写成空列表 = 用户把每一项都关了，那是合法状态，不回落成全开。
+    return out;
+  }
+
+  /// 选中的通道 id。v6.4.3 起**没有内置通道**，因此默认是空串
+  /// （= 没有选中任何通道 = 不加速），而不是回落到某个"产品默认通道"。
   static String _asAccelSelectedId(Object? value) =>
-      value is String && value.isNotEmpty ? value : kOgLAccelBuiltinId;
+      value is String ? value : '';
 
   /// 代码主题预设白名单（与展示层 `code_editor_field.dart` 保持一致）。
   static const List<String> codeThemePresetIds = <String>[
@@ -324,10 +344,16 @@ class OgLSettings {
   /// 默认 `false`：私有仓库的 raw 一律不加速（令牌不出设备）。
   final bool accelPrivateRepoAccepted;
 
+  /// **加速适用范围**：哪些资源允许走通道（见 [OgLAccelScope]）。
+  ///
+  /// 前缀式代理开放的端点有限，"哪些资源加速"写死必然有人用不了；
+  /// 所以逐项可关。默认全开 = 与历史行为一致；全关也合法（= 不加速）。
+  final List<String> accelScopes;
+
   /// 用户自定义的加速通道（**不含**内置通道；内置通道是常量）。
   final List<OgLAccelChannel> releaseProxyChannels;
 
-  /// 当前选中的通道 id（内置为 [kOgLAccelBuiltinId]）。
+  /// 当前选中的通道 id；空串 = 没有选中（也就没有加速）。
   final String releaseProxySelectedId;
 
   /// 已同意的协议版本（0 = 从未同意；与 [kOgLAccelConsentVersion] 不一致需重新同意）。
@@ -336,40 +362,58 @@ class OgLSettings {
   /// 同意时间（ISO8601，作为"已同意"的凭据留痕）。
   final String? releaseProxyConsentAt;
 
-  /// 全部可选通道（内置在前）。
-  List<OgLAccelChannel> get allAccelChannels => <OgLAccelChannel>[
-        kOgLAccelBuiltinChannel,
-        ...releaseProxyChannels,
-      ];
+  /// 全部可选通道（**只有用户自建的**；本应用不预置任何通道）。
+  List<OgLAccelChannel> get allAccelChannels =>
+      List<OgLAccelChannel>.unmodifiable(releaseProxyChannels);
 
-  /// 当前选中的通道（选择失效时回落内置通道——**不是降级猜测**：
-  /// 内置通道是产品的默认通道，选择失效只可能是用户删除了它）。
-  OgLAccelChannel get activeAccelChannel {
+  /// 当前选中的通道；**没有则为 `null`**（没建通道 = 没得选 = 不加速）。
+  ///
+  /// 此前这里会"回落内置通道"——那是一种隐式选择：用户没选，程序替他选了一个
+  /// 开发者自建的代理。现在没有可回落的东西，没有就是没有。
+  OgLAccelChannel? get activeAccelChannel {
     for (final OgLAccelChannel channel in allAccelChannels) {
       if (channel.id == releaseProxySelectedId) {
         return channel;
       }
     }
-    return kOgLAccelBuiltinChannel;
+    return null;
   }
 
   /// 是否已完成当前版本的协议同意。
   bool get accelConsentCurrent =>
       releaseProxyConsentVersion >= kOgLAccelConsentVersion;
 
-  /// 当前生效的加速前缀；未启用（或未同意）时为 `null`（=直连）。
-  String? get activeAccelPrefix =>
-      releaseProxyEnabled && accelConsentCurrent
-          ? ogLNormalizeAccelBase(activeAccelChannel.baseUrl)
-          : null;
+  /// 当前生效的加速前缀；未启用 / 未同意 / **没有通道** 时为 `null`（=直连）。
+  String? get activeAccelPrefix {
+    final OgLAccelChannel? channel = activeAccelChannel;
+    if (!releaseProxyEnabled || !accelConsentCurrent || channel == null) {
+      return null;
+    }
+    return ogLNormalizeAccelBase(channel.baseUrl);
+  }
 
-  /// **当前生效的加速前缀链（按优先级）**；未启用（或未同意）时为空列表。
+  /// 某个适用范围是否开启。
+  bool accelScopeEnabled(OgLAccelScope scope) =>
+      accelScopes.contains(scope.id);
+
+  /// **按范围**取生效前缀：范围关掉、或总开关/协议/通道任一不满足 → 空列表。
   ///
-  /// 内置通道是多前缀的固定链，下载时按序探测并**静默降级**；
-  /// 自定义通道只有一个前缀。列表首项 = [activeAccelPrefix]。
-  List<String> get activeAccelPrefixes => releaseProxyEnabled && accelConsentCurrent
-      ? ogLAccelPrefixChain(activeAccelChannel)
-      : const <String>[];
+  /// 这是各调用点唯一的判断入口：调用方只说"我是哪一类资源"，是否加速由这里
+  /// 决定（也就只有一处规则，不会两处结论不同）。
+  List<String> accelPrefixesFor(OgLAccelScope scope) =>
+      accelScopeEnabled(scope) ? activeAccelPrefixes : const <String>[];
+
+  /// 当前生效的加速前缀列表（**至多一项**）；不可用时为空列表。
+  ///
+  /// 曾经这里返回"按优先级排列的链"并静默降级；现在一个通道就是一个前缀，
+  /// 见 `util/download_proxy.dart` 的说明。
+  List<String> get activeAccelPrefixes {
+    final OgLAccelChannel? channel = activeAccelChannel;
+    if (!releaseProxyEnabled || !accelConsentCurrent || channel == null) {
+      return const <String>[];
+    }
+    return ogLAccelPrefixesFor(channel);
+  }
 
   /// 仓库浏览器是否**目录优先**。
   final bool foldersFirst;
@@ -429,6 +473,7 @@ class OgLSettings {
     int? downloadConnections,
     bool? releaseProxyEnabled,
     bool? accelPrivateRepoAccepted,
+    List<String>? accelScopes,
     List<OgLAccelChannel>? releaseProxyChannels,
     String? releaseProxySelectedId,
     int? releaseProxyConsentVersion,
@@ -463,6 +508,7 @@ class OgLSettings {
         releaseProxyEnabled: releaseProxyEnabled ?? this.releaseProxyEnabled,
         accelPrivateRepoAccepted:
             accelPrivateRepoAccepted ?? this.accelPrivateRepoAccepted,
+        accelScopes: accelScopes ?? this.accelScopes,
         releaseProxyChannels:
             releaseProxyChannels ?? this.releaseProxyChannels,
         releaseProxySelectedId:
@@ -501,6 +547,7 @@ class OgLSettings {
         'downloadConnections': downloadConnections,
         'releaseProxyEnabled': releaseProxyEnabled,
         'accelPrivateRepoAccepted': accelPrivateRepoAccepted,
+        'accelScopes': accelScopes,
         'releaseProxyChannels': <Object?>[
           for (final OgLAccelChannel channel in releaseProxyChannels)
             channel.toJson(),
@@ -648,6 +695,23 @@ class OgLSettingsController extends ChangeNotifier {
   Future<void> setReleaseProxySelected(String channelId) =>
       apply(_settings.copyWith(releaseProxySelectedId: channelId));
 
+  /// 便捷：开关某个加速适用范围。
+  Future<void> setAccelScope(OgLAccelScope scope, bool enabled) {
+    final List<String> next = <String>[
+      for (final String id in _settings.accelScopes) if (id != scope.id) id,
+    ];
+    if (enabled && !next.contains(scope.id)) {
+      next.add(scope.id);
+    }
+    // 保持枚举顺序，落盘可读、diff 稳定。
+    next.sort((String a, String b) =>
+        OgLAccelScope.values
+            .indexWhere((OgLAccelScope s) => s.id == a)
+            .compareTo(OgLAccelScope.values
+                .indexWhere((OgLAccelScope s) => s.id == b)));
+    return apply(_settings.copyWith(accelScopes: next));
+  }
+
   /// 便捷：私有仓库是否允许走加速（**知情接受**才置 true）。
   Future<void> setAccelPrivateRepoAccepted(bool on) =>
       apply(_settings.copyWith(accelPrivateRepoAccepted: on));
@@ -668,11 +732,13 @@ class OgLSettingsController extends ChangeNotifier {
       for (final OgLAccelChannel item in _settings.releaseProxyChannels)
         if (item.id != channelId) item,
     ];
-    final bool needFallback = _settings.releaseProxySelectedId == channelId;
+    // 删掉的正是当前选中项 → 选中清空（**不回落到别的通道**：那等于替用户
+    // 换了个代理，而用户可能并不接受那一个）。
+    final bool needClear = _settings.releaseProxySelectedId == channelId;
     return apply(_settings.copyWith(
       releaseProxyChannels: next,
       releaseProxySelectedId:
-          needFallback ? kOgLAccelBuiltinId : _settings.releaseProxySelectedId,
+          needClear ? '' : _settings.releaseProxySelectedId,
     ));
   }
 

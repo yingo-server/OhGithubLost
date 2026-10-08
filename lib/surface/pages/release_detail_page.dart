@@ -19,6 +19,7 @@ import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/accel.dart';
 import '../util/download_proxy.dart';
 import '../util/gh_format.dart';
 import '../util/link_opener.dart';
@@ -239,8 +240,10 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       //
       //    ⚠️ **预解析失败时必须放弃加速**：此时手上仍是「需要 Authorization 的
       //    第一跳」，把它交给代理等于把令牌送给第三方。此时改为直连 + 认证头。
+      // 适用范围：Release 附件。用户可单独关掉这一类。
       final List<String> prefixes = presigned
-          ? widget.surface.settings.settings.activeAccelPrefixes
+          ? widget.surface.settings.settings
+              .accelPrefixesFor(OgLAccelScope.releaseAsset)
           : const <String>[];
       final List<String> urls = ogLAccelCandidates(
         url: direct,

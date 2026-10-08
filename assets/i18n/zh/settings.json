@@ -1,6 +1,4 @@
 {
-  "accelBuiltinDesc": "开发者自建（HTTPS）",
-  "accelBuiltinTitle": "内置通道安全声明",
   "accelChannels": "加速通道",
   "accelDesc": "仅影响 Release 附件下载；关闭时始终直连",
   "accelThirdPartyTitle": "外来服务自负责任说明",
@@ -151,5 +149,12 @@
   "accelPrivateWarnPoint2": "令牌进入第三方服务器，其留存与用途不在本项目控制范围内",
   "accelPrivateWarnPoint3": "随时可在设置里关掉；关掉即恢复「不加速」，不会保留任何例外",
   "accelPrivateWarnAccept": "我已了解风险，仍然开启",
-  "accelPrivateWarnWait": "请阅读…（{seconds}s）"
+  "accelPrivateWarnWait": "请阅读…（{seconds}s）",
+  "accelAddHint": "第三方服务，需自行确认可信；地址需为 https://",
+  "accelScopes": "加速适用范围",
+  "accelScopesHint": "前缀式代理开放的端点有限（有的能转 Release 附件却转不了仓库图片）。只在你确实需要的类别上开加速，其余保持直连。",
+  "accelScopeReleaseAsset": "Release 附件",
+  "accelScopeActionArtifact": "Action 构建产物",
+  "accelScopeRepoFile": "仓库文件（下载与预览）",
+  "accelScopeReadmeImage": "README 仓库内图片"
 }

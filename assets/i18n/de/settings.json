@@ -1,6 +1,4 @@
 {
-  "accelBuiltinDesc": "Von Entwicklern bereitgestellt (HTTPS)",
-  "accelBuiltinTitle": "Sicherheitsbelehrung für integrierte Kanäle",
   "accelChannels": "Beschleunigungskanäle",
   "accelDesc": "Betrifft nur den Download von Release-Dateianhängen; bei Deaktivierung immer direkte Verbindung",
   "accelThirdPartyTitle": "Haftungshinweis für Drittdienste",
@@ -151,5 +149,12 @@
   "accelPrivateWarnPoint2": "Das Token gelangt auf einen Server Dritter; dessen Speicherung und Nutzung liegen außerhalb der Kontrolle dieses Projekts",
   "accelPrivateWarnPoint3": "Du kannst dies jederzeit in den Einstellungen ausschalten; damit gilt wieder „keine Beschleunigung\" ohne Ausnahmen",
   "accelPrivateWarnAccept": "Ich verstehe das Risiko, trotzdem aktivieren",
-  "accelPrivateWarnWait": "Bitte lesen… ({seconds}s)"
+  "accelPrivateWarnWait": "Bitte lesen… ({seconds}s)",
+  "accelAddHint": "Ein Drittdienst, den du selbst prüfen musst; die Adresse muss https:// sein",
+  "accelScopes": "Wo die Beschleunigung greift",
+  "accelScopesHint": "Präfix-Proxys bieten nur begrenzte Endpunkte (einer leitet Release-Anhänge, aber keine Repo-Bilder weiter). Aktiviere die Beschleunigung nur für die Kategorien, die du wirklich brauchst; alles andere bleibt direkt.",
+  "accelScopeReleaseAsset": "Release-Anhänge",
+  "accelScopeActionArtifact": "Action-Artefakte",
+  "accelScopeRepoFile": "Repository-Dateien (Download & Vorschau)",
+  "accelScopeReadmeImage": "Bilder im README"
 }
