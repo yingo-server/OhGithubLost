@@ -14,14 +14,21 @@
 ///    Mod 必须经 `SysAccessGuard` 申请才拿得到。
 library;
 
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import '../../kernel/diagnostics.dart';
+import 'sys_platform_io.dart'
+    if (dart.library.js_interop) 'sys_platform_web.dart';
 
 /// 信息采集来源。
 enum SysSource {
   /// `dart:io` 直接可得（跨平台，最可靠）。
   dart,
+
+  /// Flutter / 浏览器 API 可得（**Web 专用**：浏览器里没有 `dart:io`，
+  /// 平台名与区域设置改由 `kIsWeb` / `defaultTargetPlatform` /
+  /// `PlatformDispatcher` 得到）。
+  web,
 
   /// 平台插件（device_info_plus / package_info_plus）。
   plugin,
@@ -58,7 +65,10 @@ class SysDeviceInfo {
   final String localeName;
 
   /// CPU 逻辑核数。
-  final int cpuCores;
+  ///
+  /// **Web 上为 `null`**：浏览器不提供跨平台的核数 API，
+  /// 如实标"未知"，而不是编一个数字。
+  final int? cpuCores;
 
   /// 机型（需插件，桌面/CI 为 `null`）。
   final String? model;
@@ -80,7 +90,7 @@ class SysDeviceInfo {
         'platform': platform,
         'osVersion': osVersion,
         'localeName': localeName,
-        'cpuCores': cpuCores,
+        if (cpuCores != null) 'cpuCores': cpuCores,
         if (model != null) 'model': model,
         if (manufacturer != null) 'manufacturer': manufacturer,
         if (androidRelease != null) 'androidRelease': androidRelease,
@@ -89,7 +99,8 @@ class SysDeviceInfo {
       };
 
   @override
-  String toString() => 'SysDeviceInfo($platform $osVersion, ${cpuCores}cores)';
+  String toString() =>
+      'SysDeviceInfo($platform $osVersion, ${cpuCores ?? '?'}cores)';
 }
 
 /// 应用信息。
@@ -428,7 +439,9 @@ class SysInfoService {
     );
   }
 
-  /// 运行环境（纯 `dart:io` + `DateTime`，无需插件）。
+  /// 运行环境（`SysPlatform` 原语 + `DateTime`，无需插件）。
+  ///
+  /// 时区与偏移来自 `DateTime`，**两个平台都可用**（浏览器同样有本地时区）。
   SysRuntimeInfo collectRuntime() {
     final now = DateTime.now();
     final offset = now.timeZoneOffset;
@@ -437,7 +450,7 @@ class SysInfoService {
     final minutes =
         (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
     return SysRuntimeInfo(
-      localeName: Platform.localeName,
+      localeName: SysPlatform.localeName,
       timeZoneName: now.timeZoneName,
       utcOffsetMinutes: offset.inMinutes,
       utcOffsetHoursText: '$sign$hours:$minutes',
@@ -449,10 +462,13 @@ class SysInfoService {
     String? manufacturer;
     String? androidRelease;
     bool? isPhysical;
-    var source = SysSource.dart;
+    // Web 上没有 dart:io，基础信息来自 Flutter / 浏览器 API，
+    // 来源如实标为 [SysSource.web]（而不是冒充 dart:io）。
+    var source = kIsWeb ? SysSource.web : SysSource.dart;
 
     final probe = _androidProbe;
-    if (probe != null && Platform.isAndroid) {
+    // 设备插件是 Android 专有的：Web 上 `isAndroid` 恒为 false，不会进来。
+    if (probe != null && SysPlatform.isAndroid) {
       try {
         final info = await probe();
         if (info != null) {
@@ -465,17 +481,17 @@ class SysInfoService {
       } catch (error) {
         _diagnostics?.warn(
           'SYS',
-          '设备插件信息采集失败，已降级为 dart:io：$error',
+          '设备插件信息采集失败，已降级为基础平台信息：$error',
           code: 'OGL-SYS-101',
         );
       }
     }
 
     return SysDeviceInfo(
-      platform: Platform.operatingSystem,
-      osVersion: Platform.operatingSystemVersion,
-      localeName: Platform.localeName,
-      cpuCores: Platform.numberOfProcessors,
+      platform: SysPlatform.operatingSystem,
+      osVersion: SysPlatform.operatingSystemVersion,
+      localeName: SysPlatform.localeName,
+      cpuCores: SysPlatform.numberOfProcessors,
       model: model,
       manufacturer: manufacturer,
       androidRelease: androidRelease,
@@ -528,19 +544,18 @@ class SysInfoService {
   }
 
   static Future<String> _defaultReadFile(String path) =>
-      File(path).readAsString();
+      SysPlatform.readFile(path);
 
-  /// 默认内存探测：Linux / Android 读 `/proc/meminfo`；其他平台返回 `null`。
+  /// 默认内存探测：读 `/proc/meminfo`（由 `SysPlatform` 完成平台判断）。
+  ///
+  /// Web：`readMemInfoText()` 返回 `null`（浏览器不暴露内存信息），
+  /// 于是内存项如实标记为「不可用」，而不是编一个数字。
   static Future<({int totalKb, int availableKb})?> _defaultMemoryProbe() async {
-    if (!Platform.isLinux && !Platform.isAndroid) {
+    final String? text = await SysPlatform.readMemInfoText();
+    if (text == null) {
       return null;
     }
-    try {
-      final text = await File('/proc/meminfo').readAsString();
-      return parseMemInfo(text);
-    } catch (_) {
-      return null;
-    }
+    return parseMemInfo(text);
   }
 
   /// 解析 `/proc/meminfo`（纯函数，便于离线断言）。

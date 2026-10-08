@@ -13,8 +13,6 @@
 /// 设置里的明暗偏好 + 系统亮度 → 唯一一次 `ThemeData` 编译。
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../base/base_bridge.dart';
@@ -28,6 +26,7 @@ import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
 import 'app/error_surface.dart';
 import 'app/motion.dart';
+import 'app/web_install.dart';
 import 'i18n/og_l_i18n.dart';
 import 'settings.dart';
 import 'theme.dart';
@@ -44,7 +43,8 @@ class SurfaceBridge {
     this.net,
     this.cache,
     this.storageProbe,
-  });
+    OgLWebPrefsStore? webPrefs,
+  }) : webStartup = OgLWebStartup(webPrefs ?? OgLMemoryWebPrefs());
 
   /// 从内核桥表解析（展示层的标准取用方式）。
   static SurfaceBridge of(KernelBridgeRegistry bridges) =>
@@ -66,6 +66,24 @@ class SurfaceBridge {
   ///
   /// 展示层不直接依赖底座，因此以函数形式注入。
   final Future<bool> Function()? storageProbe;
+
+  /// Web 启动偏好（「打开时询问添加到桌面」开关 + 加速服务弹窗的已读标记）。
+  ///
+  /// **只在 Web 上有行为**：设置页仅在 `kIsWeb` 时展示对应开关，`main.dart`
+  /// 也只在 Web 上读取它。非 Web 构建里它依然存在，但保持默认值、无人读取
+  /// （因此不是"假选项"，只是一个惰性对象）。
+  final OgLWebStartup webStartup;
+
+  /// 设置项「打开时询问添加到桌面」（**默认开**）。
+  ///
+  /// 存储键 `ogl.web.installPromptEnabled`。只有浏览器里才有人读它；
+  /// 为什么它不放进 `OgLSettings`（那份配置文件属于所有平台，塞两个永远
+  /// 不生效的字段会变成"假选项"）见 `app/web_install.dart` 的 [OgLWebStartup]。
+  bool get webInstallPromptEnabled => webStartup.installPromptEnabled;
+
+  /// 改写「打开时询问添加到桌面」（立即生效 + 尽力落盘）。
+  Future<void> setWebInstallPromptEnabled(bool enabled) =>
+      webStartup.setInstallPromptEnabled(enabled);
 
   /// 探测存储是否可用（无探针时按可用处理）。
   Future<bool> ensureStorage() async {
@@ -470,6 +488,23 @@ class KvSettingsPersistence implements OgLSettingsPersistence {
   Future<void> clear() => _kv.remove(key);
 }
 
+/// 用 L1 的 KV 实现 Web 启动偏好的持久化。
+///
+/// 与 [KvSettingsPersistence] 同一套路：展示层不直接依赖底座，KV 由装配层
+/// 以接口形式注入（见 `app/web_install.dart` 的 [OgLWebPrefsStore]）。
+class _KvWebPrefs implements OgLWebPrefsStore {
+  /// 创建。
+  const _KvWebPrefs(this._kv);
+
+  final DiskKv _kv;
+
+  @override
+  Future<String?> read(String key) => _kv.read(key);
+
+  @override
+  Future<void> write(String key, String value) => _kv.write(key, value);
+}
+
 /// 展示层模块（`surface.layer`）。
 ///
 /// 依赖 `domain.layer`：展示层**永远**通过中枢层拿业务数据，
@@ -517,7 +552,10 @@ class SurfaceLayerModule extends OgLModule {
       net: base.net,
       cache: base.disk.cache,
       storageProbe: _probeStorage,
+      webPrefs: _KvWebPrefs(base.disk.kv),
     );
+    // Web 启动偏好：读一次（读失败用默认值，**不阻断启动**）。
+    await bridge.webStartup.load();
     context.bridges.register(ModuleLayer.surface.key, bridge);
 
     context.diagnostics.info(
@@ -556,17 +594,32 @@ List<OgLModule> surfaceLayerModules() => <OgLModule>[
 ///    `Android/data`）一定写得动，但它们**用户看不到**。
 /// 3. **①②算过、③不过**：公共目录 ✅ / SAF 文件夹 ✅ / 应用内部 ⚠️
 ///    （如实报告"不过"，但**不阻断**——功能照常）。
+///
+/// ## Web
+/// 浏览器里没有"用户可见目录"这一概念（本地数据都锁在站点源的沙箱里），
+/// 因此**直接判定为不可写用户可见目录**（`false`），既不探测、也不伪造。
+///
+/// 这一点**不需要在本层写平台分支**：底座已经把实现按平台条件导入
+/// （`base/disk/app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`），
+/// 其 `writable()` 在 Web 上恒为 `false`（[OgLAppDirs.publicWritable] 也因此
+/// 恒 `false`：浏览器的 `publicRoot()` 就是 `null`）。这样展示层里
+/// **一个 `dart:io` 都不需要**，Web 构建也不会因为探针而编译不过。
 Future<bool> _probeStorage() async {
   OgLAppDirs.invalidate();
   try {
     final OgLStoragePlan plan = await OgLStorage.plan();
     if (!plan.userVisible) {
+      // Web 也在这里返回：浏览器只有"应用内部"一档，用户看不到落盘位置。
       return false;
     }
-    final File probe = File('${plan.root}/.ogl_probe_ui');
-    await probe.writeAsString('ok', flush: true);
-    await probe.delete();
-    return true;
+    // SAF 档：真正可见的是用户**自己授权**的那个文件夹（`plan.root` 只是
+    // 应用内的回退路径），其可写性由系统授权保证 → 用该档位本身作答。
+    if (plan.mode == OgLStorageMode.safDir) {
+      return true;
+    }
+    // 其余档位：对**用户可见的公共目录**做一次真实写入探针
+    // （底座实现：建目录 → 写入 → 删除；Web 上恒 `false`）。
+    return await OgLAppDirs.publicWritable();
   } catch (_) {
     return false;
   }

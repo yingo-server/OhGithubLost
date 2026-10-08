@@ -29,8 +29,7 @@ import 'net_transport.dart';
 import 'net_types.dart';
 
 /// 基于 `dart:io HttpClient` 的传输实现（Android / Windows / Linux 共用）。
-class IoNetTransport implements NetTransport {
-  /// 创建传输。
+class IoNetTransport implements NetTransport {  /// 创建传输。
   ///
   /// [dns] 为 `custom` 模式时启用**自定义 DNS**：连接前先按策略解析域名，
   /// 再直连解析出的 IP（TLS 的 SNI 仍用原主机名，证书校验不受影响）。
@@ -296,3 +295,14 @@ class IoDnsHttpClient implements DnsHttpClient {
     return text;
   }
 }
+
+/// 装配用工厂：非 Web 侧返回 [IoNetTransport]。
+///
+/// `net_bridge.dart` 通过条件导入在 Web 侧取到**同名函数**（实现为
+/// `WebNetTransport`），于是装配代码不必自己判断平台，
+/// 也不会在 Web 构建里意外引用到 `dart:io`。
+NetTransport createPlatformNetTransport(
+  DnsService? dns, {
+  Duration connectTimeout = const Duration(seconds: 15),
+}) =>
+    IoNetTransport(dns: dns, connectTimeout: connectTimeout);

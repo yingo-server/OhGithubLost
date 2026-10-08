@@ -20,15 +20,30 @@
 /// | Android         | 运行时/特殊页请求    | 13+ 运行时请求        |
 /// | iOS / macOS     | 沙箱内不需要         | 系统弹窗请求          |
 /// | Windows / Linux | 不需要               | 不需要                |
-/// | Web             | 不支持               | 不支持                |
+/// | Web             | **不适用**（无此一步）| 浏览器授权条（真请求）|
+///
+/// ## Web：语义不同，所以是**另一个网关**
+/// 浏览器**没有**原生那套"系统权限"。它只有少数几类真有运行时授权，且一律
+/// 由浏览器自己按需弹授权条：
+/// - **存储**：不存在"申请"这一步（配额由浏览器管理）→ 如实报【不适用】，
+///   而不是谎报"已拒绝"或"已授权"；
+/// - **通知**：确有运行时授权，走 `Notification.requestPermission()`
+///   （见 `browser_notify.dart` 的条件导入实现）→ 状态**如实**映射。
+///
+/// 另外，浏览器里**不能跳系统设置**：`canOpenSettings` 恒为 `false`，
+/// 需要改授权时只能引导用户去站点（site）设置里改。
+///
+/// ## 平台识别方式
+/// 全程只用 `kIsWeb` + `defaultTargetPlatform`（Flutter 提供），
+/// **不 import `dart:io`**：`dart:io` 在 Web 上不存在，一旦引入整个 Web 构建
+/// 就编译不过（见 `lib/platform/platform.dart` 的同一处说明）。
 library;
-
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../i18n/og_l_i18n.dart';
+import 'browser_notify.dart';
 
 /// 取 `shell` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
@@ -122,22 +137,27 @@ OgLPermissionGateway ogLPermissionGateway({
   Future<bool> Function()? storageProbe,
   Future<String> Function()? storageLocation,
 }) {
+  // Web 必须**先判**：浏览器里 `defaultTargetPlatform` 返回的是**宿主系统**
+  // （Android / iOS / macOS…），按它分流会错用原生网关（在浏览器里请求
+  // "存储权限"毫无意义，也会把"不适用"误报成"已拒绝"）。
   if (kIsWeb) {
     return const _WebPermissionGateway();
   }
-  if (Platform.isAndroid) {
-    return _AndroidPermissionGateway(
-      storageProbe: storageProbe,
-      storageLocation: storageLocation,
-    );
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      return _AndroidPermissionGateway(
+        storageProbe: storageProbe,
+        storageLocation: storageLocation,
+      );
+    case TargetPlatform.iOS:
+      return const _IosPermissionGateway();
+    case TargetPlatform.macOS:
+      return const _MacPermissionGateway();
+    case TargetPlatform.windows:
+    case TargetPlatform.linux:
+    case TargetPlatform.fuchsia:
+      return const _DesktopPermissionGateway();
   }
-  if (Platform.isIOS) {
-    return const _IosPermissionGateway();
-  }
-  if (Platform.isMacOS) {
-    return const _MacPermissionGateway();
-  }
-  return const _DesktopPermissionGateway();
 }
 
 /// 尝试跳转到本应用的系统设置页（由 `permission_handler` 提供正确入口）。
@@ -375,14 +395,20 @@ class _DesktopPermissionGateway implements OgLPermissionGateway {
 
   @override
   String get platformLabel {
-    if (Platform.isWindows) {
-      return 'Windows';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        // 理论上到不了这里（上面已按平台分流），仍如实报平台名兜底，
+        // 避免谎报成"未知"。
+        return defaultTargetPlatform.name;
     }
-    if (Platform.isLinux) {
-      return 'Linux';
-    }
-    // 其它桌面/未知平台：用系统名兜底，避免谎报平台。
-    return Platform.operatingSystem;
   }
 
   @override
@@ -410,7 +436,41 @@ class _DesktopPermissionGateway implements OgLPermissionGateway {
       OgLPermissionStatus.notRequired;
 }
 
-/// Web：不支持系统权限。
+/// 浏览器通知授权状态串 → 本项目状态（**绝不谎报**）。
+///
+/// `unsupported`（浏览器没有 `Notification` API，例如 iOS Safari 16.4 之前）
+/// 与 `denied`（用户明确拒绝过）是**两件不同的事**，必须分开报：
+/// 前者应用无从下手，后者用户可以自己去站点设置里改。
+OgLPermissionStatus _webNotifStatus(String raw) {
+  switch (raw) {
+    case 'granted':
+      return OgLPermissionStatus.granted;
+    case 'denied':
+      // 已经被拒绝：浏览器不会再弹授权条，只能由用户到站点设置里改。
+      return OgLPermissionStatus.needsUserAction;
+    case 'default':
+      // 还没决定过：可以真的申请一次。
+      return OgLPermissionStatus.needsUserAction;
+    default:
+      // 浏览器不提供 Notification：如实报"不支持"，不是"已拒绝"。
+      return OgLPermissionStatus.unsupported;
+  }
+}
+
+/// Web：**浏览器权限网关**。
+///
+/// ## 只对"通知"做真实申请
+/// 浏览器里真正有运行时授权的类别很少，本项目相关的只有**通知**
+/// （`Notification.requestPermission()`，会弹出浏览器自己的授权条）。
+///
+/// ## 其余一律【不适用】
+/// "存储"在浏览器里没有"申请"这一步（配额由浏览器管理），因此报
+/// [OgLPermissionStatus.notRequired]（不适用），**不是** "已拒绝"、
+/// **也不是** "已授权"——不谎报状态是本网关的第一原则。
+///
+/// ## 不能跳系统设置
+/// 浏览器里没有"应用设置页"可跳（[canOpenSettings] 恒 `false`）；改授权
+/// 只能靠用户自己在站点设置里操作，界面须如实这么说。
 class _WebPermissionGateway implements OgLPermissionGateway {
   /// 创建网关。
   const _WebPermissionGateway();
@@ -428,17 +488,26 @@ class _WebPermissionGateway implements OgLPermissionGateway {
           permission: OgLPermission.storage,
           title: _t('storageAccess'),
           rationale: _t('webStorageDesc'),
-          status: OgLPermissionStatus.unsupported,
+          // 不适用（没有这一步），而不是"被拒绝"。
+          status: OgLPermissionStatus.notRequired,
         ),
         OgLPermissionInfo(
           permission: OgLPermission.notifications,
           title: _t('notification'),
-          rationale: _t('webNotifDesc'),
-          status: OgLPermissionStatus.unsupported,
+          rationale: _t('webNotifGatewayDesc'),
+          status: _webNotifStatus(ogLBrowserNotifyPermission()),
         ),
       ];
 
   @override
-  Future<OgLPermissionStatus> request(OgLPermission permission) async =>
-      OgLPermissionStatus.unsupported;
+  Future<OgLPermissionStatus> request(OgLPermission permission) async {
+    switch (permission) {
+      case OgLPermission.storage:
+        // 浏览器无需（也无法）申请存储：如实返回**不适用**。
+        return OgLPermissionStatus.notRequired;
+      case OgLPermission.notifications:
+        // ★ 真正调起浏览器授权条，并按真实结果映射状态。
+        return _webNotifStatus(await ogLBrowserNotifyRequest());
+    }
+  }
 }

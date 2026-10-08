@@ -5,7 +5,8 @@
 library;
 
 import '../../kernel/contract/module.dart';
-import 'io_net_transport.dart';
+import 'io_net_transport.dart'
+    if (dart.library.js_interop) 'web_net_transport.dart';
 import 'net_dns.dart';
 import 'net_mirror.dart';
 import 'net_retry.dart';
@@ -33,6 +34,11 @@ class NetBridge {
       return '系统解析';
     }
     final policy = service.policy;
+    // Web：浏览器不给裸 socket，自定义 DNS / DoH **不可能生效**。
+    // 这里如实告诉用户，而不是展示一个切过去也毫无作用的开关。
+    if (!service.supportsCustomDns) {
+      return '系统解析（Web 浏览器不允许自定义 DNS）';
+    }
     if (policy.mode == NetDnsMode.system) {
       return '系统解析';
     }
@@ -143,8 +149,10 @@ class NetModule extends OgLModule {
 
     final inner = _explicit ??
         _factory?.call() ??
-        IoNetTransport(
-          dns: _dns,
+        // 传输实现按平台条件导入选定：非 Web 是 dart:io 的 HttpClient，
+        // Web 是 package:http 的 BrowserClient（浏览器里没有 dart:io）。
+        createPlatformNetTransport(
+          _dns,
           connectTimeout: const Duration(seconds: 15),
         );
     final transport = inner is ResilientTransport

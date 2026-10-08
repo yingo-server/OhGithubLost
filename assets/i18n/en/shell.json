@@ -61,5 +61,6 @@
   "minimizeWindow": "Minimize",
   "maximizeWindow": "Maximize",
   "restoreWindow": "Restore",
-  "closeWindow": "Close"
+  "closeWindow": "Close",
+  "webNotifGatewayDesc": "A browser allows notifications only after you agree: the button below opens the browser's own permission prompt. Changing that later must be done in the browser's site settings — the app cannot open that page for you."
 }

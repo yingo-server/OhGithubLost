@@ -1,7 +1,7 @@
 /// L0 内核级 ·**日志落盘**（把"看不见的失败"变成磁盘上的事实）。
 ///
 /// ## 为什么必须有它
-/// 此前的日志只在内存里环形保留 200 条：进程一退、一崩、一被杀，
+/// 此前的日志只在内存里环形保留 200 条：进程一退、一崩、被杀，
 /// 现场**全部消失**；而且只记"出错"，不记"做成了什么"——
 /// 于是排查时手里什么都没有，只能猜。
 ///
@@ -12,33 +12,38 @@
 /// - 文件按天切分、超限滚动（实际名形如 `ogl-20261008.log` / `.1.log`，
 ///   日期是紧凑写法，没有分隔符）；
 /// - 与 Flutter / path_provider **零耦合**：候选目录由组合根注入，
-///   因此本文件是纯 Dart + `dart:io`，可以在测试里指向临时目录。
+///   因此本文件是纯 Dart。
+///
+/// ## Web 适配
+/// 本文件是**跨平台门面**，只负责时间戳 / 级别拼接 / 候选遍历与诊断；
+/// 真正的落盘差异（`dart:io` vs 浏览器）收敛到条件导入的
+/// `og_l_log_file_io.dart` / `og_l_log_file_web.dart`：
+/// - 非 web → 真实文件（原子追加 / 按天切分 / 滚动）；
+/// - web    → **不落盘**（`isEnabled == false`）、`filePath` / `dirPath` 恒 `null`，
+///   行改走**浏览器控制台**；`lastError` 语义不变，**不假装写成功**。
 library;
 
-import 'dart:async';
-import 'dart:io';
+import 'og_l_log_file_io.dart'
+    if (dart.library.js_interop) 'og_l_log_file_web.dart';
 
 /// 日志落盘器（单例；组合根在 `runApp` 之前 `init`）。
 abstract final class OgLLogFile {
   /// 单文件大小上限（超出即滚动到 `.1.log`）。
   static const int maxBytes = 2 * 1024 * 1024;
 
-  static IOSink? _sink;
-  static String? _filePath;
-  static String? _dirPath;
+  static final OgLLogBackend _backend = OgLLogBackend(maxBytes: maxBytes);
+
   static String? _lastError;
   static final List<String> _tried = <String>[];
-  static String _dayStamp = '';
-  static Future<void> _flushTail = Future<void>.value();
 
-  /// 是否已成功落盘。
-  static bool get isEnabled => _sink != null;
+  /// 是否已成功落盘（web 端恒 `false`）。
+  static bool get isEnabled => _backend.isEnabled;
 
-  /// 当前日志文件的绝对路径（未落盘时为 `null`）。
-  static String? get filePath => _filePath;
+  /// 当前日志文件的绝对路径（未落盘时为 `null`；web 端恒 `null`）。
+  static String? get filePath => _backend.filePath;
 
-  /// 当前日志目录（未落盘时为 `null`）。
-  static String? get dirPath => _dirPath;
+  /// 当前日志目录（未落盘时为 `null`；web 端恒 `null`）。
+  static String? get dirPath => _backend.dirPath;
 
   /// 最后一次失败原因（未落盘时给界面看）。
   static String? get lastError => _lastError;
@@ -46,9 +51,11 @@ abstract final class OgLLogFile {
   /// 试过的候选目录（按顺序），供界面如实展示"为什么没写到 sdcard"。
   static List<String> get triedDirectories => List<String>.unmodifiable(_tried);
 
-  /// 初始化：按候选顺序找**第一个可写**的目录。
+  /// 初始化：按候选顺序找**第一个可写**的目录（web 端候选为空 → 不落盘）。
   ///
-  /// [candidates] 由 `base` 层解析（`sdcard/logging` → 外部目录 → 文档 → 支持目录）。
+  /// [candidates] 由 `base` 层解析（`sdcard/logging` → 外部目录 → 文档 → 支持目录）；
+  /// web 端 `ogLLogDirectoryCandidates()` 返回空清单，因此这里会如实进入
+  /// "无可写候选"状态（`isEnabled == false`、`lastError == '没有可写的候选目录'`）。
   static Future<void> init({
     required List<String> candidates,
     String prefix = 'ogl',
@@ -58,28 +65,25 @@ abstract final class OgLLogFile {
   }) async {
     _tried.clear();
     _lastError = null;
+    // 后端把跨天切换 / 写入失败的原因回调回来，统一记入 lastError。
+    _backend.onError = (String error) {
+      _lastError = error;
+    };
     final String stamp = _stamp(DateTime.now());
     for (final String raw in candidates) {
       _tried.add(raw);
-      try {
-        final String dir = raw.replaceAll(r'\', '/');
-        Directory(dir).createSync(recursive: true);
-        final String path = '$dir/$prefix-$stamp.log';
-        await _open(path, rotateIfNeeded: true);
-        _dirPath = dir;
-        _filePath = path;
+      final String dir = raw.replaceAll(r'\', '/');
+      final String? error =
+          await _backend.openDir(dir, prefix: prefix, stamp: stamp);
+      if (error == null) {
         line(
           '日志',
-          '日志落盘已启用：$path（平台=$platform 版本=$appVersion 构建=$buildMode）',
+          '日志落盘已启用：${_backend.filePath}（平台=$platform 版本=$appVersion 构建=$buildMode）',
         );
         return;
-      } catch (error) {
-        _lastError = '$raw → $error';
       }
+      _lastError = '$raw → $error';
     }
-    _sink = null;
-    _dirPath = null;
-    _filePath = null;
     _lastError ??= '没有可写的候选目录';
   }
 
@@ -89,119 +93,30 @@ abstract final class OgLLogFile {
   }
 
   /// 写一行原始文本（**已带时间戳的完整行**）。
+  ///
+  /// 已落盘 → 写入文件；未落盘（含 web）→ 走后端兜底（web 为控制台），
+  /// 因此"日志永远留下痕迹"，而不是被静默丢弃。
   static void raw(String text) {
-    if (_sink == null) {
-      return;
-    }
-    // 先处理跨天切换：切换成功后 `_sink` 已指向新文件，
-    // 因此下面**必须重新取一次**句柄，不能沿用进入时的旧引用
-    // （否则跨天后的第一行会写向已关闭的旧句柄，静默丢失）。
-    ensureCurrentDay();
-    final IOSink? sink = _sink;
-    if (sink == null) {
-      return;
-    }
-    try {
-      sink.writeln(text);
-      // 排队 flush：不阻塞调用方，但保证"写过的行"尽快落盘。
-      _flushTail = _flushTail.then((_) async {
-        try {
-          await _sink?.flush();
-        } catch (_) {
-          // flush 失败不能反过来炸应用；错误在下次 init 时重新暴露。
-        }
-      });
-    } catch (error) {
-      _lastError = '$error';
+    if (_backend.isEnabled) {
+      _backend.write(text);
+    } else {
+      _backend.fallback(text);
     }
   }
 
   /// 等所有已排队的写入落盘（退出前 / 崩溃上报时用）。
-  static Future<void> flush() async {
-    try {
-      await _sink?.flush();
-    } catch (_) {
-      // 同上：不抛出。
-    }
-    await _flushTail;
-  }
+  static Future<void> flush() => _backend.flush();
 
-  static Future<void> close() async {
-    await flush();
-    try {
-      await _sink?.close();
-    } catch (_) {
-      // 关闭失败不影响退出。
-    }
-    _sink = null;
-    _filePath = null;
-  }
+  /// 关闭落盘（退出前调用；web 端空操作）。
+  static Future<void> close() => _backend.close();
 
   /// 测试用：绑定一个任意 sink（不做目录探测）。
-  static void bindForTest(String path) {
-    _dayStamp = _stamp(DateTime.now());
-    _sink = File(path).openWrite(mode: FileMode.write);
-    _filePath = path;
-    _dirPath = File(path).parent.path;
-  }
-
-  static Future<void> _open(String path, {bool rotateIfNeeded = false}) async {
-    final File file = File(path);
-    if (rotateIfNeeded && file.existsSync() && file.lengthSync() > maxBytes) {
-      final File rotated = File('$path.1.log');
-      try {
-        if (rotated.existsSync()) {
-          rotated.deleteSync();
-        }
-        file.renameSync(rotated.path);
-      } catch (_) {
-        // 滚动失败就继续往原文件写：宁可文件大，不可丢日志。
-      }
-    }
-    // 探针：先同步写一个空追加，权限不足会**在这里**就抛出，
-    // 而不是等到第一次 flush 才悄悄失败。
-    file.writeAsStringSync('', mode: FileMode.append, flush: true);
-    _sink = file.openWrite(mode: FileMode.append);
-    _dayStamp = _stamp(DateTime.now());
-  }
+  static void bindForTest(String path) => _backend.bindForTest(path);
 
   /// 跨天时自动切到新文件（每次写入前检查，代价可忽略）。
   ///
-  /// 顺序要点：**先把新句柄装好，再关闭旧句柄**——
-  /// 反过来的话，切换瞬间正要写的那一行会落到已关闭的旧句柄上（静默丢失）。
-  /// `_open` 失败时（如磁盘满）：旧句柄保持可用（未关），日志继续写旧文件，
-  /// 错误记入 [lastError]，下一条日志会再次尝试切换。
-  static void ensureCurrentDay() {
-    final IOSink? sink = _sink;
-    final String? dir = _dirPath;
-    if (sink == null || dir == null || _filePath == null) {
-      return;
-    }
-    final String today = _stamp(DateTime.now());
-    if (today == _dayStamp) {
-      return;
-    }
-    final String prefix = File(_filePath!).uri.pathSegments.last.split('-').first;
-    final String next = '$dir/$prefix-$today.log';
-    try {
-      sink.flush();
-    } catch (_) {
-      // 旧句柄 flush 失败不阻断切换。
-    }
-    // `_open` 的函数体同步执行：返回时 `_sink` / `_dayStamp` 已切到新文件；
-    // 任何异步失败（探针写失败等）落在 future 上，由下面收尾。
-    _open(next).then((_) {
-      _filePath = next;
-      try {
-        sink.close();
-      } catch (_) {
-        // 旧句柄关闭失败不影响新句柄继续写。
-      }
-    }).catchError((Object error) {
-      // 切换失败：保持旧句柄继续用（不能丢日志）；下一条写入会再次尝试。
-      _lastError = '$error';
-    });
-  }
+  /// 实现细节在平台后端：非 web 真实切换；web 为空操作。
+  static void ensureCurrentDay() => _backend.ensureCurrentDay();
 
   static String _iso(DateTime at) {
     String two(int v) => v.toString().padLeft(2, '0');

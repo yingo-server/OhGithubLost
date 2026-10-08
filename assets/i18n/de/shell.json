@@ -61,5 +61,6 @@
   "minimizeWindow": "Minimieren",
   "maximizeWindow": "Maximieren",
   "restoreWindow": "Wiederherstellen",
-  "closeWindow": "Schließen"
+  "closeWindow": "Schließen",
+  "webNotifGatewayDesc": "Ein Browser erlaubt Benachrichtigungen erst, wenn Sie zustimmen: Die Schaltfläche unten öffnet die Berechtigungsabfrage des Browsers. Später ändern lässt sich das nur in den Website-Einstellungen des Browsers – die App kann diese Seite nicht für Sie öffnen."
 }
