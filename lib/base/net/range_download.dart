@@ -210,6 +210,12 @@ class OgLRangeDownloader implements DownloadEngine {
           ),
       ]);
       // 合并：顺序拼接，写盘一次成型。
+      //
+      // ★ 合并阶段失败必须把半成品删掉：契约要求「失败不留半成品」（见
+      //   kernel/contract/download_engine.dart），而此前 finally 只删分片，
+      //   长度不符或 addStream 抛错时会把一个残缺的 target 留在磁盘上 ——
+      //   中控回退到库任务时用的还是同一个路径。
+      bool merged = false;
       final IOSink sink = target.openWrite();
       try {
         for (final File part in parts) {
@@ -222,8 +228,19 @@ class OgLRangeDownloader implements DownloadEngine {
       if (written != request.total) {
         throw DownloadHttpException('合并后长度不符：$written != ${request.total}');
       }
+      merged = true;
       return written;
     } finally {
+      if (!merged) {
+        // 合并没成功：target 是半成品，一并清掉（失败不留半成品）。
+        try {
+          if (await target.exists()) {
+            await target.delete();
+          }
+        } catch (_) {
+          // 清理失败不改变结论：本次下载已经失败，上层会如实报错。
+        }
+      }
       for (final File part in parts) {
         if (await part.exists()) {
           try {

@@ -308,7 +308,9 @@ class ReadmeView extends StatelessWidget {
         final String label =
             (alt == null || alt.trim().isEmpty) ? uri.path : alt.trim();
         final TextStyle fallback = body.copyWith(color: scheme.onSurfaceVariant);
-        // ① 加速路径：内置通道 + 公开仓库时，仓库内图片走 **raw + 代理**。
+        // ① 加速路径：公开仓库 + 用户自备通道时，仓库内图片走 **raw + 代理**。
+        //    私有仓库不走这里 —— `Image.network` 无法携带令牌，而私有 raw
+        //    匿名是 404。
         //    比 API 取字节更好：raw 不限流（API 认证后也只有 5000 次/小时）。
         final String proxy = imageProxyPrefix ?? '';
         if (proxy.isNotEmpty && !uri.hasScheme) {
@@ -327,6 +329,8 @@ class ReadmeView extends StatelessWidget {
           if (path.isNotEmpty) {
             return _ReadmeImage.api(
               path: path,
+              // 缓存作用域 = 该仓库+分支的基址，防止跨仓库串图。
+              scope: imgBase?.toString() ?? '',
               alt: label,
               fallbackStyle: fallback,
               loader: loader,
@@ -373,10 +377,15 @@ class _ReadmeImage extends StatelessWidget {
   /// 走 API：参数是仓库内相对路径。
   const _ReadmeImage.api({
     required String path,
+    /// 缓存作用域（仓库 + 分支的基址）。字节缓存必须区分仓库：
+    /// 只以仓库内相对路径为键时，`assets/logo.png` 这类同名文件会在
+    /// 两个仓库之间命中同一份缓存，显示成另一个仓库的图且无任何提示。
+    String scope = '',
     required this.alt,
     required this.fallbackStyle,
     required Future<Uint8List?> Function(String path) loader,
   })  : _path = path,
+        _scope = scope,
         _url = null,
         _loader = loader;
 
@@ -386,10 +395,15 @@ class _ReadmeImage extends StatelessWidget {
     required this.alt,
     required this.fallbackStyle,
   })  : _url = url,
+        _scope = '',
         _path = null,
         _loader = null;
 
   final String? _path;
+
+  /// 字节缓存的命名空间（仓库 + 分支）；直连图片为空串。
+  final String _scope;
+
   final Uri? _url;
   final Future<Uint8List?> Function(String path)? _loader;
 
@@ -400,6 +414,8 @@ class _ReadmeImage extends StatelessWidget {
   final TextStyle fallbackStyle;
 
   /// 字节缓存：同一张图重复出现或重建时不再请求（上限 32 张）。
+  ///
+  /// 键包含 [_scope]（仓库 + 分支），否则不同仓库的同名图片会互相串用。
   static final Map<String, Uint8List> _cache = <String, Uint8List>{};
 
   @override
@@ -408,7 +424,8 @@ class _ReadmeImage extends StatelessWidget {
     if (path == null) {
       return _frame(_network());
     }
-    final Uint8List? cached = _cache[path];
+    final String cacheKey = '$_scope|$path';
+    final Uint8List? cached = _cache[cacheKey];
     if (cached != null) {
       return _frame(Image.memory(cached, fit: BoxFit.contain, alignment: Alignment.centerLeft));
     }
@@ -440,7 +457,7 @@ class _ReadmeImage extends StatelessWidget {
         if (_cache.length >= 32) {
           _cache.remove(_cache.keys.first);
         }
-        _cache[path] = bytes;
+        _cache[cacheKey] = bytes;
       }
       return bytes;
     } catch (_) {

@@ -305,6 +305,9 @@ class IxDownloadManager extends ChangeNotifier {
 
   DateTime _lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// 是否已 dispose（分片任务是 fire-and-forget，回收后可能仍有回调进来）。
+  bool _disposed = false;
+
   /// 任务列表（新的在前）。
   List<IxDownloadTask> get tasks {
     final List<IxDownloadTask> list = _snapshots.values.toList();
@@ -433,6 +436,14 @@ class IxDownloadManager extends ChangeNotifier {
         probe = current;
         break;
       }
+    }
+
+    // ★ 探测是 async 的：这期间用户可能已把任务移除/取消。此时必须直接退出，
+    //   否则下面的 `_snapshots[id] = ...` 会把条目**写回**（任务"复活"），
+    //   而且 `engine.fetch` 还会落盘一个用户已经放弃的文件。
+    if (!_snapshots.containsKey(id)) {
+      _rangeTokens.remove(id);
+      return;
     }
 
     if (uri == null) {
@@ -628,11 +639,16 @@ class IxDownloadManager extends ChangeNotifier {
     _snapshots.remove(id);
     _lastSample.remove(id);
     _expectedSha256.remove(id);
+    // ★ 这三张表此前漏清：会话级泄漏，且 _exportedToSaf 残留会让同名文件
+    //   再次下载时不再导出到 SAF。统一在这里收口。
+    _urlCandidates.remove(id);
+    _exportedToSaf.remove(id);
     notifyListeners();
   }
 
   /// 清空已完成 / 已取消 / 失败的条目（不动磁盘文件）。
   void clearFinished() {
+    final Set<String> gone = <String>{};
     _snapshots.removeWhere((String id, IxDownloadTask t) {
       final bool finished = t.status == IxDownloadStatus.completed ||
           t.status == IxDownloadStatus.canceled ||
@@ -640,8 +656,20 @@ class IxDownloadManager extends ChangeNotifier {
       if (finished && t.status != IxDownloadStatus.completed) {
         _tasks.remove(id);
       }
+      if (finished) {
+        gone.add(id);
+      }
       return finished;
     });
+    // 与 remove() 一样，把 per-id 的辅助表一并清掉（否则会随会话累积）。
+    for (final String id in gone) {
+      _rangeConnections.remove(id);
+      _pausedIds.remove(id);
+      _lastSample.remove(id);
+      _expectedSha256.remove(id);
+      _urlCandidates.remove(id);
+      _exportedToSaf.remove(id);
+    }
     notifyListeners();
   }
 
@@ -770,6 +798,10 @@ class IxDownloadManager extends ChangeNotifier {
         '已导出到所选文件夹：${snap.fileName}',
         code: 'OGL-DL-301',
       );
+      // ★ 导出成功后必须把 id 移出去重表：taskId 由 url+文件名派生，同一附件
+      //   「下载 → 导出 → 从列表移除 → 再下载」会复用同一个 id；旧实现只在
+      //   失败路径移除，于是第二次 `add(id)` 返回 false，成品**永不导出**。
+      _exportedToSaf.remove(id);
     } catch (_) {
       _exportedToSaf.remove(id);
     }
@@ -827,6 +859,9 @@ class IxDownloadManager extends ChangeNotifier {
   }
 
   void _notifyThrottled() {
+    if (_disposed) {
+      return;
+    }
     final DateTime now = DateTime.now();
     if (now.difference(_lastNotify).inMilliseconds < 200) {
       return;
@@ -886,6 +921,14 @@ class IxDownloadManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    // ★ 分片任务是 fire-and-forget（`unawaited(_runRanged(...))`）：不取消的话，
+    //   管理器回收后引擎仍在下载，并会调用已 dispose 的 ChangeNotifier
+    //   （debug 下直接断言失败）。这里逐个取消，并用 _disposed 拦住后续通知。
+    for (final DownloadCancelToken token in _rangeTokens.values) {
+      token.cancel();
+    }
+    _rangeTokens.clear();
+    _disposed = true;
     _subscription?.cancel();
     super.dispose();
   }

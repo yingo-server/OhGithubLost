@@ -35,45 +35,9 @@ abstract class BootFileSystem {
 }
 
 /// 真实 IO 实现（Android / Windows / Linux）。
-class IoBootFileSystem extends BootFileSystem {
-  /// 创建实例。
-  const IoBootFileSystem();
-
-  @override
-  Future<bool> exists(String path) async {
-    final type = await FileSystemEntity.type(path, followLinks: false);
-    return type != FileSystemEntityType.notFound;
-  }
-
-  @override
-  Future<List<int>?> readBytes(String path) async {
-    final file = File(path);
-    if (!await file.exists()) {
-      return null;
-    }
-    return file.readAsBytes();
-  }
-
-  @override
-  Future<List<String>> listFilesRecursive(String directory) async {
-    final dir = Directory(directory);
-    if (!await dir.exists()) {
-      return const <String>[];
-    }
-    final result = <String>[];
-    await for (final entity in dir.list(recursive: true, followLinks: false)) {
-      if (entity is File) {
-        final path = entity.path.replaceAll(r'\', '/');
-        final base = directory.replaceAll(r'\', '/');
-        final relative =
-            path.startsWith('$base/') ? path.substring(base.length + 1) : path;
-        result.add(relative);
-      }
-    }
-    result.sort();
-    return result;
-  }
-}
+// 这里曾有一个 `IoBootFileSystem`（真文件系统实现）。它只被定义、从未被
+// 使用：启动装配（`main.dart`）用 `InMemoryBootFileSystem` + 内嵌清单。
+// 保留一个没人用的实现会让人误以为启动路径会读磁盘，已删除。
 
 /// 内存文件系统（测试 / 诊断用）。
 class InMemoryBootFileSystem extends BootFileSystem {

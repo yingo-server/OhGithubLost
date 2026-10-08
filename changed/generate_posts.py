@@ -22,10 +22,12 @@ import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..'))
 
-# 下载加速域名：与内置加速通道保持一致（前缀 + 完整原始链接）。
-# 内置通道已从 gh.felicity.ac.cn 换为 proxy.344977.xyz，此处必须同步，
-# 否则站点上的下载链接会指向一个已经不再使用的旧代理。
-ACCEL_HOST = 'proxy.344977.xyz/https://github.com'
+# 站点下载链接**直连 github.com**。
+#
+# 应用侧的内置加速通道已于 v6.4.3 整体删除（改为只允许用户自建通道），
+# 因此站点这里也不应再替访客指定某个第三方代理 —— 那属于「我们替你选的
+# 中间人」，与应用侧的决定不一致。需要加速的访客可自行使用代理工具。
+ACCEL_HOST = None
 
 # 版本 → 发布日期（读取产物清单的 published_at 更准，这里只作兜底）
 FALLBACK_DATES = {
@@ -87,7 +89,9 @@ def load_assets(path: str) -> dict:
 
 
 def accel_url(url: str) -> str:
-    """把 github.com/... 换成加速域名。"""
+    """下载链接：原样返回 github.com 地址（不再套第三方代理，见上方说明）。"""
+    if ACCEL_HOST is None:
+        return url
     return re.sub(r'^https://github\.com/', 'https://%s/' % ACCEL_HOST, url)
 
 

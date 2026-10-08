@@ -349,7 +349,7 @@ class IxModule extends OgLModule {
         'channelOptions': IxChannel.values.length,
         'batchConfirmRequired': true,
         'channelWired': tasks.hasChannelApplier,
-        'downloader': '32 线程分块',
+        'downloader': '多连接分块（并发数见设置）',
       },
     );
   }

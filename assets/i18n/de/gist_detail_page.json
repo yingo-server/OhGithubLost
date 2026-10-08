@@ -20,5 +20,7 @@
   "saved": "Gespeichert",
   "title": "Gist-Details",
   "updateFailed": "Aktualisieren fehlgeschlagen: {error}",
-  "updated": "Aktualisiert"
+  "updated": "Aktualisiert",
+  "public": "Öffentlich",
+  "fileCount": "{count} Dateien"
 }

@@ -20,5 +20,7 @@
   "saved": "Сохранено",
   "title": "Детали Gist",
   "updateFailed": "Ошибка обновления: {error}",
-  "updated": "Обновлено"
+  "updated": "Обновлено",
+  "public": "Публичный",
+  "fileCount": "{count} файлов"
 }

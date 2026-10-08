@@ -82,6 +82,14 @@ class IoDiskFileStore implements DiskFileStore {
   ///
   /// `relative` 为空表示根目录本身（仅 [list] 允许）。
   String abs(String relative) {
+    // ★ 与文档承诺一致：拒绝空路径、拒绝绝对路径（此前只拒 `..`，
+    //   `/etc/passwd` 这类会被 normalize 静默剥掉前导 `/` 塞进根内）。
+    if (relative.trim().isEmpty) {
+      throw ArgumentError.value(relative, 'path', '路径不得为空');
+    }
+    if (relative.startsWith('/') || relative.startsWith('\\')) {
+      throw ArgumentError.value(relative, 'path', '只接受相对路径');
+    }
     final path = InMemoryFileStore.normalize(relative);
     if (path.split('/').contains('..')) {
       throw ArgumentError.value(relative, 'path', '路径不得包含 ..（防目录穿越）');

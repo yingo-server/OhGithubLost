@@ -102,7 +102,6 @@ void main() {
       expect(s.releaseProxySelectedId, isEmpty);
       expect(s.activeAccelChannel, isNull);
       expect(s.activeAccelPrefixes, isEmpty);
-      expect(s.activeAccelPrefix, isNull);
       // 即便有人把开关打开，没有通道仍然不产生任何前缀。
       final OgLSettings on = s.copyWith(
         releaseProxyEnabled: true,

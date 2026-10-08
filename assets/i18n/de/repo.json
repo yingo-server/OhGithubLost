@@ -189,5 +189,6 @@
   "unstarred": "Stern entfernt",
   "workflowTriggered": "Workflow ausgelöst",
   "defaultAction": "Standard",
-  "selectBranch": "Branch auswählen"
+  "selectBranch": "Branch auswählen",
+  "issueMeta": "von {author} · {comments} Kommentare · {date}"
 }

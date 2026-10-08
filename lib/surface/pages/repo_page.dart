@@ -900,7 +900,7 @@ class _CodeTabState extends State<_CodeTab> {
           children: <Widget>[
             ListTile(
               leading: const Icon(Icons.open_in_new),
-              title: Text(_t('openWith')),
+              title: Text(OgLI18n.instance.t('common', 'openWith')),
               subtitle: Text(
                 ghPathName(entry.path),
                 maxLines: 1,
@@ -915,7 +915,7 @@ class _CodeTabState extends State<_CodeTab> {
                     ? Icons.image_outlined
                     : Icons.preview_outlined,
               ),
-              title: Text(_t(ogLPreviewKindKey(kind))),
+              title: Text(OgLI18n.instance.t('common', ogLPreviewKindKey(kind))),
               trailing: Chip(
                 label: Text(_t('defaultAction')),
                 visualDensity: VisualDensity.compact,
@@ -929,7 +929,7 @@ class _CodeTabState extends State<_CodeTab> {
             // ② 编辑器
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: Text(_t('openInEditor')),
+              title: Text(OgLI18n.instance.t('common', 'openInEditor')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 unawaited(_openEditor(entry));
@@ -1369,7 +1369,7 @@ class _CodeTabState extends State<_CodeTab> {
     }
     try {
       // 取法由表面桥统一决定（见 `SurfaceBridge.planRepoFileDownload`）：
-      // 不加速 → API + 认证；加速（仅内置 + 公开）→ 代理 + raw 链接。
+      // 不加速 → API + 认证；加速（公开仓库 + 自备通道）→ 代理 + raw 链接。
       final ({List<String> urls, Map<String, String> headers}) plan =
           await widget.surface.planRepoFileDownload(
         fullName: widget.fullName,
@@ -1469,7 +1469,7 @@ class _CodeTabState extends State<_CodeTab> {
             if (!entry.isDirectory)
               ListTile(
                 leading: const Icon(Icons.open_in_new),
-                title:  Text(_t('openWith')),
+                title:  Text(OgLI18n.instance.t('common', 'openWith')),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   unawaited(_showOpenWith(entry));
@@ -1563,7 +1563,8 @@ class _CodeTabState extends State<_CodeTab> {
 
   /// README 图片的取法参数（基址 + 加速前缀）。
   ///
-  /// - **加速（内置 + 公开）** → 给 `raw` 基址 + 代理前缀，图片走 `代理 + raw`：
+  /// - **加速（公开仓库 + 用户自备通道）** → 给 `raw` 基址 + 代理前缀，
+  ///   图片走 `代理 + raw`：
   ///   raw 不限流，而 Contents API 认证后也只有 5000 次/小时，一次 README
   ///   几十张图很容易吃掉配额。
   /// - **否则** → 两者都不给，界面退回 `imageLoader`（Contents API 取字节）——
@@ -1571,11 +1572,17 @@ class _CodeTabState extends State<_CodeTab> {
   ({Uri? base, String? proxy}) _readmeImagePlan(String dir) {
     // README 图片是**独立的一类**：很多前缀式代理能转发 Release 附件，
     // 却转发不了仓库内图片，所以它有自己的开关。
-    final bool accel = widget.surface.repoFileAccelerated(
-      repoPrivate: widget.repoPrivate,
-      size: null,
-      scope: OgLAccelScope.readmeImage,
-    );
+    //
+    // ★ 私有仓库**一律不走代理**：README 图片由 `Image.network` 加载，
+    //   它没有 headers 参数，无法携带 Authorization，而私有 raw 匿名访问
+    //   是 404（raw 端点没有签名机制）。让私有仓库走代理只会必然失败，
+    //   所以这里直接把私有排除在外，退回下面的 API 取字节路径（那条带令牌）。
+    final bool accel = !widget.repoPrivate &&
+        widget.surface.repoFileAccelerated(
+          repoPrivate: widget.repoPrivate,
+          size: null,
+          scope: OgLAccelScope.readmeImage,
+        );
     final List<String> prefixes = widget.surface.settings.settings
         .accelPrefixesFor(OgLAccelScope.readmeImage);
     if (!accel || prefixes.isEmpty) {
@@ -1653,6 +1660,9 @@ class _CodeTabState extends State<_CodeTab> {
     if (md == null || md.trim().isEmpty) {
       return const SizedBox.shrink();
     }
+    // 一次求值：取法判定（含加速范围判断）不该在同一个 build 里跑两遍 ——
+    // 两次调用之间若设置变化，会拿到不自洽的 base / proxy 组合。
+    final ({Uri? base, String? proxy}) plan = _readmeImagePlan('');
     return ExpansionTile(
       title: const Text('README'),
       subtitle:  Text(_t('expandCollapse')),
@@ -1660,8 +1670,8 @@ class _CodeTabState extends State<_CodeTab> {
       children: <Widget>[
         ReadmeView(
           markdown: md,
-          imageBase: _readmeImagePlan('').base,
-          imageProxyPrefix: _readmeImagePlan('').proxy,
+          imageBase: plan.base,
+          imageProxyPrefix: plan.proxy,
           imageLoader: (String p) => _readImageBytes(_repoPath('', p)),
           onOpenLink: (Uri uri) {
             unawaited(openExternalLink(uri, tag: 'README'));
@@ -1813,12 +1823,14 @@ class _CodeTabState extends State<_CodeTab> {
       );
     }
     if (file.path.toLowerCase().endsWith('.md')) {
+      final ({Uri? base, String? proxy}) plan =
+          _readmeImagePlan(_dirOf(file.path));
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: ReadmeView(
           markdown: text,
-          imageBase: _readmeImagePlan(_dirOf(file.path)).base,
-          imageProxyPrefix: _readmeImagePlan(_dirOf(file.path)).proxy,
+          imageBase: plan.base,
+          imageProxyPrefix: plan.proxy,
           imageLoader: (String p) =>
               _readImageBytes(_repoPath(_dirOf(file.path), p)),
           onOpenLink: (Uri uri) {
@@ -2155,8 +2167,7 @@ class _IssuesTabState extends State<_IssuesTab> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      'by ${ghLogin(item)} · ${ghInt(item, 'comments')} 条评论 · '
-                      '${ghDate(item, 'created_at')}',
+                      _t('issueMeta', <String, Object?>{'author': ghLogin(item), 'comments': ghInt(item, 'comments'), 'date': ghDate(item, 'created_at')}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

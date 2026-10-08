@@ -189,5 +189,6 @@
   "unstarred": "Étoile retirée",
   "workflowTriggered": "Workflow déclenché",
   "defaultAction": "Par défaut",
-  "selectBranch": "Sélectionner la branche"
+  "selectBranch": "Sélectionner la branche",
+  "issueMeta": "par {author} · {comments} commentaires · {date}"
 }

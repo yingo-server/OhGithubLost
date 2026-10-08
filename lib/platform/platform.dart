@@ -1,7 +1,11 @@
 /// 平台实现层 · **门面**（唯一选平台的地方）。
 ///
-/// ## 全项目只有这一处出现 `Platform.isXxx`
-/// 其它地方一律通过 [ogLWindow] 拿能力。新增平台时只改本文件一行。
+/// ## 关于 `Platform.isXxx` 的实际分布
+/// 这里是**窗口能力**的唯一选型处，但项目里还有几处按平台分流的地方
+/// （目录规划 `base/disk/app_dirs.dart`、权限网关与通知
+/// `surface/app/permissions.dart` / `system_notifier.dart`、设备信息
+/// `domain/sys/sys_info.dart`）。那句「全项目只有这一处」与实际不符，已更正；
+/// 把这几处也收敛到本层是待办（见 docs/NETWORK.md 的待办一节）。
 library;
 
 import 'dart:io';

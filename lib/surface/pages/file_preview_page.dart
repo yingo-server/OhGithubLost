@@ -391,9 +391,10 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   /// 一个头都没带。于是私有仓库的大图预览 100% 404，而界面把它显示成
   /// 「文件过大，无法在内置预览中加载」，把**认证失败**误报成**文件过大**。
   ///
-  /// 现在改为：未走代理且私有 → 真的取一次令牌（`downloadAuthHeaders`，
-  /// 取不到就退化成空 map，那才是「匿名访问」的诚实表达）；走代理 → 一律
-  /// 不带（把令牌交给代理等于送令牌）。
+  /// 现在改为：**私有仓库一律取一次令牌**（`downloadAuthHeaders`，取不到就
+  /// 退化成空 map，那才是「匿名访问」的诚实表达）；公开仓库一个头都不带。
+  /// 判据是「仓库是否私有」，不是「是否走了代理」—— 通道会原样转发
+  /// Authorization 头，私有仓库即便走通道也必须带上令牌才能取到内容。
   Widget _rawView(ThemeData theme) {
     final List<String> urls = _rawCandidates;
     if (urls.isEmpty) {

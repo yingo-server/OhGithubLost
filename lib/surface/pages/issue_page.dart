@@ -302,7 +302,7 @@ class _IssuePageState extends State<IssuePage> {
                                                    const SizedBox(width: 8),
                                                    Expanded(
                                                      child: Text(
-                                                       '${ghLogin(comment).isEmpty ? '未知用户' : ghLogin(comment)} · '
+                                                       '${ghLogin(comment).isEmpty ? OgLI18n.instance.t('common', 'unknown') : ghLogin(comment)} · '
                                                        '${ghDate(comment, 'created_at')}',
                                                        maxLines: 1,
                                                        overflow: TextOverflow.ellipsis,

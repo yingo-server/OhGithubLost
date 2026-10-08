@@ -78,8 +78,12 @@ class GhReadCache {
     return keys.map((String k) => '$k=${query[k]}').join('&');
   }
 
-  /// 读：命中且未过期返回原始文本；否则返回 `null`（当作未命中）。
-  Future<String?> get(
+  /// 读：命中且未过期返回 `(body, link)`；否则返回 `null`（当作未命中）。
+  ///
+  /// ★ 必须连 `Link` 头一起返回：分页靠它（`GhPage.parse(headers['link'])`）。
+  ///   此前命中缓存只回 body、headers 给空表，于是**带 TTL 缓存的端点
+  ///   在缓存窗口内翻页恒停在第 1 页** —— 列表少一半，且没有任何报错。
+  Future<({String body, String link})?> get(
     String path,
     Map<String, String> query,
     Duration maxAge, {
@@ -101,13 +105,15 @@ class GhReadCache {
       }
       final Object? at = decoded['at'];
       final Object? body = decoded['body'];
+      final Object? link = decoded['link'];
       if (at is! int || body is! String) {
         return null;
       }
       if (DateTime.now().millisecondsSinceEpoch - at > maxAge.inMilliseconds) {
         return null;
       }
-      return body;
+      // 旧条目没有 link 字段：按空处理（等价于旧行为，不额外失败）。
+      return (body: body, link: link is String ? link : '');
     } catch (error) {
       _diagnostics?.warn(
         'CACHE',
@@ -118,12 +124,13 @@ class GhReadCache {
     }
   }
 
-  /// 写：保存原始响应文本。
+  /// 写：保存原始响应文本与 `Link` 头（分页需要）。
   Future<void> put(
     String path,
     Map<String, String> query,
-    String body,
-  ) async {
+    String body, {
+    String link = '',
+  }) async {
     try {
       final String account = await _accountOrGuest();
       final String key = await _key(path, query, account);
@@ -132,6 +139,7 @@ class GhReadCache {
         jsonEncode(<String, Object?>{
           'at': DateTime.now().millisecondsSinceEpoch,
           'body': body,
+          'link': link,
         }),
       );
     } catch (error) {

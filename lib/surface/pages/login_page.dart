@@ -16,6 +16,7 @@ import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
 import 'onboarding_page.dart';
+import 'repo_page.dart';
 
 /// 取 `login` 分片文案。
 String _t(String key, [Map<String, Object?>? args]) =>
@@ -111,6 +112,11 @@ class _LoginPageState extends State<LoginPage> {
         token,
       );
       await auth.switchTo('user-${me.id}');
+      // ★ 与「我的」页移出账号时同样的要求：切号必须清**全部**缓存。
+      //   只清仓库缓存会留下 DNS 缓存与页面分页快照，多账号下正是
+      //   「用 B 账号看到 A 账号内容」的串台来源（桥层注释已写明）。
+      await widget.surface.clearAllCaches();
+      clearOgLRepoPageCaches();
 
       if (mounted) {
         setState(() {

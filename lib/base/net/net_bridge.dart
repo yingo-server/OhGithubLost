@@ -134,7 +134,7 @@ class NetModule extends OgLModule {
         layer: ModuleLayer.base,
         version: '0.1.0',
         provides: <String>['net.transport', 'net.dns'],
-        description: '底座·网络连接（传输 / 重试 / 镜像加速 / 观测 / DNS 策略）',
+        description: '底座·网络连接（传输 / 重试 / 观测 / DNS 策略）',
       );
 
   @override

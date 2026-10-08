@@ -189,5 +189,6 @@
   "unstarred": "Отметка снята",
   "workflowTriggered": "Запущен рабочий процесс",
   "defaultAction": "По умолчанию",
-  "selectBranch": "Выбрать ветку"
+  "selectBranch": "Выбрать ветку",
+  "issueMeta": "автор {author} · комментариев: {comments} · {date}"
 }

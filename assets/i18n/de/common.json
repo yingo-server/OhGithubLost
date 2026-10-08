@@ -111,5 +111,7 @@
   "fileTooLargeBodyPrivate": "Die Contents API von GitHub liefert für Dateien über 1 MB keinen Inhalt, daher kann die integrierte Vorschau die Bytes nicht abrufen.\nDies ist ein privates Repository: Die Beschleunigung greift hier nicht (das raw eines privaten Repos benötigt ein Token, und es einem Proxy zu übergeben bedeutet, das Token weiterzugeben). Die Beschleunigung zu aktivieren ändert daher nichts an der Abrufart.\nDu kannst stattdessen einen raw-Link öffnen oder die Datei herunterladen.",
   "accelNoChannelTitle": "Noch kein Beschleunigungskanal hinzugefügt",
   "accelNoChannelBody": "Diese Anwendung liefert keinen Kanal mit und betreibt keinen Proxy. Für Beschleunigung füge eine eigene Präfix-Proxy-Adresse hinzu; sonst bleibt alles direkt.",
-  "accelSelfProvided": "Kanäle stellst du selbst: Diese App bringt keine mit, empfiehlt keine und hostet keine."
+  "accelSelfProvided": "Kanäle stellst du selbst: Diese App bringt keine mit, empfiehlt keine und hostet keine.",
+  "previewSvg": "SVG",
+  "previewUnknown": "Sonstiges"
 }

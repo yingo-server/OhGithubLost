@@ -292,7 +292,8 @@ class _GistDetailPageState extends State<GistDetailPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${detail.isPublic ? '公开' : _t('private')} · ${detail.files.length} 个文件',
+              '${detail.isPublic ? _t('public') : _t('private')} · '
+                  '${_t('fileCount', <String, Object?>{'count': detail.files.length})}',
               style: theme.textTheme.bodySmall,
             ),
             if (detail.htmlUrl.isNotEmpty) ...<Widget>[

@@ -201,6 +201,9 @@ class ResilientTransport implements NetTransport {
 /// 脚本化传输（测试 / 演练用）。
 ///
 /// 按入队顺序返回预设结果：给了 [NetException] 就抛出，给了 [NetResponse] 就返回。
+///
+/// 注：**生产代码里没有任何实例化**（只有测试构造）。保留是因为它是
+/// 传输层契约的可执行样例；若将来要精简，它与 `test/` 里的引用需一起处理。
 class ScriptedTransport implements NetTransport {
   /// 创建脚本化传输。
   ScriptedTransport(this._script);
