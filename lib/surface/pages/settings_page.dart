@@ -991,7 +991,47 @@ const Divider(height: 1),
     if (!value.releaseProxyEnabled) {
       return tiles;
     }
+    // ── 适用范围：哪些资源允许走通道 ──────────────────────────────
+    // 前缀式代理开放的端点有限（有的能转 Release 附件却转不了仓库图片），
+    // 写死"哪些加速"必然有人用不了，所以逐项可关。
+    tiles.add(_subTitle(theme, _t('accelScopes')));
+    tiles.add(
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(
+          _t('accelScopesHint'),
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
+    for (final OgLAccelScope scope in OgLAccelScope.values) {
+      tiles.add(
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: Text(_t(scope.labelKey)),
+          value: value.accelScopeEnabled(scope),
+          onChanged: (bool on) =>
+              unawaited(widget.surface.setAccelScope(scope, on)),
+        ),
+      );
+    }
+    tiles.add(const Divider(height: 24));
     tiles.add(_subTitle(theme, _t('accelChannels')));
+    // 说明一行：通道由用户自备，本应用不预置任何通道。
+    tiles.add(
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(
+          _t('accelSelfProvided'),
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
     // 私有仓库加速 = 把令牌交给第三方代理。这里给一个**永久开关**：
     // 关掉 = 不再询问**且**不再加速（而不是"别问了但照旧送令牌"）。
     tiles.add(
@@ -1005,27 +1045,36 @@ const Divider(height: 1),
             unawaited(_setPrivateAccelAccepted(on)),
       ),
     );
+    if (value.allAccelChannels.isEmpty) {
+      // 空态必须说清楚：**本应用不提供通道**，想加速得自己填一个。
+      tiles.add(
+        ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: Text(_t('accelNoChannelTitle')),
+          subtitle: Text(_t('accelNoChannelBody')),
+          isThreeLine: true,
+        ),
+      );
+    }
     for (final OgLAccelChannel channel in value.allAccelChannels) {
-      final bool selected = channel.id == value.activeAccelChannel.id;
+      final bool selected = channel.id == value.releaseProxySelectedId;
       tiles.add(
         ListTile(
           leading: Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
           ),
-          title: Text(channel.builtin ? _tc('accelBuiltinName') : channel.name),
+          title: Text(channel.name),
           subtitle: Text(
-            channel.builtin ? _t('accelBuiltinDesc') : channel.baseUrl,
+            channel.baseUrl,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: channel.builtin
-              ? null
-              : IconButton(
-                  tooltip: _t('removeChannel'),
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () =>
-                      unawaited(widget.surface.removeAccelChannel(channel.id)),
-                ),
+          trailing: IconButton(
+            tooltip: _t('removeChannel'),
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () =>
+                unawaited(widget.surface.removeAccelChannel(channel.id)),
+          ),
           onTap: () =>
               unawaited(widget.surface.setReleaseProxySelected(channel.id)),
         ),
@@ -1035,7 +1084,7 @@ const Divider(height: 1),
       ListTile(
         leading: const Icon(Icons.add),
         title:  Text(_t('addCustomChannel')),
-        subtitle: const Text('第三方服务，需自行确认可信；地址需为 https://'),
+        subtitle: Text(_t('accelAddHint')),
         onTap: _addAccelChannel,
       ),
     );
@@ -1056,9 +1105,7 @@ const Divider(height: 1),
               : _t('notConsented'),
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => unawaited(
-          _showAccelAgreement(value.activeAccelChannel, requireConsent: true),
-        ),
+        onTap: () => unawaited(_showAccelAgreement(requireConsent: true)),
       ),
     );
     return tiles;
@@ -1072,10 +1119,7 @@ const Divider(height: 1),
     }
     final OgLSettings value = widget.surface.settings.settings;
     if (!value.accelConsentCurrent) {
-      final bool accepted = await _showAccelAgreement(
-        value.activeAccelChannel,
-        requireConsent: true,
-      );
+      final bool accepted = await _showAccelAgreement(requireConsent: true);
       if (!accepted) {
         return;
       }
@@ -1206,16 +1250,16 @@ const Divider(height: 1),
   }
 
   /// 展示协议；[requireConsent] 为真时返回"是否勾选并同意"。
-  Future<bool> _showAccelAgreement(
-    OgLAccelChannel channel, {
-    required bool requireConsent,
-  }) async {
+  ///
+  /// v6.4.3 起只有**一种**协议（外来服务自负责任）—— 内置通道被删除后，
+  /// "本应用自建通道"的声明不复存在。
+  Future<bool> _showAccelAgreement({required bool requireConsent}) async {
     bool agreed = false;
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setLocal) => AlertDialog(
-          title: Text(channel.builtin ? _t('accelBuiltinTitle') : _t('accelThirdPartyTitle')),
+          title: Text(_t('accelThirdPartyTitle')),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -1231,7 +1275,7 @@ const Divider(height: 1),
                         ),
                   ),
                   const Divider(height: 24),
-                  Text(ogLAccelAgreementFor(channel)),
+                  Text(ogLAccelAgreement()),
                   const Divider(height: 28),
                   // 通道的法律定位：它是**本应用提供的网络服务**，
                   // 不保证可用性、也不保证不收集数据。开启后不再重复提示。

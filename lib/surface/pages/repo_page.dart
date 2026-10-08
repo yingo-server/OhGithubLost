@@ -24,6 +24,7 @@ import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/accel.dart';
 import '../util/file_icons.dart';
 import '../util/file_preview.dart';
 import '../util/gh_format.dart';
@@ -1568,12 +1569,15 @@ class _CodeTabState extends State<_CodeTab> {
   /// - **否则** → 两者都不给，界面退回 `imageLoader`（Contents API 取字节）——
   ///   这也是私有仓库唯一可行的取法（raw 没有签名机制，不能交给代理）。
   ({Uri? base, String? proxy}) _readmeImagePlan(String dir) {
+    // README 图片是**独立的一类**：很多前缀式代理能转发 Release 附件，
+    // 却转发不了仓库内图片，所以它有自己的开关。
     final bool accel = widget.surface.repoFileAccelerated(
       repoPrivate: widget.repoPrivate,
       size: null,
+      scope: OgLAccelScope.readmeImage,
     );
-    final List<String> prefixes =
-        widget.surface.settings.settings.activeAccelPrefixes;
+    final List<String> prefixes = widget.surface.settings.settings
+        .accelPrefixesFor(OgLAccelScope.readmeImage);
     if (!accel || prefixes.isEmpty) {
       return (base: null, proxy: null);
     }

@@ -1,6 +1,4 @@
 {
-  "accelBuiltinDesc": "開發者自建（HTTPS）",
-  "accelBuiltinTitle": "內建通道安全聲明",
   "accelChannels": "加速通道",
   "accelDesc": "僅影響 Release 附件下載；關閉時始終直連",
   "accelThirdPartyTitle": "外來服務自負責任說明",
@@ -151,5 +149,12 @@
   "accelPrivateWarnPoint2": "權杖進入第三方伺服器，其留存與用途不在本專案控制範圍內",
   "accelPrivateWarnPoint3": "隨時可在設定裡關掉；關掉即恢復「不加速」，不會保留任何例外",
   "accelPrivateWarnAccept": "我已了解風險，仍然開啟",
-  "accelPrivateWarnWait": "請閱讀…（{seconds}s）"
+  "accelPrivateWarnWait": "請閱讀…（{seconds}s）",
+  "accelAddHint": "第三方服務，需自行確認可信；位址需為 https://",
+  "accelScopes": "加速適用範圍",
+  "accelScopesHint": "前綴式代理開放的端點有限（有的能轉 Release 附件卻轉不了倉庫圖片）。只在你確實需要的類別上開加速，其餘保持直連。",
+  "accelScopeReleaseAsset": "Release 附件",
+  "accelScopeActionArtifact": "Action 建置產物",
+  "accelScopeRepoFile": "倉庫檔案（下載與預覽）",
+  "accelScopeReadmeImage": "README 倉庫內圖片"
 }

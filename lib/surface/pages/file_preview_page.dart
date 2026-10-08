@@ -22,6 +22,7 @@ import '../app/async.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/accel.dart';
 import '../util/download_proxy.dart';
 import '../util/file_preview.dart';
 import '../util/gh_format.dart';
@@ -97,20 +98,19 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   ///
   /// 判定只看**是否启用**，不看选的是哪个通道 —— 按产品要求：
   /// 开启加速（无论内置还是自定义）后**不再弹窗**；只有**加速关闭**时才问。
-  bool get _accelOn =>
-      widget.surface.settings.settings.activeAccelPrefixes.isNotEmpty;
+  bool get _accelOn => widget.surface.settings.settings
+      .accelPrefixesFor(OgLAccelScope.repoFile)
+      .isNotEmpty;
 
   /// 加速已开启时的 raw 地址候选（含直连兜底）；未开启时只给直连。
   List<String> get _rawCandidates {
-    final List<String> prefixes = _accelOn
-        ? widget.surface.settings.settings.activeAccelPrefixes
-        : const <String>[];
+    // 预览页取的是「仓库文件」这一类；范围没开就等于没加速。
+    final List<String> prefixes = widget.surface.settings.settings
+        .accelPrefixesFor(OgLAccelScope.repoFile);
     return ogLAccelCandidates(
       url: _rawUrl,
       prefixes: prefixes,
       family: OgLAccelFamily.raw,
-      builtinChannel:
-          widget.surface.settings.settings.activeAccelChannel.builtin,
       repoPrivate: widget.repoPrivate,
       // 私有 + 加速：需用户已在设置页知情接受（否则令牌绝不出设备）。
       privateAccelAccepted:

@@ -1,6 +1,4 @@
 {
-  "accelBuiltinDesc": "Auto-hébergé par le développeur (HTTPS)",
-  "accelBuiltinTitle": "Déclaration de sécurité des canaux intégrés",
   "accelChannels": "Canaux d'accélération",
   "accelDesc": "N'affecte que le téléchargement des pièces jointes de Release ; si désactivé, connexion directe par défaut",
   "accelThirdPartyTitle": "Avertissement sur les services tiers",
@@ -151,5 +149,12 @@
   "accelPrivateWarnPoint2": "Le jeton atteint un serveur tiers ; sa conservation et son usage échappent au contrôle de ce projet",
   "accelPrivateWarnPoint3": "Vous pouvez désactiver ceci à tout moment dans les paramètres ; cela revient à « aucune accélération » sans conserver d'exception",
   "accelPrivateWarnAccept": "Je comprends le risque, activer quand même",
-  "accelPrivateWarnWait": "Veuillez lire… ({seconds}s)"
+  "accelPrivateWarnWait": "Veuillez lire… ({seconds}s)",
+  "accelAddHint": "Un service tiers que vous devez vérifier vous-même ; l’adresse doit être https://",
+  "accelScopes": "Où l’accélération s’applique",
+  "accelScopesHint": "Les proxys à préfixe n’exposent qu’un nombre limité de points d’accès (l’un transmet les pièces jointes de version mais pas les images du dépôt). N’activez l’accélération que pour les catégories réellement nécessaires ; le reste reste en direct.",
+  "accelScopeReleaseAsset": "Pièces jointes de version",
+  "accelScopeActionArtifact": "Artefacts d’Action",
+  "accelScopeRepoFile": "Fichiers du dépôt (téléchargement et aperçu)",
+  "accelScopeReadmeImage": "Images dans le README"
 }

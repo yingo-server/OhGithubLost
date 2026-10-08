@@ -1,6 +1,4 @@
 {
-  "accelBuiltinDesc": "Developer-hosted (HTTPS)",
-  "accelBuiltinTitle": "Built-in Channel Security Statement",
   "accelChannels": "Acceleration Channels",
   "accelDesc": "Affects only Release asset downloads; direct connection is used when disabled",
   "accelThirdPartyTitle": "Third-party service disclaimer",
@@ -151,5 +149,12 @@
   "accelPrivateWarnPoint2": "The token reaches a third-party server; its retention and use are outside this project's control",
   "accelPrivateWarnPoint3": "You can turn this off in Settings at any time; doing so returns to \"no acceleration\" with no exceptions kept",
   "accelPrivateWarnAccept": "I understand the risk, enable anyway",
-  "accelPrivateWarnWait": "Please read… ({seconds}s)"
+  "accelPrivateWarnWait": "Please read… ({seconds}s)",
+  "accelAddHint": "A third-party service you must vet yourself; the address must be https://",
+  "accelScopes": "Where acceleration applies",
+  "accelScopesHint": "Prefix-style proxies expose only a limited set of endpoints (one may forward release assets but not in-repo images). Enable acceleration only for the kinds you actually need; leave the rest on a direct connection.",
+  "accelScopeReleaseAsset": "Release assets",
+  "accelScopeActionArtifact": "Action artifacts",
+  "accelScopeRepoFile": "Repository files (download & preview)",
+  "accelScopeReadmeImage": "Images inside README"
 }

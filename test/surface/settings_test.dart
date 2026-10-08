@@ -9,6 +9,7 @@ library;
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ohgithublost/surface/util/accel.dart';
 import 'package:ohgithublost/surface/settings.dart';
 
 /// 读取必抛（模拟磁盘故障）。
@@ -92,6 +93,79 @@ void main() {
       //   把令牌交给第三方代理。这条断言就是防那次改动。
       expect(s.accelPrivateRepoAccepted, isFalse);
       expect(s.onboardingDone, isFalse);
+    });
+
+    test('没有任何内置加速通道（v6.4.3）', () {
+      // 默认：没有通道、没有选中、没有生效前缀。
+      final OgLSettings s = OgLSettings.defaults;
+      expect(s.allAccelChannels, isEmpty);
+      expect(s.releaseProxySelectedId, isEmpty);
+      expect(s.activeAccelChannel, isNull);
+      expect(s.activeAccelPrefixes, isEmpty);
+      expect(s.activeAccelPrefix, isNull);
+      // 即便有人把开关打开，没有通道仍然不产生任何前缀。
+      final OgLSettings on = s.copyWith(
+        releaseProxyEnabled: true,
+        releaseProxyConsentVersion: 99,
+      );
+      expect(on.activeAccelPrefixes, isEmpty);
+    });
+
+    test('适用范围：默认全开；逐项可关；全关仍合法', () {
+      final OgLSettings s = OgLSettings.defaults;
+      for (final OgLAccelScope scope in OgLAccelScope.values) {
+        expect(s.accelScopeEnabled(scope), isTrue, reason: scope.id);
+      }
+      // 往返 JSON 不丢。
+      final OgLSettings off = s.copyWith(
+        accelScopes: <String>[OgLAccelScope.releaseAsset.id],
+      );
+      expect(OgLSettings.fromJson(off.toJson()).accelScopes,
+          <String>['releaseAsset']);
+      // 坏值被过滤；显式空列表保持为空（= 全都关了），不回落成全开。
+      expect(OgLSettings.fromJson(<String, Object?>{
+        'accelScopes': <String>['releaseAsset', 'bogus'],
+      }).accelScopes, <String>['releaseAsset']);
+      expect(OgLSettings.fromJson(<String, Object?>{'accelScopes': <String>[]})
+          .accelScopes, isEmpty);
+      // 字段缺失 → 全开（老配置升级后行为不变）。
+      expect(OgLSettings.fromJson(<String, Object?>{}).accelScopes,
+          kOgLAccelAllScopeIds);
+    });
+
+    test('按范围取前缀：关掉的范围拿不到前缀', () {
+      const OgLAccelChannel channel =
+          OgLAccelChannel(id: 'c1', name: '我的', baseUrl: 'https://a.example/');
+      final OgLSettings s = OgLSettings.defaults.copyWith(
+        releaseProxyEnabled: true,
+        releaseProxyConsentVersion: 99,
+        releaseProxyChannels: <OgLAccelChannel>[channel],
+        releaseProxySelectedId: 'c1',
+        accelScopes: <String>[OgLAccelScope.releaseAsset.id],
+      );
+      expect(s.accelPrefixesFor(OgLAccelScope.releaseAsset),
+          <String>['https://a.example/']);
+      // 其余三类没有开 → 空（调用方据此走直连）。
+      for (final OgLAccelScope scope in <OgLAccelScope>[
+        OgLAccelScope.actionArtifact,
+        OgLAccelScope.repoFile,
+        OgLAccelScope.readmeImage,
+      ]) {
+        expect(s.accelPrefixesFor(scope), isEmpty, reason: scope.id);
+      }
+    });
+
+    test('自建通道：选中后才有前缀（单个，不是链）', () {
+      const OgLAccelChannel channel =
+          OgLAccelChannel(id: 'c1', name: '我的', baseUrl: 'https://a.example/');
+      final OgLSettings s = OgLSettings.defaults.copyWith(
+        releaseProxyEnabled: true,
+        releaseProxyConsentVersion: 99,
+        releaseProxyChannels: <OgLAccelChannel>[channel],
+        releaseProxySelectedId: 'c1',
+      );
+      expect(s.activeAccelChannel?.id, 'c1');
+      expect(s.activeAccelPrefixes, <String>['https://a.example/']);
     });
 
     test('私有仓库加速：知情开关往返 JSON 不丢失', () {
