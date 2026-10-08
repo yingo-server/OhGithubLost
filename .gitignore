@@ -19,8 +19,10 @@ ios/
 linux/
 macos/
 windows/
-web/
-app/
+# `web/` 是 PWA 脚手架（index.html / manifest.json / 图标）—— **属于源码，需入库**；
+# `app/` 是 Web 的按版本发布目录（app/v650/ + 入口 iframe）—— 由 web 分支上的
+# `web.yml` 构建并提交，同样需要入库（入口地址要长期可访问）。
+# 二者此前被当作构建产物忽略，改用 app/ 方案后必须放行。
 !android/.gitkeep
 
 # Android 构建缓存
