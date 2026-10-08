@@ -1,0 +1,9 @@
+{
+  "copyContent": "Copy Content",
+  "delete": "Delete",
+  "deleteDraft": "Delete Draft",
+  "deleted": "Draft deleted",
+  "draft": "Draft",
+  "empty": "No uncommitted drafts yet",
+  "title": "Drafts"
+}
