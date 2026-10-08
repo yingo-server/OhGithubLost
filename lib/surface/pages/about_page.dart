@@ -260,14 +260,14 @@ class AboutPage extends StatelessWidget {
     if (last == null) {
       subtitle = OgLI18n.instance.t('shell', 'permSelfTestPending');
     } else if (last.allReady) {
-      subtitle = OgLI18n.instance.t('shell', 'permSelfTestAllReady', args: <String, Object?>{
-        'ready': last.readyCount,
-        'total': last.infos.length,
-        'ms': last.duration.inMilliseconds,
+      subtitle = OgLI18n.instance.t('shell', 'permSelfTestAllReady', args: <String, String>{
+        'ready': '${last.readyCount}',
+        'total': '${last.infos.length}',
+        'ms': '${last.duration.inMilliseconds}',
       });
     } else {
-      subtitle = OgLI18n.instance.t('shell', 'permSelfTestProblems', args: <String, Object?>{
-        'count': last.actionable.length,
+      subtitle = OgLI18n.instance.t('shell', 'permSelfTestProblems', args: <String, String>{
+        'count': '${last.actionable.length}',
       });
     }
     return _diagnosticTile(
