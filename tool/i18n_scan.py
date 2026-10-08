@@ -54,14 +54,11 @@ ALLOW_FILES = {
 
 # 有意保留中文的**具体条目**（file, 文案）。
 #
-# v6.4.3 起为空：唯一一条是「内置通道」的兜底展示名，而内置通道本身已被删除
-# （见 util/accel.dart 的说明），豁免随之失效。
-#
-# ⚠️ 已知盲区（未修）：`scan_file` 用「前后各若干行内是否出现日志关键字」来
-# 判定 kind，跨度偏宽 —— `settings_page.dart` 里一句面向用户的
-# 「第三方服务，需自行确认可信…」曾被判成开发者日志而漏检。判定 UI/日志的
-# 边界值得再收紧，见 docs/NETWORK.md 的待办。
-ALLOW_ITEMS = set()
+# - 模块描述（`ModuleDescriptor.description`）：开发者元数据，与其它模块的
+#   写法一致（`base/net/net_bridge.dart` 等），不是界面文案。
+ALLOW_ITEMS = {
+    ('lib/surface/surface_bridge.dart', '展示·Material3 页面/主题/设置 的装配入口'),
+}
 
 # 文件 → 页面分片 的映射（新增页面时在这里补一条）。
 PAGE_BY_PREFIX = [
