@@ -8,8 +8,8 @@ name: Web
 #   app/v650/          某版本的完整产物（由本工作流生成并提交）
 #
 # ## 与五平台发布的关系
-# 互不影响：本工作流只在 web 分支跑，不参与 build.yml 的发布流程。
-# Web 构建失败**不影响**五平台正式版。
+# 互不影响：本工作流的成败**不阻塞** build.yml 的五平台发布（两者无 needs 关系）。
+# 自 7.0 起 Web 是正式平台之一，因此在 main 与 web 两条分支上都会构建。
 #
 # ## 当前状态
 # 这个分支的 lib/ 正在做 Web 适配（`dart:io` 在浏览器里不存在）。适配完成前
@@ -17,7 +17,7 @@ name: Web
 
 on:
   push:
-    branches: [web]
+    branches: [web, main]
   workflow_dispatch:
 
 concurrency:
