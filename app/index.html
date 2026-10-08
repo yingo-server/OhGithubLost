@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  OGL Web · 入口页（**自动生成，请勿手改**）。
+
+  由 `tool/web_publish.py` 写出。它把当前版本的应用包在一个 iframe 里，
+  这样根地址始终不变，而各版本目录可以并存。
+-->
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>OhGithubLost · Web</title>
+  <meta name="theme-color" content="#171A21">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #171A21; }
+    #app { display: block; width: 100vw; height: 100vh; border: 0; }
+    /* 版本切换条：默认收起，点击右上角展开 */
+    #bar {
+      position: fixed; right: 8px; bottom: 8px; z-index: 9;
+      font: 12px/1.6 system-ui, sans-serif;
+    }
+    #bar > button {
+      background: #2F3441; color: #E6EDF3; border: 1px solid #454B5A;
+      border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    }
+    #list {
+      display: none; margin-bottom: 6px; background: #1E222B;
+      border: 1px solid #454B5A; border-radius: 6px; padding: 6px 0;
+      max-height: 40vh; overflow: auto; min-width: 120px;
+    }
+    #list a { display: block; padding: 3px 12px; color: #E6EDF3;
+              text-decoration: none; white-space: nowrap; }
+    #list a:hover { background: #2F3441; }
+    #list a.cur { color: #FFC93C; }
+  </style>
+</head>
+<body>
+  <iframe id="app" src="v700/" title="OhGithubLost"></iframe>
+  <div id="bar">
+    <div id="list"></div>
+    <button type="button" onclick="var l=document.getElementById('list');l.style.display=l.style.display==='block'?'none':'block'">版本</button>
+  </div>
+  <script>
+    // 版本清单来自 versions.json；切换只是换 iframe 的 src，不刷新外层。
+    fetch('versions.json').then(r => r.ok ? r.json() : []).then(list => {
+      const box = document.getElementById('list');
+      const cur = 'v700';
+      (list || []).forEach(v => {
+        const a = document.createElement('a');
+        a.textContent = v.version;
+        a.href = v.dir + '/';
+        if (v.dir === cur) a.className = 'cur';
+        a.onclick = e => { e.preventDefault(); document.getElementById('app').src = v.dir + '/'; return false; };
+        box.appendChild(a);
+      });
+    }).catch(() => {});
+  </script>
+</body>
+</html>
