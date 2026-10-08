@@ -516,7 +516,7 @@ class GhClient {
             ? ttlForPath(request.path)
             : null;
     if (cacheTtl != null) {
-      final String? cached =
+      final ({String body, String link})? cached =
           await _readCache?.get(request.path, request.query, cacheTtl);
       if (cached != null) {
         _diagnostics?.debug(
