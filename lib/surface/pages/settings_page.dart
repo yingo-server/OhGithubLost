@@ -1332,7 +1332,8 @@ const Divider(height: 1),
     if (ok == true && agreed) {
       await widget.surface.acceptAccelConsent();
       if (mounted) {
-        OgLAppLog.instance.result(_t('title'), _t('agreedAccel'), channel.id);
+        // v6.4.3：只有一种协议（外来服务自负责任），不再按通道类型区分。
+        OgLAppLog.instance.result(_t('title'), _t('agreedAccel'));
       }
       return true;
     }
