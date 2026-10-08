@@ -457,7 +457,8 @@ class _ReadmeImage extends StatelessWidget {
         if (_cache.length >= 32) {
           _cache.remove(_cache.keys.first);
         }
-        _cache[cacheKey] = bytes;
+        // 与 build() 用同一套键：作用域 + 仓库内路径。
+        _cache['$_scope|$path'] = bytes;
       }
       return bytes;
     } catch (_) {

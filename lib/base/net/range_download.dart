@@ -194,6 +194,7 @@ class OgLRangeDownloader implements DownloadEngine {
     ];
     int received = 0;
 
+    bool merged = false;
     try {
       await Future.wait<void>(<Future<void>>[
         for (int i = 0; i < plan.length; i++)
@@ -215,7 +216,6 @@ class OgLRangeDownloader implements DownloadEngine {
       //   kernel/contract/download_engine.dart），而此前 finally 只删分片，
       //   长度不符或 addStream 抛错时会把一个残缺的 target 留在磁盘上 ——
       //   中控回退到库任务时用的还是同一个路径。
-      bool merged = false;
       final IOSink sink = target.openWrite();
       try {
         for (final File part in parts) {
