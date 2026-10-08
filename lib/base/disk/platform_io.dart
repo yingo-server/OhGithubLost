@@ -14,7 +14,9 @@
 ///
 /// ## 安全边界
 /// 所有相对路径在落盘前必须通过 [IoDiskFileStore.abs]：
-/// 拒绝空路径、拒绝绝对路径、拒绝 `..`——**绝不写出根目录之外**。
+/// **归一化**前导 `/`（绝对路径因此落在根内，不会逃逸）、**拒绝** `..`。
+/// 空串是合法入参（`list('')` = 列根目录）。
+/// 这组行为由 `test/base/platform_io_test.dart` 锁定 —— 改实现前先看那组用例。
 library;
 
 import 'dart:convert';
@@ -82,14 +84,9 @@ class IoDiskFileStore implements DiskFileStore {
   ///
   /// `relative` 为空表示根目录本身（仅 [list] 允许）。
   String abs(String relative) {
-    // ★ 与文档承诺一致：拒绝空路径、拒绝绝对路径（此前只拒 `..`，
-    //   `/etc/passwd` 这类会被 normalize 静默剥掉前导 `/` 塞进根内）。
-    if (relative.trim().isEmpty) {
-      throw ArgumentError.value(relative, 'path', '路径不得为空');
-    }
-    if (relative.startsWith('/') || relative.startsWith('\\')) {
-      throw ArgumentError.value(relative, 'path', '只接受相对路径');
-    }
+    // 归一化：前导 `/` 被剥掉（绝对路径因此**落在根内**，不会逃逸），
+    // `..` 一律拒绝。空串是合法入参 —— `list('')` 就是「列根目录」。
+    // 这几条行为由 test/base/platform_io_test.dart 锁定，改前先看那组用例。
     final path = InMemoryFileStore.normalize(relative);
     if (path.split('/').contains('..')) {
       throw ArgumentError.value(relative, 'path', '路径不得包含 ..（防目录穿越）');
