@@ -35,7 +35,7 @@
   </style>
 </head>
 <body>
-  <iframe id="app" src="v650/" title="OhGithubLost"></iframe>
+  <iframe id="app" src="v700/" title="OhGithubLost"></iframe>
   <div id="bar">
     <div id="list"></div>
     <button type="button" onclick="var l=document.getElementById('list');l.style.display=l.style.display==='block'?'none':'block'">版本</button>
@@ -44,7 +44,7 @@
     // 版本清单来自 versions.json；切换只是换 iframe 的 src，不刷新外层。
     fetch('versions.json').then(r => r.ok ? r.json() : []).then(list => {
       const box = document.getElementById('list');
-      const cur = 'v650';
+      const cur = 'v700';
       (list || []).forEach(v => {
         const a = document.createElement('a');
         a.textContent = v.version;
