@@ -756,6 +756,20 @@ class IxDownloadManager extends ChangeNotifier {
     if (!ok) {
       final IxDownloadTask? snap = _snapshots[id];
       if (snap != null) {
+        // ★ 校验不匹配的成品必须**删掉**：留着它，用户点「重试」只会把同一份
+        //   坏字节再校验一遍，永远失败。删掉后重试才会真正重新下载。
+        try {
+          final File bad = File(snap.savePath);
+          if (await bad.exists()) {
+            await bad.delete();
+          }
+        } catch (error) {
+          _diagnostics?.warn(
+            'DL',
+            '删除校验失败的文件时出错：$error',
+            code: 'OGL-DL-405',
+          );
+        }
         _snapshots[id] = snap.copyWith(
           status: IxDownloadStatus.failed,
           error: 'integrityMismatch',
