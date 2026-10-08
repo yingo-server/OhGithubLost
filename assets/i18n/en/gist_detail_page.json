@@ -20,5 +20,7 @@
   "saved": "Saved",
   "title": "Gist Details",
   "updateFailed": "Update failed: {error}",
-  "updated": "Updated"
+  "updated": "Updated",
+  "public": "Public",
+  "fileCount": "{count} files"
 }

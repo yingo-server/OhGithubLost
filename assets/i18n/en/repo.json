@@ -189,5 +189,6 @@
   "unstarred": "Unstarred",
   "workflowTriggered": "Workflow triggered",
   "defaultAction": "Default",
-  "selectBranch": "Select branch"
+  "selectBranch": "Select branch",
+  "issueMeta": "by {author} · {comments} comments · {date}"
 }

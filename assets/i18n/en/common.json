@@ -111,5 +111,7 @@
   "fileTooLargeBodyPrivate": "GitHub's Contents API returns no content for files over 1 MB, so the built-in preview cannot fetch the bytes.\nThis is a private repository: acceleration does not apply to it (a private repo's raw requires a token to fetch, and handing it to a proxy means handing over the token), so enabling acceleration will not change how this is fetched.\nYou can switch to opening it via a raw link, or download it to view.",
   "accelNoChannelTitle": "No acceleration channel added yet",
   "accelNoChannelBody": "This application ships no channel and runs no proxy. To accelerate, add a prefix-style proxy address of your own; otherwise everything stays on a direct connection.",
-  "accelSelfProvided": "Channels are yours to provide: this app bundles none, recommends none, and hosts none."
+  "accelSelfProvided": "Channels are yours to provide: this app bundles none, recommends none, and hosts none.",
+  "previewSvg": "SVG",
+  "previewUnknown": "Other"
 }

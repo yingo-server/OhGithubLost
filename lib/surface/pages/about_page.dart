@@ -258,29 +258,29 @@ class AboutPage extends StatelessWidget {
     final OgLPermissionSelfTestReport? last = OgLPermissionSelfTestReport.last;
     final String subtitle;
     if (last == null) {
-      subtitle = _t('permSelfTestPending');
+      subtitle = OgLI18n.instance.t('shell', 'permSelfTestPending');
     } else if (last.allReady) {
-      subtitle = _t('permSelfTestAllReady', <String, Object?>{
+      subtitle = OgLI18n.instance.t('shell', 'permSelfTestAllReady', <String, Object?>{
         'ready': last.readyCount,
         'total': last.infos.length,
         'ms': last.duration.inMilliseconds,
       });
     } else {
-      subtitle = _t('permSelfTestProblems', <String, Object?>{
+      subtitle = OgLI18n.instance.t('shell', 'permSelfTestProblems', <String, Object?>{
         'count': last.actionable.length,
       });
     }
     return _diagnosticTile(
-      title: _t('permSelfTest'),
+      title: OgLI18n.instance.t('shell', 'permSelfTest'),
       subtitle: subtitle,
       children: <Widget>[
         if (last == null)
           ListTile(
             leading: const Icon(Icons.hourglass_empty),
-            title: Text(_t('permSelfTestPending')),
+            title: Text(OgLI18n.instance.t('shell', 'permSelfTestPending')),
           )
         else ...<Widget>[
-          _KeyValueRow(label: _t('permPlatform'), value: last.platform),
+          _KeyValueRow(label: OgLI18n.instance.t('shell', 'permPlatform'), value: last.platform),
           for (final OgLPermissionInfo info in last.infos)
             ListTile(
               dense: true,

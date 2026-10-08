@@ -33,10 +33,17 @@ CJK = re.compile(r'[\u4e00-\u9fff]')
 STRING = re.compile(r"(?<![\w])(r?)('(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\")")
 LINE_COMMENT = re.compile(r'//[^\n]*')
 # 「日志上下文」：这些行里的中文按**开发者日志**处理（不本地化，按设计保留）。
+#
+# ★ 这里**只列精确的日志入口**，不用 `log\w*(` 这类模糊式。教训：`log\w*(`
+#   会命中 `AlertDialog(`（子串 `log(`）、`showDialog(`、`catalog(`，甚至
+#   `login(`（`\w*` 吞掉 "in"）—— 于是对话框附近的**用户可见文案**被判成
+#   开发者日志，`--check` 依然通过。曾经就是这样漏掉了
+#   「第三方服务，需自行确认可信…」这类界面文案。
+#   新增日志入口时请显式加在这里，不要放宽成通配。
 LOG_CONTEXT = re.compile(
-    r'(debugPrint|print\(|log\w*\(|Logger|OgLAppLog|OgLLogFile|OgLTrace|'
+    r'(debugPrint\(|print\(|Logger\.|OgLAppLog|OgLLogFile|OgLTrace|'
     r'OgLNoticeSeverity|diagnostics\.|assert\(|throw\b|UnsupportedError|'
-    r'StateError|ArgumentError|FormatException|tag:|tag ?=|description:|'
+    r'StateError|ArgumentError|FormatException|tag:|tag ?=|'
     r'announce\(|unavailableReason)')
 
 # 有意保留中文的文件（不参与 --check 失败判定）：

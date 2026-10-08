@@ -802,8 +802,8 @@ const Divider(height: 1),
         margin: const EdgeInsets.only(bottom: 12),
         child: ListTile(
           leading: const Icon(Icons.folder_outlined),
-          title: Text(_t('storageAccess')),
-          subtitle: Text(_t('storageGrantDesc1')),
+          title: Text(OgLI18n.instance.t('shell', 'storageAccess')),
+          subtitle: Text(OgLI18n.instance.t('shell', 'storageGrantDesc1')),
           trailing: const Icon(Icons.chevron_right),
           onTap: _showStorage,
         ),
@@ -827,7 +827,7 @@ const Divider(height: 1),
     await showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title:  Text(_t('storageAccess')),
+        title:  Text(OgLI18n.instance.t('shell', 'storageAccess')),
         content: SizedBox(
           width: 460,
           child: SingleChildScrollView(
@@ -837,10 +837,10 @@ const Divider(height: 1),
               children: <Widget>[
                 Text(modeText, style: Theme.of(dialogContext).textTheme.titleSmall),
                 const SizedBox(height: 6),
-                Text('${_t('storageWhere')}：${info.path}'),
+                Text('${OgLI18n.instance.t('shell', 'storageWhere')}：${info.path}'),
                 if (!info.visible) ...<Widget>[
                   const SizedBox(height: 8),
-                  Text(_t('storageHintModern')),
+                  Text(OgLI18n.instance.t('shell', 'storageHintModern')),
                 ],
                 if (saf != null) ...<Widget>[
                   const SizedBox(height: 8),
@@ -893,7 +893,7 @@ const Divider(height: 1),
     }
     _toast(status == OgLPermissionStatus.granted
         ? _t('dnsSaved')
-        : _t('storageHintModern'));
+        : OgLI18n.instance.t('shell', 'storageHintModern'));
   }
 
   /// 选一个文件夹（SAF）并持久化授权。
@@ -903,7 +903,7 @@ const Divider(height: 1),
     if (!mounted) {
       return;
     }
-    _toast(ok ? _t('storageModeSaf') : _t('storageHintModern'));
+    _toast(ok ? _t('storageModeSaf') : OgLI18n.instance.t('shell', 'storageHintModern'));
   }
 
   /// 取消 SAF 授权。
@@ -1026,7 +1026,7 @@ const Divider(height: 1),
         contentPadding: EdgeInsets.zero,
         dense: true,
         title: Text(
-          _t('accelSelfProvided'),
+          _tc('accelSelfProvided'),
           style: theme.textTheme.bodySmall
               ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
@@ -1050,8 +1050,8 @@ const Divider(height: 1),
       tiles.add(
         ListTile(
           leading: const Icon(Icons.info_outline),
-          title: Text(_t('accelNoChannelTitle')),
-          subtitle: Text(_t('accelNoChannelBody')),
+          title: Text(_tc('accelNoChannelTitle')),
+          subtitle: Text(_tc('accelNoChannelBody')),
           isThreeLine: true,
         ),
       );
@@ -1280,15 +1280,15 @@ const Divider(height: 1),
                   // 通道的法律定位：它是**本应用提供的网络服务**，
                   // 不保证可用性、也不保证不收集数据。开启后不再重复提示。
                   Text(
-                    _t('accelServiceTitle'),
+                    _tc('accelServiceTitle'),
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 6),
-                  Text(_t('accelServiceBody')),
+                  Text(_tc('accelServiceBody')),
                   const Divider(height: 28),
                   // 语言效力：以中文文本为准。放在正文最后、勾选之前。
                   Text(
-                    _t('accelLangNote'),
+                    _tc('accelLangNote'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontStyle: FontStyle.italic,
@@ -1355,12 +1355,12 @@ const Divider(height: 1),
             // 先讲清约束再让人填：自定义通道**只支持前缀式代理**
             // （如 GHproxy 项目），且可能缺失部分代理端点。
             Text(
-              _t('accelPrefixOnlyTitle'),
+              _tc('accelPrefixOnlyTitle'),
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
             Text(
-              _t('accelPrefixOnlyBody'),
+              _tc('accelPrefixOnlyBody'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const Divider(height: 20),
@@ -1559,7 +1559,7 @@ const Divider(height: 1),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(_t('close')),
+            child: Text(_tc('close')),
           ),
         ],
       ),

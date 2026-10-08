@@ -140,11 +140,11 @@ class IxPresign {
           statusCode: status,
         );
       }
-      await response.drain<void>();
       // 200：第一跳本身就是直链，原样返回。
-      // 注意这里**不能** drain —— 200 意味着后面是真实的文件字节，
-      // 把它们读掉再丢弃纯属浪费（调用方随后会自己完整下载一次）。
-      // 连接由 finally 里的 force close 收尾。
+      // ★ 这里**不能** drain —— 200 意味着后面是真实的文件字节，把它们读掉再
+      //   丢弃等于白跑一遍全量流量（调用方随后还会完整下载一次）。
+      //   此前 drain 写在 2xx 判断之前，每个直链下载都多跑一遍；现已移除。
+      //   连接由 finally 里的 force close 收尾，不需要靠 drain 回收。
       if (status >= 200 && status < 300) {
         return IxPresignResult(
           url: url,
@@ -187,24 +187,73 @@ class IxPresign {
   /// 一条「让设备去请求任意内网地址」的路。云环境元数据服务
   /// （`169.254.169.254`）就在链路本地段里。
   static bool isForbiddenHost(String host) {
-    final String h = host.trim().toLowerCase();
+    String h = host.trim().toLowerCase();
+    // 去掉 IPv6 字面量的方括号与 FQDN 的尾点。
+    if (h.startsWith('[') && h.endsWith(']')) {
+      h = h.substring(1, h.length - 1);
+    }
+    while (h.endsWith('.')) {
+      h = h.substring(0, h.length - 1);
+    }
     if (h.isEmpty || h == 'localhost' || h.endsWith('.localhost')) {
       return true;
     }
-    if (h == '::1' || h == '0:0:0:0:0:0:0:1') {
-      return true;
+
+    // ① 整数形式的 IPv4（`2130706433`、`0x7f000001`）→ 先化成点分。
+    //    浏览器会照这两种写法访问 127.0.0.1，不归一化就等于留了后门。
+    final String? dotted = _ipv4FromInteger(h);
+    if (dotted != null) {
+      h = dotted;
     }
-    // IPv6 唯一本地（fc00::/7）与链路本地（fe80::/10）。
-    if (h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80:')) {
-      return true;
+
+    // ② IPv6 里的 IPv4 映射/兼容写法（`::ffff:127.0.0.1`）→ 取末段的 IPv4。
+    if (h.contains(':')) {
+      final String tail = h.split(':').last;
+      if (tail.contains('.')) {
+        h = tail;
+      }
     }
-    final RegExpMatch? m =
-        RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$').firstMatch(h);
-    if (m == null) {
-      return false; // 域名：不在这里猜 IP。
+
+    // ③ IPv6 段判断（按**位**，不再用前缀字符串比较）。
+    if (h.contains(':')) {
+      final String first = h.split(':').first;
+      if (first.isEmpty) {
+        return true; // `::1` / `::` 这类省略写法一律拒绝
+      }
+      final int? hextet = int.tryParse(first, radix: 16);
+      if (hextet == null) {
+        return false;
+      }
+      if (hextet == 0) {
+        return true; // 未指定地址
+      }
+      if (hextet >= 0xfc00 && hextet <= 0xfdff) {
+        return true; // fc00::/7 唯一本地
+      }
+      if (hextet >= 0xfe80 && hextet <= 0xfebf) {
+        return true; // fe80::/10 链路本地
+      }
+      return false; // 其它公网 IPv6
     }
-    final int a = int.parse(m.group(1)!);
-    final int b = int.parse(m.group(2)!);
+
+    // ④ 点分 IPv4（含 `127.1` 这类缩写：缺的段按 0 处理）。
+    final List<String> parts = h.split('.');
+    if (parts.length > 4) {
+      return false;
+    }
+    final List<int> nums = <int>[];
+    for (final String part in parts) {
+      final int? v = int.tryParse(part);
+      if (v == null || v < 0 || v > 255) {
+        return false; // 不是 IP，也不像域名：交给上层按域名处理
+      }
+      nums.add(v);
+    }
+    if (nums.isEmpty) {
+      return false;
+    }
+    final int a = nums[0];
+    final int b = nums.length > 1 ? nums[1] : 0;
     if (a == 0 || a == 127) {
       return true; // 未指定 / 回环
     }
@@ -221,6 +270,23 @@ class IxPresign {
       return true; // 链路本地，含云元数据
     }
     return false;
+  }
+
+  /// `2130706433` / `0x7f000001` 这类整数形式的 IPv4 → 点分字符串。
+  ///
+  /// 不是这两种形式时返回 `null`（保持原样）。
+  static String? _ipv4FromInteger(String host) {
+    BigInt? value;
+    if (RegExp(r'^\d+$').hasMatch(host)) {
+      value = BigInt.tryParse(host);
+    } else if (RegExp(r'^0x[0-9a-f]+$').hasMatch(host)) {
+      value = BigInt.tryParse(host.substring(2), radix: 16);
+    }
+    if (value == null || value < BigInt.zero || value > BigInt.from(0xFFFFFFFF)) {
+      return null;
+    }
+    final int v = value.toInt();
+    return '${(v >> 24) & 0xFF}.${(v >> 16) & 0xFF}.${(v >> 8) & 0xFF}.${v & 0xFF}';
   }
 
   /// 把 JSON 里的摘要字段规整成小写十六进制；不是 sha256 或缺失则返回 `null`。

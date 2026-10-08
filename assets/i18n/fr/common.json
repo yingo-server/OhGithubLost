@@ -111,5 +111,7 @@
   "fileTooLargeBodyPrivate": "L'API Contents de GitHub ne renvoie aucun contenu pour les fichiers de plus de 1 Mo ; l'aperçu intégré ne peut donc pas récupérer les octets.\nIl s'agit d'un dépôt privé : l'accélération ne s'y applique pas (le raw d'un dépôt privé exige un jeton, et le confier à un proxy revient à céder le jeton). Activer l'accélération ne change donc rien à la méthode de récupération.\nVous pouvez ouvrir le fichier via un lien raw, ou le télécharger pour le consulter.",
   "accelNoChannelTitle": "Aucun canal d’accélération ajouté",
   "accelNoChannelBody": "Cette application ne fournit aucun canal et n’exploite aucun proxy. Pour accélérer, ajoutez votre propre adresse de proxy à préfixe ; sinon tout reste en direct.",
-  "accelSelfProvided": "Les canaux sont à votre charge : cette application n’en embarque, n’en recommande et n’en héberge aucun."
+  "accelSelfProvided": "Les canaux sont à votre charge : cette application n’en embarque, n’en recommande et n’en héberge aucun.",
+  "previewSvg": "SVG",
+  "previewUnknown": "Autre"
 }

@@ -111,5 +111,7 @@
   "fileTooLargeBodyPrivate": "GitHub 的 Contents API 对超过 1 MB 的文件不返回内容，因此内置预览取不到字节。\n这是私有仓库：加速通道对它不生效（私有仓库的 raw 必须带令牌才能取到，交给代理等于把令牌送出去），所以开启加速也不会改变这里的取法。\n你可以改用 raw 链接打开，或下载后查看。",
   "accelNoChannelTitle": "尚未添加任何加速通道",
   "accelNoChannelBody": "本应用不预置任何通道，也不提供代理服务。想加速请自行添加一个前缀式代理地址；不添加则一直走直连。",
-  "accelSelfProvided": "通道由你自备：本应用不内置、不推荐、也不托管任何代理。"
+  "accelSelfProvided": "通道由你自备：本应用不内置、不推荐、也不托管任何代理。",
+  "previewSvg": "SVG",
+  "previewUnknown": "其它"
 }

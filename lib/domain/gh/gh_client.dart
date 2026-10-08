@@ -524,10 +524,13 @@ class GhClient {
           '${request.method.verb} ${request.path} → 只读缓存命中',
           data: <String, Object?>{'ttlSeconds': cacheTtl.inSeconds},
         );
+        // 回填 Link 头（有的话），否则分页会停在第一页。
         return GhResponse(
           statusCode: 200,
-          body: cached,
-          headers: const <String, String>{},
+          body: cached.body,
+          headers: cached.link.isEmpty
+              ? const <String, String>{}
+              : <String, String>{'link': cached.link},
         );
       }
     }
@@ -597,7 +600,12 @@ class GhClient {
       // ── 只读缓存回填 / 失效（R4）──────────────────────────────────────
       if (response.isSuccess) {
         if (request.method == NetMethod.get && cacheTtl != null) {
-          await _readCache?.put(request.path, request.query, response.body);
+          await _readCache?.put(
+            request.path,
+            request.query,
+            response.body,
+            link: response.headers['link'] ?? '',
+          );
         }
       }
       if (request.method != NetMethod.get && response.isSuccess) {

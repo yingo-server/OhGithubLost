@@ -189,5 +189,6 @@
   "unstarred": "已取消星號",
   "workflowTriggered": "已觸發工作流",
   "defaultAction": "預設",
-  "selectBranch": "選擇分支"
+  "selectBranch": "選擇分支",
+  "issueMeta": "由 {author} 發起 · {comments} 則評論 · {date}"
 }

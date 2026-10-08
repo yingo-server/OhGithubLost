@@ -2,7 +2,88 @@
 
 本项目各版本的变更记录，新版本在前。
 
-## v6.4.3（2026-10-07 · 正式版）
+## v6.5.0（2026-10-08 · 正式版）
+
+> **主题**：修复一轮全量代码审查发现的问题。
+> 审查用 4 个子代理并行覆盖加速链路、平台与底座、展示层、领域层与工具，
+> 结论逐条经人工复核（`docs/NETWORK.md` 与 `release_notes/` 的措辞同期校准）。
+
+### 修复 · Fixed（用户可感知）
+
+- **README 仓库内图片在私有仓库必然 404**：`Image.network` 没有 headers 参数，
+  无法携带令牌，而私有 raw 匿名访问返回 404。此前「私有 + 已知情接受」会
+  走到该分支；现在私有仓库一律回退到 API 取字节（那条带令牌）。
+- **仓库内图片跨仓库/分支串图**：`ReadmeView` 的字节缓存只以仓库内相对路径为键，
+  `assets/logo.png` 这类同名文件在两个仓库间会命中同一份缓存。键改为
+  `仓库@分支:路径`。
+- **分页列表在缓存窗口内只显示第一页**：缓存命中时只回填响应体、`headers` 为空，
+  而翻页依赖 `Link` 头。现在缓存条目连同 `link` 一起存储并在命中时回填。
+- **同一文件第二次下载不再导出到 SAF**：导出去重表只在失败路径移除 id，
+  成功导出后 id 常驻；而 taskId 由 url + 文件名派生，重复下载会命中同一条目。
+- **自定义 DNS / DoH 开关对真实请求不生效**：`connectionFactory` 只在传输层
+  构造时安装一次，而 DNS 模式的写入发生在模块注册之后。现在每次发送前按当前
+  策略校正（模式变化才重装；切回系统 DNS 时把 factory 摘掉）。
+- **登录页切换账号不清缓存**：只清仓库缓存的路径会留下 DNS 缓存与页面分页快照，
+  多账号下是「用 B 账号看到 A 账号内容」的来源。现与「我的」页一致，清全部缓存
+  （含页面级快照）。
+- **版本常量 `kOgLAppVersion` 停在 `6.0.0`**，与 `pubspec.yaml` 相差三个小版本。
+  该常量会写入日志与内核报告。已对齐。
+
+### 修复 · Fixed（下载器与网络）
+
+- **分片任务在探测期间被移除后会「复活」**：`_runRanged` 在 `await probe` 之后
+  无条件写回快照。现在探测返回后先确认任务仍在，否则直接退出（也不会再落盘）。
+- **任务表清理不完整**：`remove()` 与 `clearFinished()` 漏清 `_urlCandidates`、
+  `_rangeConnections`、`_lastSample`、`_expectedSha256`、`_exportedToSaf`，
+  造成会话级累积。现统一收口。
+- **`dispose()` 不取消进行中的分片下载**：分片任务是 fire-and-forget，管理器
+  回收后引擎仍在下载并调用已释放的通知器。现取消全部令牌并加 `_disposed` 守卫。
+- **`ix_presign` 在 200 直链分支先 `drain()` 再注释说明「不能 drain」**：
+  每个直链下载都会多跑一遍全量流量。已移除该 `drain`。
+- **`isForbiddenHost` 存在绕过形式**：只识别点分十进制与 `fe80:` 前缀。
+  现在先做归一化（整数形式的 IPv4、IPv4-mapped IPv6、去掉方括号与尾点），
+  IPv6 段判断改为按位（`fc00::/7`、`fe80::/10`），并支持 `127.1` 这类缩写。
+- **分片合并失败会留下半成品文件**：`finally` 只删分片，不删 `target`。
+  现按契约在未成功合并时删除目标文件。
+- **`abs()` 未拒绝绝对路径与空串**（注释称会拒绝）：`/etc/passwd` 会被静默
+  剥掉前导斜杠塞进根目录。现显式拒绝。
+
+### 修复 · Fixed（界面文案）
+
+- **19 个界面文案取自错误的语言分片，显示为裸键名**：
+  设置页 13 处、仓库页 2 处、关于页 4 处。取法已改到键实际所在的分片。
+- **`previewSvg` / `previewUnknown` 两个键在 6 种语言里都不存在**（「打开方式」
+  弹窗的 SVG 与未知类型条目显示裸键）。已补齐。
+- 三处**硬编码中文**改为 i18n：Gist 详情页的「公开 / N 个文件」、议题列表的
+  「N 条评论」、评论作者缺失时的「未知用户」（后者复用已有的 `common.unknown`）。
+
+### 变更 · Changed（门禁与文档）
+
+- **`i18n_scan.py` 的分类规则收紧**：`LOG_CONTEXT` 原含 `log\w*(`，
+  该模式会命中 `AlertDialog(`、`showDialog(`、`catalog(` 与 `login(`，
+  使对话框附近的用户可见文案被计为开发者日志。现改为只列精确的日志入口。
+- `docs/NETWORK.md` 更正与代码不符的表述（原写传输层有「主机冷却 / DoH 回落」，
+  实际不存在），并补上「加速适用范围」与 web 端 CORS 实测表。
+- `docs/README.md` 补入 `NETWORK.md` 索引；文中路径改为可点击链接。
+- 多处注释更正为与实现一致：`platform.dart` 的平台分派范围、
+  `download_proxy.dart` / `readme_view.dart` / `file_preview_page.dart` 的
+  私有仓库口径、`net_bridge.dart` 的模块描述、`ix_task.dart` 的 `auto` 语义、
+  日志文件名格式、诊断中的并发数文案。
+- 删除无引用的 `IoBootFileSystem`；对仅测试使用的 `ScriptedTransport` 与
+  无调用方的 `DiskPaths` 加注说明。
+
+### 已知限制 · Known limitations
+
+- `docs/ARCHITECTURE.md`、`BOOT.md`、`CONSISTENCY.md`、`DURABILITY.md`、
+  `NAMING.md` 被代码注释引用，但仓库中并不存在；引用未清理。
+- **Action 运行日志不走加速**（直接请求 `api.github.com`），加速适用范围没有它。
+- **web 端**：私有仓库的 raw 与「私有 + 加速」均不可用（浏览器预检会拦截
+  `Authorization`，而 Release 附件的签名地址不带 CORS 头）。
+- **Linux 裸放安装包 3 / 6**：rpm（arm64）缺平台定义；AppImage 的 `ARCH`
+  环境变量未被接受。三种包在 zip / 7z 里都齐全。
+- macOS / iOS 自 v5.6.0 起弃用。
+
+## v6.4.3（未单独发布 · 内容并入 v6.5.0 / never shipped separately）
 
 > **主题**：**删掉内置代理，只留自定义通道**；同时去掉一切静默降级。
 >

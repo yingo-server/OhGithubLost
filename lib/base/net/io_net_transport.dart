@@ -56,6 +56,9 @@ class IoNetTransport implements NetTransport {
   /// 底层客户端（诊断 / 测试用：可断言连接策略）。
   HttpClient get client => _client;
 
+  /// 上一次已应用到客户端的 DNS 模式（`null` = 还没应用过）。
+  NetDnsMode? _appliedMode;
+
   /// 应用连接策略（幂等，可重复调用）。
   void _applyPolicy(HttpClient client) {
     // 空闲连接存活时间压短（防御性）。
@@ -69,6 +72,9 @@ class IoNetTransport implements NetTransport {
 
     final DnsService? dns = _dns;
     if (dns == null || dns.policy.mode != NetDnsMode.custom) {
+      // ★ 撤回：用户从「自定义 DNS」切回「系统 DNS」时，必须把上次装上的
+      //   connectionFactory 摘掉，否则旧解析器会一直被用下去。
+      client.connectionFactory = null;
       return;
     }
     // 自定义 DNS：接管 connectionFactory，把域名换成我们解析出的 IP。
@@ -117,7 +123,25 @@ class IoNetTransport implements NetTransport {
   }
 
   @override
+  /// 按当前 DNS 策略校正一次客户端（**幂等**，模式没变就什么都不做）。
+  ///
+  /// ## 为什么必须每次请求前校正
+  /// `connectionFactory` 只在**构造时**装过一次，而 DNS 模式的唯一写入点是
+  /// `NetBridge.applyDnsSelection` —— 那是模块注册**之后**才调用的。
+  /// 于是用户在设置里选「自定义 DNS / DoH 优先」永远改不动真实流量：
+  /// 传输层早已按当时的 `system` 建好，此后没有任何时机重装。
+  /// 现在把校正放到发送前，模式一变就重装（含切换回系统 DNS 的撤回）。
+  void _syncPolicy() {
+    final NetDnsMode? mode = _dns?.policy.mode;
+    if (mode == _appliedMode) {
+      return;
+    }
+    _applyPolicy(_client);
+    _appliedMode = mode;
+  }
+
   Future<NetResponse> send(NetRequest request) async {
+    _syncPolicy();
     final Stopwatch stopwatch = Stopwatch()..start();
     try {
       final Uri uri = Uri.parse(request.url);

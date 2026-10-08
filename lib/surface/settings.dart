@@ -383,15 +383,6 @@ class OgLSettings {
   bool get accelConsentCurrent =>
       releaseProxyConsentVersion >= kOgLAccelConsentVersion;
 
-  /// 当前生效的加速前缀；未启用 / 未同意 / **没有通道** 时为 `null`（=直连）。
-  String? get activeAccelPrefix {
-    final OgLAccelChannel? channel = activeAccelChannel;
-    if (!releaseProxyEnabled || !accelConsentCurrent || channel == null) {
-      return null;
-    }
-    return ogLNormalizeAccelBase(channel.baseUrl);
-  }
-
   /// 某个适用范围是否开启。
   bool accelScopeEnabled(OgLAccelScope scope) =>
       accelScopes.contains(scope.id);

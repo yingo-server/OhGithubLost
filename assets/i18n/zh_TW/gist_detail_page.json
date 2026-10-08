@@ -20,5 +20,7 @@
   "saved": "已儲存",
   "title": "Gist 詳情",
   "updateFailed": "更新失敗：{error}",
-  "updated": "已更新"
+  "updated": "已更新",
+  "public": "公開",
+  "fileCount": "{count} 個檔案"
 }

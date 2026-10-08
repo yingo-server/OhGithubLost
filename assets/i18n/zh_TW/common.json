@@ -111,5 +111,7 @@
   "fileTooLargeBodyPrivate": "GitHub 的 Contents API 對超過 1 MB 的檔案不回傳內容，因此內建預覽取不到位元組。\n這是私有倉庫：加速通道對它不生效（私有倉庫的 raw 必須帶權杖才能取得，交給代理等於把權杖送出去），所以開啟加速也不會改變這裡的取法。\n你可以改用 raw 連結開啟，或下載後檢視。",
   "accelNoChannelTitle": "尚未新增任何加速通道",
   "accelNoChannelBody": "本應用不預置任何通道，也不提供代理服務。想加速請自行新增一個前綴式代理位址；不新增則一直走直連。",
-  "accelSelfProvided": "通道由你自備：本應用不內建、不推薦、也不託管任何代理。"
+  "accelSelfProvided": "通道由你自備：本應用不內建、不推薦、也不託管任何代理。",
+  "previewSvg": "SVG",
+  "previewUnknown": "其它"
 }
