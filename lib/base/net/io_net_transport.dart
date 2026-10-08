@@ -122,7 +122,6 @@ class IoNetTransport implements NetTransport {
     };
   }
 
-  @override
   /// 按当前 DNS 策略校正一次客户端（**幂等**，模式没变就什么都不做）。
   ///
   /// ## 为什么必须每次请求前校正
@@ -140,6 +139,7 @@ class IoNetTransport implements NetTransport {
     _appliedMode = mode;
   }
 
+  @override
   Future<NetResponse> send(NetRequest request) async {
     _syncPolicy();
     final Stopwatch stopwatch = Stopwatch()..start();
