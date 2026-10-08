@@ -113,5 +113,11 @@
   "accelNoChannelBody": "This application ships no channel and runs no proxy. To accelerate, add a prefix-style proxy address of your own; otherwise everything stays on a direct connection.",
   "accelSelfProvided": "Channels are yours to provide: this app bundles none, recommends none, and hosts none.",
   "previewSvg": "SVG",
-  "previewUnknown": "Other"
+  "previewUnknown": "Other",
+  "webAccelNoticeTitle": "Acceleration service not configured",
+  "webAccelNoticeBody": "The browser build has no persistent built-in acceleration channel, so downloads such as Release assets go direct by default.\n\nYou can use the app perfectly well without configuring anything — only the download speed depends on your network and on how reachable GitHub is for you.\n\nTo accelerate, add a channel yourself under Settings → Network → Acceleration; you can turn it off at any time.",
+  "webInstallDialogTitle": "Add to home screen",
+  "webInstallDialogBody": "Add this app to your desktop / home screen so it later opens on its own, like a normal app.\n\nSelecting “Confirm” opens the browser's install prompt.",
+  "webInstallIosBody": "iOS browsers do not support one-tap adding (a platform limitation, not an app issue).\n\nTap the “Share” button at the bottom, then choose “Add to Home Screen”.",
+  "webInstallChromiumBody": "The browser did not offer one-tap installation this time (it may already be installed, or this page does not meet the install criteria yet).\n\nYou can still choose “Install app” or “Add to Home Screen” from the browser menu."
 }

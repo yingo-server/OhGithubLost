@@ -37,7 +37,12 @@ dependencies:
     sdk: flutter
 
   # ── 底座 · 网络连接 ─────────────────────────────────────────────────
-  # （无外部依赖：传输层直接使用 dart:io 的 HttpClient；2026-10-03 移除 dio）
+  # 传输层按平台分实现：桌面/移动用 dart:io 的 HttpClient（无外部依赖），
+  # **Web 用 package:http 的 BrowserClient** —— 浏览器里没有 dart:io，
+  # 而 http 是纯 Dart 且自带浏览器实现。
+  # 注：`http` 只被 web 实现引用；非 web 构建里它是惰性的（不会被 tree-shake
+  #     掉的部分也只是一个未被调用的库）。
+  http: ^1.2.2
 
   # ── 底座 · 硬盘逻辑 ─────────────────────────────────────────────────
   path_provider: ^2.1.6            # 跨平台目录规划

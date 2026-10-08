@@ -11,7 +11,7 @@
 ///    用户第一次打开就能看见"到底加载了什么"。
 library;
 
-import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +32,8 @@ import 'kernel/log/og_l_log_file.dart';
 import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
 import 'surface/app/permission_selftest.dart';
+import 'surface/app/web_install.dart';
+import 'surface/i18n/og_l_i18n.dart';
 import 'surface/surface_bridge.dart';
 
 /// 应用版本（零外部资源：不读 pubspec，直接内联常量）。
@@ -56,12 +58,14 @@ void main() async {
     buildMode: kReleaseMode
         ? 'release'
         : (kProfileMode ? 'profile' : 'debug'),
-    platform: Platform.operatingSystem,
+    platform: _ogLPlatformName(),
   );
+  // 平台与版本：`dart:io` 的 `Platform.operatingSystemVersion` 在 Web 上不存在，
+  // 而诊断日志真正需要的是"哪个平台"这一项，因此这里只写规范化后的平台名
+  // （web / android / ios / linux / macos / windows），**不编造**系统版本号。
   OgLAppLog.instance.add(
     '启动',
-    '进程启动：版本=$kOgLAppVersion 平台=${Platform.operatingSystem} '
-        '${Platform.operatingSystemVersion}',
+    '进程启动：版本=$kOgLAppVersion 平台=${_ogLPlatformName()}',
   );
   if (!OgLLogFile.isEnabled) {
     OgLAppLog.instance.add(
@@ -225,6 +229,9 @@ void main() async {
     }
     OgLAppLog.instance.result('启动', '进入界面（runApp）', '启动报告已就绪');
     runApp(OgLApp(surface: surfaceModule.bridge, report: report));
+    // ★ Web 专属接线（安装到桌面 / 加速服务首启说明）。非 Web 构建里
+    //   `_ogLScheduleWebSurface` 立即返回，不会产生任何副作用。
+    _ogLScheduleWebSurface(surfaceModule.bridge);
   } on KernelBootException catch (error) {
     // 启动被拒（清单签名失败 / 模块依赖不满足）：**不静默降级**，
     // 直接把原因摊给用户看——这是数据安全产品该有的态度。
@@ -250,4 +257,187 @@ void main() async {
       message: '启动流程出现未预期异常：$error\n\n$stackTrace',
     ));
   }
+}
+
+/// 当前平台名（诊断日志用；**规范化**为小写标识，如 `web` / `ios` / `macos`）。
+///
+/// 这里刻意**不使用 `dart:io` 的 `Platform`**：Web 上它不存在（编译不过），
+/// 而 Flutter 的 `kIsWeb` + `defaultTargetPlatform` 在两端都可靠。
+/// 浏览器里 `defaultTargetPlatform` 反映的是**宿主系统**，因此先判 `kIsWeb`。
+String _ogLPlatformName() {
+  if (kIsWeb) {
+    return 'web';
+  }
+  return defaultTargetPlatform.name.toLowerCase();
+}
+
+/// `common` 分片文案（启动期对话框用；此时展示层已把 i18n 载入完成）。
+String _ogLCommon(String key) => OgLI18n.instance.t('common', key);
+
+/// Web 专属接线：安装提示监听 + 启动后的一次性提示。
+///
+/// **非 Web 构建里本函数立即返回**，不注册监听、不弹窗（`kIsWeb` 在原生构建
+/// 里是编译期常量 `false`，整段会被摇掉）。两个浏览器动作的实现见
+/// `surface/app/web_install.dart`（条件导入：Web 用 `dart:js_interop`，非 Web 空实现）。
+void _ogLScheduleWebSurface(SurfaceBridge bridge) {
+  if (!kIsWeb) {
+    return;
+  }
+  // ① 尽早挂 `beforeinstallprompt` 监听：Chromium 至多派发一次，错过就没有了。
+  //    这里只负责"抓住事件"，何时询问用户由下面的启动流程决定。
+  ogLWebInstallWatch(() {});
+  // ② 首帧之后再谈界面：此时根 Navigator 与 i18n 都已就绪。
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_ogLShowWebStartupDialogs(bridge));
+  });
+}
+
+/// 取根 Navigator 的 context（应用刚起来时可能还差一两帧，故做有限重试）。
+Future<BuildContext?> _ogLRootContext() async {
+  for (int attempt = 0; attempt < 10; attempt++) {
+    final BuildContext? context = OgLApp.navigatorKey.currentContext;
+    if (context != null) {
+      return context;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+  }
+  return OgLApp.navigatorKey.currentContext;
+}
+
+/// Web 启动后的两个一次性/每次提示（顺序：先说明加速，再问安装）。
+Future<void> _ogLShowWebStartupDialogs(SurfaceBridge bridge) async {
+  final BuildContext? context = await _ogLRootContext();
+  if (context == null) {
+    // 拿不到 context 就如实留痕（不静默）；下次打开再试。
+    OgLAppLog.instance.add(
+      'Web',
+      '启动提示未能展示：根 Navigator 尚未就绪',
+      severity: OgLNoticeSeverity.warning,
+    );
+    return;
+  }
+  final OgLWebStartup startup = bridge.webStartup;
+  // ① **首次打开**：说明"需要配置加速服务"（只弹一次；不配置也能用）。
+  if (!startup.accelNoticeShown) {
+    await startup.markAccelNoticeShown();
+    if (!context.mounted) {
+      return;
+    }
+    await _ogLShowAccelNotice(context);
+  }
+  // ② **每次打开**：按设置询问是否添加到桌面（默认开）。
+  if (!startup.installPromptEnabled) {
+    return;
+  }
+  // 已安装（standalone）→ 任何路径都不再提示。
+  if (ogLWebInstallStandalone()) {
+    return;
+  }
+  final OgLWebInstallPlatform platform = ogLWebInstallPlatform();
+  if (platform == OgLWebInstallPlatform.unsupported) {
+    return;
+  }
+  if (!context.mounted) {
+    return;
+  }
+  await _ogLShowInstallPrompt(context, platform);
+}
+
+/// 「需要配置加速服务」说明（Web 首次打开弹一次）。
+///
+/// 文案必须说清三件事：**不配置也能用**、**只是下载走直连**、
+/// **入口在 设置 → 网络 → 加速**。
+Future<void> _ogLShowAccelNotice(BuildContext context) => showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        // 正文较长：窄屏上允许滚动，避免溢出。
+        scrollable: true,
+        title: Text(_ogLCommon('webAccelNoticeTitle')),
+        content: Text(_ogLCommon('webAccelNoticeBody')),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(_ogLCommon('confirm')),
+          ),
+        ],
+      ),
+    );
+
+/// 「添加到桌面」提示。两条路径的差异见函数体。
+Future<void> _ogLShowInstallPrompt(
+  BuildContext context,
+  OgLWebInstallPlatform platform,
+) async {
+  if (platform == OgLWebInstallPlatform.ios) {
+    // iOS Safari **没有** `beforeinstallprompt`（平台限制，不是实现取舍）：
+    // 只能显示"共享 → 添加到主屏幕"的手动引导，绝不做成一键安装的样子。
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        scrollable: true,
+        title: Text(_ogLCommon('webInstallDialogTitle')),
+        content: Text(_ogLCommon('webInstallIosBody')),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(_ogLCommon('close')),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+  // Chromium：等 `beforeinstallprompt` 到来（通常首帧后几百毫秒内）。
+  final bool canPrompt = await _ogLWaitInstallEvent();
+  if (!context.mounted) {
+    return;
+  }
+  // 有事件 → 可"一键安装"；没有事件（本轮不满足可安装条件 / 事件已错过）
+  // → **如实给手动引导**，而不是给一个点了没反应的按钮。
+  final bool? confirmed = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext dialogContext) => AlertDialog(
+      scrollable: true,
+      title: Text(_ogLCommon('webInstallDialogTitle')),
+      content: Text(
+        canPrompt
+            ? _ogLCommon('webInstallDialogBody')
+            : _ogLCommon('webInstallChromiumBody'),
+      ),
+      actions: canPrompt
+          ? <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(_ogLCommon('cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(_ogLCommon('confirm')),
+              ),
+            ]
+          : <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(_ogLCommon('close')),
+              ),
+            ],
+    ),
+  );
+  if (!canPrompt || confirmed != true) {
+    return;
+  }
+  // 用户点了"添加"才真正调起浏览器安装弹窗；结果如实记入日志。
+  final String outcome = await ogLWebInstallPrompt();
+  OgLAppLog.instance.add('Web', '添加到桌面：浏览器返回=$outcome');
+}
+
+/// 等 `beforeinstallprompt`（最多约 3 秒）。返回是否已拿到可用的安装事件。
+Future<bool> _ogLWaitInstallEvent() async {
+  for (int attempt = 0; attempt < 10; attempt++) {
+    if (ogLWebInstallCanPrompt()) {
+      return true;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  }
+  return ogLWebInstallCanPrompt();
 }

@@ -5,89 +5,76 @@
 /// 本服务负责：带令牌拉取二进制 → 用 `archive` 解压 → 返回
 /// `job 名 → 文本` 映射，供运行详情页展示与检索。
 ///
-/// ## 传输实现（2026-10-03）
-/// 由 Dio 改为 `dart:io HttpClient`：这里只需要"取一段字节"，没必要为它引入一个
+/// ## 平台分层（Web 适配）
+/// "取一段字节"这一步要 HTTP 客户端，原生用 `dart:io HttpClient`，
+/// Web 用 `package:http` 的浏览器实现——因此把它抽成一对实现文件，
+/// 由本文件条件导入：
+/// - 非 Web → `ix_action_logs_http_io.dart`；
+/// - Web → `ix_action_logs_http_web.dart`。
+///
+/// **解压**部分（`archive`）是纯 Dart，两个平台共用同一份代码，不必拆。
+///
+/// ## 传输策略（2026-10-03）
+/// 由 Dio 改为原生 `HttpClient`：这里只需要"取一段字节"，没必要为它引入一个
 /// HTTP 框架；同时**禁用连接复用**，与底座传输保持同一策略，避开
 /// `Connection closed before full header` 一类故障。
 library;
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:archive/archive.dart';
+
+import 'ix_action_logs_http_io.dart'
+    if (dart.library.js_interop) 'ix_action_logs_http_web.dart';
+
+/// 日志拉取失败（HTTP 状态或网络错误）。
+///
+/// 单独定类型（而不是漏一个 `HttpException` 出去）的原因：`dart:io` 的异常
+/// 在 Web 上不存在，上层不该被迫认识平台类型。交互层只做"如实提示"。
+class IxActionLogsException implements Exception {
+  /// 创建异常。
+  const IxActionLogsException(this.message, {this.statusCode});
+
+  /// 说明。
+  final String message;
+
+  /// HTTP 状态码（若已拿到响应）。
+  final int? statusCode;
+
+  @override
+  String toString() => 'IxActionLogsException(${statusCode ?? '-'})：$message';
+}
 
 /// Actions 日志服务。
 class IxActionLogs {
   /// 创建服务。
   ///
   /// [tokenProvider] 返回当前令牌明文（未登录返回 `null`）。
-  /// [clientFactory] 仅供测试注入（默认每次请求新建一个客户端并即用即关）。
-  IxActionLogs({
-    required this.tokenProvider,
-    HttpClient Function()? clientFactory,
-  }) : _clientFactory = clientFactory ?? _defaultClient;
+  IxActionLogs({required this.tokenProvider});
 
   /// 令牌提供者。
   final Future<String?> Function() tokenProvider;
 
-  final HttpClient Function() _clientFactory;
-
-  static const Duration _connectTimeout = Duration(seconds: 20);
-  static const Duration _receiveTimeout = Duration(minutes: 5);
-
-  static HttpClient _defaultClient() {
-    final HttpClient client = HttpClient();
-    // 空闲连接存活时间压短（是否复用由每个请求的 persistentConnection 决定）。
-    client.idleTimeout = const Duration(seconds: 3);
-    client.connectionTimeout = _connectTimeout;
-    client.userAgent = 'OhGithubLost';
-    return client;
-  }
-
-  /// 拉取一次运行的日志；失败返回空映射（调用方如实提示）。
+  /// 拉取一次运行的日志；失败抛出 [IxActionLogsException]（调用方如实提示）。
   Future<Map<String, String>> fetch(String fullName, int runId) async {
     final String? token = await tokenProvider();
-    final HttpClient client = _clientFactory();
     final Uri uri = Uri.parse(
       'https://api.github.com/repos/$fullName/actions/runs/$runId/logs',
     );
-    try {
-      final HttpClientRequest request =
-          await client.getUrl(uri).timeout(_connectTimeout);
-      request.followRedirects = true;
-      request.maxRedirects = 5;
-      // 不用连接复用（与底座传输保持同一策略）。
-      request.persistentConnection = false;
-      request.headers.set('accept', 'application/vnd.github+json');
-      if (token != null) {
-        request.headers.set('authorization', 'Bearer $token');
-      }
-      final HttpClientResponse response =
-          await request.close().timeout(_receiveTimeout);
-      if (response.statusCode < 200 || response.statusCode >= 400) {
-        throw HttpException('HTTP ${response.statusCode}', uri: uri);
-      }
-      final List<int> data = await _collect(response).timeout(_receiveTimeout);
-      if (data.isEmpty) {
-        return const <String, String>{};
-      }
-      return _decodeZip(data);
-    } finally {
-      // 即用即关：不复用、不泄漏。
-      client.close(force: true);
+    final Map<String, String> headers = <String, String>{
+      'accept': 'application/vnd.github+json',
+      if (token != null) 'authorization': 'Bearer $token',
+    };
+    final List<int> data = await IxActionLogsHttp.fetchBytes(uri, headers);
+    if (data.isEmpty) {
+      return const <String, String>{};
     }
-  }
-
-  /// 读取全部响应字节。
-  static Future<List<int>> _collect(HttpClientResponse response) async {
-    final List<int> bytes = <int>[];
-    await for (final List<int> chunk in response) {
-      bytes.addAll(chunk);
-    }
-    return bytes;
+    return _decodeZip(data);
   }
 
   /// 解压日志 zip → `job 名 → 文本`。
+  ///
+  /// 纯 Dart（`archive`），Web 上同样可用——没有理由为此写两遍。
   static Map<String, String> _decodeZip(List<int> bytes) {
     final Archive archive = ZipDecoder().decodeBytes(bytes);
     final Map<String, String> out = <String, String>{};

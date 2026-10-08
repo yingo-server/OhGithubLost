@@ -113,5 +113,11 @@
   "accelNoChannelBody": "本应用不预置任何通道，也不提供代理服务。想加速请自行添加一个前缀式代理地址；不添加则一直走直连。",
   "accelSelfProvided": "通道由你自备：本应用不内置、不推荐、也不托管任何代理。",
   "previewSvg": "SVG",
-  "previewUnknown": "其它"
+  "previewUnknown": "其它",
+  "webAccelNoticeTitle": "需要配置加速服务",
+  "webAccelNoticeBody": "浏览器里没有可持久化的内置加速通道，因此 Release 附件这类下载默认走直连。\n\n不配置也完全可以正常使用——只是下载速度取决于你的网络，以及 GitHub 在你那里是否好连。\n\n如需加速，请在 设置 → 网络 → 加速 里自行添加通道；也可以随时关掉。",
+  "webInstallDialogTitle": "添加到桌面",
+  "webInstallDialogBody": "把本应用添加到桌面 / 主屏幕，以后就能像普通应用一样独立打开。\n\n点「确认」将调起浏览器的安装提示。",
+  "webInstallIosBody": "iOS 的浏览器不支持一键添加（这是平台限制，不是应用的问题）。\n\n请点下方的「共享」按钮，然后在列表中选择「添加到主屏幕」。",
+  "webInstallChromiumBody": "这次浏览器没有给出「一键安装」入口（可能已安装，或本页还不满足安装条件）。\n\n你仍可以在浏览器菜单里选择「安装应用」或「添加到桌面 / 主屏幕」。"
 }

@@ -22,11 +22,12 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import '../../kernel/diagnostics.dart';
 import '../../kernel/environment.dart';
+import 'net_dns_platform_io.dart'
+    if (dart.library.js_interop) 'net_dns_platform_web.dart';
 
 /// DNS 解析模式。
 enum NetDnsMode {
@@ -262,46 +263,17 @@ abstract class DnsUdpChannel {
 }
 
 /// 真实 UDP 通道。
+///
+/// 平台原语委托给 [DnsPlatform]（非 Web 走 `RawDatagramSocket`；Web 抛
+/// `UnsupportedError`——浏览器没有裸 socket，见 web 实现文件头注释）。
 class RawDnsUdpChannel implements DnsUdpChannel {
   @override
   Future<List<int>?> exchange(
     String serverIp,
     List<int> query, {
     Duration timeout = const Duration(seconds: 5),
-  }) async {
-    final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    final completer = Completer<List<int>?>();
-    Timer? timer;
-    StreamSubscription<RawSocketEvent>? subscription;
-    try {
-      subscription = socket.listen((RawSocketEvent event) {
-        if (event != RawSocketEvent.read || completer.isCompleted) {
-          return;
-        }
-        final datagram = socket.receive();
-        if (datagram == null) {
-          return;
-        }
-        // **来源校验**：只接受目标服务器发来的响应，其它来源的数据包直接忽略
-        // （配合事务 ID 校验，构成"来源 + 串包"双重防伪）。
-        if (datagram.address.address != serverIp) {
-          return;
-        }
-        completer.complete(datagram.data);
-      });
-      timer = Timer(timeout, () {
-        if (!completer.isCompleted) {
-          completer.complete(null);
-        }
-      });
-      socket.send(query, InternetAddress(serverIp), 53);
-      return await completer.future;
-    } finally {
-      timer?.cancel();
-      await subscription?.cancel();
-      socket.close();
-    }
-  }
+  }) =>
+      DnsPlatform.udpExchange(serverIp, query, timeout: timeout);
 }
 
 /// 解析器抽象。
@@ -314,15 +286,15 @@ abstract class DnsResolver {
 }
 
 /// 系统解析（交给平台）。
+///
+/// 非 Web：走 `InternetAddress.lookup`（真拿 IP）。
+/// Web：浏览器内部解析，页面拿不到 IP —— [DnsPlatform.lookup] 原样返回域名。
 class SystemDnsResolver implements DnsResolver {
   @override
   String get id => 'system';
 
   @override
-  Future<List<String>> resolve(String host) async {
-    final list = await InternetAddress.lookup(host);
-    return list.map((InternetAddress address) => address.address).toList();
-  }
+  Future<List<String>> resolve(String host) => DnsPlatform.lookup(host);
 }
 
 /// 明文 UDP DNS 解析器。
@@ -601,6 +573,15 @@ class DnsService {
 
   final DnsResolver Function(DnsServer server) _resolverFactory;
   KernelDiagnostics? _diagnostics;
+  bool _warnedCustomUnsupported = false;
+
+  /// 本平台是否支持自定义 DNS（明文 UDP / DoH）。
+  ///
+  /// 原生平台恒为 `true`；**Web 恒为 `false`**——浏览器不提供裸 socket，
+  /// 明文 DNS 与"用 DoH 结果去直连"都做不到，Web 上只有系统解析一条路。
+  /// 设置页据此把"自定义 DNS"入口说明为"Web 端不生效"，
+  /// 而不是留一个切过去却毫无作用的开关。
+  bool get supportsCustomDns => DnsPlatform.supportsCustomDns;
 
   /// 绑定诊断中枢（装配阶段调用）。
   void attachDiagnostics(KernelDiagnostics diagnostics) {
@@ -625,7 +606,7 @@ class DnsService {
     // IPv6 字面量（含压缩写法）直接返回，不做无谓查询。
     // 注意：**不能用 `contains(':')` 判断**——那会把 `host:port` 这类输入
     // 误当成 IP 直接返回，于是"解析成功"了一个根本连不上的地址。
-    if (InternetAddress.tryParse(host) != null) {
+    if (DnsPlatform.isIpLiteral(host)) {
       return <String>[host];
     }
 
@@ -639,7 +620,21 @@ class DnsService {
       return cached.addresses;
     }
 
-    if (policy.mode == NetDnsMode.system) {
+    if (policy.mode == NetDnsMode.system || !supportsCustomDns) {
+      // Web：自定义 DNS 入口不在本平台生效（浏览器不给裸 socket）。
+      // 若用户确实选了自定义，这里**一次性留痕**并如实走系统解析——
+      // 绝不静默吞掉这个选择（否则用户会以为切换成功了）。
+      if (policy.mode == NetDnsMode.custom &&
+          !supportsCustomDns &&
+          !_warnedCustomUnsupported) {
+        _warnedCustomUnsupported = true;
+        _diagnostics?.warn(
+          'DNS',
+          '本平台不支持自定义 DNS，已按系统解析处理：$host',
+          code: 'OGL-DNS-102',
+          data: <String, Object?>{'platform': 'web'},
+        );
+      }
       final addresses = await _attempt(systemResolver, host);
       _remember(host, addresses, systemResolver.id);
       return addresses;

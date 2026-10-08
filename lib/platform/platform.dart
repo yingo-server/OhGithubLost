@@ -6,9 +6,15 @@
 /// `surface/app/permissions.dart` / `system_notifier.dart`、设备信息
 /// `domain/sys/sys_info.dart`）。那句「全项目只有这一处」与实际不符，已更正；
 /// 把这几处也收敛到本层是待办（见 docs/NETWORK.md 的待办一节）。
+///
+/// ## Web 适配后：这些分流**不再用 `dart:io`**
+/// 判平台一律走 `kIsWeb` + `defaultTargetPlatform`（本文件是这套约定的出处），
+/// 因此 `lib/main.dart`、`lib/platform/`、`lib/surface/` 里**一个
+/// `import 'dart:io'` 都没有**：浏览器里那个库不存在，任何一处引入都会让整个
+/// Web 构建编译不过。真正需要文件系统 / 平台通道的代码，按项目既有做法
+/// **条件导入**（`import 'x_io.dart' if (dart.library.js_interop) 'x_web.dart';`）
+/// 下移到 `lib/base/`（见 `base/disk/app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`）。
 library;
-
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -44,28 +50,31 @@ enum OgLTargetPlatform {
 
 /// 识别当前平台。
 ///
-/// 注意：这里**先判 `kIsWeb`**——浏览器里 `dart:io` 的 `Platform` 不可靠
-/// （在某些编译目标下会抛或返回 unknown），必须走 Flutter 的 `kIsWeb`。
+/// 注意两点：
+/// - 这里**先判 `kIsWeb`**：浏览器里 `dart:io` 的 `Platform` 根本不存在，
+///   而 `defaultTargetPlatform` 在 Web 上返回的是**宿主系统**
+///   （Android / iOS / macOS…），所以必须先看 `kIsWeb` 才能得到 `web`；
+/// - 全程只用 Flutter 的 `kIsWeb` + `defaultTargetPlatform`，
+///   **不 import `dart:io`**——否则这个文件在 Web 构建里编译不过。
 OgLTargetPlatform ogLDetectPlatform() {
   if (kIsWeb) {
     return OgLTargetPlatform.web;
   }
-  if (Platform.isAndroid) {
-    return OgLTargetPlatform.android;
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      return OgLTargetPlatform.android;
+    case TargetPlatform.windows:
+      return OgLTargetPlatform.windows;
+    case TargetPlatform.linux:
+      return OgLTargetPlatform.linux;
+    case TargetPlatform.macOS:
+      return OgLTargetPlatform.macos;
+    case TargetPlatform.iOS:
+      return OgLTargetPlatform.ios;
+    case TargetPlatform.fuchsia:
+      // 未识别的其它平台：如实返回 unknown，不硬塞一个相近的枚举值。
+      return OgLTargetPlatform.unknown;
   }
-  if (Platform.isWindows) {
-    return OgLTargetPlatform.windows;
-  }
-  if (Platform.isLinux) {
-    return OgLTargetPlatform.linux;
-  }
-  if (Platform.isMacOS) {
-    return OgLTargetPlatform.macos;
-  }
-  if (Platform.isIOS) {
-    return OgLTargetPlatform.ios;
-  }
-  return OgLTargetPlatform.unknown;
 }
 
 /// 平台展示名。

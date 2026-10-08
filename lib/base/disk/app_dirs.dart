@@ -17,12 +17,20 @@
 ///   （无需权限、文件管理器可见）；再退到应用文档目录。
 /// - 桌面（Windows / Linux / macOS）：文档目录下的 `ogl`。
 /// - 探测方式为**真实写入探针**：能建目录并写删探针文件才算可用，不靠猜。
+///
+/// ## Web 适配
+/// 浏览器里**没有文件系统**，也**不能调用 path_provider**：
+/// - 只有**一档**：`internal` 语义，根用虚拟前缀 `web`；
+/// - [OgLAppDirs.isUserVisible] 在 web 上**恒 `false`**（用户看不到应用存储）。
+///
+/// 真正的平台差异（`dart:io` / path_provider）全部收敛到条件导入的
+/// `app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`，本文件本身不依赖 `dart:io`。
 library;
 
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+
+import 'app_dirs_fs_io.dart'
+    if (dart.library.js_interop) 'app_dirs_fs_web.dart';
 
 /// 落盘位置分级（决定"用户能不能在文件管理器里看到"）。
 enum OgLStorageTier {
@@ -54,20 +62,10 @@ abstract final class OgLAppDirs {
   /// - 桌面：文档目录下的 `ogl`。
   static Future<String?> publicRoot() async {
     if (kIsWeb) {
+      // 浏览器没有「用户可见的公共目录」。
       return null;
     }
-    if (Platform.isAndroid) {
-      return '/storage/emulated/0/$folderName';
-    }
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      try {
-        final Directory docs = await getApplicationDocumentsDirectory();
-        return '${docs.path.replaceAll(r'\', '/')}/$folderName';
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
+    return AppDirsFs.publicRoot(folderName);
   }
 
   /// 公共根目录当前是否**真的可写**（真实写入探针）。
@@ -81,6 +79,10 @@ abstract final class OgLAppDirs {
 
   /// 落盘位置分级。
   static OgLStorageTier tierOf(String path) {
+    if (kIsWeb) {
+      // 浏览器只有一档：应用内部（虚拟根 `web`），且用户看不到。
+      return OgLStorageTier.internal;
+    }
     final String p = path.replaceAll(r'\', '/');
     if (p.contains('/Android/data/') || p.contains('/Android/obb/')) {
       return OgLStorageTier.appExternal;
@@ -95,7 +97,10 @@ abstract final class OgLAppDirs {
       // 其它挂载点（可移动存储等）：不经应用私有目录，视为可见。
       return OgLStorageTier.public;
     }
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    // 桌面平台用 `defaultTargetPlatform` 判定（不引入 dart:io 的 Platform）。
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
       return OgLStorageTier.desktop;
     }
     return OgLStorageTier.unknown;
@@ -171,61 +176,13 @@ abstract final class OgLAppDirs {
   }
 
   static Future<String> _resolveRoot() async {
-    if (kIsWeb) {
-      return folderName;
-    }
-    if (Platform.isAndroid) {
-      // ① 外部可见目录（Android 11+ 通常写不动 → 探针会失败）。
-      final String visible = '/storage/emulated/0/$folderName';
-      if (await _writable(visible)) {
-        return visible;
-      }
-      // ② 应用外部目录：无需任何权限即可写，是 ① 失败后的首选退路。
-      //    ⚠️ 但它**不算用户可见**（见 `isUserVisible`）：Android 11+ 起系统会
-      //    隐藏 `Android/data/`，用户在文件管理器里实际上找不到。这里选它只是
-      //    因为「能写」比「不可见但能写」更接近可用，界面会如实标注当前档位。
-      try {
-        final Directory? ext = await getExternalStorageDirectory();
-        if (ext != null) {
-          final String candidate = '${ext.path.replaceAll(r'\', '/')}/$folderName';
-          if (await _writable(candidate)) {
-            return candidate;
-          }
-        }
-      } catch (_) {
-        // 某些定制 ROM 会抛：忽略，继续退。
-      }
-    }
-    // ③ 文档目录（桌面为 ~/Documents，用户可见；其余平台兜底）。
-    try {
-      final Directory docs = await getApplicationDocumentsDirectory();
-      final String candidate = '${docs.path.replaceAll(r'\', '/')}/$folderName';
-      if (await _writable(candidate)) {
-        return candidate;
-      }
-    } catch (_) {
-      // 忽略。
-    }
-    // ④ 支持目录：一定可写，保底。
-    final Directory support = await getApplicationSupportDirectory();
-    final String candidate = '${support.path.replaceAll(r'\', '/')}/$folderName';
-    if (await _writable(candidate)) {
-      return candidate;
-    }
-    return support.path.replaceAll(r'\', '/');
+    // Web：一档虚拟根 `web`（`app_dirs_fs_web.dart` 里解析，不碰 path_provider）；
+    // 非 web：真实候选链（`app_dirs_fs_io.dart`）。
+    return AppDirsFs.resolveRoot(folderName);
   }
 
   /// 真实写入探针：能建目录、能写入并删除探针文件，才算可写。
-  static Future<bool> _writable(String dir) async {
-    try {
-      final Directory d = Directory(dir);
-      await d.create(recursive: true);
-      final File probe = File('$dir/.ogl_probe');
-      await probe.writeAsString('ok', flush: true);
-      await probe.delete();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
+  ///
+  /// Web 端恒 `false`（浏览器沙箱里没有可写的"用户可见目录"）。
+  static Future<bool> _writable(String dir) => AppDirsFs.writable(dir);
 }

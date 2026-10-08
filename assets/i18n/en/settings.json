@@ -156,5 +156,9 @@
   "accelScopeReleaseAsset": "Release assets",
   "accelScopeActionArtifact": "Action artifacts",
   "accelScopeRepoFile": "Repository files (download & preview)",
-  "accelScopeReadmeImage": "Images inside README"
+  "accelScopeReadmeImage": "Images inside README",
+  "webSectionTitle": "Web version",
+  "webSectionDesc": "Options that exist only in the browser",
+  "webInstallPrompt": "Ask to add to home screen on launch",
+  "webInstallPromptDesc": "Asked once each time the page is opened; skipped once the app is installed (opened from its own icon)."
 }

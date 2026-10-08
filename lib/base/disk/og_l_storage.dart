@@ -20,14 +20,11 @@
 /// 这样"用户可见"这件事与下载实现解耦。
 library;
 
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:saf_stream/saf_stream.dart';
-import 'package:saf_util/saf_util.dart';
 
 import 'app_dirs.dart';
+import 'og_l_storage_saf_io.dart'
+    if (dart.library.js_interop) 'og_l_storage_saf_web.dart';
 
 /// 落盘模式（三档，按优先级）。
 enum OgLStorageMode {
@@ -86,56 +83,26 @@ class OgLStoragePlan {
 
 /// SAF（Storage Access Framework）操作封装。
 ///
-/// **只在 Android 上被调用**；其余平台这些方法不会被走到。
-/// 刻意不直接引用插件的数据类型（`SafDocumentFile` / `SafNewFile`），
-/// 只用已确认存在的方法签名 + `dynamic` 读字段——把编译面压到最小。
+/// **只在 Android 上会真正生效**；其余平台（含 web）一律返回失败/`null`。
+/// 实现细节（`dart:io` / `path_provider` / `saf_*` 插件）收敛到条件导入的
+/// `og_l_storage_saf_io.dart` / `og_l_storage_saf_web.dart`，本文件自身不依赖它们。
 abstract final class OgLSaf {
-  /// 选一个文件夹并获得**可持久化**的读写授权；取消 / 失败返回 `null`。
-  static Future<String?> pickDirectory() async {
-    if (kIsWeb || !Platform.isAndroid) {
-      return null;
-    }
-    try {
-      final Object? picked = await SafUtil().pickDirectory(
-        writePermission: true,
-        persistablePermission: true,
-      );
-      if (picked == null) {
-        return null;
-      }
-      final Object? uri = (picked as dynamic).uri;
-      final String? text = uri?.toString();
-      return (text == null || text.isEmpty) ? null : text;
-    } catch (error) {
-      debugPrint('OGL 存储：选择 SAF 文件夹失败：$error');
-      return null;
-    }
-  }
+  /// 选一个文件夹并获得**可持久化**的读写授权；取消 / 失败 / 非 Android 返回 `null`。
+  static Future<String?> pickDirectory() => OgLSafBridge.pickDirectory();
 
-  /// 把本地文件**粘贴**进 SAF 目录；成功返回 `true`。
+  /// 把本地文件**粘贴**进 SAF 目录；成功返回 `true`（失败绝不抛）。
   static Future<bool> pasteLocalFile({
     required String srcPath,
     required String treeUri,
     required String fileName,
     String mime = 'application/octet-stream',
-  }) async {
-    if (kIsWeb || !Platform.isAndroid) {
-      return false;
-    }
-    try {
-      await SafStream().pasteLocalFile(
-        srcPath,
-        treeUri,
-        fileName,
-        mime,
-        overwrite: true,
+  }) =>
+      OgLSafBridge.pasteLocalFile(
+        srcPath: srcPath,
+        treeUri: treeUri,
+        fileName: fileName,
+        mime: mime,
       );
-      return true;
-    } catch (error) {
-      debugPrint('OGL 存储：导出到 SAF 失败：$error');
-      return false;
-    }
-  }
 }
 
 /// 落盘方案的**唯一裁决处**。
@@ -146,50 +113,26 @@ abstract final class OgLStorage {
   /// 是否已从磁盘读过 SAF 配置。
   static bool _safLoaded = false;
 
-  /// SAF 配置文件名（存在**应用支持目录**：一定可写，不需要任何权限）。
-  static const String _safFileName = 'ogl_saf_tree.txt';
-
   /// 已知的 SAF 目录 URI（未授权 = `null`）。
   static String? get safTreeUri => _safUri;
 
-  static Future<File> _safFile() async {
-    final Directory support = await getApplicationSupportDirectory();
-    return File('${support.path.replaceAll(r'\', '/')}/$_safFileName');
-  }
-
-  /// 从磁盘加载 SAF 授权（只读一次）。
+  /// 从（平台配置）加载 SAF 授权（只读一次）。
+  ///
+  /// Web 端无配置落盘，恒读到 `null`（未授权）——因此 `plan()` 在浏览器下
+  /// 只会裁决到 `internal`。
   static Future<void> ensureLoaded() async {
     if (_safLoaded) {
       return;
     }
     _safLoaded = true;
-    try {
-      final File file = await _safFile();
-      if (await file.exists()) {
-        final String text = (await file.readAsString()).trim();
-        _safUri = text.isEmpty ? null : text;
-      }
-    } catch (_) {
-      _safUri = null;
-    }
+    _safUri = await OgLSafBridge.loadConfig();
   }
 
   /// 记录 / 清除 SAF 授权（`null` = 清除）。
   static Future<void> setSafTreeUri(String? uri) async {
     _safLoaded = true;
     _safUri = (uri == null || uri.isEmpty) ? null : uri;
-    try {
-      final File file = await _safFile();
-      if (_safUri == null) {
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } else {
-        await file.writeAsString(_safUri!, flush: true);
-      }
-    } catch (error) {
-      debugPrint('OGL 存储：写入 SAF 配置失败：$error');
-    }
+    await OgLSafBridge.saveConfig(_safUri);
   }
 
   /// **裁决当前落盘方案**（每次都会重新探测公共目录可写性）。
@@ -225,7 +168,7 @@ abstract final class OgLStorage {
     if (uri == null) {
       return false;
     }
-    if (!File(localPath).existsSync()) {
+    if (!await OgLSafBridge.localFileExists(localPath)) {
       return false;
     }
     return OgLSaf.pasteLocalFile(

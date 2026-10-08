@@ -23,7 +23,7 @@
 ///   允许设备被引导去探测内网。
 library;
 
-import 'dart:io';
+import 'ix_presign_io.dart' if (dart.library.js_interop) 'ix_presign_web.dart';
 
 /// 解析结果（失败时 [url] 为 `null`，调用方据此降级）。
 class IxPresignResult {
@@ -61,32 +61,24 @@ class IxPresign {
   ///
   /// [tokenProvider] 返回当前令牌明文（未登录返回 `null`；公开资源此时同样
   /// 能拿到签名地址，只是没有 Authorization 头）。
-  /// [clientFactory] 仅供测试注入。
-  IxPresign({
-    required this.tokenProvider,
-    HttpClient Function()? clientFactory,
-  }) : _clientFactory = clientFactory ?? _defaultClient;
+  ///
+  /// ## Web 上的行为（如实说明，不假装）
+  /// 浏览器把跨域 302 当作**不可读的网络细节**（`fetch` 里是
+  /// `type === 'opaqueredirect'`，拿不到 `Location`），因此 Web 上**无法预签名**：
+  /// [resolve] 直接返回 `IxPresignResult(url: 原地址, redirected: false)`，
+  /// 由调用方按「无签名」处理。
+  /// ★ 绝不会改成"跟随重定向去读内容"——那会绕过令牌保护把受保护资源取回，
+  ///   是安全边界的破坏。真正的第一跳只在原生平台进行。
+  IxPresign({required this.tokenProvider});
 
   /// 令牌提供者。
   final Future<String?> Function() tokenProvider;
 
-  final HttpClient Function() _clientFactory;
-
-  static const Duration _connectTimeout = Duration(seconds: 20);
-  static const Duration _receiveTimeout = Duration(seconds: 30);
-
-  static HttpClient _defaultClient() {
-    final HttpClient client = HttpClient();
-    client.idleTimeout = const Duration(seconds: 3);
-    client.connectionTimeout = _connectTimeout;
-    client.userAgent = 'OhGithubLost';
-    return client;
-  }
-
   /// 把 [url] 解析成可直接下载的地址。
   ///
-  /// 流程：请求第一跳（**不跟随重定向**）→ 若为 3xx 则取 `Location` 并校验 →
-  /// 返回该地址；若第一跳本身就是 200，则原样返回（它已经是直链）。
+  /// 流程（原生平台）：请求第一跳（**不跟随重定向**）→ 若为 3xx 则取
+  /// `Location` 并校验 → 返回该地址；若第一跳本身就是 200，则原样返回。
+  /// Web 平台见构造函数的说明。
   Future<IxPresignResult> resolve(String url) async {
     final Uri? source = Uri.tryParse(url);
     if (source == null ||
@@ -97,72 +89,7 @@ class IxPresign {
         error: '非 http/https 地址',
       );
     }
-    final HttpClient client = _clientFactory();
-    try {
-      final HttpClientRequest request =
-          await client.getUrl(source).timeout(_connectTimeout);
-      // ★ 显式不跟随：跳转目标由本类校验，不依赖 SDK 的隐式剥离行为。
-      request.followRedirects = false;
-      request.maxRedirects = 0;
-      request.persistentConnection = false;
-      request.headers.set('accept', '*/*');
-      final String? token = await tokenProvider();
-      if (token != null && token.isNotEmpty) {
-        request.headers.set('authorization', 'Bearer $token');
-      }
-      final HttpClientResponse response =
-          await request.close().timeout(_receiveTimeout);
-      final int status = response.statusCode;
-      if (status >= 300 && status < 400) {
-        final String? location =
-            response.headers.value(HttpHeaders.locationHeader);
-        await response.drain<void>();
-        if (location == null || location.isEmpty) {
-          return IxPresignResult(
-            url: null,
-            redirected: true,
-            statusCode: status,
-            error: '3xx 但没有 Location',
-          );
-        }
-        final String? target = safeRedirectTarget(location, source);
-        if (target == null) {
-          return IxPresignResult(
-            url: null,
-            redirected: true,
-            statusCode: status,
-            error: '跳转目标被拒绝（协议或主机不安全）',
-          );
-        }
-        return IxPresignResult(
-          url: target,
-          redirected: true,
-          statusCode: status,
-        );
-      }
-      // 200：第一跳本身就是直链，原样返回。
-      // ★ 这里**不能** drain —— 200 意味着后面是真实的文件字节，把它们读掉再
-      //   丢弃等于白跑一遍全量流量（调用方随后还会完整下载一次）。
-      //   此前 drain 写在 2xx 判断之前，每个直链下载都多跑一遍；现已移除。
-      //   连接由 finally 里的 force close 收尾，不需要靠 drain 回收。
-      if (status >= 200 && status < 300) {
-        return IxPresignResult(
-          url: url,
-          redirected: false,
-          statusCode: status,
-        );
-      }
-      return IxPresignResult(
-        url: null,
-        redirected: false,
-        statusCode: status,
-        error: 'HTTP $status',
-      );
-    } on Object catch (error) {
-      return IxPresignResult(url: null, redirected: false, error: '$error');
-    } finally {
-      client.close(force: true);
-    }
+    return IxPresignProbe.resolve(url, tokenProvider);
   }
 
   /// 校验并解析跳转目标（相对地址按 [base] 补全）。

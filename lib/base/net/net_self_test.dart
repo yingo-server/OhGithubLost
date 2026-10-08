@@ -1,7 +1,19 @@
 /// L1 底座级 · 网络自检（实现见 `NetSelfTest`）：
 /// 把 errno 级真相写进日志与界面，不再让"连接失败"三个字背走全部信息。
+///
+/// ## 平台分层
+/// 本文件只保留**与平台无关**的部分（缓存、"同一主机 30 秒内只测一次"），
+/// 真正的探测交给条件导入的平台实现：
+/// - 非 Web → `net_self_test_impl_io.dart`：DNS 解析 + 逐地址 TCP + 裸 TLS
+///   + `HttpClient` 四条探针（把故障压到具体一层）；
+/// - Web → `net_self_test_impl_web.dart`：**有限自检**，只探 HTTP 可达性，
+///   并在报告里标注"web 端不包含 DNS / TCP / TLS 探测"。
+///
+/// 之所以要分：浏览器没有 `dart:io`，DNS / 裸 socket / 自建 TLS 全都不可用。
 library;
-import 'dart:io';
+
+import 'net_self_test_impl_io.dart'
+    if (dart.library.js_interop) 'net_self_test_impl_web.dart';
 
 /// 网络自检：解析 → 逐地址 TCP 连接，输出可读报告。
 ///
@@ -10,8 +22,8 @@ import 'dart:io';
 /// 不再让"连接失败"三个字背走全部信息。
 ///
 /// 为什么需要它：设备网络可能对 `curl` 完全通畅，而 App 进程请求失败；
-/// 自检在**同一进程、同一时刻**复现整条链路（DNS → TCP 逐地址），
-/// 结果可直接区分：DNS 污染 / IPv6 黑洞 / 系统级应用联网拦截 / TLS 问题。
+/// 自检在**同一进程、同一时刻**复现整条链路，结果可直接区分：
+/// DNS 污染 / IPv6 黑洞 / 系统级应用联网拦截 / TLS 问题。
 class NetSelfTest {
   const NetSelfTest._();
 
@@ -41,112 +53,16 @@ class NetSelfTest {
     return report;
   }
 
-  /// 单类型解析（**绝不抛**：失败以文本返回，便于日志直读）。
-  static Future<({List<InternetAddress> addrs, String text})> _lookupSafe(
-    String host,
-    InternetAddressType type,
-    Duration timeout,
-  ) async {
-    try {
-      final addrs =
-          await InternetAddress.lookup(host, type: type).timeout(timeout);
-      return (
-        addrs: addrs,
-        text: addrs.isEmpty ? '空' : addrs.map((a) => a.address).join(','),
-      );
-    } on Object catch (error) {
-      return (addrs: const <InternetAddress>[], text: '失败($error)');
-    }
-  }
-
-  /// 运行自检。
+  /// 运行自检（平台实现见文件头注释）。
   ///
-  /// 返回单行报告，例如：
+  /// 原生平台返回单行报告，例如：
   /// `api.github.com:443 | DNS 2 个: 20.205.243.168(IPv4), 2606:... (IPv6) | TCP[20.205.243.168]: OK 350ms | TCP[2606:...]: 失败 12ms → SocketException: ...`
+  ///
+  /// Web 平台返回**有限报告**（只有 HTTP 可达性，且已标注能力边界）。
   static Future<String> run(
     String host, {
     int port = 443,
     Duration timeout = const Duration(seconds: 4),
-  }) async {
-    final lines = <String>['$host:$port'];
-    final v4 = await _lookupSafe(host, InternetAddressType.IPv4, timeout);
-    final v6 = await _lookupSafe(host, InternetAddressType.IPv6, timeout);
-    lines.add('DNS-A(IPv4): ${v4.text}');
-    lines.add('DNS-AAAA(IPv6): ${v6.text}');
-    final addresses = <InternetAddress>[...v4.addrs, ...v6.addrs];
-    if (addresses.isEmpty) {
-      return lines.join(' | ');
-    }
-    for (final address in addresses) {
-      final sw = Stopwatch()..start();
-      try {
-        final socket = await Socket.connect(address, port, timeout: timeout);
-        sw.stop();
-        lines.add('TCP[${address.address}]: OK ${sw.elapsedMilliseconds}ms');
-        socket.destroy();
-      } on Object catch (error) {
-        sw.stop();
-        lines.add(
-          'TCP[${address.address}]: 失败 ${sw.elapsedMilliseconds}ms → $error',
-        );
-      }
-    }
-    // ── 追加：两条"原生栈"探针（定位故障层：TLS？HttpClient？）──
-    final ipv4s =
-        v4.addrs.where((a) => a.type == InternetAddressType.IPv4).toList();
-    if (ipv4s.isNotEmpty) {
-      final addr = ipv4s.first;
-      final swT = Stopwatch()..start();
-      try {
-        final raw = await Socket.connect(addr, port, timeout: timeout);
-        final tls = await SecureSocket.secure(raw, host: host).timeout(timeout);
-        tls.write(
-          'GET /zen HTTP/1.1\r\nHost: $host\r\n'
-          'User-Agent: ogl-selftest\r\n'
-          'accept: application/vnd.github+json\r\n'
-          'x-github-api-version: 2022-11-28\r\n'
-          'Connection: close\r\n\r\n',
-        );
-        final first = await tls.first.timeout(timeout);
-        swT.stop();
-        final line1 = String.fromCharCodes(first).split('\r\n').first;
-        lines.add('TLS(原生): $line1 · ${swT.elapsedMilliseconds}ms');
-        await tls.close();
-      } on Object catch (error) {
-        swT.stop();
-        lines.add('TLS(原生): 失败 ${swT.elapsedMilliseconds}ms → $error');
-      }
-      final swH = Stopwatch()..start();
-      HttpClient? hc;
-      try {
-        hc = HttpClient()..connectionTimeout = timeout;
-        final req =
-            await hc.getUrl(Uri.parse('https://$host/zen')).timeout(timeout);
-        final resp = await req.close().timeout(timeout);
-        swH.stop();
-        lines.add(
-          'HTTP(dart原生): ${resp.statusCode} · ${swH.elapsedMilliseconds}ms',
-        );
-        // 追加：带「凭据头」的 /user 探测（复刻登录请求的头部形状，假令牌）。
-        try {
-          final req2 =
-              await hc.getUrl(Uri.parse('https://$host/user')).timeout(timeout);
-          req2.headers.set('accept', 'application/vnd.github+json');
-          req2.headers.set('x-github-api-version', '2022-11-28');
-          req2.headers.set('authorization', 'Bearer selftest-fake');
-          final resp2 = await req2.close().timeout(timeout);
-          lines.add('HTTP(带凭据头 /user): ${resp2.statusCode}');
-        } on Object catch (error) {
-          lines.add('HTTP(带凭据头 /user): 失败 → $error');
-        }
-      } on Object catch (error) {
-        swH.stop();
-        lines.add('HTTP(dart原生): 失败 ${swH.elapsedMilliseconds}ms → $error');
-      } finally {
-        // 成败都要释放连接池（旧实现只在成功路径关闭，失败一次泄漏一组连接）。
-        hc?.close(force: true);
-      }
-    }
-    return lines.join(' | ');
-  }
+  }) =>
+      NetSelfTestImpl.run(host, port: port, timeout: timeout);
 }

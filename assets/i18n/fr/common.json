@@ -113,5 +113,11 @@
   "accelNoChannelBody": "Cette application ne fournit aucun canal et n’exploite aucun proxy. Pour accélérer, ajoutez votre propre adresse de proxy à préfixe ; sinon tout reste en direct.",
   "accelSelfProvided": "Les canaux sont à votre charge : cette application n’en embarque, n’en recommande et n’en héberge aucun.",
   "previewSvg": "SVG",
-  "previewUnknown": "Autre"
+  "previewUnknown": "Autre",
+  "webAccelNoticeTitle": "Service d'accélération non configuré",
+  "webAccelNoticeBody": "La version navigateur n'a pas de canal d'accélération intégré persistant : les téléchargements (pièces jointes de Release, etc.) passent donc en direct par défaut.\n\nL'application reste parfaitement utilisable sans rien configurer — seule la vitesse de téléchargement dépend de votre réseau et de l'accessibilité de GitHub.\n\nPour accélérer, ajoutez vous-même un canal dans Paramètres → Réseau → Accélération ; désactivable à tout moment.",
+  "webInstallDialogTitle": "Ajouter à l'écran d'accueil",
+  "webInstallDialogBody": "Ajoutez cette application à l'écran d'accueil : elle s'ouvrira ensuite comme une application normale.\n\n« Confirmer » ouvre l’invite d’installation du navigateur.",
+  "webInstallIosBody": "Les navigateurs iOS ne permettent pas l'ajout en un geste (limitation de la plateforme, pas un défaut de l'application).\n\nTouchez le bouton « Partager » en bas, puis choisissez « Sur l’écran d’accueil ».",
+  "webInstallChromiumBody": "Ce navigateur n'a pas proposé cette fois d'installation en un geste (l'application est peut-être déjà installée, ou la page ne remplit pas encore les critères).\n\nVous pouvez toujours choisir « Installer l’application » ou « Ajouter à l’écran d’accueil » dans le menu du navigateur."
 }

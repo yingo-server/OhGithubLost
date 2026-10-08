@@ -61,5 +61,6 @@
   "minimizeWindow": "最小化",
   "maximizeWindow": "最大化",
   "restoreWindow": "还原",
-  "closeWindow": "关闭"
+  "closeWindow": "关闭",
+  "webNotifGatewayDesc": "浏览器只在你同意之后才允许通知：点下方按钮会弹出浏览器自己的授权条。之后要改授权，只能到浏览器的「站点设置」里操作，应用无法代你跳转。"
 }

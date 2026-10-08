@@ -1,19 +1,19 @@
 name: Web
 
-# Web（wasm/JS）构建与校验。
+# Web（JS/Wasm）构建、按版本发布到 `app/`、并更新入口页。
 #
-# ## 为什么单独一条工作流
-# Web 适配在**独立分支 web** 上进行，与五平台正式发布互不影响：
-#   · 不共用 actions：本工作流只在 web 分支跑，不参与 build.yml 的发布；
-#   · 允许失败：Web 构建失败**不影响**五平台发布（两者互不依赖）；
-#   · 不部署 gh-pages：那个分支目前由更新日志站点（Jekyll）使用，
-#     不能拿构建产物覆盖它。产物走 artifact（需要发布时再加部署步骤）。
+# ## 目录约定（见 tool/web_publish.py）
+#   app/index.html     入口页：iframe 包裹**当前版本**，地址长期不变
+#   app/versions.json  已发布版本清单（新版本在前）
+#   app/v650/          某版本的完整产物（由本工作流生成并提交）
+#
+# ## 与五平台发布的关系
+# 互不影响：本工作流只在 web 分支跑，不参与 build.yml 的发布流程。
+# Web 构建失败**不影响**五平台正式版。
 #
 # ## 当前状态
-# 这个分支的 lib/ 仍是 main 的副本，尚未做 Web 适配：19 个文件直接 import
-# `dart:io`，而浏览器里没有该库。因此本工作流现在**会失败** —— 这不是配置
-# 问题，而是待办本身。它存在的意义就是把「还差多少」变成可观测的结果：
-# 每推一次就能在 Actions 里看到编译停在哪一个文件。
+# 这个分支的 lib/ 正在做 Web 适配（`dart:io` 在浏览器里不存在）。适配完成前
+# 本工作流会失败 —— 那不是配置问题，就是待办本身。
 
 on:
   push:
@@ -29,9 +29,11 @@ env:
 
 jobs:
   build-web:
-    name: 构建 Web（wasm + js）
+    name: 构建并发布 Web
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
@@ -46,15 +48,26 @@ jobs:
       - name: 取依赖
         run: flutter pub get
 
-      # 平台目录不提交，由 CI 现场生成。web/ 已在仓库里（PWA 脚手架 +
-      # 图标），`flutter create` 只会补齐缺失项，不会覆盖已有文件。
+      # 平台目录不提交，由 CI 现场生成。web/ 已在仓库里（PWA 脚手架 + 图标），
+      # `flutter create` 只补齐缺失项，不覆盖已有文件。
       - name: 生成平台目录
         run: flutter create --platforms=web --org com.yingo --project-name ohgithublost .
 
       - name: 构建（release）
         run: flutter build web --release
 
-      - name: 上传产物
+      - name: 读出版本号
+        id: ver
+        run: |
+          set -eu
+          V=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "版本：$V"
+
+      - name: 按版本发布到 app/
+        run: python3 tool/web_publish.py build/web "${{ steps.ver.outputs.version }}"
+
+      - name: 上传产物（便于排查）
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -62,3 +75,18 @@ jobs:
           path: build/web
           if-no-files-found: warn
           retention-days: 14
+
+      # 提交回分支：app/ 下的版本目录与入口页需要长期可访问。
+      # 提交信息带 [skip ci]，避免本工作流自己触发自己。
+      - name: 提交 app/
+        run: |
+          set -eu
+          git config user.name  'ogl-web-bot'
+          git config user.email 'ogl-web-bot@users.noreply.github.com'
+          git add -A app
+          if git diff --cached --quiet; then
+            echo 'app/ 无变化，跳过提交'
+            exit 0
+          fi
+          git commit -m "chore(web): 发布 ${{ steps.ver.outputs.version }} 到 app/ [skip ci]"
+          git push
