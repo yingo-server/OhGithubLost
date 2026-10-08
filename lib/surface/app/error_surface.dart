@@ -544,7 +544,7 @@ class OgLDiagnosticsNoticeSink implements KernelLogSink {
   }
 }
 
-/// 把引导层信任告警转发到通知中心（`docs/BOOT.md` 要求"必须 UI 触达"）。
+/// 把引导层信任告警转发到通知中心（`docs/BOOT.md（该文件未落地，以源码为准）` 要求"必须 UI 触达"）。
 class OgLTrustNoticeSink implements TrustWarningSink {
   /// 创建接收方。
   const OgLTrustNoticeSink();

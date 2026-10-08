@@ -82,7 +82,7 @@ class BootResult {
   /// 阶段结果（按执行顺序）。
   final List<BootStage> stages;
 
-  /// 本次引导产生的信任告警（**必须**被 UI 触达，见 docs/BOOT.md）。
+  /// 本次引导产生的信任告警（**必须**被 UI 触达，见 docs/BOOT.md（该文件未落地，以源码为准））。
   final List<BootTrustWarning> trustWarnings;
 
   /// 引导清单（拒绝启动时为 `null`）。
@@ -311,7 +311,13 @@ class BootLoader {
       ok: integrity.allPassed,
       duration: integrityWatch.elapsed,
       detail: integrity.allPassed
-          ? '${integrity.verifiedCount} 个模块通过'
+          // ★ 清单没有模块条目时，本阶段是**没有校验对象**，不是「都验过了」。
+          //   核心模块是 AOT 编译产物，运行时没有目录文件可指纹比对
+          //   （见 tool/boot_manifest.py 的说明）。这里如实写出来，
+          //   避免日志被读成「模块完整性已校验」。
+          ? (manifest.modules.isEmpty
+              ? '清单未声明模块条目：本阶段无校验对象（见 tool/boot_manifest.py）'
+              : '${integrity.verifiedCount} 个模块通过')
           : '失败: ${integrity.failedModuleIds.join(', ')}',
     ));
 
