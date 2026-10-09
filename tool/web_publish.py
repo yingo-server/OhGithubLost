@@ -213,7 +213,11 @@ def main() -> int:
     dir_name = version_dir_name(args.version)
     target = os.path.join(app_dir, dir_name)
     os.makedirs(app_dir, exist_ok=True)
-    # 同版本重发：先清掉旧的，避免残留上一轮的文件。
+    # ★ 版本目录策略（用户 2026-10-09 明确）：
+    #   · **历史版本一律保留**，不因发布新版本而删除 —— 旧版仍可访问，
+    #     入口页只改 iframe 指向，不动别人的目录；
+    #   · 唯一会清理的情况是**同一版本重发**（CI 重跑）：只重建它自己那一个
+    #     目录，避免上一轮的残留文件混在里面。
     if os.path.isdir(target):
         shutil.rmtree(target)
     shutil.copytree(args.build_dir, target)
