@@ -156,5 +156,6 @@
   "accelScopeReleaseAsset": "Release-Anhänge",
   "accelScopeActionArtifact": "Action-Artefakte",
   "accelScopeRepoFile": "Repository-Dateien (Download & Vorschau)",
-  "accelScopeReadmeImage": "Bilder im README"
+  "accelScopeReadmeImage": "Bilder im README",
+  "storageAllFilesGranted": "Zugriff auf alle Dateien wurde erteilt"
 }

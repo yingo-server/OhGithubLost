@@ -190,5 +190,6 @@
   "workflowTriggered": "Workflow déclenché",
   "defaultAction": "Par défaut",
   "selectBranch": "Sélectionner la branche",
-  "issueMeta": "par {author} · {comments} commentaires · {date}"
+  "issueMeta": "par {author} · {comments} commentaires · {date}",
+  "binaryNoEdit": "Les fichiers binaires ne peuvent pas être modifiés en texte"
 }

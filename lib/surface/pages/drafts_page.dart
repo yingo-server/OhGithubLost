@@ -78,6 +78,35 @@ class _DraftsPageState extends State<DraftsPage> {
     return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
   }
 
+  /// 删除前的二次确认（与其它破坏性操作一致）。
+  ///
+  /// 删除草稿**无法恢复**（内容不落任何远端），所以必须先问一句。
+  Future<void> _confirmDelete(GhDraft draft) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title:  Text(_t('deleteDraft')),
+        content:  Text(_t('deleteDraftDesc')),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child:  Text(OgLI18n.instance.t('common', 'cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child:  Text(OgLI18n.instance.t('common', 'delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _delete(draft);
+    }
+  }
+
   Future<void> _delete(GhDraft draft) async {
     await widget.surface.domain.api.discardDraft(
       draft.repo,
@@ -117,7 +146,7 @@ class _DraftsPageState extends State<DraftsPage> {
           FilledButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              unawaited(_delete(draft));
+              unawaited(_confirmDelete(draft));
             },
             child:  Text(_t('deleteDraft')),
           ),
@@ -162,7 +191,7 @@ class _DraftsPageState extends State<DraftsPage> {
                   trailing: IconButton(
                     tooltip: _t('delete'),
                     icon: const Icon(Icons.delete_outline),
-                    onPressed: () => unawaited(_delete(draft)),
+                    onPressed: () => unawaited(_confirmDelete(draft)),
                   ),
                   onTap: () => _view(draft),
                 ),

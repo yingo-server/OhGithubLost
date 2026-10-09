@@ -75,7 +75,7 @@ class OgLApp extends StatelessWidget {
             // R7：主题切换也带动画（设置里换明暗/主题色时不再"硬切"）。
             // 档位质量表：主题切换影响面大 → 用「慢」档；低档位自动更短、0 档为 0。
             themeAnimationDuration: OgLAnim.slow(context),
-            themeAnimationCurve: Curves.easeOut,
+            themeAnimationCurve: OgLAnim.curve(context),
             // 主题由桥缓存（含动效档位）；这里只读，不再每次 build 重新 copyWith。
             theme: surface.themeFor(
               MediaQuery.platformBrightnessOf(context),

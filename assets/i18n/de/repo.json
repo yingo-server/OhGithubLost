@@ -190,5 +190,6 @@
   "workflowTriggered": "Workflow ausgelöst",
   "defaultAction": "Standard",
   "selectBranch": "Branch auswählen",
-  "issueMeta": "von {author} · {comments} Kommentare · {date}"
+  "issueMeta": "von {author} · {comments} Kommentare · {date}",
+  "binaryNoEdit": "Binärdateien können nicht als Text bearbeitet werden"
 }

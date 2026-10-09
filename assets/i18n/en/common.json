@@ -113,5 +113,6 @@
   "accelNoChannelBody": "This application ships no channel and runs no proxy. To accelerate, add a prefix-style proxy address of your own; otherwise everything stays on a direct connection.",
   "accelSelfProvided": "Channels are yours to provide: this app bundles none, recommends none, and hosts none.",
   "previewSvg": "SVG",
-  "previewUnknown": "Other"
+  "previewUnknown": "Other",
+  "guide": "View guide"
 }

@@ -5,5 +5,6 @@
   "deleted": "Brouillon supprimé",
   "draft": "Brouillon",
   "empty": "Aucun brouillon non committé",
-  "title": "Brouillons"
+  "title": "Brouillons",
+  "deleteDraftDesc": "Ce brouillon sera supprimé de cet appareil. Cette action est irréversible."
 }

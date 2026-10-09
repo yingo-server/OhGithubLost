@@ -113,5 +113,6 @@
   "accelNoChannelBody": "本应用不预置任何通道，也不提供代理服务。想加速请自行添加一个前缀式代理地址；不添加则一直走直连。",
   "accelSelfProvided": "通道由你自备：本应用不内置、不推荐、也不托管任何代理。",
   "previewSvg": "SVG",
-  "previewUnknown": "其它"
+  "previewUnknown": "其它",
+  "guide": "查看使用引导"
 }

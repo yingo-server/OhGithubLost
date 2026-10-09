@@ -156,5 +156,6 @@
   "accelScopeReleaseAsset": "Pièces jointes de version",
   "accelScopeActionArtifact": "Artefacts d’Action",
   "accelScopeRepoFile": "Fichiers du dépôt (téléchargement et aperçu)",
-  "accelScopeReadmeImage": "Images dans le README"
+  "accelScopeReadmeImage": "Images dans le README",
+  "storageAllFilesGranted": "Accès à tous les fichiers accordé"
 }

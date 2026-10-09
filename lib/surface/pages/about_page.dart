@@ -65,9 +65,11 @@ class AboutPage extends StatelessWidget {
     final KernelReport? snapshot = report;
     return Scaffold(
       appBar: AppBar(title:  Text(_t('title'))),
-      body: OgLReveal(delay: Duration.zero, child: ListView(
+      // 根级子项逐个挂入场动画（[OgLRevealList] 自动错峰）；不再用整页
+      // `OgLReveal` 包住整个列表 —— 那会与路由过渡叠加成双重动画。
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        children: <Widget>[
+        children: OgLRevealList.of(context, <Widget>[
           Card(
             child: Column(
               children: <Widget>[
@@ -113,11 +115,11 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // 赞助：原在设置根级，**并入关于页**（这里是"身份页"，赞助属于身份认同）。
+          // 设置页另有「加星」入口，此处为赞助跳转（用户已拍板两个入口都保留）。
           Card(
             clipBehavior: Clip.antiAlias,
             child: ListTile(
-              leading: const Icon(Icons.favorite, color: Colors.redAccent),
+              leading: Icon(Icons.favorite, color: theme.colorScheme.error),
               title: Text(OgLI18n.instance.t('shell', 'donateHeart')),
               subtitle: Text(
                 OgLI18n.instance.t('shell', 'donateTileDesc', args: <String, String>{
@@ -228,8 +230,8 @@ class AboutPage extends StatelessWidget {
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 24),
-        ],
-      )),
+        ]),
+      ),
     );
   }
 

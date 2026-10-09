@@ -156,5 +156,6 @@
   "accelScopeReleaseAsset": "Вложения релизов",
   "accelScopeActionArtifact": "Артефакты Action",
   "accelScopeRepoFile": "Файлы репозитория (скачивание и просмотр)",
-  "accelScopeReadmeImage": "Изображения внутри README"
+  "accelScopeReadmeImage": "Изображения внутри README",
+  "storageAllFilesGranted": "Доступ ко всем файлам предоставлен"
 }

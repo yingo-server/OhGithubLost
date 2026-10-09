@@ -126,6 +126,15 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
   }
 
   Future<void> _load() async {
+    // 重试前**复位错误态**：否则重试成功后仍会卡在错误页
+    //（`_buildBody` 先看 `_error`，旧错误没清就永远看不到内容）。
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _tooLarge = false;
+      });
+    }
     try {
       final GhContent? content = await widget.surface.domain.api.content(
         widget.fullName,

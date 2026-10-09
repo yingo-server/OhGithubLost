@@ -156,5 +156,6 @@
   "accelScopeReleaseAsset": "Release assets",
   "accelScopeActionArtifact": "Action artifacts",
   "accelScopeRepoFile": "Repository files (download & preview)",
-  "accelScopeReadmeImage": "Images inside README"
+  "accelScopeReadmeImage": "Images inside README",
+  "storageAllFilesGranted": "All-files access granted"
 }

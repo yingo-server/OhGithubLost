@@ -1,4 +1,4 @@
-/// L3 展示级 · 设置（**分组可折叠，默认收起**）。
+/// L3 展示级 · 设置（**根级不折叠，常展开**）。
 ///
 /// ## 为什么折叠
 /// 设置项持续增多（外观 / 语言 / 代码与文件 / 网络 / 账户 / 维护 /
@@ -63,12 +63,38 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   OgLSettingsController get _settings => widget.surface.settings;
 
-  /// 拖动中的草稿值（松手才落盘，避免拖动过程高频写盘）。
-  double? _fontScaleDraft;
-  double? _codeFontDraft;
-
   /// 日志栏目最多展示的行数（复制仍带走全部）。
   static const int _logTailShown = 80;
+
+  /// 账户行的 Future（**State 持有**，只创建一次）。
+  ///
+  /// 原实现把 `auth.activeAccount()` 写在 `build` 里：每次重建都会重新发请求，
+  /// 账户行因此反复闪「读取中」。账号增删后（见 [_refreshAccount]）重建它即可。
+  Future<GhAccount?>? _accountFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountFuture = widget.surface.domain.auth.activeAccount();
+    // 账号增删（登录页 / 用户页）会通知：重建 Future，账户行跟上变化。
+    widget.surface.domain.auth.addListener(_refreshAccount);
+  }
+
+  @override
+  void dispose() {
+    widget.surface.domain.auth.removeListener(_refreshAccount);
+    super.dispose();
+  }
+
+  /// 重建账户行 Future（账号状态变化后调用）。
+  void _refreshAccount() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _accountFuture = widget.surface.domain.auth.activeAccount();
+    });
+  }
 
   /// 自定义代码配色的可选色板（ARGB）。
   static const List<int> _kCodePalette = <int>[
@@ -116,15 +142,17 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   Future<void> _pickCodeColor(String field, int current, String title) async {
-    final int? picked = await showDialog<int>(
-      context: context,
+    final int? picked = await _showOgLDialog<int>(
       builder: (BuildContext dialogContext) => SimpleDialog(
         title: Text(title),
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: 280,
+            // 色板宽度：280 保持为**下限**（随字号放大），并受屏宽约束。
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: _dialogWidth(dialogContext, max: 280),
+              ),
               child: Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -139,24 +167,34 @@ class _SettingsPageState extends State<SettingsPage> {
                         'color': '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
                       }),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         onTap: () => Navigator.of(dialogContext).pop(argb),
-                        child: Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: Color(argb),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: argb == current
-                                  ? Theme.of(dialogContext).colorScheme.primary
-                                  : const Color(0x33000000),
-                            width: argb == current ? 3 : 1,
+                        // 触控命中区 48dp（视觉圆仍 34dp）：34dp 低于 Material
+                        // 的最小触控目标，密集点按容易点错。
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Center(
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Color(argb),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: argb == current
+                                      ? Theme.of(dialogContext)
+                                          .colorScheme
+                                          .primary
+                                      : const Color(0x33000000),
+                                  width: argb == current ? 3 : 1,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -179,8 +217,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     final String current = _settings.settings.dnsServerId;
-    final String? picked = await showDialog<String>(
-      context: context,
+    final String? picked = await _showOgLDialog<String>(
       builder: (BuildContext dialogContext) => SimpleDialog(
         title:  Text(_t('selectDns')),
         children: <Widget>[
@@ -210,8 +247,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _reset() async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
+    final bool? confirmed = await _showOgLDialog<bool>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('resetSettings')),
         content:  Text(_t('resetDesc')),
@@ -251,8 +287,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _pickLanguage() async {
     final String current = _settings.settings.languageCode;
-    final String? picked = await showDialog<String>(
-      context: context,
+    final String? picked = await _showOgLDialog<String>(
       builder: (BuildContext dialogContext) => SimpleDialog(
         title: Text(_t('language')),
         children: <Widget>[
@@ -318,8 +353,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       return;
     }
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
+    final bool? confirmed = await _showOgLDialog<bool>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('donateHeart')),
         content: Text(
@@ -385,20 +419,22 @@ class _SettingsPageState extends State<SettingsPage> {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(_t('title'))),
-      body: OgLReveal(delay: Duration.zero, child: ListenableBuilder(
+      // 根级子项逐个挂入场动画（[OgLRevealList] 自动错峰）；不再整页包一层
+      // `OgLReveal` —— 那会与路由过渡叠加成双重动画。
+      body: ListenableBuilder(
         listenable: _settings,
         builder: (BuildContext context, Widget? _) {
           final OgLSettings value = _settings.settings;
           final String? saveError = _settings.lastError;
           return ListView(
             padding: const EdgeInsets.all(16),
-            children: <Widget>[
+            children: OgLRevealList.of(context, <Widget>[
               // 根级顺序**严格固定**（不再随缘排列）：
               // 外观 → 语言 → 代码与文件 → 网络 → 存储位置
               // → 账号 → 维护 → 关于 → 许可 → 日志。
               _appearanceSection(theme, value),
               _languageSection(theme),
-              _codeSection(theme, value),
+              _codeSection(context, theme, value),
               // 网络：**独立子页面**（不折叠）。
               Card(
                 clipBehavior: Clip.antiAlias,
@@ -407,27 +443,36 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: const Icon(Icons.wifi_outlined),
                   title: Text(_t('network')),
                   subtitle:  Text(_t('dnsMode')),
+                  titleTextStyle: theme.textTheme.titleMedium,
+                  subtitleTextStyle: theme.textTheme.bodySmall,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openNetwork,
                 ),
               ),
               // 存储位置：档位 + 选择文件夹（SAF）/ 所有文件访问。
               _storageSection(theme),
-              if (saveError != null) ...<Widget>[
-                Card(
-                  color: theme.colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      saveError,
-                      style: TextStyle(
-                        color: theme.colorScheme.onErrorContainer,
+              // 保存失败提示：常驻 `AnimatedSize` 承载条件内容（带过渡；
+              // 档位 0 时 `OgLAnim` 给零时长 = 立即展开）。
+              AnimatedSize(
+                duration: OgLAnim.medium(context),
+                curve: OgLAnim.curve(context),
+                alignment: Alignment.topCenter,
+                child: saveError == null
+                    ? const SizedBox(width: double.infinity)
+                    : Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        color: theme.colorScheme.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            saveError,
+                            style: TextStyle(
+                              color: theme.colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
+              ),
               _accountSection(theme),
               // 捐赠一颗心：README 一直承诺此项，而实现早已写好却**从未接线**
               // （靠 `// ignore: unused_element` 压着 analyze）。这里补上入口。
@@ -440,6 +485,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: Text(_t('donateTileDesc', <String, Object?>{
                     'repo': OgLProjectInfo.repoFullName,
                   })),
+                  titleTextStyle: theme.textTheme.titleMedium,
+                  subtitleTextStyle: theme.textTheme.bodySmall,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => unawaited(_donateStar()),
                 ),
@@ -453,6 +500,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   leading: const Icon(Icons.info_outline),
                   title: Text(OgLI18n.instance.t('shell', 'about')),
                   subtitle:  Text(_t('projectInfo')),
+                  titleTextStyle: theme.textTheme.titleMedium,
+                  subtitleTextStyle: theme.textTheme.bodySmall,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openAbout,
                 ),
@@ -460,10 +509,10 @@ class _SettingsPageState extends State<SettingsPage> {
               _licenseSection(theme),
               _logsSection(theme),
               const SizedBox(height: 24),
-            ],
+            ]),
           );
         },
-      )),
+      ),
     );
   }
 
@@ -477,7 +526,7 @@ class _SettingsPageState extends State<SettingsPage> {
         children: <Widget>[
           _subTitle(theme, _t('themeMode')),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<OgLThemeMode>(
               segments:  <ButtonSegment<OgLThemeMode>>[
                 ButtonSegment<OgLThemeMode>(
@@ -505,7 +554,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 24),
           _subTitle(theme, _t('themeColor')),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -542,7 +591,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 24),
           _subTitle(theme, _t('density')),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: SegmentedButton<String>(
               segments:  <ButtonSegment<String>>[
                 ButtonSegment<String>(
@@ -564,19 +613,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(height: 24),
-          _sliderTile(
-            theme,
+          _OgLSliderRow(
             title: _t('fontScale'),
-            value: _fontScaleDraft ?? value.fontScale,
+            value: value.fontScale,
             min: OgLSettings.minFontScale,
             max: OgLSettings.maxFontScale,
-            display: '${(100 * (_fontScaleDraft ?? value.fontScale)).round()}%',
             divisions: 16,
-            onChanged: (double v) => setState(() => _fontScaleDraft = v),
-            onChangeEnd: (double v) {
-              setState(() => _fontScaleDraft = null);
-              _settings.setFontScale(v);
-            },
+            display: (double v) => '${(100 * v).round()}%',
+            onCommit: _settings.setFontScale,
           ),
           const Divider(height: 24),
           _motionTile(theme, value.motionLevel),
@@ -643,7 +687,8 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
   /// 代码与文件。
-  Widget _codeSection(ThemeData theme, OgLSettings value) => _section(
+  Widget _codeSection(BuildContext context, ThemeData theme, OgLSettings value) =>
+      _section(
         theme,
         title: _t('codeAndFiles'),
         subtitle: _t('codeDesc'),
@@ -656,7 +701,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           _subTitle(theme, _t('highlightTheme')),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -683,51 +728,60 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-          if (value.codeThemePreset == kOgLCodePresetCustom)
-            ...<Widget>[
-              const Divider(height: 1),
-              _codeColorTile(
-                theme,
-                _t('tokenBackground'),
-                'background',
-                value.codeColorBackground,
-              ),
-              _codeColorTile(
-                theme,
-                _t('tokenForeground'),
-                'foreground',
-                value.codeColorForeground,
-              ),
-              _codeColorTile(theme, _t('tokenKeyword'), 'keyword', value.codeColorKeyword),
-              _codeColorTile(
-                theme,
-                _t('tokenType'),
-                'typeName',
-                value.codeColorTypeName,
-              ),
-              _codeColorTile(theme, _t('tokenString'), 'string', value.codeColorString),
-              _codeColorTile(theme, _t('tokenComment'), 'comment', value.codeColorComment),
-              _codeColorTile(theme, _t('tokenNumber'), 'number', value.codeColorNumber),
-            ],
+          // 自定义配色块：条件内容带**过渡**（不再瞬间插拔）。
+          AnimatedSize(
+            duration: OgLAnim.medium(context),
+            curve: OgLAnim.curve(context),
+            alignment: Alignment.topCenter,
+            child: value.codeThemePreset == kOgLCodePresetCustom
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      const Divider(height: 1),
+                      _codeColorTile(
+                        theme,
+                        _t('tokenBackground'),
+                        'background',
+                        value.codeColorBackground,
+                      ),
+                      _codeColorTile(
+                        theme,
+                        _t('tokenForeground'),
+                        'foreground',
+                        value.codeColorForeground,
+                      ),
+                      _codeColorTile(theme, _t('tokenKeyword'), 'keyword',
+                          value.codeColorKeyword),
+                      _codeColorTile(
+                        theme,
+                        _t('tokenType'),
+                        'typeName',
+                        value.codeColorTypeName,
+                      ),
+                      _codeColorTile(theme, _t('tokenString'), 'string',
+                          value.codeColorString),
+                      _codeColorTile(theme, _t('tokenComment'), 'comment',
+                          value.codeColorComment),
+                      _codeColorTile(theme, _t('tokenNumber'), 'number',
+                          value.codeColorNumber),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
           SwitchListTile(
             title: Text(_t('codeWrap')),
             subtitle:  Text(_t('codeWrapDesc')),
             value: value.codeWrap,
             onChanged: _settings.setCodeWrap,
           ),
-          _sliderTile(
-            theme,
+          _OgLSliderRow(
             title: _t('codeFontSize'),
-            value: _codeFontDraft ?? value.codeFontSize,
+            value: value.codeFontSize,
             min: OgLSettings.minCodeFontSize,
             max: OgLSettings.maxCodeFontSize,
-            display: '${(_codeFontDraft ?? value.codeFontSize).round()}',
             divisions: 12,
-            onChanged: (double v) => setState(() => _codeFontDraft = v),
-            onChangeEnd: (double v) {
-              setState(() => _codeFontDraft = null);
-              _settings.setCodeFontSize(v);
-            },
+            display: (double v) => '${v.round()}',
+            onCommit: _settings.setCodeFontSize,
           ),
           SwitchListTile(
             title: Text(_t('foldersFirst')),
@@ -742,7 +796,7 @@ class _SettingsPageState extends State<SettingsPage> {
   ///
   /// 这些内容渲染在**独立的网络设置页**里（见 `network_page.dart`），
   /// 不再是一个"可折叠分组"。
-  List<Widget> _networkTiles(ThemeData theme, OgLSettings value) => <Widget>[
+  List<Widget> _networkTiles(BuildContext context, ThemeData theme, OgLSettings value) => <Widget>[
           SwitchListTile(
             title: Text(_t('customDns')),
             subtitle:  Text(_t('dnsModeDesc')),
@@ -751,27 +805,38 @@ class _SettingsPageState extends State<SettingsPage> {
               widget.surface.setDnsMode(on ? 'custom' : 'system');
             },
           ),
-          if (value.dnsMode == 'custom') ...<Widget>[
-            ListTile(
-              leading: const Icon(Icons.dns_outlined),
-              title:  Text(_t('dnsServer')),
-              subtitle: Text(
-                widget.surface.dnsServerChoices[value.dnsServerId] ??
-                    value.dnsServerId,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _pickDnsServer,
-            ),
-            SwitchListTile(
-              title: Text(_t('doh')),
-              subtitle:  Text(_t('dnsServerDesc')),
-              value: value.dnsPreferDoh,
-              onChanged: widget.surface.setDnsPreferDoh,
-            ),
-          ],
+          // 自定义 DNS 子项：条件内容带**过渡**（不再瞬间插拔）。
+          AnimatedSize(
+            duration: OgLAnim.medium(context),
+            curve: OgLAnim.curve(context),
+            alignment: Alignment.topCenter,
+            child: value.dnsMode == 'custom'
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      ListTile(
+                        leading: const Icon(Icons.dns_outlined),
+                        title:  Text(_t('dnsServer')),
+                        subtitle: Text(
+                          widget.surface.dnsServerChoices[value.dnsServerId] ??
+                              value.dnsServerId,
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _pickDnsServer,
+                      ),
+                      SwitchListTile(
+                        title: Text(_t('doh')),
+                        subtitle:  Text(_t('dnsServerDesc')),
+                        value: value.dnsPreferDoh,
+                        onChanged: widget.surface.setDnsPreferDoh,
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
 const Divider(height: 1),
           ..._downloadTiles(theme, value),
-          ..._accelTiles(theme, value),
+          ..._accelTiles(context, theme, value),
         ];
 
   /// 打开**网络设置页**（独立页面；不再是可折叠分组）。
@@ -785,7 +850,7 @@ const Divider(height: 1),
           builder: (BuildContext context, OgLSettings value) => Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
-              children: _networkTiles(Theme.of(context), value),
+              children: _networkTiles(context, Theme.of(context), value),
             ),
           ),
         ),
@@ -824,12 +889,11 @@ const Divider(height: 1),
       'saf' => _t('storageModeSaf'),
       _ => _t('storageModeInternal'),
     };
-    await showDialog<void>(
-      context: context,
+    await _showOgLDialog<void>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(OgLI18n.instance.t('shell', 'storageAccess')),
         content: SizedBox(
-          width: 460,
+          width: _dialogWidth(dialogContext),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -892,7 +956,7 @@ const Divider(height: 1),
       return;
     }
     _toast(status == OgLPermissionStatus.granted
-        ? _t('dnsSaved')
+        ? _t('storageAllFilesGranted')
         : OgLI18n.instance.t('shell', 'storageHintModern'));
   }
 
@@ -923,6 +987,29 @@ const Divider(height: 1),
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// 统一弹窗入口：所有弹窗都接**动效档位**（时长 / 曲线取自质量表；
+  /// 档位 0 为零时长 = 立即打开）。收口后不再各处手写 `showDialog`。
+  Future<T?> _showOgLDialog<T>({
+    required WidgetBuilder builder,
+    bool barrierDismissible = true,
+  }) =>
+      showDialog<T>(
+        context: context,
+        barrierDismissible: barrierDismissible,
+        animationStyle: AnimationStyle(
+          duration: OgLAnim.fast(context),
+          curve: OgLAnim.curve(context),
+        ),
+        builder: builder,
+      );
+
+  /// 弹窗内容宽度统一收口（原来 460 / 520 两种写法并存）：
+  /// 大屏上限 [max]，小屏取 90% 屏宽；色板的 280 是**下限**（随字号放大）。
+  double _dialogWidth(BuildContext context, {double max = 520}) {
+    final double byScreen = MediaQuery.sizeOf(context).width * 0.9;
+    return byScreen < max ? byScreen : max;
+  }
+
   /// ── 下载（并发连接数）──────────────────────────────────────────────
   ///
   /// 只给固定档位（1 / 2 / 4 / 8）：用户不需要理解 TCP，只需要「快一点 / 稳一点」。
@@ -932,18 +1019,25 @@ const Divider(height: 1),
           leading: const Icon(Icons.download_outlined),
           title: Text(_t('downloadConnections')),
           subtitle: Text(_t('downloadConnectionsDesc')),
-          trailing: Text(
-            _t('connectionsCount', <String, Object?>{
-              'count': value.downloadConnections,
-            }),
+          // 有「选择弹窗」的行带 chevron（与同卡其它可点行一致）。
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                _t('connectionsCount', <String, Object?>{
+                  'count': value.downloadConnections,
+                }),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 18),
+            ],
           ),
           onTap: () => unawaited(_pickDownloadConnections(value)),
         ),
       ];
 
   Future<void> _pickDownloadConnections(OgLSettings value) async {
-    final int? picked = await showDialog<int>(
-      context: context,
+    final int? picked = await _showOgLDialog<int>(
       builder: (BuildContext dialogContext) => SimpleDialog(
         title: Text(_t('downloadConnections')),
         children: <Widget>[
@@ -979,7 +1073,7 @@ const Divider(height: 1),
   /// 设计：**只有一个总开关**；下面是通道列表（内置 + 自定义），可多选一。
   /// 开启总开关前若尚未同意当前版本协议，会先弹出协议并要求勾选同意
   /// （同意版本与时间会落盘，作为凭据）。
-  List<Widget> _accelTiles(ThemeData theme, OgLSettings value) {
+  List<Widget> _accelTiles(BuildContext context, ThemeData theme, OgLSettings value) {
     final List<Widget> tiles = <Widget>[
       SwitchListTile(
         title:  Text(_t('accelTitle')),
@@ -988,124 +1082,122 @@ const Divider(height: 1),
         onChanged: (bool on) => unawaited(_toggleAccel(on)),
       ),
     ];
-    if (!value.releaseProxyEnabled) {
-      return tiles;
-    }
-    // ── 适用范围：哪些资源允许走通道 ──────────────────────────────
-    // 前缀式代理开放的端点有限（有的能转 Release 附件却转不了仓库图片），
-    // 写死"哪些加速"必然有人用不了，所以逐项可关。
-    tiles.add(_subTitle(theme, _t('accelScopes')));
+    // 总开关之后的条件内容（约 120 行的插拔）挂**过渡**：开关一拨
+    // 不再瞬间撑开 / 收起整块内容。
     tiles.add(
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: Text(
-          _t('accelScopesHint'),
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ),
-    );
-    for (final OgLAccelScope scope in OgLAccelScope.values) {
-      tiles.add(
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          title: Text(_t(scope.labelKey)),
-          value: value.accelScopeEnabled(scope),
-          onChanged: (bool on) =>
-              unawaited(widget.surface.setAccelScope(scope, on)),
-        ),
-      );
-    }
-    tiles.add(const Divider(height: 24));
-    tiles.add(_subTitle(theme, _t('accelChannels')));
-    // 说明一行：通道由用户自备，本应用不预置任何通道。
-    tiles.add(
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: Text(
-          _tc('accelSelfProvided'),
-          style: theme.textTheme.bodySmall
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ),
-    );
-    // 私有仓库加速 = 把令牌交给第三方代理。这里给一个**永久开关**：
-    // 关掉 = 不再询问**且**不再加速（而不是"别问了但照旧送令牌"）。
-    tiles.add(
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        secondary: const Icon(Icons.privacy_tip_outlined),
-        title: Text(_t('accelPrivateRepo')),
-        subtitle: Text(_t('accelPrivateRepoDesc')),
-        value: value.accelPrivateRepoAccepted,
-        onChanged: (bool on) =>
-            unawaited(_setPrivateAccelAccepted(on)),
-      ),
-    );
-    if (value.allAccelChannels.isEmpty) {
-      // 空态必须说清楚：**本应用不提供通道**，想加速得自己填一个。
-      tiles.add(
-        ListTile(
-          leading: const Icon(Icons.info_outline),
-          title: Text(_tc('accelNoChannelTitle')),
-          subtitle: Text(_tc('accelNoChannelBody')),
-          isThreeLine: true,
-        ),
-      );
-    }
-    for (final OgLAccelChannel channel in value.allAccelChannels) {
-      final bool selected = channel.id == value.releaseProxySelectedId;
-      tiles.add(
-        ListTile(
-          leading: Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          ),
-          title: Text(channel.name),
-          subtitle: Text(
-            channel.baseUrl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: IconButton(
-            tooltip: _t('removeChannel'),
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () =>
-                unawaited(widget.surface.removeAccelChannel(channel.id)),
-          ),
-          onTap: () =>
-              unawaited(widget.surface.setReleaseProxySelected(channel.id)),
-        ),
-      );
-    }
-    tiles.add(
-      ListTile(
-        leading: const Icon(Icons.add),
-        title:  Text(_t('addCustomChannel')),
-        subtitle: Text(_t('accelAddHint')),
-        onTap: _addAccelChannel,
-      ),
-    );
-    tiles.add(
-      ListTile(
-        leading: const Icon(Icons.gavel_outlined),
-        title:  Text(_t('viewAccelAgreement')),
-        subtitle: Text(
-          value.accelConsentCurrent
-              ? (value.releaseProxyConsentAt == null
-                  ? _t('consented', {
-                      'version': '${value.releaseProxyConsentVersion}',
-                    })
-                  : _t('consentedAt', {
-                      'version': '${value.releaseProxyConsentVersion}',
-                      'at': '${value.releaseProxyConsentAt}',
-                    }))
-              : _t('notConsented'),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => unawaited(_showAccelAgreement(requireConsent: true)),
+      AnimatedSize(
+        duration: OgLAnim.medium(context),
+        curve: OgLAnim.curve(context),
+        alignment: Alignment.topCenter,
+        child: !value.releaseProxyEnabled
+            ? const SizedBox(width: double.infinity)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  // ── 适用范围：哪些资源允许走通道 ──────────────────────
+                  // 前缀式代理开放的端点有限（有的能转 Release 附件却转不了仓库图片），
+                  // 写死"哪些加速"必然有人用不了，所以逐项可关。
+                  _subTitle(theme, _t('accelScopes')),
+                  ListTile(
+                    dense: true,
+                    title: Text(
+                      _t('accelScopesHint'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                  for (final OgLAccelScope scope in OgLAccelScope.values)
+                    SwitchListTile(
+                      dense: true,
+                      title: Text(_t(scope.labelKey)),
+                      value: value.accelScopeEnabled(scope),
+                      onChanged: (bool on) =>
+                          unawaited(widget.surface.setAccelScope(scope, on)),
+                    ),
+                  const Divider(height: 24),
+                  _subTitle(theme, _t('accelChannels')),
+                  // 说明一行：通道由用户自备，本应用不预置任何通道。
+                  ListTile(
+                    dense: true,
+                    title: Text(
+                      _tc('accelSelfProvided'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                  // 私有仓库加速 = 把令牌交给第三方代理。这里给一个**永久开关**：
+                  // 关掉 = 不再询问**且**不再加速（而不是"别问了但照旧送令牌"）。
+                  SwitchListTile(
+                    secondary: const Icon(Icons.privacy_tip_outlined),
+                    title: Text(_t('accelPrivateRepo')),
+                    subtitle: Text(_t('accelPrivateRepoDesc')),
+                    value: value.accelPrivateRepoAccepted,
+                    onChanged: (bool on) =>
+                        unawaited(_setPrivateAccelAccepted(on)),
+                  ),
+                  if (value.allAccelChannels.isEmpty)
+                    // 空态必须说清楚：**本应用不提供通道**，想加速得自己填一个。
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: Text(_tc('accelNoChannelTitle')),
+                      subtitle: Text(_tc('accelNoChannelBody')),
+                      isThreeLine: true,
+                    ),
+                  for (final OgLAccelChannel channel in value.allAccelChannels)
+                    ListTile(
+                      // 单选状态进无障碍语义：屏幕阅读器能念出"已选中"，
+                      // 而不是只报一个图标（写法对照色板的 Semantics）。
+                      leading: Semantics(
+                        selected: channel.id == value.releaseProxySelectedId,
+                        label: channel.name,
+                        child: Icon(
+                          channel.id == value.releaseProxySelectedId
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                        ),
+                      ),
+                      title: Text(channel.name),
+                      subtitle: Text(
+                        channel.baseUrl,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: IconButton(
+                        tooltip: _t('removeChannel'),
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => unawaited(
+                            widget.surface.removeAccelChannel(channel.id)),
+                      ),
+                      onTap: () => unawaited(
+                          widget.surface.setReleaseProxySelected(channel.id)),
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.add),
+                    title:  Text(_t('addCustomChannel')),
+                    subtitle: Text(_t('accelAddHint')),
+                    onTap: _addAccelChannel,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title:  Text(_t('viewAccelAgreement')),
+                    subtitle: Text(
+                      value.accelConsentCurrent
+                          ? (value.releaseProxyConsentAt == null
+                              ? _t('consented', {
+                                  'version': '${value.releaseProxyConsentVersion}',
+                                })
+                              : _t('consentedAt', {
+                                  'version': '${value.releaseProxyConsentVersion}',
+                                  'at': '${value.releaseProxyConsentAt}',
+                                }))
+                          : _t('notConsented'),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        unawaited(_showAccelAgreement(requireConsent: true)),
+                  ),
+                ],
+              ),
       ),
     );
     return tiles;
@@ -1160,9 +1252,8 @@ const Divider(height: 1),
     int remain = holdSeconds;
     // 本次弹窗是否已启动倒计时（builder 会被 setState 重建，不能每次都起）。
     bool timerStarted = false;
-    final bool? ok = await showDialog<bool>(
+    final bool? ok = await _showOgLDialog<bool>(
       barrierDismissible: false,
-      context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setLocal) {
           void tick() {
@@ -1192,7 +1283,7 @@ const Divider(height: 1),
               icon: const Icon(Icons.privacy_tip_outlined),
               title: Text(_t('accelPrivateWarnTitle')),
               content: SizedBox(
-                width: 520,
+                width: _dialogWidth(context),
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1255,13 +1346,12 @@ const Divider(height: 1),
   /// "本应用自建通道"的声明不复存在。
   Future<bool> _showAccelAgreement({required bool requireConsent}) async {
     bool agreed = false;
-    final bool? ok = await showDialog<bool>(
-      context: context,
+    final bool? ok = await _showOgLDialog<bool>(
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setLocal) => AlertDialog(
           title: Text(_t('accelThirdPartyTitle')),
           content: SizedBox(
-            width: 520,
+            width: _dialogWidth(context),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1302,6 +1392,19 @@ const Divider(height: 1),
                           fontStyle: FontStyle.italic,
                         ),
                   ),
+                  // 勾选框紧贴声明文字（阅读顺序：先读文，再勾选）——
+                  // 原来塞在 `actions` 里，屏幕阅读器与视觉顺序都是倒的。
+                  if (requireConsent) ...<Widget>[
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      value: agreed,
+                      onChanged: (bool? v) => setLocal(() => agreed = v ?? false),
+                      title:  Text(_t('agreeRead')),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1317,14 +1420,6 @@ const Divider(height: 1),
                   : null,
               child:  Text(_t('agreeContinue')),
             ),
-            if (requireConsent)
-              CheckboxListTile(
-                value: agreed,
-                onChanged: (bool? v) => setLocal(() => agreed = v ?? false),
-                title:  Text(_t('agreeRead')),
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-              ),
           ],
         ),
       ),
@@ -1344,8 +1439,7 @@ const Divider(height: 1),
   Future<void> _addAccelChannel() async {
     final TextEditingController name = TextEditingController();
     final TextEditingController url = TextEditingController();
-    final bool? ok = await showDialog<bool>(
-      context: context,
+    final bool? ok = await _showOgLDialog<bool>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('addCustomChannel')),
         content: Column(
@@ -1425,7 +1519,7 @@ const Divider(height: 1),
         subtitle: _t('currentAccount'),
         children: <Widget>[
           FutureBuilder<GhAccount?>(
-            future: widget.surface.domain.auth.activeAccount(),
+            future: _accountFuture,
             builder: (
               BuildContext context,
               AsyncSnapshot<GhAccount?> snapshot,
@@ -1528,8 +1622,7 @@ const Divider(height: 1),
     if (!mounted) {
       return;
     }
-    await showDialog<void>(
-      context: context,
+    await _showOgLDialog<void>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title: Text('${OgLProjectInfo.licenseId} · ${OgLProjectInfo.licenseName}'),
         content: ConstrainedBox(
@@ -1537,7 +1630,7 @@ const Divider(height: 1),
           //   字体、或横屏）上 460 会超出 AlertDialog 可用高度，直接溢出。
           //   按视口比例给上限，宽度同样受约束，内容内部自己滚。
           constraints: BoxConstraints(
-            maxWidth: 520,
+            maxWidth: _dialogWidth(context),
             maxHeight: MediaQuery.sizeOf(context).height * 0.6,
           ),
           child: text.isEmpty
@@ -1568,12 +1661,11 @@ const Divider(height: 1),
 
   /// 许可弹窗：本项目许可 + 第三方依赖清单（**合并为一个入口**）。
   Future<void> _showLicenses() async {
-    await showDialog<void>(
-      context: context,
+    await _showOgLDialog<void>(
       builder: (BuildContext dialogContext) => AlertDialog(
         title:  Text(_t('licenses')),
         content: SizedBox(
-          width: 520,
+          width: _dialogWidth(dialogContext),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1687,7 +1779,7 @@ const Divider(height: 1),
 
   // ───────────────────────── 通用零件 ─────────────────────────
 
-  /// 可折叠分组：标题 + 摘要，**默认收起**。
+  /// 根级分组卡片：标题 + 摘要，**常展开**（层级规范：根级不折叠）。
   Widget _section(
     ThemeData theme, {
     required String title,
@@ -1697,23 +1789,17 @@ const Divider(height: 1),
       Card(
         clipBehavior: Clip.antiAlias,
         margin: const EdgeInsets.only(bottom: 12),
-        child: Theme(
-          // 去掉 ExpansionTile 展开时的上下分隔线，外观更干净。
-          data: theme.copyWith(dividerColor: Colors.transparent),
-          // 层级规范：**设置根级一律不允许下拉/折叠**。
-          // 分组标题即分组本身，内容直接展开（设置项数量有限，无需折叠）。
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              ListTile(
-                title: Text(title, style: theme.textTheme.titleMedium),
-                subtitle: subtitle.isEmpty
-                    ? null
-                    : Text(subtitle, style: theme.textTheme.bodySmall),
-              ),
-              ...children,
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            ListTile(
+              title: Text(title, style: theme.textTheme.titleMedium),
+              subtitle: subtitle.isEmpty
+                  ? null
+                  : Text(subtitle, style: theme.textTheme.bodySmall),
+            ),
+            ...children,
+          ],
         ),
       );
 
@@ -1739,13 +1825,20 @@ const Divider(height: 1),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Color(argb),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: theme.colorScheme.outlineVariant),
+            // 色块进无障碍语义：屏幕阅读器能念出当前颜色的十六进制值，
+            // 而不是只报一个装饰性容器（写法对照色板的 Semantics）。
+            Semantics(
+              label: _t('colorSwatch', <String, Object?>{
+                'color': '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+              }),
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Color(argb),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -1755,39 +1848,86 @@ const Divider(height: 1),
         onTap: () => _pickCodeColor(field, argb, _t('chooseColor', {'label': label})),
       );
 
-  Widget _sliderTile(
-    ThemeData theme, {
-    required String title,
-    required double value,
-    required double min,
-    required double max,
-    required String display,
-    required ValueChanged<double> onChanged,
-    required ValueChanged<double> onChangeEnd,
-    int? divisions,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(title, style: theme.textTheme.labelLarge),
-                ),
-                Text(display, style: theme.textTheme.bodySmall),
-              ],
-            ),
-            Slider(
-              value: value.clamp(min, max).toDouble(),
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
-              onChangeEnd: onChangeEnd,
-            ),
-          ],
-        ),
-      );
+}
+
+/// 一条滑块设置行（标题 + 当前值 + 拖动条）。
+///
+/// ## 为什么要单独抽出来
+/// 拖动中的"草稿值"原本放在**整页** State 上：每动一帧整页 `setState` ——
+/// 设置页很长，拖动一次要重建几十个卡片。草稿值放进本组件自己的 State 后，
+/// 拖动只重建这一行；松手才 `onCommit`（落盘一次，不写盘风暴）。
+class _OgLSliderRow extends StatefulWidget {
+  /// 创建。
+  const _OgLSliderRow({
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.display,
+    required this.onCommit,
+    this.divisions,
+  });
+
+  /// 行标题。
+  final String title;
+
+  /// 外部真值（未拖动时展示）。
+  final double value;
+
+  /// 最小值。
+  final double min;
+
+  /// 最大值。
+  final double max;
+
+  /// 当前值 → 展示文本（跟随草稿值实时变化）。
+  final String Function(double value) display;
+
+  /// 松手后落盘（只调一次）。
+  final ValueChanged<double> onCommit;
+
+  /// 分档数（可选）。
+  final int? divisions;
+
+  @override
+  State<_OgLSliderRow> createState() => _OgLSliderRowState();
+}
+
+class _OgLSliderRowState extends State<_OgLSliderRow> {
+  /// 拖动中的草稿值（松手清空）。
+  double? _draft;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final double current =
+        (_draft ?? widget.value).clamp(widget.min, widget.max).toDouble();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(widget.title, style: theme.textTheme.labelLarge),
+              ),
+              Text(widget.display(current), style: theme.textTheme.bodySmall),
+            ],
+          ),
+          Slider(
+            value: current,
+            min: widget.min,
+            max: widget.max,
+            divisions: widget.divisions,
+            onChanged: (double v) => setState(() => _draft = v),
+            onChangeEnd: (double v) {
+              setState(() => _draft = null);
+              widget.onCommit(v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -62,9 +62,25 @@ class _OgLKeyboardGuardState extends State<OgLKeyboardGuard>
   }
 
   /// 当前焦点是不是文本输入（`EditableText` 把自己的 FocusNode 挂在自身上）。
+  ///
+  /// re_editor（代码编辑器）是**自绘输入**：焦点挂在自己的普通 `Focus` 上
+  /// （debugLabel = `CodeEditor`），而不是 `EditableText`。若只认 `EditableText`，
+  /// 打字时 bottom inset 会被当成"幽灵键盘"归零 —— 编辑区被键盘遮住。
+  /// 拿不到上下文（无法判定）时**保留 inset**：宁可多留，不可遮挡。
   bool get _textFocused {
-    final BuildContext? context = FocusManager.instance.primaryFocus?.context;
-    return context?.widget is EditableText;
+    final FocusNode? focus = FocusManager.instance.primaryFocus;
+    if (focus == null) {
+      return false;
+    }
+    final BuildContext? context = focus.context;
+    if (context?.widget is EditableText) {
+      return true;
+    }
+    final String? label = focus.debugLabel;
+    if (label != null && label.contains('CodeEditor')) {
+      return true;
+    }
+    return context == null;
   }
 
   void _logMetrics(String phase) {

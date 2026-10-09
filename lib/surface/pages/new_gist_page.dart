@@ -36,6 +36,39 @@ class _NewGistPageState extends State<NewGistPage> {
   bool _public = false;
   bool _busy = false;
 
+  /// 初始值（用于「返回时是否确认」的脏检查）。
+  late final String _initialDescription = _description.text;
+  late final String _initialFilename = _filename.text;
+  late final String _initialContent = _content.text;
+
+  /// 表单是否已输入内容。
+  bool get _dirty =>
+      _description.text != _initialDescription ||
+      _filename.text != _initialFilename ||
+      _content.text != _initialContent;
+
+  /// 返回前的「放弃确认」（复用 `code_editor_page` 分片的既有文案，语义一致）。
+  Future<bool?> _confirmDiscard() => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          final OgLI18n i18n = OgLI18n.instance;
+          return AlertDialog(
+            title: Text(i18n.t('code_editor_page', 'discardTitle')),
+            content: Text(i18n.t('code_editor_page', 'discardDesc')),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(i18n.t('code_editor_page', 'continueEditing')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(i18n.t('code_editor_page', 'discardChanges')),
+              ),
+            ],
+          );
+        },
+      );
+
   @override
   void dispose() {
     _description.dispose();
@@ -93,7 +126,19 @@ class _NewGistPageState extends State<NewGistPage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Scaffold(
+    return PopScope(
+      // 返回时若表单已输入内容，先确认再离开 —— 不允许静默丢弃。
+      canPop: !_dirty,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) {
+          return;
+        }
+        final bool? leave = await _confirmDiscard();
+        if (leave == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title:  Text(_t('title')),
         actions: <Widget>[
@@ -149,6 +194,7 @@ class _NewGistPageState extends State<NewGistPage> {
           ),
         ],
       )),
+      ),
     );
   }
 }

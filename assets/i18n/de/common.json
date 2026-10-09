@@ -113,5 +113,6 @@
   "accelNoChannelBody": "Diese Anwendung liefert keinen Kanal mit und betreibt keinen Proxy. Für Beschleunigung füge eine eigene Präfix-Proxy-Adresse hinzu; sonst bleibt alles direkt.",
   "accelSelfProvided": "Kanäle stellst du selbst: Diese App bringt keine mit, empfiehlt keine und hostet keine.",
   "previewSvg": "SVG",
-  "previewUnknown": "Sonstiges"
+  "previewUnknown": "Sonstiges",
+  "guide": "Anleitung ansehen"
 }

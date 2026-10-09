@@ -152,7 +152,7 @@ class _SearchPageState extends State<SearchPage> {
     return null;
   }
 
-  void _open(_SearchHit hit) {
+  Future<void> _open(_SearchHit hit) async {
     final GhRepo? repo = hit.repo;
     if (repo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,8 +160,8 @@ class _SearchPageState extends State<SearchPage> {
       );
       return;
     }
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    final bool? deleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (BuildContext context) => RepoPage(
           surface: widget.surface,
           repo: repo,
@@ -169,6 +169,10 @@ class _SearchPageState extends State<SearchPage> {
         ),
       ),
     );
+    // 仓库被删除：搜索结果里不该再留着它。
+    if (deleted == true && mounted) {
+      await _results?.load();
+    }
   }
 
   String _repoSubtitle(GhRepo repo) {
