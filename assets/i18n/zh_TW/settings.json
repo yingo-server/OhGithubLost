@@ -156,9 +156,5 @@
   "accelScopeReleaseAsset": "Release 附件",
   "accelScopeActionArtifact": "Action 建置產物",
   "accelScopeRepoFile": "倉庫檔案（下載與預覽）",
-  "accelScopeReadmeImage": "README 倉庫內圖片",
-  "webSectionTitle": "Web 版",
-  "webSectionDesc": "只有瀏覽器裡才有的選項",
-  "webInstallPrompt": "開啟時詢問加入主畫面",
-  "webInstallPromptDesc": "每次開啟網頁時詢問一次；已安裝（從主畫面圖示開啟）後不再詢問。"
+  "accelScopeReadmeImage": "README 倉庫內圖片"
 }

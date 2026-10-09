@@ -395,7 +395,7 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.all(16),
             children: <Widget>[
               // 根级顺序**严格固定**（不再随缘排列）：
-              // 外观 → 语言 → 代码与文件 → 网络 → Web（仅浏览器）→ 存储位置
+              // 外观 → 语言 → 代码与文件 → 网络 → 存储位置
               // → 账号 → 维护 → 关于 → 许可 → 日志。
               _appearanceSection(theme, value),
               _languageSection(theme),
@@ -412,8 +412,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: _openNetwork,
                 ),
               ),
-              // Web 版（**仅浏览器构建**）：只有浏览器里才存在的选项。
-              if (kIsWeb) _webSection(theme),
               // 存储位置：档位 + 选择文件夹（SAF）/ 所有文件访问。
               _storageSection(theme),
               if (saveError != null) ...<Widget>[
@@ -795,36 +793,6 @@ const Divider(height: 1),
       ),
     );
   }
-
-  /// Web 版（**只在浏览器构建里显示**）。
-  ///
-  /// ## 为什么只显示在 Web 上
-  /// 「打开时询问添加到桌面」在原生平台**没有任何对应行为**。按项目纪律
-  /// 「只留真选项」，不显示比显示一个点了不生效的假开关更诚实；
-  /// 非 Web 上 [OgLWebStartup.installPromptEnabled] 保持默认值且无人读取，
-  /// 因此也不构成"假选项"。
-  ///
-  /// ## 它接到哪里
-  /// 开关读写的 [`OgLWebStartup`]（`surface/app/web_install.dart`）；
-  /// 真正弹提示的是 `main.dart` 的启动接线（`_ogLScheduleWebSurface`），
-  /// 那里会先看这个开关，再决定要不要询问"添加到桌面"。
-  Widget _webSection(ThemeData theme) => _section(
-        theme,
-        title: _t('webSectionTitle'),
-        subtitle: _t('webSectionDesc'),
-        children: <Widget>[
-          SwitchListTile(
-            title: Text(_t('webInstallPrompt')),
-            subtitle: Text(_t('webInstallPromptDesc')),
-            value: widget.surface.webInstallPromptEnabled,
-            onChanged: (bool on) {
-              // 立即生效；写盘在后台进行（写失败不影响本次会话）。
-              unawaited(widget.surface.setWebInstallPromptEnabled(on));
-              setState(() {});
-            },
-          ),
-        ],
-      );
 
   /// 存储位置：三档（公共目录 / 已授权文件夹 / 应用私有目录）。
   ///

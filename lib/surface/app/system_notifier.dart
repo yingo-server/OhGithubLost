@@ -1,4 +1,4 @@
-/// L3 展示级 · 系统级通知（Android / Windows / Linux / macOS / iOS / **Web**）。
+/// L3 展示级 · 系统级通知（Android / Windows / Linux / macOS / iOS）。
 ///
 /// ## 用途
 /// 应用在**后台**时，应用内弹窗/横幅无法呈现，必须改成系统通知：
@@ -9,22 +9,14 @@
 /// - **不静默**：任何平台异常都写进应用日志（关于页/通知中心可见）；
 /// - **平台守卫**：不支持的平台直接跳过并留痕，绝不外抛。
 ///
-/// ## Web（浏览器）
-/// 浏览器里没有 `flutter_local_notifications` 那条路可走（页面一刷新、标签页
-/// 一关闭，通知渠道就没了），因此：
-/// - 浏览器**提供** `Notification` → 直接用它发（见 `browser_notify.dart`）；
-/// - 浏览器**不提供**（例如 iOS Safari 16.4 之前）→ **如实降级为"不通知"**，
-///   把原因写进日志与通知中心，**绝不假装已发送**。
-///
-/// 平台识别全程只用 `kIsWeb` + `defaultTargetPlatform`，**不 import `dart:io`**
-/// （Web 上它不存在，见 `lib/platform/platform.dart` 的说明）。
+/// 平台识别全程只用 `defaultTargetPlatform`，**不 import `dart:io`**
+/// （见 `lib/platform/platform.dart` 的说明）。
 library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../i18n/og_l_i18n.dart';
-import 'browser_notify.dart';
 import 'error_surface.dart';
 
 /// 取 `shell` 分片文案。
@@ -39,7 +31,7 @@ class OgLSystemNotifier {
   /// 单例。
   static final OgLSystemNotifier instance = OgLSystemNotifier._();
 
-  /// 原生平台的插件（**懒创建**：Web 上根本不会用到它，也就不构造它）。
+  /// 原生平台的插件（**懒创建**：第一次真的要发通知时才构造）。
   late final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
@@ -58,7 +50,7 @@ class OgLSystemNotifier {
   static const String _kWindowsAppUserModelId = 'com.ohgithublost.ogl';
   static const String _kWindowsGuid = 'b6e7c1a2-3f45-4a9b-8c21-9d5e6f7a8b90';
 
-  /// 原生平台的通知初始化参数（**Web 不会走到这里**）。
+  /// 系统通知初始化参数（按平台分派）。
   InitializationSettings _initializationSettings() {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -98,21 +90,6 @@ class OgLSystemNotifier {
       return !_unavailable;
     }
     _initialized = true;
-    // ★ Web：浏览器通知没有"初始化"这一步，只判断浏览器给不给这个能力。
-    //   不给就**如实降级为不通知**（而不是假装初始化成功）。
-    if (kIsWeb) {
-      if (ogLBrowserNotifySupported()) {
-        return true;
-      }
-      _unavailable = true;
-      _unavailableReason = '浏览器不提供 Notification API';
-      OgLAppLog.instance.add(
-        _t('notification'),
-        '系统通知不可用：浏览器不提供 Notification API（本次会话不发送系统通知）',
-        severity: OgLNoticeSeverity.warning,
-      );
-      return false;
-    }
     try {
       final InitializationSettings settings = _initializationSettings();
       final bool? ok = await _plugin.initialize(settings: settings);
@@ -140,23 +117,9 @@ class OgLSystemNotifier {
   }
 
   /// 发送一条系统通知。失败只留痕，不抛。
-  ///
-  /// Web：浏览器**支持** `Notification` 就直接发；**不支持**则本就
-  /// `_ensureInit()` 失败、这里直接返回（降级为"不通知"）。
-  /// 发送失败（未授权 / 被浏览器拒绝）**如实**记录为"未发出"。
   Future<void> show({required String title, String? body}) async {
     try {
       if (!await _ensureInit()) {
-        return;
-      }
-      if (kIsWeb) {
-        if (!ogLBrowserNotifyShow(title, body)) {
-          OgLAppLog.instance.add(
-            _t('notification'),
-            '浏览器通知未发出（未授权或被浏览器拒绝）',
-            severity: OgLNoticeSeverity.warning,
-          );
-        }
         return;
       }
       final NotificationDetails details = NotificationDetails(

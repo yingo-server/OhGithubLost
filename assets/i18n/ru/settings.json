@@ -156,9 +156,5 @@
   "accelScopeReleaseAsset": "Вложения релизов",
   "accelScopeActionArtifact": "Артефакты Action",
   "accelScopeRepoFile": "Файлы репозитория (скачивание и просмотр)",
-  "accelScopeReadmeImage": "Изображения внутри README",
-  "webSectionTitle": "Веб-версия",
-  "webSectionDesc": "Параметры, доступные только в браузере",
-  "webInstallPrompt": "Спрашивать о добавлении на главный экран при запуске",
-  "webInstallPromptDesc": "Спрашивается один раз при каждом открытии страницы; не спрашивается, когда приложение уже установлено (запуск со своей иконки)."
+  "accelScopeReadmeImage": "Изображения внутри README"
 }

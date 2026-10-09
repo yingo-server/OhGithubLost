@@ -18,19 +18,13 @@
 /// - 桌面（Windows / Linux / macOS）：文档目录下的 `ogl`。
 /// - 探测方式为**真实写入探针**：能建目录并写删探针文件才算可用，不靠猜。
 ///
-/// ## Web 适配
-/// 浏览器里**没有文件系统**，也**不能调用 path_provider**：
-/// - 只有**一档**：`internal` 语义，根用虚拟前缀 `web`；
-/// - [OgLAppDirs.isUserVisible] 在 web 上**恒 `false`**（用户看不到应用存储）。
-///
-/// 真正的平台差异（`dart:io` / path_provider）全部收敛到条件导入的
-/// `app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`，本文件本身不依赖 `dart:io`。
+/// 真正的平台差异（`dart:io` / path_provider）全部收敛到实现文件
+/// `app_dirs_fs_io.dart`，本文件本身不依赖 `dart:io`。
 library;
 
 import 'package:flutter/foundation.dart';
 
-import 'app_dirs_fs_io.dart'
-    if (dart.library.js_interop) 'app_dirs_fs_web.dart';
+import 'app_dirs_fs_io.dart';
 
 /// 落盘位置分级（决定"用户能不能在文件管理器里看到"）。
 enum OgLStorageTier {
@@ -61,10 +55,6 @@ abstract final class OgLAppDirs {
   /// - Android：`/storage/emulated/0/ogl`（写它需要"所有文件访问"或旧版存储权限）；
   /// - 桌面：文档目录下的 `ogl`。
   static Future<String?> publicRoot() async {
-    if (kIsWeb) {
-      // 浏览器没有「用户可见的公共目录」。
-      return null;
-    }
     return AppDirsFs.publicRoot(folderName);
   }
 
@@ -79,10 +69,6 @@ abstract final class OgLAppDirs {
 
   /// 落盘位置分级。
   static OgLStorageTier tierOf(String path) {
-    if (kIsWeb) {
-      // 浏览器只有一档：应用内部（虚拟根 `web`），且用户看不到。
-      return OgLStorageTier.internal;
-    }
     final String p = path.replaceAll(r'\', '/');
     if (p.contains('/Android/data/') || p.contains('/Android/obb/')) {
       return OgLStorageTier.appExternal;
@@ -176,13 +162,10 @@ abstract final class OgLAppDirs {
   }
 
   static Future<String> _resolveRoot() async {
-    // Web：一档虚拟根 `web`（`app_dirs_fs_web.dart` 里解析，不碰 path_provider）；
-    // 非 web：真实候选链（`app_dirs_fs_io.dart`）。
+    // 真实候选链（实现见 `app_dirs_fs_io.dart`）。
     return AppDirsFs.resolveRoot(folderName);
   }
 
   /// 真实写入探针：能建目录、能写入并删除探针文件，才算可写。
-  ///
-  /// Web 端恒 `false`（浏览器沙箱里没有可写的"用户可见目录"）。
   static Future<bool> _writable(String dir) => AppDirsFs.writable(dir);
 }

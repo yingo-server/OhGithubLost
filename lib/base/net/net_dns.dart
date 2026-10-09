@@ -26,8 +26,7 @@ import 'dart:math';
 
 import '../../kernel/diagnostics.dart';
 import '../../kernel/environment.dart';
-import 'net_dns_platform_io.dart'
-    if (dart.library.js_interop) 'net_dns_platform_web.dart';
+import 'net_dns_platform_io.dart';
 
 /// DNS 解析模式。
 enum NetDnsMode {
@@ -264,8 +263,7 @@ abstract class DnsUdpChannel {
 
 /// 真实 UDP 通道。
 ///
-/// 平台原语委托给 [DnsPlatform]（非 Web 走 `RawDatagramSocket`；Web 抛
-/// `UnsupportedError`——浏览器没有裸 socket，见 web 实现文件头注释）。
+/// 平台原语委托给 [DnsPlatform]（`net_dns_platform_io.dart`：`RawDatagramSocket`）。
 class RawDnsUdpChannel implements DnsUdpChannel {
   @override
   Future<List<int>?> exchange(
@@ -287,8 +285,7 @@ abstract class DnsResolver {
 
 /// 系统解析（交给平台）。
 ///
-/// 非 Web：走 `InternetAddress.lookup`（真拿 IP）。
-/// Web：浏览器内部解析，页面拿不到 IP —— [DnsPlatform.lookup] 原样返回域名。
+/// 走 `InternetAddress.lookup`（真拿 IP）。
 class SystemDnsResolver implements DnsResolver {
   @override
   String get id => 'system';

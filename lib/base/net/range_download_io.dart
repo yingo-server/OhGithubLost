@@ -1,12 +1,9 @@
-/// L1 硬件层 · 多连接分片下载的**原生实现**（非 Web）。
+/// L1 硬件层 · 多连接分片下载的**原生实现**。
 ///
 /// 本文件是 `OgLRangeDownloader` 的真实实现：`dart:io HttpClient` 发 Range 请求，
-/// 每片写独立的 `<目标>.partN`，成功后顺序合并。
+/// 每片写独立的 `<目标>.partN`，成功后顺序合并；由 `range_download.dart` 导出。
 ///
-/// 只在非 Web 构建里参与编译（由 `range_download.dart` 的条件导出选定）；
-/// Web 对应文件是 `range_download_web.dart`。
-///
-/// 允许 `import 'dart:io'`：这正是"非 Web 侧实现文件"。
+/// 允许 `import 'dart:io'`：这正是实现文件。
 library;
 
 import 'dart:io';

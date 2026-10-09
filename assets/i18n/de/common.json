@@ -113,11 +113,5 @@
   "accelNoChannelBody": "Diese Anwendung liefert keinen Kanal mit und betreibt keinen Proxy. Für Beschleunigung füge eine eigene Präfix-Proxy-Adresse hinzu; sonst bleibt alles direkt.",
   "accelSelfProvided": "Kanäle stellst du selbst: Diese App bringt keine mit, empfiehlt keine und hostet keine.",
   "previewSvg": "SVG",
-  "previewUnknown": "Sonstiges",
-  "webAccelNoticeTitle": "Beschleunigungsdienst ist nicht eingerichtet",
-  "webAccelNoticeBody": "In der Browser-Version gibt es keinen dauerhaft verfügbaren integrierten Beschleunigungskanal; Downloads wie Release-Anhänge laufen daher standardmäßig direkt.\n\nOhne Einrichtung lässt sich die App vollständig nutzen – nur die Download-Geschwindigkeit hängt von Ihrem Netzwerk und der Erreichbarkeit von GitHub ab.\n\nFür Beschleunigung können Sie unter Einstellungen → Netzwerk → Beschleunigung selbst einen Kanal hinzufügen; jederzeit abschaltbar.",
-  "webInstallDialogTitle": "Zum Startbildschirm hinzufügen",
-  "webInstallDialogBody": "Fügen Sie diese App dem Startbildschirm bzw. Desktop hinzu, damit sie sich später wie eine normale App eigenständig öffnen lässt.\n\nMit „Bestätigen“ öffnen Sie die Installationsabfrage des Browsers.",
-  "webInstallIosBody": "iOS-Browser unterstützen das Hinzufügen mit einem Tipp nicht (Plattformbeschränkung, kein Fehler der App).\n\nTippen Sie unten auf „Teilen“ und wählen Sie dann „Zum Home-Bildschirm“.",
-  "webInstallChromiumBody": "Dieser Browser hat diesmal keine Installation mit einem Tipp angeboten (die App ist vielleicht schon installiert oder die Seite erfüllt die Kriterien noch nicht).\n\nIm Browser-Menü können Sie weiterhin „App installieren“ bzw. „Zum Startbildschirm hinzufügen“ wählen."
+  "previewUnknown": "Sonstiges"
 }

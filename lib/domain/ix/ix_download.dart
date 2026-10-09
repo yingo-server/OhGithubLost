@@ -6,27 +6,10 @@
 /// **零改动**。
 ///
 /// ## 为什么要有"后端"
-/// 下载这件事在两个平台上**根本不同**：
-/// - 原生（Android / iOS / Windows / Linux / macOS）：`background_downloader`
-///   提供后台下载、断点续传、队列与通知，成品落到应用文档目录；
-/// - **Web**：`background_downloader` **没有 Web 实现**（其平台清单只有
-///   android / ios 等原生平台）。浏览器里没有后台任务、没有文件系统落盘、
-///   也不允许页面接管"下载中的字节"；页面唯一能做的是**把最终地址交给
-///   浏览器自己的下载器**。
-///
-/// 因此把"怎么下载"抽成 [IxDownloadBackend]（本文件声明接口），
-/// 由条件导入选定实现：
-/// - 非 Web → `ix_download_backend_io.dart`（`background_downloader` + `dart:io`）；
-/// - Web → `ix_download_backend_web.dart`（交给浏览器下载）。
-/// `File` / `Directory` 的使用**全部**隔离在非 Web 侧实现里。
-///
-/// ## 能力差异（Web 上不可用，如实标注，不假装支持）
-/// | 能力 | 原生 | Web |
-/// |------|------|-----|
-/// | 后台下载 / 队列 / 重试 | 有（库提供） | 无（浏览器接管） |
-/// | 暂停 / 继续 | 有 | **无**（浏览器下载不可被页面控制） |
-/// | 多连接分片 | 有（Range） | **无**（见 `range_download_web.dart`） |
-/// | 读回成品字节（校验 sha256 / 导出） | 有 | **无**（成品在浏览器下载目录） |
+/// 把"怎么下载"抽成 [IxDownloadBackend]（本文件声明接口），实现收敛在
+/// `ix_download_backend_io.dart`：`background_downloader` 提供后台下载、
+/// 断点续传、队列与通知，成品落到应用文档目录。
+/// `File` / `Directory` 的使用**全部**隔离在该实现里。
 library;
 
 import 'dart:async';
@@ -36,8 +19,7 @@ import 'package:flutter/foundation.dart';
 import '../../kernel/contract/download_engine.dart';
 import '../../kernel/contract/storage_export.dart';
 import '../../kernel/diagnostics.dart';
-import 'ix_download_backend_io.dart'
-    if (dart.library.js_interop) 'ix_download_backend_web.dart';
+import 'ix_download_backend_io.dart';
 
 /// 下载分类（决定落到哪个子目录）。
 enum IxDownloadCategory {

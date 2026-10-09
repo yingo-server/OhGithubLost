@@ -2,10 +2,7 @@
 ///
 /// 负责：后台下载入队、暂停 / 继续 / 取消、落盘路径、成品读回（大小 / sha256 /
 /// 删除）。**所有 `File` / `Directory` 的使用都隔离在本文件里**，
-/// `ix_download.dart` 本体不再碰 `dart:io`，Web 构建才能通过。
-///
-/// 只在非 Web 构建里参与编译（由 `ix_download.dart` 的条件导入选定）；
-/// Web 对应文件是 `ix_download_backend_web.dart`。
+/// `ix_download.dart` 本体不碰 `dart:io`。
 library;
 
 import 'dart:async';
@@ -16,7 +13,7 @@ import 'package:crypto/crypto.dart';
 
 import 'ix_download.dart';
 
-/// 按平台创建下载后端（非 Web）。
+/// 按平台创建下载后端。
 IxDownloadBackend createDownloadBackend() => IoDownloadBackend();
 
 /// 原生下载后端（`background_downloader`）。

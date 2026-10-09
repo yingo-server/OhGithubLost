@@ -56,11 +56,8 @@
   "storageWhere": "Current save location",
   "systemChannel": "[System Channel] {text}",
   "systemNotifUnavailable": "System notifications unavailable (background alerts will only be logged): {error}",
-  "webNotifDesc": "Web does not provide notification capabilities required by this app.",
-  "webStorageDesc": "Browser environment manages storage quota itself; no app request needed.",
   "minimizeWindow": "Minimize",
   "maximizeWindow": "Maximize",
   "restoreWindow": "Restore",
-  "closeWindow": "Close",
-  "webNotifGatewayDesc": "A browser allows notifications only after you agree: the button below opens the browser's own permission prompt. Changing that later must be done in the browser's site settings — the app cannot open that page for you."
+  "closeWindow": "Close"
 }

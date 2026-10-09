@@ -156,9 +156,5 @@
   "accelScopeReleaseAsset": "Pièces jointes de version",
   "accelScopeActionArtifact": "Artefacts d’Action",
   "accelScopeRepoFile": "Fichiers du dépôt (téléchargement et aperçu)",
-  "accelScopeReadmeImage": "Images dans le README",
-  "webSectionTitle": "Version Web",
-  "webSectionDesc": "Options disponibles uniquement dans le navigateur",
-  "webInstallPrompt": "Demander l'ajout à l'écran d'accueil au démarrage",
-  "webInstallPromptDesc": "Demandé une fois à chaque ouverture de la page ; ignoré une fois l'application installée (ouverte depuis sa propre icône)."
+  "accelScopeReadmeImage": "Images dans le README"
 }

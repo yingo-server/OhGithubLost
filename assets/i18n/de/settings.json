@@ -156,9 +156,5 @@
   "accelScopeReleaseAsset": "Release-Anhänge",
   "accelScopeActionArtifact": "Action-Artefakte",
   "accelScopeRepoFile": "Repository-Dateien (Download & Vorschau)",
-  "accelScopeReadmeImage": "Bilder im README",
-  "webSectionTitle": "Web-Version",
-  "webSectionDesc": "Optionen, die es nur im Browser gibt",
-  "webInstallPrompt": "Beim Start nach „Zum Startbildschirm hinzufügen“ fragen",
-  "webInstallPromptDesc": "Wird bei jedem Öffnen der Seite einmal gefragt; entfällt, sobald die App installiert ist (Start über ihr eigenes Symbol)."
+  "accelScopeReadmeImage": "Bilder im README"
 }

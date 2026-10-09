@@ -77,7 +77,6 @@ class IoNetTransport implements NetTransport {  /// 创建传输。
       return;
     }
     // 自定义 DNS：接管 connectionFactory，把域名换成我们解析出的 IP。
-    // 非 IO 平台（Web）没有 HttpClient，本实现仅用于非 Web。
     client.connectionFactory = (
       Uri uri,
       String? proxyHost,
@@ -296,11 +295,7 @@ class IoDnsHttpClient implements DnsHttpClient {
   }
 }
 
-/// 装配用工厂：非 Web 侧返回 [IoNetTransport]。
-///
-/// `net_bridge.dart` 通过条件导入在 Web 侧取到**同名函数**（实现为
-/// `WebNetTransport`），于是装配代码不必自己判断平台，
-/// 也不会在 Web 构建里意外引用到 `dart:io`。
+/// 装配用工厂：返回 [IoNetTransport]（`net_bridge.dart` 的装配入口）。
 NetTransport createPlatformNetTransport(
   DnsService? dns, {
   Duration connectTimeout = const Duration(seconds: 15),

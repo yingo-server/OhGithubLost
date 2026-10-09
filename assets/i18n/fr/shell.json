@@ -56,11 +56,8 @@
   "storageWhere": "Emplacement de sauvegarde actuel",
   "systemChannel": "[Canal système] {text}",
   "systemNotifUnavailable": "Notifications système non disponibles (les notifications en arrière-plan seront écrites uniquement sur disque) : {error}",
-  "webNotifDesc": "L'interface web ne fournit pas la capacité de notification requise par l'application.",
-  "webStorageDesc": "L'environnement navigateur gère son propre quota de stockage, l'application ne peut ni n'a besoin de demander.",
   "minimizeWindow": "Réduire",
   "maximizeWindow": "Agrandir",
   "restoreWindow": "Restaurer",
-  "closeWindow": "Fermer",
-  "webNotifGatewayDesc": "Le navigateur n'autorise les notifications qu'après votre accord : le bouton ci-dessous ouvre la demande d'autorisation du navigateur. Modifier ce choix ensuite se fait dans les paramètres de site du navigateur — l'application ne peut pas ouvrir cette page à votre place."
+  "closeWindow": "Fermer"
 }

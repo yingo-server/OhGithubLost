@@ -1,14 +1,12 @@
-/// L2 中枢级 · 本地信息的**平台原语**（非 Web）。
+/// L2 中枢级 · 本地信息的**平台原语**。
 ///
 /// 把 `dart:io` 的 `Platform` / `File` 收在这一个文件里，`sys_info.dart` 本体
-/// 不再 `import 'dart:io'`（浏览器里没有它），Web 构建才能通过。
-///
-/// 只在非 Web 构建里参与编译；Web 对应文件是 `sys_platform_web.dart`。
+/// 不再 `import 'dart:io'`。
 library;
 
 import 'dart:io';
 
-/// 平台原语（非 Web）。
+/// 平台原语。
 class SysPlatform {
   const SysPlatform._();
 

@@ -2,7 +2,7 @@
 ///
 /// Android / iOS 上没有"自绘标题栏"这回事：窗口由系统全权管理，App 拿不到
 /// 也改不了窗口装饰。因此这些方法全是空操作——**显式写出来**而不是让上层
-/// 到处 `if (kIsWeb || Platform.isAndroid)`，分支只留在门面选型那一处。
+/// 到处按平台分支，分支只留在门面选型那一处。
 library;
 
 import 'package:flutter/foundation.dart';

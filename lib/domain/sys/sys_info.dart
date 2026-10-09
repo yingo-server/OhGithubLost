@@ -14,20 +14,15 @@
 ///    Mod 必须经 `SysAccessGuard` 申请才拿得到。
 library;
 
-import 'package:flutter/foundation.dart';
-
 import '../../kernel/diagnostics.dart';
-import 'sys_platform_io.dart'
-    if (dart.library.js_interop) 'sys_platform_web.dart';
+import 'sys_platform_io.dart';
 
 /// 信息采集来源。
 enum SysSource {
   /// `dart:io` 直接可得（跨平台，最可靠）。
   dart,
 
-  /// Flutter / 浏览器 API 可得（**Web 专用**：浏览器里没有 `dart:io`，
-  /// 平台名与区域设置改由 `kIsWeb` / `defaultTargetPlatform` /
-  /// `PlatformDispatcher` 得到）。
+  /// Flutter / 平台框架 API 可得（**不依赖 `dart:io`** 的采集路径）。
   web,
 
   /// 平台插件（device_info_plus / package_info_plus）。
@@ -462,9 +457,7 @@ class SysInfoService {
     String? manufacturer;
     String? androidRelease;
     bool? isPhysical;
-    // Web 上没有 dart:io，基础信息来自 Flutter / 浏览器 API，
-    // 来源如实标为 [SysSource.web]（而不是冒充 dart:io）。
-    var source = kIsWeb ? SysSource.web : SysSource.dart;
+    var source = SysSource.dart;
 
     final probe = _androidProbe;
     // 设备插件是 Android 专有的：Web 上 `isAndroid` 恒为 false，不会进来。

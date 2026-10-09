@@ -156,9 +156,5 @@
   "accelScopeReleaseAsset": "Release 附件",
   "accelScopeActionArtifact": "Action 构建产物",
   "accelScopeRepoFile": "仓库文件（下载与预览）",
-  "accelScopeReadmeImage": "README 仓库内图片",
-  "webSectionTitle": "Web 版",
-  "webSectionDesc": "只有浏览器里才有的选项",
-  "webInstallPrompt": "打开时询问添加到桌面",
-  "webInstallPromptDesc": "每次打开网页时询问一次；已安装（从桌面图标打开）后不再询问。"
+  "accelScopeReadmeImage": "README 仓库内图片"
 }

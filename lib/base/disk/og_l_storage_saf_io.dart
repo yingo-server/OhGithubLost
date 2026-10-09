@@ -1,8 +1,7 @@
-/// L1 底座级 · 落盘去处的**非 web 实现**（SAF 插件 + 配置落盘）。
+/// L1 底座级 · 落盘去处的**实现**（SAF 插件 + 配置落盘）。
 ///
-/// 由 `og_l_storage.dart` 条件导入。**只有非 web 会编译到本文件**，
-/// 因此这里可以放心 import `dart:io` / `path_provider` / `saf_*` 插件——
-/// 这些在浏览器里都不存在。
+/// 由 `og_l_storage.dart` 导入；这里可以放心 import
+/// `dart:io` / `path_provider` / `saf_*` 插件。
 library;
 
 import 'dart:io';
