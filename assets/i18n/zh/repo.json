@@ -190,5 +190,6 @@
   "workflowTriggered": "已触发工作流",
   "defaultAction": "默认",
   "selectBranch": "选择分支",
-  "issueMeta": "由 {author} 发起 · {comments} 条评论 · {date}"
+  "issueMeta": "由 {author} 发起 · {comments} 条评论 · {date}",
+  "binaryNoEdit": "二进制文件不支持文本编辑"
 }

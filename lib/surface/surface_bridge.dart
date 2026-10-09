@@ -453,6 +453,14 @@ class SurfaceBridge {
       density: ogLDensityOf(density),
     ).copyWith(
       pageTransitionsTheme: OgLMotion.pageTransitions(motionLevel),
+      // ExpansionTile（关于页的诊断折叠组等）也接**动效档位**：
+      // 时长 / 曲线与整页动效同源（档位 0 → 零时长，即"立即展开"）。
+      expansionTileTheme: ExpansionTileThemeData(
+        expansionAnimationStyle: AnimationStyle(
+          duration: OgLOAnimQuality.of(motionLevel).medium,
+          curve: OgLOAnimQuality.of(motionLevel).curve,
+        ),
+      ),
     );
     _themeCache = built;
     _themeCacheBrightness = brightness;

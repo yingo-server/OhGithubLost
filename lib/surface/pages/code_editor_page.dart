@@ -74,6 +74,9 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
 
   bool _saving = false;
   bool _saved = false;
+
+  /// 「放弃修改」已确认：真正丢弃（dispose 时不再回写草稿，并删除草稿）。
+  bool _abandon = false;
   bool _wrap = false;
   double _fontSize = 13;
 
@@ -89,7 +92,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
   @override
   void dispose() {
     _draftTimer?.cancel();
-    unawaited(_persistDraft());
+    // 只在「未保存且未放弃」时回写草稿：
+    // - 保存成功后再回写会把**已提交内容**残留成草稿；
+    // - 「放弃修改」后再回写等于把被放弃的改动又救回来，与操作语义相反。
+    if (!_saved && !_abandon) {
+      unawaited(_persistDraft());
+    }
     _controller.removeListener(_onEdit);
     _find.dispose();
     _controller.dispose();
@@ -360,6 +368,14 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         }
         final bool? leave = await _confirmDiscard();
         if (leave == true && context.mounted) {
+          // 「放弃修改」= 真正丢弃：置位后 dispose 不再回写，并主动删除草稿
+          //（否则被放弃的内容会当成草稿留在本机，下次进来"复活"）。
+          _abandon = true;
+          unawaited(widget.surface.domain.api.discardDraft(
+            widget.fullName,
+            widget.path,
+            branch: widget.branch,
+          ));
           Navigator.of(context).pop(_saved);
         }
       },

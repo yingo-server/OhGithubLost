@@ -14,6 +14,8 @@
 /// 逻辑（状态机）与 UI 分离，方便单测：见 [OgLBackGuard]。
 library;
 
+import 'dart:async';
+
 /// 返回键应当执行的动作。
 enum OgLBackAction {
   /// 交给导航器弹栈（二级页 / 弹窗）。
@@ -83,3 +85,36 @@ class OgLBackGuard {
 
 /// 提示文案键（`shell` 分片）：再按一次退出。
 const String kOgLBackExitHintKey = 'backExitHint';
+
+/// 「返回请求」的登记点（当前壳的返回处理函数）。
+///
+/// ## 为什么需要它
+/// Web 版把**鼠标右键**也接进返回链：监听必须挂在**根部**
+/// （`MaterialApp.builder`，位于 Navigator / Overlay **之上**）——否则弹窗打开时，
+/// 事件会被弹窗的遮罩挡在下面，挂在壳里根本收不到。而返回链的实现
+/// （弹窗 → 抽屉 → 回首页 → 双击退出）在壳里（`client_shell._handleBack`）。
+/// 两者之间用这个极小登记点相连：壳挂载时 [register]，根部右键时 [forward]。
+abstract final class OgLBackRouter {
+  static Future<void> Function()? _handler;
+
+  /// 登记当前壳的返回处理函数（壳卸载时传 `null` 清除）。
+  static void register(Future<void> Function()? handler) {
+    _handler = handler;
+  }
+
+  /// 是否已有可转发的处理器。
+  static bool get available => _handler != null;
+
+  /// 转发一次「返回」请求。
+  ///
+  /// 没有登记（壳未挂载 / 已卸载）时返回 `false`：调用方据此不做事，
+  /// 不静默"假装处理了"。
+  static bool forward() {
+    final Future<void> Function()? handler = _handler;
+    if (handler == null) {
+      return false;
+    }
+    unawaited(handler());
+    return true;
+  }
+}

@@ -69,12 +69,14 @@ class _LegalTextPageState extends State<LegalTextPage> {
       body = '';
       debugPrint('OGL 法律文本：读取 $code 失败：$error');
     }
-    if (mounted) {
-      setState(() {
-        _body = body;
-        _loading = false;
-      });
+    if (!mounted || code != _locale) {
+      // 过期响应：期间用户已切到别的语言，写回会让正文与所选语言不符。
+      return;
     }
+    setState(() {
+      _body = body;
+      _loading = false;
+    });
   }
 
   @override

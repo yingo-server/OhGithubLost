@@ -82,11 +82,14 @@ class _OgLClientShellState extends State<OgLClientShell> {
     _onboardingDone = widget.surface.settings.settings.onboardingDone;
     // ★ 认证是全局可观察状态：登录 / 失效 / 切号 / 登出都自动联动。
     widget.surface.domain.auth.addListener(_onAuthChanged);
+    // ★ 根部（右键 / 其它全局手势）要把「返回」转交到这里：登记返回链。
+    OgLBackRouter.register(_handleBack);
     _check();
   }
 
   @override
   void dispose() {
+    OgLBackRouter.register(null);
     widget.surface.domain.auth.removeListener(_onAuthChanged);
     super.dispose();
   }
@@ -133,10 +136,13 @@ class _OgLClientShellState extends State<OgLClientShell> {
   /// 统一返回键处理：二级页/弹窗 → 抽屉 → 回首页 → 双击退出。
   ///
   /// **一次误按绝不退出应用**：这是用户明确抱怨的点（返回键行为不佳）。
+  ///
+  /// 弹栈走 `maybePop`：**尊重目标页自己的 PopScope**——表单的「放弃确认」、
+  /// 说明弹窗的"不可返回"都靠它生效（`pop` 会绕过拦截，直接关掉）。
   Future<void> _handleBack() async {
     final NavigatorState? navigator = Navigator.maybeOf(context);
     if (navigator != null && navigator.canPop()) {
-      navigator.pop();
+      await navigator.maybePop();
       return;
     }
     final OgLBackAction action = _backGuard.decide(

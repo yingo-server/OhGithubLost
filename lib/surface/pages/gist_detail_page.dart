@@ -364,11 +364,17 @@ class _GistDetailPageState extends State<GistDetailPage> {
                         child: Text(_t('emptyOrUnreadable')),
                       )
                     else
-                      OgLCodeViewer(
-                        code: file.content,
-                        path: file.name,
-                        language: file.language,
-                        showLineNumbers: false,
+                      // 每个文件给定**确定高度**：re_editor 的 `_CodeField`
+                      // 在无界高度（ListView 直接子项）里会触发布局断言。
+                      // 半屏高兼顾「一屏内能看到内容」与「多个文件不会一次撑爆」。
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.5,
+                        child: OgLCodeViewer(
+                          code: file.content,
+                          path: file.name,
+                          language: file.language,
+                          showLineNumbers: false,
+                        ),
                       ),
                   ],
                 ),

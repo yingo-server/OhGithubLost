@@ -51,6 +51,13 @@ class AsyncController<T> extends ChangeNotifier {
   bool _loading = false;
   bool _everLoaded = false;
 
+  /// 已释放标记：`dispose()` 之后**不再通知**。
+  ///
+  /// 消费方常在切换上下文时 `dispose()` 旧控制器（如搜索页换模式），
+  /// 而在途请求回来仍会走到 `notifyListeners()` —— debug 下直接断言崩溃。
+  /// 释放后静默丢弃即可：界面已经不认识这个控制器了。
+  bool _disposed = false;
+
   /// 数据（可能为 `null`）。
   T? get data => _data;
 
@@ -73,9 +80,24 @@ class AsyncController<T> extends ChangeNotifier {
   /// 刷新失败（此时旧数据仍然可看）。
   String? get softError => _data != null ? _error : null;
 
+  /// 释放：置位后所有在途回写不再通知（避免"dispose 后 notifyListeners"断言）。
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// 释放后不再通知。
+  void _notify() {
+    if (_disposed) {
+      return;
+    }
+    notifyListeners();
+  }
+
   /// 首次进入时触发一次加载（已加载过则不重复）。
   Future<void> loadIfNeeded() async {
-    if (_everLoaded || _loading) {
+    if (_disposed || _everLoaded || _loading) {
       return;
     }
     await load();
@@ -83,11 +105,11 @@ class AsyncController<T> extends ChangeNotifier {
 
   /// 加载 / 刷新（**并发抑制**：上一次没回来之前不再发第二次）。
   Future<void> load() async {
-    if (_loading) {
+    if (_disposed || _loading) {
       return;
     }
     _loading = true;
-    notifyListeners();
+    _notify();
 
     try {
       final T value = await loader();
@@ -105,7 +127,7 @@ class AsyncController<T> extends ChangeNotifier {
     } finally {
       _loading = false;
       _everLoaded = true;
-      notifyListeners();
+      _notify();
     }
   }
 
@@ -115,7 +137,7 @@ class AsyncController<T> extends ChangeNotifier {
       return;
     }
     _error = null;
-    notifyListeners();
+    _notify();
   }
 
   /// 清空已加载数据与错误（**切换数据维度**时使用）。
@@ -129,7 +151,7 @@ class AsyncController<T> extends ChangeNotifier {
     _empty = false;
     _loading = false;
     _everLoaded = false;
-    notifyListeners();
+    _notify();
   }
 
   /// 把加载结果压成一句人话（列表给条数、文本给长度、其它给类型）。

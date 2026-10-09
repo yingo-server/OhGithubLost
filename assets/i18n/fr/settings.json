@@ -160,5 +160,6 @@
   "webSectionTitle": "Version Web",
   "webSectionDesc": "Options disponibles uniquement dans le navigateur",
   "webInstallPrompt": "Demander l'ajout à l'écran d'accueil au démarrage",
-  "webInstallPromptDesc": "Demandé une fois à chaque ouverture de la page ; ignoré une fois l'application installée (ouverte depuis sa propre icône)."
+  "webInstallPromptDesc": "Demandé une fois à chaque ouverture de la page ; ignoré une fois l'application installée (ouverte depuis sa propre icône).",
+  "storageAllFilesGranted": "Accès à tous les fichiers accordé"
 }

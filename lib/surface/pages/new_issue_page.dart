@@ -41,6 +41,35 @@ class _NewIssuePageState extends State<NewIssuePage> {
   bool _busy = false;
   String? _error;
 
+  /// 初始值（用于「返回时是否确认」的脏检查）。
+  late final String _initialTitle = _title.text;
+  late final String _initialBody = _body.text;
+
+  /// 表单是否已输入内容。
+  bool get _dirty => _title.text != _initialTitle || _body.text != _initialBody;
+
+  /// 返回前的「放弃确认」（复用 `code_editor_page` 分片的既有文案，语义一致）。
+  Future<bool?> _confirmDiscard() => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          final OgLI18n i18n = OgLI18n.instance;
+          return AlertDialog(
+            title: Text(i18n.t('code_editor_page', 'discardTitle')),
+            content: Text(i18n.t('code_editor_page', 'discardDesc')),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(i18n.t('code_editor_page', 'continueEditing')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(i18n.t('code_editor_page', 'discardChanges')),
+              ),
+            ],
+          );
+        },
+      );
+
   @override
   void dispose() {
     _title.dispose();
@@ -89,7 +118,19 @@ class _NewIssuePageState extends State<NewIssuePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // 返回时若表单已输入内容，先确认再离开 —— 不允许静默丢弃。
+      canPop: !_dirty,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) {
+          return;
+        }
+        final bool? leave = await _confirmDiscard();
+        if (leave == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(title:  Text(_t('title'))),
       body: OgLReveal(delay: Duration.zero, child: ListView(
         padding: const EdgeInsets.all(16),
@@ -134,6 +175,7 @@ class _NewIssuePageState extends State<NewIssuePage> {
           ),
         ],
       )),
+      ),
     );
   }
 }

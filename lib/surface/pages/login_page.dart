@@ -197,6 +197,9 @@ class _LoginPageState extends State<LoginPage> {
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(Icons.school_outlined),
+          // 可点但没有说明的图标，对屏幕阅读器（与普通用户）都是谜：
+          // 补 tooltip 说明它打开引导。
+          tooltip: OgLI18n.instance.t('common', 'guide'),
           onPressed: _busy ? null : () => unawaited(_openOnboarding()),
         ),
         actions: <Widget>[

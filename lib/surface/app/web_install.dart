@@ -130,10 +130,14 @@ class OgLWebStartup extends ChangeNotifier {
   /// 「需要配置加速服务」弹窗的"已读"存储键。
   static const String accelNoticeKey = 'ogl.web.accelNoticeShown';
 
+  /// 「检测到鼠标」交互说明弹窗的"已读"存储键。
+  static const String mouseNoticeKey = 'ogl.web.mouseNoticeShown';
+
   final OgLWebPrefsStore _store;
 
   bool _installPromptEnabled = true;
   bool _accelNoticeShown = false;
+  bool _mouseNoticeShown = false;
   bool _loaded = false;
 
   /// 是否在每次打开时询问"添加到桌面"（默认**开**）。
@@ -141,6 +145,9 @@ class OgLWebStartup extends ChangeNotifier {
 
   /// "需要配置加速服务"弹窗是否已展示过（只弹一次）。
   bool get accelNoticeShown => _accelNoticeShown;
+
+  /// 「检测到鼠标」说明是否已展示过（只弹一次）。
+  bool get mouseNoticeShown => _mouseNoticeShown;
 
   /// 是否已读过一次持久化值。
   bool get loaded => _loaded;
@@ -154,6 +161,7 @@ class OgLWebStartup extends ChangeNotifier {
         _installPromptEnabled = install != 'false';
       }
       _accelNoticeShown = await _store.read(accelNoticeKey) == 'true';
+      _mouseNoticeShown = await _store.read(mouseNoticeKey) == 'true';
     } catch (error) {
       debugPrint('OGL Web 启动偏好：读取失败，使用默认值（$error）');
     }
@@ -184,6 +192,20 @@ class OgLWebStartup extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.write(accelNoticeKey, 'true');
+    } catch (error) {
+      debugPrint('OGL Web 启动偏好：写入失败（$error）');
+    }
+  }
+
+  /// 标记「检测到鼠标」弹窗已展示（保证只弹一次）。
+  Future<void> markMouseNoticeShown() async {
+    if (_mouseNoticeShown) {
+      return;
+    }
+    _mouseNoticeShown = true;
+    notifyListeners();
+    try {
+      await _store.write(mouseNoticeKey, 'true');
     } catch (error) {
       debugPrint('OGL Web 启动偏好：写入失败（$error）');
     }

@@ -81,6 +81,10 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   bool _loadingForm = false;
   String? _formError;
 
+  /// 表单请求代次：快速切换工作流时，**过期响应一律丢弃**，
+  /// 避免"表单参数与所选工作流不符"。
+  int _formRequestId = 0;
+
   @override
   void initState() {
     super.initState();
@@ -160,6 +164,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   }
 
   Future<void> _loadForm(String path) async {
+    final int requestId = ++_formRequestId;
     setState(() {
       _loadingForm = true;
       _formError = null;
@@ -177,7 +182,8 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
         path,
         branch: _ref.text.trim().isEmpty ? null : _ref.text.trim(),
       );
-      if (!mounted) {
+      if (!mounted || requestId != _formRequestId) {
+        // 过期响应：期间用户已切换目标，这份表单不再对应当前所选工作流。
         return;
       }
       if (text == null) {
@@ -204,7 +210,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
         }
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || requestId != _formRequestId) {
         return;
       }
       setState(() {
@@ -344,10 +350,61 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// 表单是否已输入内容（任一输入与初始值不同）。
+  bool get _dirty {
+    if (_ref.text != widget.defaultBranch || _inputs.text.trim().isNotEmpty) {
+      return true;
+    }
+    for (final _WfInput input in _form) {
+      final TextEditingController? controller = _formText[input.name];
+      if (controller == null) {
+        continue;
+      }
+      if (controller.text != (input.defaultValue ?? '')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// 返回前的「放弃确认」（复用 `code_editor_page` 分片的既有文案，语义一致）。
+  Future<bool?> _confirmDiscard() => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          final OgLI18n i18n = OgLI18n.instance;
+          return AlertDialog(
+            title: Text(i18n.t('code_editor_page', 'discardTitle')),
+            content: Text(i18n.t('code_editor_page', 'discardDesc')),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(i18n.t('code_editor_page', 'continueEditing')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(i18n.t('code_editor_page', 'discardChanges')),
+              ),
+            ],
+          );
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Scaffold(
+    return PopScope(
+      // 返回时若表单已输入内容，先确认再离开 —— 不允许静默丢弃。
+      canPop: !_dirty,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) {
+          return;
+        }
+        final bool? leave = await _confirmDiscard();
+        if (leave == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title:  Text(_t('manualTrigger')),
         actions: <Widget>[
@@ -457,6 +514,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
             ],
           );
         },
+      ),
       ),
     );
   }

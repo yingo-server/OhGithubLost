@@ -58,6 +58,11 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   static const int _stepCount = 6;
 
+  /// 「权限」页在 6 步中的下标（第 3 步）。
+  ///
+  /// 只有这一步需要等 `_infos`（权限探测结果）；其余步骤不应被它连累。
+  static const int _permissionStepIndex = 2;
+
   late final OgLPermissionGateway _gateway = ogLPermissionGateway(
     storageProbe: widget.surface.ensureStorage,
     storageLocation: widget.surface.appStoragePath,
@@ -263,26 +268,40 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ),
       );
 
-  Widget _navBar(ThemeData theme) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-        child: Row(
-          children: <Widget>[
-            if (_step > 0)
-              TextButton(onPressed: _back, child:  Text(_t('previous'))),
-            const Spacer(),
-            Text('${_step + 1} / $_stepCount', style: theme.textTheme.bodySmall),
-            const Spacer(),
-            FilledButton(
-              onPressed: _infos == null ? null : _next,
+  Widget _navBar(ThemeData theme) {
+    // 仅「权限」页在探测完成前禁用「下一步」，并**说明原因**；
+    // 其余步骤不因 `_infos == null` 被莫名禁用（以前是全部步骤一起禁用）。
+    final bool permissionPending =
+        _step == _permissionStepIndex && _infos == null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      child: Row(
+        children: <Widget>[
+          if (_step > 0)
+            TextButton(onPressed: _back, child:  Text(_t('previous'))),
+          const Spacer(),
+          Text('${_step + 1} / $_stepCount', style: theme.textTheme.bodySmall),
+          const Spacer(),
+          if (permissionPending)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
               child: Text(
-                _step >= _stepCount - 1
-                    ? (widget.review ? _t('finish') : _t('getStarted'))
-                    : _t('next'),
+                _t('detectingPermissions'),
+                style: theme.textTheme.bodySmall,
               ),
             ),
-          ],
-        ),
-      );
+          FilledButton(
+            onPressed: permissionPending ? null : _next,
+            child: Text(
+              _step >= _stepCount - 1
+                  ? (widget.review ? _t('finish') : _t('getStarted'))
+                  : _t('next'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _stepBody(ThemeData theme, {required List<Widget> children}) =>
       ListView(padding: const EdgeInsets.all(20), children: children);

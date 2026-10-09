@@ -89,9 +89,18 @@ class _RepoPageState extends State<RepoPage> {
 
   String get _full => _repo.fullName;
 
+  /// 代码标签当前目录（**由页面持有**：`TabBarView` 会销毁不可见标签页，
+  /// 目录若跟着标签 State 一起消失，切走再切回就回到根目录）。
+  String _codePath = '';
+
+  /// 代码搜索直达文件：只在首次交给代码标签，之后由 [_codePath] 接管，
+  /// 避免标签页重建时反复跳回初始文件。
+  String? _codeInitialPath;
+
   @override
   void initState() {
     super.initState();
+    _codeInitialPath = widget.initialPath;
     unawaited(_loadStarred());
     unawaited(_loadRepoPermissions());
   }
@@ -241,7 +250,11 @@ class _RepoPageState extends State<RepoPage> {
     if (next == _branch) {
       return;
     }
-    setState(() => _branch = next);
+    setState(() {
+      _branch = next;
+      // 换分支后目录回到根：新分支不一定存在同一条路径。
+      _codePath = '';
+    });
     OgLAppLog.instance.result('仓库', _t('branchSwitched'), next);
   }
 
@@ -271,7 +284,10 @@ class _RepoPageState extends State<RepoPage> {
         canWrite: canWrite,
         // 这里在 _RepoPageState 内部，`widget.repo` 才是有效的。
         repoPrivate: widget.repo.isPrivate,
-        initialPath: widget.initialPath,
+        initialPath: _codeInitialPath,
+        path: _codePath,
+        onPathChanged: (String path) => setState(() => _codePath = path),
+        onInitialPathConsumed: () => setState(() => _codeInitialPath = null),
       ),
       _IssuesTab(surface: widget.surface, fullName: _full),
       _PullsTab(surface: widget.surface, fullName: _full),
@@ -393,8 +409,12 @@ class _RepoPageState extends State<RepoPage> {
           label: _t('selectBranch'),
           child: InkWell(
             onTap: _pickBranch,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            // 触控目标 ≥ 48dp（原 ~34dp，密集点按容易点偏）；
+            // 内容垂直居中，视觉上只是略微变高。
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(
               children: <Widget>[
                 const Icon(Icons.account_tree_outlined, size: 18),
@@ -557,18 +577,55 @@ class _Paged<T> extends ChangeNotifier {
   bool _everFailed = false;
   String? error;
 
+  /// 已释放标记（释放后不再通知 / 不再回写）。
+  bool _disposed = false;
+
+  /// 刷新排队标记：刷新请求在途时置位，当前请求结束后**重放**。
+  bool _refreshQueued = false;
+
+  /// 请求代次：每次刷新 +1；过期响应（旧代次）一律丢弃。
+  ///
+  /// 修掉两个真实竞态：切「打开 / 已关闭 / 全部」时在途请求未结束 →
+  /// 刷新被静默丢弃（按钮与数据不符）；写后重载与在途加载交错 →
+  /// 重复条目 / 第一页缺失。
+  int _generation = 0;
+
+  /// 释放后不再通知（在途回写静默丢弃）。
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _notify() {
+    if (_disposed) {
+      return;
+    }
+    notifyListeners();
+  }
+
   /// 未显式要求时：首次加载按"自动"处理（可用快照），
   /// 之后一律按"显式"处理（用户下拉刷新 / 写后重载，必须真的回源）。
   bool get _shouldForce => _everLoaded || _everFailed;
 
   Future<void> loadMore() => _load(force: false);
 
-  Future<void> refresh() => _load(force: _shouldForce, reset: true);
+  Future<void> refresh() {
+    // 先作废在途请求：它的响应属于"上一代"（旧筛选 / 旧快照）。
+    _generation++;
+    if (loading) {
+      // 在途请求未结束：**排队重放**，而不是静默丢弃这次刷新。
+      _refreshQueued = true;
+      return Future<void>.value();
+    }
+    return _load(force: _shouldForce, reset: true);
+  }
 
   Future<void> _load({required bool force, bool reset = false}) async {
-    if (loading) {
+    if (_disposed || loading) {
       return;
     }
+    final int generation = _generation;
     final String? key = cacheKey;
     if (!force && reset && key != null) {
       final _CachedPage? cached = _recentPage[key];
@@ -582,7 +639,7 @@ class _Paged<T> extends ChangeNotifier {
         _page = cached.page;
         error = null;
         _everLoaded = true;
-        notifyListeners();
+        _notify();
         return;
       }
     }
@@ -601,9 +658,13 @@ class _Paged<T> extends ChangeNotifier {
     }
     loading = true;
     error = null;
-    notifyListeners();
+    _notify();
     try {
       final List<T> list = await loader(_page);
+      if (_disposed || generation != _generation) {
+        // 过期响应：期间用户已刷新 / 切换筛选，这份数据不再可信。
+        return;
+      }
       items.addAll(list);
       if (list.length < pageSize) {
         done = true;
@@ -619,11 +680,19 @@ class _Paged<T> extends ChangeNotifier {
         );
       }
     } catch (e) {
+      if (_disposed || generation != _generation) {
+        return;
+      }
       error = '$e';
       _everFailed = true;
     } finally {
       loading = false;
-      notifyListeners();
+      _notify();
+      if (_refreshQueued && !_disposed) {
+        // 在途请求结束后重放排队中的刷新（快速操作不再被吞掉）。
+        _refreshQueued = false;
+        unawaited(refresh());
+      }
     }
   }
 }
@@ -699,6 +768,9 @@ class _CodeTab extends StatefulWidget {
     required this.branch,
     required this.canWrite,
     required this.repoPrivate,
+    required this.path,
+    required this.onPathChanged,
+    required this.onInitialPathConsumed,
     this.initialPath,
     super.key,
   });
@@ -714,6 +786,15 @@ class _CodeTab extends StatefulWidget {
   /// 当前用户是否对该仓库有写权限（`permissions.push`，不允许降级猜测）。
   final bool canWrite;
 
+  /// 当前目录（**由 `RepoPage` 持有**，标签页被销毁重建后不丢）。
+  final String path;
+
+  /// 目录变化回调（把新目录写回 `RepoPage`）。
+  final ValueChanged<String> onPathChanged;
+
+  /// 直达路径（代码搜索）已消费回调（只跳一次，不反复跳回）。
+  final VoidCallback onInitialPathConsumed;
+
   final String? initialPath;
 
   @override
@@ -721,7 +802,9 @@ class _CodeTab extends StatefulWidget {
 }
 
 class _CodeTabState extends State<_CodeTab> {
-  String _path = '';
+  /// 当前目录：由页面（[RepoPage]）持有 —— 标签页会随 `TabBarView`
+  /// 销毁重建，目录必须活在页面级，切走再切回才不会回到根目录。
+  String get _path => widget.path;
   late final _Paged<GhContent> _entries = _Paged<GhContent>(
     loader: _loadPage,
     cacheKey: _keyFor(''),
@@ -758,11 +841,20 @@ class _CodeTabState extends State<_CodeTab> {
   Future<void> _bootstrap() async {
     final String? initial = widget.initialPath;
     if (initial != null && initial.isNotEmpty) {
+      // 直达路径只消费一次（否则每次标签页重建都会跳回初始文件）。
+      widget.onInitialPathConsumed();
       await _openPath(initial);
-    } else {
-      await _entries.refresh();
-      unawaited(_loadReadme());
+      return;
     }
+    if (widget.path.isNotEmpty) {
+      // 标签页被切走后重建：回到页面持有的目录（不重置到根目录），
+      // 快照键跟随目录，避免拿到"上一个目录"的快照。
+      _entries.cacheKey = _keyFor(widget.path);
+      await _entries.refresh();
+      return;
+    }
+    await _entries.refresh();
+    unawaited(_loadReadme());
   }
 
   /// 目录内容一次性返回（Contents API 不分页），因此第 2 页起即结束。
@@ -814,10 +906,9 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   Future<void> _goTo(String path) async {
-    setState(() {
-      _path = path;
-      _file = null;
-    });
+    setState(() => _file = null);
+    // 目录写回页面（标签页重建后仍是这个目录）。
+    widget.onPathChanged(path);
     // 快照键跟随目录：否则标签页重建后会拿到"上一个目录"的快照。
     _entries.cacheKey = _keyFor(path);
     await _entries.refresh();
@@ -926,14 +1017,22 @@ class _CodeTabState extends State<_CodeTab> {
                 unawaited(_openPreview(entry, kind));
               },
             ),
-            // ② 编辑器
+            // ② 编辑器：**仅文本类**可进。位图 / 音频等二进制按文本解码
+            //（`allowMalformed`）会产出乱码，保存后就是"用乱码覆盖原文件" ——
+            // 这是数据损坏路径，必须拦在入口。
             ListTile(
+              enabled: ogLCanEditAsText(kind),
               leading: const Icon(Icons.edit_outlined),
               title: Text(OgLI18n.instance.t('common', 'openInEditor')),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_openEditor(entry));
-              },
+              subtitle: ogLCanEditAsText(kind)
+                  ? null
+                  : Text(_t('binaryNoEdit')),
+              onTap: ogLCanEditAsText(kind)
+                  ? () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_openEditor(entry));
+                    }
+                  : null,
             ),
             // ③ 浏览器
             ListTile(
@@ -3003,7 +3102,38 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
   bool _busy = false;
   Future<Map<String, dynamic>?>? _pagesFuture;
 
+  /// 自定义域名的初始值（异步读回后记录，用于脏检查）。
+  String? _cnameInitial;
+
   String get _full => widget.repo.fullName;
+
+  /// 表单是否已输入未保存的内容（对照 [widget.repo] 的真值）。
+  bool get _dirty =>
+      _name.text != widget.repo.name ||
+      _description.text != (widget.repo.description ?? '') ||
+      (_cnameInitial != null && _cname.text != _cnameInitial);
+
+  /// 返回前的「放弃确认」（复用 `code_editor_page` 分片的既有文案，语义一致）。
+  Future<bool?> _confirmDiscard() => showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          final OgLI18n i18n = OgLI18n.instance;
+          return AlertDialog(
+            title: Text(i18n.t('code_editor_page', 'discardTitle')),
+            content: Text(i18n.t('code_editor_page', 'discardDesc')),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(i18n.t('code_editor_page', 'continueEditing')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(i18n.t('code_editor_page', 'discardChanges')),
+              ),
+            ],
+          );
+        },
+      );
 
   @override
   void initState() {
@@ -3032,7 +3162,10 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
     try {
       final String? cname = await widget.surface.domain.api.readCname(_full);
       if (mounted && cname != null) {
-        setState(() => _cname.text = cname);
+        setState(() {
+          _cname.text = cname;
+          _cnameInitial = cname;
+        });
       }
     } catch (_) {
       // 大多数仓库没有自定义域名。
@@ -3217,7 +3350,8 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
       OgLAppLog.instance.add('仓库', _t('repoDeleted', {'full': _full}),
           severity: OgLNoticeSeverity.warning);
       if (mounted) {
-        Navigator.of(context).pop();
+        // 带返回值：调用方（首页 / 搜索）据此刷新，已删仓库不再留在列表里。
+        Navigator.of(context).pop(true);
       }
     } catch (error) {
       if (mounted) {
@@ -3231,7 +3365,21 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return ListView(
+    // 返回拦截：表单有未保存内容时先确认再离开（该标签页在仓库页内，
+    // 拦截的是整个仓库页的后退，效果与代码编辑器一致）。
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) {
+          return;
+        }
+        final NavigatorState navigator = Navigator.of(context);
+        final bool? leave = await _confirmDiscard();
+        if (leave == true && mounted) {
+          navigator.pop();
+        }
+      },
+      child: ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
         Text(_t('basicInfo'), style: theme.textTheme.titleMedium),
@@ -3342,6 +3490,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
         ),
         const SizedBox(height: 24),
       ],
+      ),
     );
   }
 }

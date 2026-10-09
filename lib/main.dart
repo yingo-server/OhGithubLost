@@ -15,6 +15,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'base/base_bootstrap.dart';
 import 'base/log/log_dirs.dart';
@@ -33,6 +34,7 @@ import 'surface/app/error_surface.dart';
 import 'surface/app/og_l_app.dart';
 import 'surface/app/permission_selftest.dart';
 import 'surface/app/web_install.dart';
+import 'surface/app/web_pointer.dart';
 import 'surface/i18n/og_l_i18n.dart';
 import 'surface/surface_bridge.dart';
 
@@ -274,6 +276,9 @@ String _ogLPlatformName() {
 /// `common` 分片文案（启动期对话框用；此时展示层已把 i18n 载入完成）。
 String _ogLCommon(String key) => OgLI18n.instance.t('common', key);
 
+/// `shell` 分片文案（Web 鼠标交互说明用）。
+String _ogLShell(String key) => OgLI18n.instance.t('shell', key);
+
 /// Web 专属接线：安装提示监听 + 启动后的一次性提示。
 ///
 /// **非 Web 构建里本函数立即返回**，不注册监听、不弹窗（`kIsWeb` 在原生构建
@@ -286,7 +291,10 @@ void _ogLScheduleWebSurface(SurfaceBridge bridge) {
   // ① 尽早挂 `beforeinstallprompt` 监听：Chromium 至多派发一次，错过就没有了。
   //    这里只负责"抓住事件"，何时询问用户由下面的启动流程决定。
   ogLWebInstallWatch(() {});
-  // ② 首帧之后再谈界面：此时根 Navigator 与 i18n 都已就绪。
+  // ② 右键菜单：Web 版把「右键」接管为返回，浏览器自带的右键菜单必须先关掉
+  //    （本 SDK 默认是开的：`BrowserContextMenu.enabled` 默认 true）。
+  unawaited(BrowserContextMenu.disableContextMenu());
+  // ③ 首帧之后再谈界面：此时根 Navigator 与 i18n 都已就绪。
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(_ogLShowWebStartupDialogs(bridge));
   });
@@ -325,7 +333,15 @@ Future<void> _ogLShowWebStartupDialogs(SurfaceBridge bridge) async {
     }
     await _ogLShowAccelNotice(context);
   }
-  // ② **每次打开**：按设置询问是否添加到桌面（默认开）。
+  // ② **首次检测到鼠标**：说明 Web 版的鼠标交互（只弹一次）。
+  if (ogLWebFinePointer() && !startup.mouseNoticeShown) {
+    await startup.markMouseNoticeShown();
+    if (!context.mounted) {
+      return;
+    }
+    await _ogLShowMouseNotice(context);
+  }
+  // ③ **每次打开**：按设置询问是否添加到桌面（默认开）。
   if (!startup.installPromptEnabled) {
     return;
   }
@@ -360,6 +376,29 @@ Future<void> _ogLShowAccelNotice(BuildContext context) => showDialog<void>(
             child: Text(_ogLCommon('confirm')),
           ),
         ],
+      ),
+    );
+
+/// 「检测到鼠标」说明（Web 版只弹一次）。
+///
+/// 说清三件事：**右键 = 返回**、长按左键 = 长按菜单、单击 = 点按；
+/// 触摸手势已禁用。弹窗本身**不接受返回**（`PopScope(canPop: false)`）：
+/// 右键返回不该把说明自己关掉 —— 那会变成"刚弹出就消失"。
+Future<void> _ogLShowMouseNotice(BuildContext context) => showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          scrollable: true,
+          title: Text(_ogLShell('webMouseNoticeTitle')),
+          content: Text(_ogLShell('webMouseNoticeBody')),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(_ogLCommon('confirm')),
+            ),
+          ],
+        ),
       ),
     );
 

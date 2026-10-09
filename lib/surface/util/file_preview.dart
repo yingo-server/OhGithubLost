@@ -90,6 +90,14 @@ bool ogLPreviewFirst(OgLPreviewKind kind) =>
 bool ogLCanRenderInline(OgLPreviewKind kind) =>
     kind == OgLPreviewKind.image || kind == OgLPreviewKind.svg;
 
+/// 判定能否进**文本编辑器**。
+///
+/// 位图 / 音频等二进制按文本解码（`allowMalformed`）会产出乱码，
+/// 保存后即"用乱码覆盖原文件"—— 这是数据损坏路径，必须拦在入口。
+/// SVG / XML / 文本类仍然可编辑（源码本身就是有意义的内容）。
+bool ogLCanEditAsText(OgLPreviewKind kind) =>
+    kind != OgLPreviewKind.image && kind != OgLPreviewKind.audio;
+
 /// i18n 键（`common` 分片）→ 打开方式的展示名。
 String ogLPreviewKindKey(OgLPreviewKind kind) => switch (kind) {
       OgLPreviewKind.image => 'previewImage',

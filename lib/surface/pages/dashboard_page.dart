@@ -70,13 +70,17 @@ class _DashboardPageState extends State<DashboardPage> {
     unawaited(_active.refresh());
   }
 
-  void _openRepo(GhRepo repo) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+  /// 打开仓库页；返回 `true` 表示该仓库**已被删除**，此时刷新当前列表。
+  Future<void> _openRepo(GhRepo repo) async {
+    final bool? deleted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (BuildContext context) =>
             RepoPage(surface: widget.surface, repo: repo),
       ),
     );
+    if (deleted == true && mounted) {
+      await _active.refresh();
+    }
   }
 
   void _openDownloads() {
@@ -289,29 +293,73 @@ class _RepoPaged extends ChangeNotifier {
   bool done = false;
   String? error;
 
-  Future<void> loadMore() async {
-    if (loading || done) {
+  bool _disposed = false;
+
+  /// 刷新排队标记：刷新请求在途时置位，等当前请求结束后**重放**。
+  bool _refreshQueued = false;
+
+  /// 请求代次：每次刷新 +1；过期响应（旧代次）一律丢弃。
+  ///
+  /// 这解决两个真实竞态：快速下拉刷新时「第一页永久缺失」，
+  /// 以及切换筛选 / 加载更多交错时的「重复条目、显示与筛选不符的数据」。
+  int _generation = 0;
+
+  /// 释放后不再通知（在途回写静默丢弃）。
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _notify() {
+    if (_disposed) {
       return;
     }
+    notifyListeners();
+  }
+
+  Future<void> loadMore() async {
+    if (_disposed || loading || done) {
+      return;
+    }
+    final int generation = _generation;
     loading = true;
     error = null;
-    notifyListeners();
+    _notify();
     try {
       final List<GhRepo> list = await loader(_page);
+      if (_disposed || generation != _generation) {
+        return;
+      }
       items.addAll(list);
       if (list.length < _kPageSize) {
         done = true;
       }
       _page++;
     } catch (e) {
+      if (_disposed || generation != _generation) {
+        return;
+      }
       error = '$e';
     } finally {
       loading = false;
-      notifyListeners();
+      _notify();
+      if (_refreshQueued && !_disposed) {
+        _refreshQueued = false;
+        unawaited(refresh());
+      }
     }
   }
 
   Future<void> refresh() async {
+    // 先作废在途请求：它的响应属于"上一代"数据（旧筛选 / 旧快照）。
+    _generation++;
+    if (loading) {
+      // 在途请求还没回来：**排队重放**，而不是静默丢弃这次刷新
+      // （否则快速操作会表现成"点了没反应 / 第一页缺失"）。
+      _refreshQueued = true;
+      return;
+    }
     items.clear();
     _page = 1;
     done = false;

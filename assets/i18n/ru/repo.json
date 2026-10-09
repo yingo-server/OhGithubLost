@@ -190,5 +190,6 @@
   "workflowTriggered": "Запущен рабочий процесс",
   "defaultAction": "По умолчанию",
   "selectBranch": "Выбрать ветку",
-  "issueMeta": "автор {author} · комментариев: {comments} · {date}"
+  "issueMeta": "автор {author} · комментариев: {comments} · {date}",
+  "binaryNoEdit": "Двоичные файлы нельзя редактировать как текст"
 }

@@ -160,5 +160,6 @@
   "webSectionTitle": "Web-Version",
   "webSectionDesc": "Optionen, die es nur im Browser gibt",
   "webInstallPrompt": "Beim Start nach „Zum Startbildschirm hinzufügen“ fragen",
-  "webInstallPromptDesc": "Wird bei jedem Öffnen der Seite einmal gefragt; entfällt, sobald die App installiert ist (Start über ihr eigenes Symbol)."
+  "webInstallPromptDesc": "Wird bei jedem Öffnen der Seite einmal gefragt; entfällt, sobald die App installiert ist (Start über ihr eigenes Symbol).",
+  "storageAllFilesGranted": "Zugriff auf alle Dateien wurde erteilt"
 }

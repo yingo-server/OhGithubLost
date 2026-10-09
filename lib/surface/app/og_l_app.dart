@@ -20,6 +20,7 @@ import '../i18n/og_l_i18n.dart';
 import '../settings.dart';
 import '../surface_bridge.dart';
 import 'animations.dart';
+import 'back_guard.dart';
 import 'client_shell.dart';
 import 'desktop_window.dart';
 import 'error_surface.dart';
@@ -75,7 +76,7 @@ class OgLApp extends StatelessWidget {
             // R7：主题切换也带动画（设置里换明暗/主题色时不再"硬切"）。
             // 档位质量表：主题切换影响面大 → 用「慢」档；低档位自动更短、0 档为 0。
             themeAnimationDuration: OgLAnim.slow(context),
-            themeAnimationCurve: Curves.easeOut,
+            themeAnimationCurve: OgLAnim.curve(context),
             // 主题由桥缓存（含动效档位）；这里只读，不再每次 build 重新 copyWith。
             theme: surface.themeFor(
               MediaQuery.platformBrightnessOf(context),
@@ -91,21 +92,23 @@ class OgLApp extends StatelessWidget {
               final double systemScale = query.textScaler.scale(1.0);
               final double scale =
                   (systemScale * current.fontScale).clamp(0.85, 2.0).toDouble();
-              return OgLMotionScope(
-                level: current.motionLevel,
-                child: MediaQuery(
-                  data: query.copyWith(
-                    textScaler: TextScaler.linear(scale),
-                    disableAnimations:
-                        OgLMotion.disableAnimations(query, current),
-                  ),
-                  // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
-                  // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
-                  child: OgLKeyboardGuard(
-                    // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
-                    child: OgLNoticeHost(
-                      navigatorKey: navigatorKey,
-                      child: child ?? const SizedBox.shrink(),
+              return OgLSecondaryTapBack(
+                child: OgLMotionScope(
+                  level: current.motionLevel,
+                  child: MediaQuery(
+                    data: query.copyWith(
+                      textScaler: TextScaler.linear(scale),
+                      disableAnimations:
+                          OgLMotion.disableAnimations(query, current),
+                    ),
+                    // 键盘 inset 守卫：无文本焦点时的"幽灵键盘"一律归零，
+                    // 并把窗口指标写进日志（真机复现时"半屏从哪来"有第一手数据）。
+                    child: OgLKeyboardGuard(
+                      // 全局错误呈现层：未捕获异常 → 弹窗；一般告警 → 横幅。
+                      child: OgLNoticeHost(
+                        navigatorKey: navigatorKey,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),
@@ -197,6 +200,32 @@ List<Locale> ogLMaterialSupportedLocales() => <Locale>[
       for (final OgLLocale item in OgLI18n.locales)
         ogLMaterialLocaleOf(item.code),
     ];
+
+/// 桌面鼠标：**右键 = 返回**（与系统返回 / 返回键同一条链）。
+///
+/// ## 为什么挂在这里
+/// 必须挂在 `MaterialApp.builder`（Navigator / Overlay **之上**）：弹窗挂在
+/// Overlay 里，其遮罩会吃掉落在自己身上的指针事件 —— 挂在壳里（Navigator 之内）
+/// 收不到弹窗上的右键。挂点只做一件事：把请求转给 [OgLBackRouter]。
+///
+/// ## 右键菜单
+/// 浏览器自带的右键菜单由启动接线里的 `BrowserContextMenu.disableContextMenu()`
+/// 关闭（Web 版把右键接管为返回，菜单留着只会与返回抢同一个手势）。
+class OgLSecondaryTapBack extends StatelessWidget {
+  /// 创建。
+  const OgLSecondaryTapBack({required this.child, super.key});
+
+  /// 子控件（整棵应用内容）。
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        // 不透明命中：空白区域（无子控件处）的右键也要算数。
+        behavior: HitTestBehavior.opaque,
+        onSecondaryTapUp: (TapUpDetails details) => OgLBackRouter.forward(),
+        child: child,
+      );
+}
 
 /// 滚动行为：桌面端允许"鼠标 / 触控板拖拽滚动"。
 ///

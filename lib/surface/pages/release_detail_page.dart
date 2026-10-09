@@ -423,102 +423,99 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       if (_release.isDraft) _t('draft'),
       if (_release.isPrerelease) _t('prerelease'),
     ];
-    return PopScope(
-      canPop: true,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            _release.tagName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: <Widget>[
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: _t('edit'),
-              onPressed: _busy ? null : _edit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.copy_all_outlined),
-              tooltip: _t('copyNotes'),
-              onPressed: _copyNotes,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: _t('delete'),
-              onPressed: _busy ? null : _delete,
-            ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _release.tagName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        body: OgLReveal(delay: Duration.zero, child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: <Widget>[
-            Text(
-              _release.name == null || _release.name!.isEmpty
-                  ? _release.tagName
-                  : _release.name!,
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              <String>[
-                if (_release.publishedAt != null)
-                  _t('publishedAt', {
-                    'date': _release.publishedAt!
-                        .toIso8601String()
-                        .split('T')
-                        .first,
-                  }),
-                if (marks.isNotEmpty) marks.join(' / '),
-                _t('assetsCount', {'count': _release.assets.length}),
-              ].join(' · '),
-              style: theme.textTheme.bodySmall,
-            ),
-            if (_release.body != null && _release.body!.trim().isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: ReadmeView(
-                    markdown: _release.body!,
-                    onOpenLink: (Uri uri) {
-                      unawaited(openExternalLink(uri, tag: _t('publish')));
-                    },
-                  ),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: _t('edit'),
+            onPressed: _busy ? null : _edit,
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy_all_outlined),
+            tooltip: _t('copyNotes'),
+            onPressed: _copyNotes,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: _t('delete'),
+            onPressed: _busy ? null : _delete,
+          ),
+        ],
+      ),
+      body: OgLReveal(delay: Duration.zero, child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: <Widget>[
+          Text(
+            _release.name == null || _release.name!.isEmpty
+                ? _release.tagName
+                : _release.name!,
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            <String>[
+              if (_release.publishedAt != null)
+                _t('publishedAt', {
+                  'date': _release.publishedAt!
+                      .toIso8601String()
+                      .split('T')
+                      .first,
+                }),
+              if (marks.isNotEmpty) marks.join(' / '),
+              _t('assetsCount', {'count': _release.assets.length}),
+            ].join(' · '),
+            style: theme.textTheme.bodySmall,
+          ),
+          if (_release.body != null && _release.body!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: ReadmeView(
+                  markdown: _release.body!,
+                  onOpenLink: (Uri uri) {
+                    unawaited(openExternalLink(uri, tag: _t('publish')));
+                  },
                 ),
               ),
-            ],
-            const Divider(height: 32),
-            Text(_t('assets'), style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            if (_release.assets.isEmpty)
-               Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text(_t('noAssets')),
-              )
-            else
-              for (final GhAsset asset in _release.assets)
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.inventory_2_outlined),
-                    title: Text(
-                      asset.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      _t('assetMeta', {'size': ghSizeText(asset.size), 'count': asset.downloadCount}),
-                    ),
-                    trailing: const Icon(Icons.info_outline),
-                    // R5：点击**先看详情**（不再直接触发下载）；长按弹出快捷操作。
-                    onTap: () => unawaited(_showAssetDetail(asset)),
-                    onLongPress: () => unawaited(_showAssetActions(asset)),
-                  ),
-                ),
-            const SizedBox(height: 24),
+            ),
           ],
-        )),
-      ),
+          const Divider(height: 32),
+          Text(_t('assets'), style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (_release.assets.isEmpty)
+             Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(_t('noAssets')),
+            )
+          else
+            for (final GhAsset asset in _release.assets)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: Text(
+                    asset.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    _t('assetMeta', {'size': ghSizeText(asset.size), 'count': asset.downloadCount}),
+                  ),
+                  trailing: const Icon(Icons.info_outline),
+                  // R5：点击**先看详情**（不再直接触发下载）；长按弹出快捷操作。
+                  onTap: () => unawaited(_showAssetDetail(asset)),
+                  onLongPress: () => unawaited(_showAssetActions(asset)),
+                ),
+              ),
+          const SizedBox(height: 24),
+        ],
+      )),
     );
   }
 }
