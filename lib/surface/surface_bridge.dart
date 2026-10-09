@@ -599,8 +599,8 @@ List<OgLModule> surfaceLayerModules() => <OgLModule>[
 /// 浏览器里没有"用户可见目录"这一概念（本地数据都锁在站点源的沙箱里），
 /// 因此**直接判定为不可写用户可见目录**（`false`），既不探测、也不伪造。
 ///
-/// 这一点**不需要在本层写平台分支**：底座已经把实现按平台条件导入
-/// （`base/disk/app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`），
+/// 这一点**不需要在本层写平台分支**：底座已经把实现收敛到 Web 侧
+/// （`base/disk/app_dirs_fs_web.dart`），
 /// 其 `writable()` 在 Web 上恒为 `false`（[OgLAppDirs.publicWritable] 也因此
 /// 恒 `false`：浏览器的 `publicRoot()` 就是 `null`）。这样展示层里
 /// **一个 `dart:io` 都不需要**，Web 构建也不会因为探针而编译不过。

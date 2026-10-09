@@ -6,7 +6,7 @@
 /// `fetch`/XHR，能自动带上 Cookie、自动跟随重定向、自动走系统解析。
 ///
 /// ## 契约必须一致
-/// 与 [IoNetTransport] 一样，**所有**底层异常都要翻译成 [NetException]：
+/// **所有**底层异常都要翻译成 [NetException]（全项目同一约定）：
 /// 上层（重试 / 镜像 / 提示）只认识它，不允许让 `ClientException` 直接漏上去。
 ///
 /// ## 哪些原生策略在 Web 上不适用（如实说明，不假装支持）
@@ -34,8 +34,7 @@ import 'net_types.dart';
 
 /// 装配用工厂：Web 侧返回 [WebNetTransport]。
 ///
-/// 与 `io_net_transport.dart` 里的同名函数配对，由 `net_bridge.dart` 通过
-/// 条件导入选用——装配代码因此不必自己判断平台。
+/// 由 `net_bridge.dart` 直接装配选用——装配代码不必自己判断平台。
 NetTransport createPlatformNetTransport(
   DnsService? dns, {
   Duration connectTimeout = const Duration(seconds: 15),

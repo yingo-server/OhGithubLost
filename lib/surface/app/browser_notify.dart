@@ -1,21 +1,18 @@
-/// L3 展示级 · **浏览器通知门面**（条件导入选实现）。
+/// L3 展示级 · **浏览器通知门面**（本分支 = 纯 Web）。
 ///
 /// ## 为什么单独一个门面
 /// 浏览器里的通知权限与发送**只有** `Notification` 这一条路（`dart:io` 的
-/// `HttpClient` / 插件都不在），而原生平台走的是 `permission_handler` +
-/// `flutter_local_notifications`。两边语义完全不同，因此用最小门面隔开：
-/// - Web：`browser_notify_web.dart`（`dart:js_interop`）；
-/// - 非 Web：`browser_notify_io.dart`（空实现，不引用任何 Web API）。
+/// `HttpClient` / 插件都不在）。实现收敛到 `browser_notify_web.dart`
+/// （`dart:js_interop`），门面只做转调。
 ///
 /// ## 诚实原则
 /// 所有函数**只报告真实结果**：浏览器不支持就说 `unsupported`，
 /// 发送失败就返回 `false`，绝不把"没做到"报成"已发送"。
 library;
 
-import 'browser_notify_io.dart'
-    if (dart.library.js_interop) 'browser_notify_web.dart' as impl;
+import 'browser_notify_web.dart' as impl;
 
-/// 当前环境是否提供浏览器通知能力（非 Web 恒为 `false`）。
+/// 当前环境是否提供浏览器通知能力（浏览器不支持时为 `false`）。
 bool ogLBrowserNotifySupported() => impl.ogLBrowserNotifySupported();
 
 /// 当前通知授权状态：`granted` / `denied` / `default` / `unsupported`。

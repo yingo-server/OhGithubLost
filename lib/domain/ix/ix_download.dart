@@ -15,10 +15,8 @@
 ///   浏览器自己的下载器**。
 ///
 /// 因此把"怎么下载"抽成 [IxDownloadBackend]（本文件声明接口），
-/// 由条件导入选定实现：
-/// - 非 Web → `ix_download_backend_io.dart`（`background_downloader` + `dart:io`）；
-/// - Web → `ix_download_backend_web.dart`（交给浏览器下载）。
-/// `File` / `Directory` 的使用**全部**隔离在非 Web 侧实现里。
+/// 本分支（纯 Web）取 `ix_download_backend_web.dart`（交给浏览器下载）。
+/// `File` / `Directory` 的使用**全部**隔离在平台实现文件里。
 ///
 /// ## 能力差异（Web 上不可用，如实标注，不假装支持）
 /// | 能力 | 原生 | Web |
@@ -36,8 +34,7 @@ import 'package:flutter/foundation.dart';
 import '../../kernel/contract/download_engine.dart';
 import '../../kernel/contract/storage_export.dart';
 import '../../kernel/diagnostics.dart';
-import 'ix_download_backend_io.dart'
-    if (dart.library.js_interop) 'ix_download_backend_web.dart';
+import 'ix_download_backend_web.dart';
 
 /// 下载分类（决定落到哪个子目录）。
 enum IxDownloadCategory {
@@ -398,7 +395,7 @@ class IxDownloadManager extends ChangeNotifier {
   ///
   /// [diagnostics] 用于把"取不到文件大小"等**降级**情况按事件码上报
   /// （不允许静默）。
-  /// [backend] 仅供测试注入；不传则按平台条件导入选定实现。
+  /// [backend] 仅供测试注入；不传则取平台实现（`ix_download_backend_web.dart`）。
   IxDownloadManager({
     KernelDiagnostics? diagnostics,
     DownloadEngine? engine,

@@ -8,11 +8,10 @@
 /// ## Web 适配
 /// 浏览器里**没有文件写入**：候选清单恒为**空**（`log_dirs_platform_web.dart`），
 /// 于是 `OgLLogFile.init` 找不到可写目录 → `isEnabled == false`、`lastError` 如实记录。
-/// 平台侧的 `dart:io` / `path_provider` 全部收敛到条件导入的实现文件。
+/// 本分支为纯 Web 构建：平台侧实现收敛到 `log_dirs_platform_web.dart`。
 library;
 
-import 'log_dirs_platform_io.dart'
-    if (dart.library.js_interop) 'log_dirs_platform_web.dart';
+import 'log_dirs_platform_web.dart';
 
 /// 解析日志目录候选清单（去重、规整为正斜杠路径）。
 ///

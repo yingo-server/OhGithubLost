@@ -5,14 +5,11 @@
 /// 本服务负责：带令牌拉取二进制 → 用 `archive` 解压 → 返回
 /// `job 名 → 文本` 映射，供运行详情页展示与检索。
 ///
-/// ## 平台分层（Web 适配）
-/// "取一段字节"这一步要 HTTP 客户端，原生用 `dart:io HttpClient`，
-/// Web 用 `package:http` 的浏览器实现——因此把它抽成一对实现文件，
-/// 由本文件条件导入：
-/// - 非 Web → `ix_action_logs_http_io.dart`；
-/// - Web → `ix_action_logs_http_web.dart`。
+/// ## 平台实现（本分支 = Web）
+/// "取一段字节"这一步要 HTTP 客户端，Web 用 `package:http` 的浏览器实现
+/// （浏览器里没有 `dart:io HttpClient`）——实现收敛到 `ix_action_logs_http_web.dart`。
 ///
-/// **解压**部分（`archive`）是纯 Dart，两个平台共用同一份代码，不必拆。
+/// **解压**部分（`archive`）是纯 Dart，与核心逻辑共用同一份代码。
 ///
 /// ## 传输策略（2026-10-03）
 /// 由 Dio 改为原生 `HttpClient`：这里只需要"取一段字节"，没必要为它引入一个
@@ -24,8 +21,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 
-import 'ix_action_logs_http_io.dart'
-    if (dart.library.js_interop) 'ix_action_logs_http_web.dart';
+import 'ix_action_logs_http_web.dart';
 
 /// 日志拉取失败（HTTP 状态或网络错误）。
 ///

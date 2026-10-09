@@ -1,6 +1,6 @@
 /// L1 底座级 · 应用目录规划的**web 实现**（浏览器）。
 ///
-/// 由 `app_dirs.dart` 条件导入。浏览器里：
+/// 由 `app_dirs.dart` 直接导入。浏览器里：
 /// - **没有多档目录**：只有一档 `internal` 语义的**虚拟根** `web`；
 /// - **没有可写探针**：`writable` 恒 `false`（浏览器沙箱里没有"用户可见目录"这回事）；
 /// - **不得调用 path_provider**：因此本文件**不** import `path_provider`。

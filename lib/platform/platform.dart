@@ -7,13 +7,13 @@
 /// `domain/sys/sys_info.dart`）。那句「全项目只有这一处」与实际不符，已更正；
 /// 把这几处也收敛到本层是待办（见 docs/NETWORK.md 的待办一节）。
 ///
-/// ## Web 适配后：这些分流**不再用 `dart:io`**
+/// ## Web 版（本分支）：这些分流**不用 `dart:io`**
 /// 判平台一律走 `kIsWeb` + `defaultTargetPlatform`（本文件是这套约定的出处），
 /// 因此 `lib/main.dart`、`lib/platform/`、`lib/surface/` 里**一个
 /// `import 'dart:io'` 都没有**：浏览器里那个库不存在，任何一处引入都会让整个
-/// Web 构建编译不过。真正需要文件系统 / 平台通道的代码，按项目既有做法
-/// **条件导入**（`import 'x_io.dart' if (dart.library.js_interop) 'x_web.dart';`）
-/// 下移到 `lib/base/`（见 `base/disk/app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`）。
+/// Web 构建编译不过。真正需要文件系统 / 平台通道的代码全部下移到 `lib/base/`
+/// 的 Web 实现（见 `base/disk/app_dirs_fs_web.dart` 等）；
+/// 本分支只构建浏览器产物，原生侧实现已移除。
 library;
 
 import 'package:flutter/foundation.dart';

@@ -9,10 +9,10 @@
 ///    假装能一键安装。
 /// 3. **已安装（standalone）**：无论哪条路径都不再提示。
 ///
-/// ## 非 Web 构建
-/// 条件导入在编译期就会选到 `web_install_io.dart`（**空实现**）：所有函数立即
-/// 返回"不支持"，且那个文件**不引用任何 `dart:js_interop`**。所以非 Web 构建里
-/// 本模块完全不生效，也不会引入未使用的导入。
+/// ## 单一构建目标（本分支 = 纯 Web）
+/// 本分支只构建浏览器产物；实现收敛到 `web_install_web.dart`，所有函数按
+/// 浏览器真实能力返回结果 —— 不支持的情形（如 iOS Safari 没有安装事件）
+/// **如实**报"不支持"，不假装。
 ///
 /// ## 本模块负责什么
 /// - 安装提示的**平台判定**与**浏览器动作**（[ogLWebInstall*]）；
@@ -23,8 +23,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-import 'web_install_io.dart'
-    if (dart.library.js_interop) 'web_install_web.dart' as impl;
+import 'web_install_web.dart' as impl;
 
 /// Web 安装提示的形态。
 enum OgLWebInstallPlatform {
@@ -37,7 +36,7 @@ enum OgLWebInstallPlatform {
   /// 其它浏览器：既没有原生安装事件，也不适用 iOS 的引导路径。
   other,
 
-  /// 非 Web 构建：本模块整体不生效。
+  /// 非浏览器运行环境：本模块整体不生效。
   unsupported,
 }
 
@@ -68,7 +67,7 @@ bool ogLWebInstallCanPrompt() => kIsWeb && impl.ogLWebInstallCanPrompt();
 /// 监听 `beforeinstallprompt`。**必须尽早调用**：该事件只派发一次。
 ///
 /// [onAvailable] 在事件到达时回调（此时 [ogLWebInstallCanPrompt] 才为 `true`）。
-/// 非 Web 构建里是空操作，不会注册任何东西。
+/// 非浏览器环境里是空操作，不会注册任何东西。
 void ogLWebInstallWatch(void Function() onAvailable) {
   if (!kIsWeb) {
     return;
@@ -115,10 +114,10 @@ class OgLMemoryWebPrefs implements OgLWebPrefsStore {
 /// Web 启动偏好：安装提示开关 + "加速服务弹窗已读"标记。
 ///
 /// ## 为什么不用 `OgLSettings`
-/// 这两项**只在浏览器里有意义**，塞进通用的 `OgLSettings` 会让原生平台的
-/// 配置文件里多出两个永远不生效的字段。这里用独立的存储键，互不干扰。
+/// 这两项**只在浏览器里有意义**，塞进通用的 `OgLSettings` 会为其它环境
+/// 留下两个永远不生效的字段。这里用独立的存储键，互不干扰。
 ///
-/// ## 非 Web 也会被创建
+/// ## 非浏览器环境也会被创建
 /// 但没有任何代码读取它：设置页只在 [kIsWeb] 时展示对应开关
 /// （项目纪律"只留真选项"，不摆一个不生效的假开关）。
 class OgLWebStartup extends ChangeNotifier {

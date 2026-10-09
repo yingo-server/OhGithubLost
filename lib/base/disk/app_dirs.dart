@@ -23,14 +23,13 @@
 /// - 只有**一档**：`internal` 语义，根用虚拟前缀 `web`；
 /// - [OgLAppDirs.isUserVisible] 在 web 上**恒 `false`**（用户看不到应用存储）。
 ///
-/// 真正的平台差异（`dart:io` / path_provider）全部收敛到条件导入的
-/// `app_dirs_fs_io.dart` / `app_dirs_fs_web.dart`，本文件本身不依赖 `dart:io`。
+/// 真正的平台差异（文件系统探测）全部收敛到 Web 实现 `app_dirs_fs_web.dart`
+/// （本分支只构建浏览器产物），本文件本身不依赖 `dart:io`。
 library;
 
 import 'package:flutter/foundation.dart';
 
-import 'app_dirs_fs_io.dart'
-    if (dart.library.js_interop) 'app_dirs_fs_web.dart';
+import 'app_dirs_fs_web.dart';
 
 /// 落盘位置分级（决定"用户能不能在文件管理器里看到"）。
 enum OgLStorageTier {
@@ -176,8 +175,7 @@ abstract final class OgLAppDirs {
   }
 
   static Future<String> _resolveRoot() async {
-    // Web：一档虚拟根 `web`（`app_dirs_fs_web.dart` 里解析，不碰 path_provider）；
-    // 非 web：真实候选链（`app_dirs_fs_io.dart`）。
+    // Web：一档虚拟根 `web`（`app_dirs_fs_web.dart` 里解析，不碰 path_provider）。
     return AppDirsFs.resolveRoot(folderName);
   }
 

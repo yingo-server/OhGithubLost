@@ -22,7 +22,7 @@
 
 **传输层**：[`NetTransport`](../lib/base/net/net_transport.dart)（抽象）
 → [`ResilientTransport`](../lib/base/net/net_transport.dart)（重试 / 主机冷却 / DoH 回落）
-→ [`IoNetTransport`](../lib/base/net/io_net_transport.dart)（真实 HTTP）。
+→ [`WebNetTransport`](../lib/base/net/web_net_transport.dart)（浏览器 fetch）。
 分片下载由 [`OgLRangeDownloader`](../lib/base/net/range_download.dart) 实现。
 
 > ★ **v6.4.3 起：本应用不预置任何代理地址。**

@@ -11,7 +11,7 @@
 ///   页面无法区分它是 CORS 还是断网——本实现如实转述浏览器给出的消息，
 ///   不臆造"DNS 失败"之类的结论。
 ///
-/// 只在 Web 构建里参与编译；原生对应文件是 `ix_action_logs_http_io.dart`。
+/// 本分支（纯 Web 构建）唯一实现；浏览器里没有 `dart:io HttpClient`。
 library;
 
 import 'package:http/http.dart' as http;

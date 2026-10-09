@@ -64,6 +64,8 @@ abstract final class OgLProjectInfo {
 ///
 /// 只列**运行期真正被 import 的包**（见 `pubspec.yaml` 的依赖说明）；
 /// 开发期依赖（`flutter_lints` 等）不进入发布产物，因此不在此列。
+/// v7.2.1（Web 分支）：path_provider / flutter_secure_storage /
+/// background_downloader 已随原生侧实现移除，不再列出。
 class OgLDependencyLicense {
   /// 创建条目。
   const OgLDependencyLicense(this.name, this.license, this.purpose);
@@ -81,8 +83,6 @@ class OgLDependencyLicense {
 /// 第三方依赖清单（顺序与 `pubspec.yaml` 保持一致）。
 final List<OgLDependencyLicense> kOgLDependencyLicenses =
     <OgLDependencyLicense>[
-  OgLDependencyLicense('path_provider', 'BSD-3-Clause', _t('featureCrossPlatformDirs')),
-  OgLDependencyLicense('flutter_secure_storage', 'MIT', _t('featureTokenVault')),
   OgLDependencyLicense('crypto', 'BSD-3-Clause', _t('featureDigest')),
   OgLDependencyLicense('cryptography', 'Apache-2.0', _t('featureManifestSignature')),
   OgLDependencyLicense('flutter_markdown', 'BSD-3-Clause', _t('featureMarkdown')),
@@ -90,7 +90,6 @@ final List<OgLDependencyLicense> kOgLDependencyLicenses =
   OgLDependencyLicense('re_editor', 'MIT', _t('featureCodeEditor')),
   OgLDependencyLicense('re_highlight', 'MIT', _t('featureHighlight')),
   OgLDependencyLicense('permission_handler', 'MIT', _t('featurePermissions')),
-  OgLDependencyLicense('background_downloader', 'MIT', _t('featureDownloads')),
   OgLDependencyLicense('archive', 'MIT', _t('featureActionsZip')),
   OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', _t('featureLocalization')),
 ];

@@ -278,7 +278,7 @@ String _ogLCommon(String key) => OgLI18n.instance.t('common', key);
 ///
 /// **非 Web 构建里本函数立即返回**，不注册监听、不弹窗（`kIsWeb` 在原生构建
 /// 里是编译期常量 `false`，整段会被摇掉）。两个浏览器动作的实现见
-/// `surface/app/web_install.dart`（条件导入：Web 用 `dart:js_interop`，非 Web 空实现）。
+/// `surface/app/web_install.dart` / `web_install_web.dart`（Web 用 `dart:js_interop`）。
 void _ogLScheduleWebSurface(SurfaceBridge bridge) {
   if (!kIsWeb) {
     return;

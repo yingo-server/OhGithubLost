@@ -1,6 +1,6 @@
 /// L0 内核级 · **日志落盘后端**（web 实现：不落盘，改走控制台）。
 ///
-/// 由 `og_l_log_file.dart` 条件导入。浏览器里**没有文件系统**，
+/// 由 `og_l_log_file.dart` 直接导入。浏览器里**没有文件系统**，
 /// 因此本后端：
 /// - `isEnabled` 恒 `false`、`filePath` / `dirPath` 恒 `null`
 ///   —— 主门面据此把原因记入 `lastError`，**不静默假装写成功**；

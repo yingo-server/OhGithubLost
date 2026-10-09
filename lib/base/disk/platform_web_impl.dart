@@ -1,9 +1,9 @@
-/// L1 底座级 · 硬盘逻辑：**Web 实现**（浏览器目标，`dart.library.js_interop` 命中）。
+/// L1 底座级 · 硬盘逻辑：**Web 实现**（浏览器目标，本分支唯一实现）。
 ///
-/// 由 `platform_io.dart` 条件导出，公开 API 与 `platform_io_impl.dart` **逐项一致**
-/// （`PlatformStorage` / `PlatformDiskPaths` / `IoDiskFileStore` / `IoDiskKv` /
-/// `SecureDiskVault`），因此 `DiskKv` / `DiskVault` / `DiskFileStore` 三大契约
-/// （见 `kernel/contract/disk_store.dart`）在两端行为等价——除了下面如实写明的差异。
+/// 由 `platform_io.dart` 直接导出；公开 API（`PlatformStorage` /
+/// `PlatformDiskPaths` / `IoDiskFileStore` / `IoDiskKv` / `SecureDiskVault`）
+/// 保持既有名字不变，`DiskKv` / `DiskVault` / `DiskFileStore` 三大契约
+/// （见 `kernel/contract/disk_store.dart`）按下面如实写明的差异实现。
 ///
 /// ## 浏览器下的真实语义（**不假装**）
 /// - **没有文件系统**：`IoDiskFileStore` 是**进程存活期内有效**的内存文件表。

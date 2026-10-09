@@ -23,8 +23,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'app_dirs.dart';
-import 'og_l_storage_saf_io.dart'
-    if (dart.library.js_interop) 'og_l_storage_saf_web.dart';
+import 'og_l_storage_saf_web.dart';
 
 /// 落盘模式（三档，按优先级）。
 enum OgLStorageMode {
@@ -83,9 +82,9 @@ class OgLStoragePlan {
 
 /// SAF（Storage Access Framework）操作封装。
 ///
-/// **只在 Android 上会真正生效**；其余平台（含 web）一律返回失败/`null`。
-/// 实现细节（`dart:io` / `path_provider` / `saf_*` 插件）收敛到条件导入的
-/// `og_l_storage_saf_io.dart` / `og_l_storage_saf_web.dart`，本文件自身不依赖它们。
+/// **浏览器下恒不生效**（浏览器没有 SAF），一律返回失败/`null`；
+/// Android 等平台由独立分支维护。实现细节收敛到 `og_l_storage_saf_web.dart`
+/// （选目录 / 导出恒失败），本文件自身不依赖 `dart:io` / `saf_*` 插件。
 abstract final class OgLSaf {
   /// 选一个文件夹并获得**可持久化**的读写授权；取消 / 失败 / 非 Android 返回 `null`。
   static Future<String?> pickDirectory() => OgLSafBridge.pickDirectory();

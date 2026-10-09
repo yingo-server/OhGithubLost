@@ -21,19 +21,15 @@
 /// - 不能把响应体写进用户文件系统 → 无法"合并成目标文件"。
 ///
 /// 因此本文件只保留**跨平台**的纯逻辑（区间 / 分片规划 / 取消令牌），
-/// [OgLRangeDownloader] 由条件导入选定：
-/// - 非 Web → `range_download_io.dart`（真实并发分片实现）；
-/// - Web → `range_download_web.dart`（**一律抛 [DownloadUnsupported]**，
-///   调用方据此回退到单连接 / 浏览器下载）。
+/// [OgLRangeDownloader] 取 Web 实现 `range_download_web.dart`
+/// （**一律抛 [DownloadUnsupported]**，调用方据此回退到单连接 / 浏览器下载）。
 library;
 
 import 'package:flutter/foundation.dart';
 
 import '../../kernel/contract/download_engine.dart';
 
-export 'range_download_io.dart'
-    if (dart.library.js_interop) 'range_download_web.dart'
-    show OgLRangeDownloader;
+export 'range_download_web.dart' show OgLRangeDownloader;
 
 /// 一个字节区间（**闭区间**：`start..end` 含两端）。
 @immutable

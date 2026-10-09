@@ -15,16 +15,13 @@
 ///   因此本文件是纯 Dart。
 ///
 /// ## Web 适配
-/// 本文件是**跨平台门面**，只负责时间戳 / 级别拼接 / 候选遍历与诊断；
-/// 真正的落盘差异（`dart:io` vs 浏览器）收敛到条件导入的
-/// `og_l_log_file_io.dart` / `og_l_log_file_web.dart`：
-/// - 非 web → 真实文件（原子追加 / 按天切分 / 滚动）；
-/// - web    → **不落盘**（`isEnabled == false`）、`filePath` / `dirPath` 恒 `null`，
-///   行改走**浏览器控制台**；`lastError` 语义不变，**不假装写成功**。
+/// 本文件是**门面**，只负责时间戳 / 级别拼接 / 候选遍历与诊断；
+/// 真正的落盘差异（浏览器里没有文件系统）收敛到 Web 实现 `og_l_log_file_web.dart`：
+/// **不落盘**（`isEnabled == false`）、`filePath` / `dirPath` 恒 `null`，
+/// 行改走**浏览器控制台**；`lastError` 语义不变，**不假装写成功**。
 library;
 
-import 'og_l_log_file_io.dart'
-    if (dart.library.js_interop) 'og_l_log_file_web.dart';
+import 'og_l_log_file_web.dart';
 
 /// 日志落盘器（单例；组合根在 `runApp` 之前 `init`）。
 abstract final class OgLLogFile {

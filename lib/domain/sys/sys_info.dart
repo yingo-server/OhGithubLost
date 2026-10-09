@@ -17,8 +17,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import '../../kernel/diagnostics.dart';
-import 'sys_platform_io.dart'
-    if (dart.library.js_interop) 'sys_platform_web.dart';
+import 'sys_platform_web.dart';
 
 /// 信息采集来源。
 enum SysSource {

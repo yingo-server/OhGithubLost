@@ -5,8 +5,7 @@
 library;
 
 import '../../kernel/contract/module.dart';
-import 'io_net_transport.dart'
-    if (dart.library.js_interop) 'web_net_transport.dart';
+import 'web_net_transport.dart';
 import 'net_dns.dart';
 import 'net_mirror.dart';
 import 'net_retry.dart';
@@ -149,8 +148,8 @@ class NetModule extends OgLModule {
 
     final inner = _explicit ??
         _factory?.call() ??
-        // 传输实现按平台条件导入选定：非 Web 是 dart:io 的 HttpClient，
-        // Web 是 package:http 的 BrowserClient（浏览器里没有 dart:io）。
+        // 传输实现：package:http 的 BrowserClient
+        // （本分支为纯 Web 构建，浏览器里没有 dart:io）。
         createPlatformNetTransport(
           _dns,
           connectTimeout: const Duration(seconds: 15),
