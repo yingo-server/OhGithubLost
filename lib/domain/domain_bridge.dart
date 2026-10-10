@@ -24,6 +24,7 @@ import 'gh/gh_api.dart';
 import 'gh/gh_auth.dart';
 import 'gh/gh_client.dart';
 import 'gh/gh_read_cache.dart';
+import 'gh/repo_file_service.dart';
 import 'ix/ix_action_logs.dart';
 import 'ix/ix_download.dart';
 import 'ix/ix_notify.dart';
@@ -48,9 +49,11 @@ class DomainBridge {
     IxDownloadManager? downloads,
     IxActionLogs? actionLogs,
     IxPresign? presign,
+    RepoFileService? repoFiles,
   })  : downloads = downloads ?? IxDownloadManager(),
         actionLogs = actionLogs ?? IxActionLogs(tokenProvider: () async => null),
-        presign = presign ?? IxPresign(tokenProvider: () async => null);
+        presign = presign ?? IxPresign(tokenProvider: () async => null),
+        _repoFiles = repoFiles ?? RepoFileService(api: api);
 
   /// 认证（多账号 / 令牌）。
   final GhAuthService auth;
@@ -84,6 +87,12 @@ class DomainBridge {
 
   /// 第一跳解析（把需认证的地址换成短期签名地址；**令牌不出设备**）。
   final IxPresign presign;
+
+  /// 仓库文件操作服务（create / delete / rename / copy / batch）。
+  final RepoFileService _repoFiles;
+
+  /// 仓库文件操作服务（**统一文件操作入口**：移动 / 复制 / 批量，逐项明细 + 进度）。
+  RepoFileService get repoFiles => _repoFiles;
 
   /// 从内核桥表解析中枢桥（展示层的标准取用方式）。
   static DomainBridge of(KernelBridgeRegistry bridges) =>
@@ -378,8 +387,20 @@ class DomainLayerModule extends OgLModule {
 
   @override
   Future<void> onRegister(KernelContext context) async {
+    // 第一跳解析（presign）需要**当前账号的令牌**：从认证服务实时取；
+    // 未登录时返回 `null`（公开资源照样能拿到签名地址，只是不带 Authorization）。
+    final ghAuth = context.di.resolve<GhAuthService>();
+    // ★ 仓库文件操作服务：create / delete / rename / copy / batch 的统一入口。
+    //   注册进 DI（后续模块可直接解析），并挂到中枢桥（展示层经
+    //   `surface_bridge` 的转发取用；转发由后续相位补上）。
+    final RepoFileService repoFiles = RepoFileService(
+      api: context.di.resolve<GhApi>(),
+      diagnostics: context.diagnostics,
+    );
+    context.di.register<RepoFileService>(repoFiles);
+
     final bridge = DomainBridge(
-      auth: context.di.resolve<GhAuthService>(),
+      auth: ghAuth,
       api: context.di.resolve<GhApi>(),
       client: context.di.resolve<GhClient>(),
       session: context.di.resolve<IxSession>(),
@@ -389,6 +410,13 @@ class DomainLayerModule extends OgLModule {
       sysAccess: context.di.resolve<SysAccessGuard>(),
       downloads: context.di.resolve<IxDownloadManager>(),
       actionLogs: context.di.resolve<IxActionLogs>(),
+      repoFiles: repoFiles,
+      // 第一跳解析：此前**漏传**，DomainBridge 只能退回 `tokenProvider` 恒为
+      // `null` 的兜底实例 —— 私有仓库的 Release 附件 / Action 产物因此拿不到
+      // 签名地址。令牌在本地取用，不落到别处。
+      presign: IxPresign(
+        tokenProvider: () async => (await ghAuth.activeToken())?.value,
+      ),
     );
     context.bridges.register(ModuleLayer.domain.key, bridge);
     context.diagnostics.info(

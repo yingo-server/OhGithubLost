@@ -1367,15 +1367,6 @@ const Divider(height: 1),
                   const Divider(height: 24),
                   Text(ogLAccelAgreement()),
                   const Divider(height: 28),
-                  // 通道的法律定位：它是**本应用提供的网络服务**，
-                  // 不保证可用性、也不保证不收集数据。开启后不再重复提示。
-                  Text(
-                    _tc('accelServiceTitle'),
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(_tc('accelServiceBody')),
-                  const Divider(height: 28),
                   // 语言效力：以中文文本为准。放在正文最后、勾选之前。
                   Text(
                     _tc('accelLangNote'),

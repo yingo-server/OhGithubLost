@@ -22,6 +22,7 @@ import '../base/disk/disk_store.dart';
 import '../base/disk/og_l_storage.dart';
 import '../base/net/net_bridge.dart';
 import '../domain/domain_bridge.dart';
+import '../domain/gh/repo_file_service.dart';
 import '../kernel/bridge_registry.dart';
 import '../kernel/contract/module.dart';
 import 'app/error_surface.dart';
@@ -384,6 +385,9 @@ class SurfaceBridge {
   /// 设置下载并发连接数（非法档位由 `settings` 回落默认）。
   Future<void> setDownloadConnections(int value) =>
       settings.setDownloadConnections(value);
+
+  /// 仓库文件操作服务（统一文件操作入口）。
+  RepoFileService get repoFiles => domain.repoFiles;
 
   /// 切换界面语言：先落盘设置，再加载对应语言分片。
   ///

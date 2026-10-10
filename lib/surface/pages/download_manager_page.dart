@@ -168,11 +168,11 @@ class DownloadManagerPage extends StatelessWidget {
                 ),
               ],
             ),
-            if (task.error != null)
+            if (task.errorText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  task.error!,
+                  task.errorText,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall
