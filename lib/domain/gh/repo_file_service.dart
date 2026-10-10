@@ -212,9 +212,8 @@ class RepoFileResult {
 /// 类别枚举，因此用本类承载一条具体操作。
 class RepoFileBatchOp {
   /// 新建一个文件（[content] 不能为空；`.gitkeep` 例外——它就是空占位）。
-  RepoFileBatchOp.create({required this.path, required String content})
+  RepoFileBatchOp.create({required this.path, required this.content})
       : op = RepoFileOp.create,
-        content = content,
         newPath = null,
         isDirectory = false;
 
@@ -225,17 +224,15 @@ class RepoFileBatchOp {
         newPath = null;
 
   /// 重命名 / 移动（文件或目录，自动探测）。
-  RepoFileBatchOp.rename({required this.path, required String newPath})
+  RepoFileBatchOp.rename({required this.path, required this.newPath})
       : op = RepoFileOp.rename,
         content = null,
-        newPath = newPath,
         isDirectory = false;
 
   /// 复制（文件或目录，自动探测；不删源）。
-  RepoFileBatchOp.copy({required this.path, required String newPath})
+  RepoFileBatchOp.copy({required this.path, required this.newPath})
       : op = RepoFileOp.copy,
         content = null,
-        newPath = newPath,
         isDirectory = false;
 
   /// 操作类别（**只允许** create / delete / rename / copy）。
@@ -585,7 +582,7 @@ class RepoFileService {
   /// 单次目录操作的最大文件数（超过直接拒绝，防烧光额度）。
   final int maxFilesPerOp;
 
-  KernelDiagnostics? _diagnostics;
+  final KernelDiagnostics? _diagnostics;
   RepoFileCancelToken? _active;
 
   /// Blobs API 单对象上限（100 MB）：超过则改用 sha 引用搬运（同仓库内零成本）。
