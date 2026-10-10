@@ -72,13 +72,14 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// 打开仓库页；返回 `true` 表示该仓库**已被删除**，此时刷新当前列表。
   Future<void> _openRepo(GhRepo repo) async {
-    final bool? deleted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) =>
             RepoPage(surface: widget.surface, repo: repo),
       ),
     );
-    if (deleted == true && mounted) {
+    // 返回后无条件刷新（不再依赖 pop 返回值：sheet 的 pop 可能是非 bool 类型）。
+    if (mounted) {
       await _active.refresh();
     }
   }

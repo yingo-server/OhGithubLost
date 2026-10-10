@@ -160,8 +160,8 @@ class _SearchPageState extends State<SearchPage> {
       );
       return;
     }
-    final bool? deleted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => RepoPage(
           surface: widget.surface,
           repo: repo,
@@ -170,7 +170,8 @@ class _SearchPageState extends State<SearchPage> {
       ),
     );
     // 仓库被删除：搜索结果里不该再留着它。
-    if (deleted == true && mounted) {
+    // 返回后无条件刷新（不再依赖 pop 返回值）。
+    if (mounted) {
       await _results?.load();
     }
   }

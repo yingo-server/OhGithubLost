@@ -1079,8 +1079,8 @@ class _CodeTabState extends State<_CodeTab> {
   }
 
   Future<void> _openEditor(GhContent file) async {
-    final bool? saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => CodeEditorPage(
           surface: widget.surface,
           fullName: widget.fullName,
@@ -1091,7 +1091,7 @@ class _CodeTabState extends State<_CodeTab> {
         ),
       ),
     );
-    if (saved == true && mounted) {
+    if (mounted) {
       await _refreshFile(file.path);
       await _reload();
     }
@@ -2158,15 +2158,15 @@ class _IssuesTabState extends State<_IssuesTab> {
   }
 
   Future<void> _create() async {
-    final bool? created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => NewIssuePage(
           surface: widget.surface,
           fullName: widget.fullName,
         ),
       ),
     );
-    if (created == true && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
          SnackBar(content: Text(_t('issueCreated'))),
       );
@@ -2463,8 +2463,8 @@ class _ReleasesTabState extends State<_ReleasesTab> {
   }
 
   Future<void> _openDetail(GhRelease release) async {
-    final bool? changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => ReleaseDetailPage(
           surface: widget.surface,
           fullName: widget.fullName,
@@ -2472,7 +2472,7 @@ class _ReleasesTabState extends State<_ReleasesTab> {
         ),
       ),
     );
-    if (changed == true && mounted) {
+    if (mounted) {
       await _paged.refresh();
     }
   }
@@ -2911,8 +2911,8 @@ class _ActionsTabState extends State<_ActionsTab> {
   }
 
   Future<void> _dispatch() async {
-    final bool? triggered = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => WorkflowDispatchPage(
           surface: widget.surface,
           fullName: widget.fullName,
@@ -2920,7 +2920,7 @@ class _ActionsTabState extends State<_ActionsTab> {
         ),
       ),
     );
-    if (triggered == true && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
          SnackBar(content: Text(_t('workflowTriggered'))),
       );

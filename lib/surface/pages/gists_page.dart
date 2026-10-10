@@ -92,26 +92,26 @@ class _GistsPageState extends State<GistsPage> {
       }
       return;
     }
-    final bool? changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => GistDetailPage(
           surface: widget.surface,
           gistId: id,
         ),
       ),
     );
-    if (changed == true && mounted) {
+    if (mounted) {
       await _gistsC().load();
     }
   }
 
   Future<void> _create() async {
-    final bool? created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
         builder: (BuildContext context) => NewGistPage(surface: widget.surface),
       ),
     );
-    if (created == true && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
          SnackBar(content: Text(_t('created'))),
       );
