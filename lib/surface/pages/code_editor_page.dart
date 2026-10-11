@@ -134,6 +134,11 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         );
         return;
       }
+      // 草稿读取是异步的：期间用户若已开始输入，就**不再用旧草稿覆盖**
+      // 他的内容（旧草稿留待下一次编辑落盘时自然被覆盖）。
+      if (_controller.text != widget.initialText) {
+        return;
+      }
       _controller.text = draft;
       _notifier.info(_t('draftRestored'));
     } catch (_) {

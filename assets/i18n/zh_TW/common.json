@@ -111,12 +111,12 @@
   "previewSvg": "SVG",
   "previewUnknown": "其它",
   "guide": "檢視使用引導",
-  "writeConflictNone": "No conflict",
-  "writeConflictRequiresRead": "Missing baseline - reload the latest version before writing",
-  "writeConflictStaleSha": "The remote copy has changed since you loaded it",
-  "writeConflictNeedsConfirmation": "This operation needs confirmation first",
-  "writeConflictNotFound": "Target not found - it may have been deleted",
-  "writeConflictForbidden": "You don't have permission to write",
-  "writeConflictServer": "Server error - please try again later",
-  "writeConflictVerificationFailed": "Post-write verification failed - please try again"
+  "writeConflictNone": "無衝突",
+  "writeConflictRequiresRead": "缺少基準，請先讀取最新版本再寫入",
+  "writeConflictStaleSha": "遠端已被他人更新（你的基準已過期）",
+  "writeConflictNeedsConfirmation": "此操作需要先確認才能執行",
+  "writeConflictNotFound": "目標不存在（可能已被刪除）",
+  "writeConflictForbidden": "權限不足，無法寫入",
+  "writeConflictServer": "伺服器錯誤，請稍後重試",
+  "writeConflictVerificationFailed": "寫入後校驗未通過，請重試"
 }

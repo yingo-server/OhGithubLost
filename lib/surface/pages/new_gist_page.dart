@@ -69,8 +69,27 @@ class _NewGistPageState extends State<NewGistPage> {
         },
       );
 
+  /// 任一字段变化 → 重建：`PopScope` 的 `canPop` 依赖文本内容，
+  /// 否则输入后返回键仍按「未修改」直接放行（静默丢失输入）。
+  void _onFieldChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _description.addListener(_onFieldChanged);
+    _filename.addListener(_onFieldChanged);
+    _content.addListener(_onFieldChanged);
+  }
+
   @override
   void dispose() {
+    _description.removeListener(_onFieldChanged);
+    _filename.removeListener(_onFieldChanged);
+    _content.removeListener(_onFieldChanged);
     _description.dispose();
     _filename.dispose();
     _content.dispose();

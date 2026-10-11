@@ -5,7 +5,9 @@
 /// （Flutter 默认约 250ms），散落在各页调用时无法统一定速；
 /// 而底部面板常常占掉半屏以上，属于"大体积动画"，用户对它的**手感**最敏感。
 ///
-/// 这里注入一个**按动效档位给时长**的控制器，并把所有权收回来（关闭后释放）：
+/// 这里经 `sheetAnimationStyle` 注入**按动效档位给的时长**（控制器仍归框架
+/// 所有 —— 先前自建控制器再在 `pop` 同帧 `dispose`，会把闭场动画掐断：
+/// 出场第一帧控制器就被释放，面板直接跳没）：
 /// - 档位 `0`（静默）→ 时长 0，面板直接出现（不闪、也不拖）；
 /// - 档位 `1 → 3` → 130 / 160 / 200ms（比 Flutter 默认更快）。
 ///
@@ -18,8 +20,6 @@
 /// );
 /// ```
 library;
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -34,21 +34,17 @@ Future<T?> ogLShowSheet<T>({
   bool useSafeArea = false,
 }) {
   final Duration duration = OgLAnim.sheetDuration(context);
-  // vsync 借用 Navigator（本身就是 TickerProvider），避免额外包一层 StatefulWidget。
-  final AnimationController controller = AnimationController(
-    vsync: Navigator.of(context),
-    duration: duration,
-    reverseDuration: duration,
-  );
-  final Future<T?> result = showModalBottomSheet<T>(
+  // 时长交给框架自带的控制器（`sheetAnimationStyle`）：不再自建
+  // `AnimationController`，也就不存在「pop 同帧 dispose 掐断闭场动画」。
+  return showModalBottomSheet<T>(
     context: context,
     showDragHandle: showDragHandle,
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
-    transitionAnimationController: controller,
+    sheetAnimationStyle: AnimationStyle(
+      duration: duration,
+      reverseDuration: duration,
+    ),
     builder: builder,
   );
-  // 控制器所有权在调用方：面板结束后释放，避免泄漏（也避免测试里留下计时器）。
-  unawaited(result.whenComplete(controller.dispose));
-  return result;
 }

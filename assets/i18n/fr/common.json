@@ -111,12 +111,12 @@
   "previewSvg": "SVG",
   "previewUnknown": "Autre",
   "guide": "Voir le guide",
-  "writeConflictNone": "No conflict",
-  "writeConflictRequiresRead": "Missing baseline - reload the latest version before writing",
-  "writeConflictStaleSha": "The remote copy has changed since you loaded it",
-  "writeConflictNeedsConfirmation": "This operation needs confirmation first",
-  "writeConflictNotFound": "Target not found - it may have been deleted",
-  "writeConflictForbidden": "You don't have permission to write",
-  "writeConflictServer": "Server error - please try again later",
-  "writeConflictVerificationFailed": "Post-write verification failed - please try again"
+  "writeConflictNone": "Aucun conflit",
+  "writeConflictRequiresRead": "Base manquante : rechargez la version la plus récente avant d’écrire",
+  "writeConflictStaleSha": "La copie distante a changé depuis votre chargement (votre base est périmée)",
+  "writeConflictNeedsConfirmation": "Cette opération doit d’abord être confirmée",
+  "writeConflictNotFound": "Cible introuvable — elle a peut-être été supprimée",
+  "writeConflictForbidden": "Vous n’avez pas la permission d’écrire",
+  "writeConflictServer": "Erreur du serveur — veuillez réessayer plus tard",
+  "writeConflictVerificationFailed": "La vérification après écriture a échoué — veuillez réessayer"
 }

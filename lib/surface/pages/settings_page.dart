@@ -161,9 +161,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   for (final int argb in _kCodePalette)
                     Semantics(
                       // 色板是「可选项」：屏幕阅读器要能念出颜色名与选中态，
-                      // 否则用户只能靠肉眼分辨哪个被选中。
+                      // 否则用户只能靠肉眼分辨哪个被选中；
+                      // `inMutuallyExclusiveGroup` 声明"这一组里只会选中一个"。
                       button: true,
                       selected: argb == current,
+                      inMutuallyExclusiveGroup: true,
                       label: _t('colorSwatch', <String, Object?>{
                         'color': '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
                       }),
@@ -212,9 +214,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _pickDnsServer() async {
     final Map<String, String> choices = widget.surface.dnsServerChoices;
     if (choices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(_t('noDnsServers'))),
-      );
+      _notifier.warning(_t('noDnsServers'));
       return;
     }
     final String current = _settings.settings.dnsServerId;
@@ -241,9 +241,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     await widget.surface.setDnsServer(picked);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(_t('dnsSaved'))),
-      );
+      _notifier.success(_t('dnsSaved'));
     }
   }
 
@@ -270,9 +268,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await _settings.reset();
     widget.surface.applyDns();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(_t('resetDone'))),
-      );
+      _notifier.success(_t('resetDone'));
     }
   }
 
@@ -311,11 +307,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     await widget.surface.setLanguage(picked);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_t('language')}: ${OgLI18n.instance.localeLabel}'),
-        ),
-      );
+      _notifier.info('${_t('language')}: ${OgLI18n.instance.localeLabel}');
     }
   }
 
@@ -349,9 +341,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     if (account == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(content: Text(_t('starLoginFirst'))),
-      );
+      _notifier.warning(_t('starLoginFirst'));
       return;
     }
     final bool? confirmed = await _showOgLDialog<bool>(
@@ -382,24 +372,18 @@ class _SettingsPageState extends State<SettingsPage> {
           .isRepoStarred(OgLProjectInfo.repoFullName);
       if (already) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text(_t('alreadyStarred'))),
-          );
+          _notifier.info(_t('alreadyStarred'));
         }
         return;
       }
       await widget.surface.domain.api
           .setStarred(OgLProjectInfo.repoFullName, true);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(_t('starredThanks'))),
-        );
+        _notifier.success(_t('starredThanks'));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('actionFailed', {'error': error}))),
-        );
+        _notifier.warning(_t('actionFailed', {'error': error}));
       }
     }
   }
@@ -410,9 +394,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_t('copiedLogLines', {'count': lines.length}))),
-    );
+    _notifier.success(_t('copiedLogLines', {'count': lines.length}));
   }
 
   @override
@@ -983,7 +965,8 @@ const Divider(height: 1),
     Navigator.of(dialogContext).pop();
     await widget.surface.clearSafDirectory();
     if (mounted) {
-      _notifier.success(_t('storageClearFolder'));
+      // 授权被撤销 = 下载落点重新受限，属"被拦下"，用告警语气（不是成功）。
+      _notifier.warning(_t('storageClearFolder'));
     }
   }
 
@@ -1071,7 +1054,8 @@ const Divider(height: 1),
     }
     await widget.surface.setDownloadConnections(picked);
     if (mounted) {
-      _notifier.info(
+      // 并发数已落盘生效 → 成功语气（不是普通说明）。
+      _notifier.success(
         _t('connectionsCount', <String, Object?>{'count': picked}),
       );
     }
@@ -1144,6 +1128,9 @@ const Divider(height: 1),
                     onChanged: (bool on) =>
                         unawaited(_setPrivateAccelAccepted(on)),
                   ),
+                  // 空态 / 通道列表的**增删**都不单独包动画：它们与上面这一整块
+                  // 同处外层 `AnimatedSize` 的覆盖内 —— 新增 / 删除通道时整块
+                  // 高度变化由它平滑过渡（档位 0 → 零时长 = 立即变化）。
                   if (value.allAccelChannels.isEmpty)
                     // 空态必须说清楚：**本应用不提供通道**，想加速得自己填一个。
                     ListTile(
@@ -1155,9 +1142,11 @@ const Divider(height: 1),
                   for (final OgLAccelChannel channel in value.allAccelChannels)
                     ListTile(
                       // 单选状态进无障碍语义：屏幕阅读器能念出"已选中"，
-                      // 而不是只报一个图标（写法对照色板的 Semantics）。
+                      // 而不是只报一个图标（写法对照色板的 Semantics）；
+                      // `inMutuallyExclusiveGroup` 声明通道是一组互斥单选。
                       leading: Semantics(
                         selected: channel.id == value.releaseProxySelectedId,
+                        inMutuallyExclusiveGroup: true,
                         label: channel.name,
                         child: Icon(
                           channel.id == value.releaseProxySelectedId
@@ -1518,33 +1507,40 @@ const Divider(height: 1),
         title: _t('account'),
         subtitle: _t('currentAccount'),
         children: <Widget>[
-          FutureBuilder<GhAccount?>(
-            future: _accountFuture,
-            builder: (
-              BuildContext context,
-              AsyncSnapshot<GhAccount?> snapshot,
-            ) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return  ListTile(
-                  leading: Icon(Icons.key),
-                  title: Text(_t('readingAccount')),
+          // 「读取中 → 已登录 / 未登录」切换的是**高度不同**的行：
+          // 用常驻 `AnimatedSize` 承载这次换挡（档位 0 → 零时长 = 立即跳变）。
+          AnimatedSize(
+            duration: OgLAnim.medium(context),
+            curve: OgLAnim.curve(context),
+            alignment: Alignment.topCenter,
+            child: FutureBuilder<GhAccount?>(
+              future: _accountFuture,
+              builder: (
+                BuildContext context,
+                AsyncSnapshot<GhAccount?> snapshot,
+              ) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return ListTile(
+                    leading: Icon(Icons.key),
+                    title: Text(_t('readingAccount')),
+                  );
+                }
+                final GhAccount? account = snapshot.data;
+                if (account == null) {
+                  return ListTile(
+                    leading: Icon(Icons.key),
+                    title: Text(_t('notLoggedIn')),
+                    subtitle: Text(_t('notLoggedInHint')),
+                  );
+                }
+                // 危险区（退出登录）已迁到「用户页」，这里只展示身份。
+                return ListTile(
+                  leading: const Icon(Icons.key),
+                  title: Text('@${account.login}'),
+                  subtitle: Text(_t('accountId', {'id': account.id})),
                 );
-              }
-              final GhAccount? account = snapshot.data;
-              if (account == null) {
-                return  ListTile(
-                  leading: Icon(Icons.key),
-                  title: Text(_t('notLoggedIn')),
-                  subtitle: Text(_t('notLoggedInHint')),
-                );
-              }
-              // 危险区（退出登录）已迁到「用户页」，这里只展示身份。
-              return ListTile(
-                leading: const Icon(Icons.key),
-                title: Text('@${account.login}'),
-                subtitle: Text(_t('accountId', {'id': account.id})),
-              );
-            },
+              },
+            ),
           ),
         ],
       );
@@ -1713,68 +1709,89 @@ const Divider(height: 1),
     );
   }
 
-  /// 日志（应用运行日志），默认收起。
-  Widget _logsSection(ThemeData theme) => _section(
-        theme,
-        title: _t('logs'),
-        subtitle: _t('logsDesc'),
-        children: <Widget>[
-          ListenableBuilder(
-            listenable: OgLAppLog.instance,
-            builder: (BuildContext context, Widget? _) {
-              final List<String> allLines = OgLAppLog.instance.entries
-                  .map((OgLAppLogEntry entry) => entry.toDisplay())
-                  .toList();
-              final int shown = allLines.length > _logTailShown
-                  ? _logTailShown
-                  : allLines.length;
-              final List<String> tail = allLines.sublist(allLines.length - shown);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  ListTile(
-                    leading: const Icon(Icons.description_outlined),
-                    title:  Text(_t('currentLogFile')),
-                    subtitle: Text(OgLLogFile.filePath ?? _t('logDisabled')),
-                  ),
-                  if (!OgLLogFile.isEnabled)
+  /// 日志（应用运行日志），**默认收起**。
+  ///
+  /// 折叠组而非 `_section` 的"常展开卡片"：日志随时可能很长，展开态会把
+  /// 后面的分组整体推下首屏；需要时点标题展开。（这是根级分组里唯一的折叠
+  /// 例外——厚度无上限的那一个。展开动画同样接动效档位，见 `surface_bridge`
+  /// 的 `expansionTileTheme`。）
+  Widget _logsSection(ThemeData theme) => Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ExpansionTile(
+          // 收起态不构建日志正文（ExpansionTile 关闭时不建 children），
+          // 长日志不会拖累设置页首帧。
+          title: Semantics(
+            header: true,
+            child: Text(_t('logs'), style: theme.textTheme.titleMedium),
+          ),
+          subtitle: Text(_t('logsDesc'), style: theme.textTheme.bodySmall),
+          childrenPadding: EdgeInsets.zero,
+          children: <Widget>[
+            ListenableBuilder(
+              listenable: OgLAppLog.instance,
+              builder: (BuildContext context, Widget? _) {
+                final List<String> allLines = OgLAppLog.instance.entries
+                    .map((OgLAppLogEntry entry) => entry.toDisplay())
+                    .toList();
+                final int shown = allLines.length > _logTailShown
+                    ? _logTailShown
+                    : allLines.length;
+                final List<String> tail =
+                    allLines.sublist(allLines.length - shown);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
                     ListTile(
-                      leading: Icon(
-                        Icons.error_outline,
-                        color: theme.colorScheme.error,
-                      ),
-                      title:  Text(_t('logDisabledReason')),
-                      subtitle: Text(OgLLogFile.lastError ?? _t('unknown')),
+                      leading: const Icon(Icons.description_outlined),
+                      title: Text(_t('currentLogFile')),
+                      subtitle: Text(OgLLogFile.filePath ?? _t('logDisabled')),
                     ),
-                  if (tail.isEmpty)
-                     ListTile(title: Text(_t('noLogs')))
-                  else
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: SelectableText(
-                        tail.join('\n'),
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
+                    if (!OgLLogFile.isEnabled)
+                      ListTile(
+                        leading: Icon(
+                          Icons.error_outline,
+                          color: theme.colorScheme.error,
+                        ),
+                        title: Text(_t('logDisabledReason')),
+                        subtitle: Text(OgLLogFile.lastError ?? _t('unknown')),
+                      ),
+                    // 空态 ↔ 正文的切换由常驻 `AnimatedSize` 承载：
+                    // 两种状态高度不同，不再瞬间跳变（档位 0 → 零时长 = 立即切换）。
+                    AnimatedSize(
+                      duration: OgLAnim.medium(context),
+                      curve: OgLAnim.curve(context),
+                      alignment: Alignment.topCenter,
+                      child: tail.isEmpty
+                          ? ListTile(title: Text(_t('noLogs')))
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                              child: SelectableText(
+                                tail.join('\n'),
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8, bottom: 8),
+                        child: TextButton.icon(
+                          onPressed: () => _copyLogs(allLines),
+                          icon: const Icon(Icons.content_copy, size: 16),
+                          label: Text(_t('copyAllLogs')),
                         ),
                       ),
                     ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8, bottom: 8),
-                      child: TextButton.icon(
-                        onPressed: () => _copyLogs(allLines),
-                        icon: const Icon(Icons.content_copy, size: 16),
-                        label:  Text(_t('copyAllLogs')),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       );
 
   // ───────────────────────── 通用零件 ─────────────────────────
@@ -1793,7 +1810,12 @@ const Divider(height: 1),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             ListTile(
-              title: Text(title, style: theme.textTheme.titleMedium),
+              // 分组标题进无障碍语义（`header: true`）：屏幕阅读器可以按标题
+              // 跳转分组，而不是把标题当成普通一行念过去。
+              title: Semantics(
+                header: true,
+                child: Text(title, style: theme.textTheme.titleMedium),
+              ),
               subtitle: subtitle.isEmpty
                   ? null
                   : Text(subtitle, style: theme.textTheme.bodySmall),
@@ -1902,31 +1924,35 @@ class _OgLSliderRowState extends State<_OgLSliderRow> {
     final ThemeData theme = Theme.of(context);
     final double current =
         (_draft ?? widget.value).clamp(widget.min, widget.max).toDouble();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(widget.title, style: theme.textTheme.labelLarge),
-              ),
-              Text(widget.display(current), style: theme.textTheme.bodySmall),
-            ],
-          ),
-          Slider(
-            value: current,
-            min: widget.min,
-            max: widget.max,
-            divisions: widget.divisions,
-            onChanged: (double v) => setState(() => _draft = v),
-            onChangeEnd: (double v) {
-              setState(() => _draft = null);
-              widget.onCommit(v);
-            },
-          ),
-        ],
+    // 标题 / 当前值 / 滑块合成**一个**无障碍节点：屏幕阅读器读一次
+    // "标题 + 当前值"，滑动时也不用在三个节点之间跳（MergeSemantics）。
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(widget.title, style: theme.textTheme.labelLarge),
+                ),
+                Text(widget.display(current), style: theme.textTheme.bodySmall),
+              ],
+            ),
+            Slider(
+              value: current,
+              min: widget.min,
+              max: widget.max,
+              divisions: widget.divisions,
+              onChanged: (double v) => setState(() => _draft = v),
+              onChangeEnd: (double v) {
+                setState(() => _draft = null);
+                widget.onCommit(v);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

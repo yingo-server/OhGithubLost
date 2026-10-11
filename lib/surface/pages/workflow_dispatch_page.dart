@@ -90,15 +90,29 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   void initState() {
     super.initState();
     _ref.text = widget.defaultBranch;
+    // 任一输入变化都触发重建：`PopScope.canPop`（以及按钮可用态）依赖表单
+    // 内容，否则输入后返回键仍按「未修改」直接放行（静默丢失输入）。
+    _ref.addListener(_onFieldChanged);
+    _inputs.addListener(_onFieldChanged);
     _workflowsC().loadIfNeeded();
+  }
+
+  /// 任一字段变化 → 重建（脏检查随输入即时生效）。
+  void _onFieldChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     _workflows?.dispose();
+    _ref.removeListener(_onFieldChanged);
+    _inputs.removeListener(_onFieldChanged);
     _ref.dispose();
     _inputs.dispose();
     for (final TextEditingController c in _formText.values) {
+      c.removeListener(_onFieldChanged);
       c.dispose();
     }
     super.dispose();
@@ -171,6 +185,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
       _formError = null;
       _form = const <_WfInput>[];
       for (final TextEditingController c in _formText.values) {
+        c.removeListener(_onFieldChanged);
         c.dispose();
       }
       _formText.clear();
@@ -205,8 +220,10 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
           } else if (input.type == 'boolean') {
             _formBool[input.name] = input.defaultValue == 'true';
           } else {
-            _formText[input.name] =
+            final TextEditingController controller =
                 TextEditingController(text: input.defaultValue ?? '');
+            controller.addListener(_onFieldChanged);
+            _formText[input.name] = controller;
           }
         }
       });

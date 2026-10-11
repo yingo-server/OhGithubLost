@@ -83,8 +83,27 @@ class _NewReleasePageState extends State<NewReleasePage> {
         },
       );
 
+  /// 任一字段变化 → 重建：`PopScope` 的 `canPop` 依赖文本内容，
+  /// 否则输入后返回键仍按「未修改」直接放行（静默丢失输入）。
+  void _onFieldChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _tag.addListener(_onFieldChanged);
+    _name.addListener(_onFieldChanged);
+    _body.addListener(_onFieldChanged);
+  }
+
   @override
   void dispose() {
+    _tag.removeListener(_onFieldChanged);
+    _name.removeListener(_onFieldChanged);
+    _body.removeListener(_onFieldChanged);
     _tag.dispose();
     _name.dispose();
     _body.dispose();
