@@ -169,7 +169,10 @@ class IoDownloadBackend implements IxDownloadBackend {
       }
       final int total =
           update.expectedFileSize > 0 ? update.expectedFileSize : 0;
-      final int received = total > 0 ? (update.progress * total).round() : 0;
+      // ★ 库对终态补发的 progress 是负数（progressFailed=-1.0 等），
+      //   不守卫会算出负的 received → 界面显示「-4.3 MB / 4.3 MB」。
+      final double clamped = update.progress < 0 ? 0 : update.progress;
+      final int received = total > 0 ? (clamped * total).round() : 0;
       _events.add(IxDownloadEvent.progress(id, received: received, total: total));
     }
   }
@@ -213,6 +216,11 @@ class IoDownloadBackend implements IxDownloadBackend {
     }
     if (status == TaskStatus.canceled) {
       return IxDownloadStatus.canceled;
+    }
+    // ★ 库的指数退避重试窗口（非终态）：映射为排队，否则界面显示「失败」
+    //   然后下一个 running 又把它改回来（闪烁）。
+    if (status == TaskStatus.waitingToRetry) {
+      return IxDownloadStatus.queued;
     }
     // failed / notFound / 该库将来新增的取值：一律按失败处理。
     return IxDownloadStatus.failed;
