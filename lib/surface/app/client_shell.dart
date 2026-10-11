@@ -177,8 +177,6 @@ class _OgLClientShellState extends State<OgLClientShell> {
         now: DateTime.now(),
       );
       switch (action) {
-        case OgLBackAction.popRoute:
-          navigator?.maybePop();
         case OgLBackAction.closeDrawer:
           // 本应用当前无抽屉，此分支不可达；保留以备将来加入侧边面板。
           _scaffoldKey.currentState?.closeDrawer();

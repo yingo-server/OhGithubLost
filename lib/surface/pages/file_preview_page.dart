@@ -230,7 +230,6 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         // SVG 优先按矢量渲染；渲染失败时**如实退化为源码**（见 [_svg]）。
         return _svg(bytes);
       case OgLPreviewKind.xml:
-      case OgLPreviewKind.text:
       case OgLPreviewKind.unknown:
         return _text(bytes);
     }
@@ -458,7 +457,6 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
         return _audioCard(theme, rawUrl: url);
       case OgLPreviewKind.svg:
       case OgLPreviewKind.xml:
-      case OgLPreviewKind.text:
       case OgLPreviewKind.unknown:
         // 文本类 > 1 MB 不在预览页展开（编辑器才是它的去处）。
         return _notice(theme, Icons.description_outlined,

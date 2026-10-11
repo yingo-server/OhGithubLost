@@ -108,6 +108,10 @@ void main() {
     test('只接受 https（http 明文会被拦截）', () {
       expect(ogLValidateAccelBaseUrl('http://a.com/'), isNotNull);
       expect(ogLValidateAccelBaseUrl('https://a.com/'), isNull);
+      // 只有前缀不算数：`https://` 没有主机名，会被当成"空加速前缀"
+      //（`https://` + 原地址 = 原地址），把静默直连伪装成"加速已开"。
+      expect(ogLValidateAccelBaseUrl('https://'), isNotNull);
+      expect(ogLValidateAccelBaseUrl('https:///'), isNotNull);
     });
 
     test('地址归一化补 /', () {

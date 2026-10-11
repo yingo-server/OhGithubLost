@@ -46,6 +46,11 @@ void main() {
       expect(ogLSafeDownloadFileName('con.txt'), '_con.txt');
       expect(ogLSafeDownloadFileName('NUL'), '_NUL');
       expect(ogLSafeDownloadFileName('com1.log'), '_com1.log');
+      // 多扩展名**不能**绕过：设备名判定取「第一个点之前」的部分
+      //（Microsoft 文档原话："NUL.tar.gz is equivalent to NUL"）。
+      expect(ogLSafeDownloadFileName('aux.tar.gz'), '_aux.tar.gz');
+      expect(ogLSafeDownloadFileName('nul.tar.gz'), '_nul.tar.gz');
+      expect(ogLSafeDownloadFileName('COM1.archive.zip'), '_COM1.archive.zip');
     });
 
     test('扩展名被保住，过长扩展名整个丢弃', () {

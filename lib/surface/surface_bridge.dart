@@ -285,12 +285,12 @@ class SurfaceBridge {
   /// 仓库文件的**下载方案**：地址候选 + 请求头（两条路，收口在这里）。
   ///
   /// - **不加速** → `/repos/…/contents/…` 加 `Accept: application/vnd.github.raw`
-  ///   并带 Bearer。这是私有仓库**唯一可行**的取法；该端点实测支持 Range，
-  ///   所以多连接分片下载照常可用。
-  /// - **加速**（仅内置通道 + 公开仓库）→ 把 **raw 链接**交给代理。
-  ///   raw 只在公开仓库才有意义：不需要令牌，且不限流。
-  ///
-  /// 私有仓库**没有加速这条路**：raw 端点没有签名机制，代理拿不到令牌。
+  ///   并带 Bearer。该端点实测支持 Range，所以多连接分片下载照常可用。
+  /// - **加速**（**自定义通道** + 公开仓库，或私有仓库且用户已知情接受）→
+  ///   把 **raw 链接**交给代理。公开仓库不需要令牌、不限流；私有仓库的 raw
+  ///   必须带令牌（代理会原样转发 `Authorization`），因此只有用户
+  ///   知情接受"令牌会交给第三方通道"之后才允许 —— 见
+  ///   `ogLAccelCandidates` 的 `privateAccelAccepted`。
   /// 判定规则见 `util/download_proxy.dart`。
   Future<({List<String> urls, Map<String, String> headers})>
       planRepoFileDownload({
@@ -340,8 +340,8 @@ class SurfaceBridge {
 
   /// 仓库文件是否会走加速（供界面如实说明当前取法）。
   ///
-  /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：**内置通道**，且
-  /// （公开仓库）或（私有仓库且用户已[知情接受]），大小未知或超过阈值。
+  /// 与 [ogLAccelCandidates] 的 raw 族规则保持一致：有**自定义通道**，且
+  /// （公开仓库）或（私有仓库且用户已知情接受），大小未知或超过阈值。
   bool repoFileAccelerated({
     required bool repoPrivate,
     int? size,

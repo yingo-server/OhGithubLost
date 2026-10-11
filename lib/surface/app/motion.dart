@@ -363,7 +363,7 @@ class _OgLSlideFadeTransitionsBuilder extends PageTransitionsBuilder {
   /// 起始垂直位移（占页高比例；0 = 不位移）。
   final double offset;
 
-  /// 起始缩放（1 = 不缩放；仅拉满档 < 1）。
+  /// 起始缩放（1 = 不缩放；**标准档起** < 1：0.99 → 0.975）。
   final double scaleFrom;
 
   /// 缓动。

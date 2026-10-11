@@ -252,7 +252,15 @@ String ogLSafeDownloadFileName(String raw, {String fallback = 'download'}) {
     safeStem = fallback;
   }
   // ⑤ Windows 保留设备名：改名，而不是放任它在 Windows 上失败。
-  if (_kReservedDeviceNames.contains(safeStem.toLowerCase())) {
+  //
+  //  ★ 判定取**第一个点之前**的部分：Windows 的设备名识别不是"最后一段
+  //    扩展名之前"——`nul.tar.gz` 同样等价于 `NUL`（Microsoft 文档原话：
+  //    "NUL.tar.gz is equivalent to NUL"）。旧实现只看最后一个点前的
+  //    `safeStem`（如 `aux.tar`），`aux.tar.gz` 这类多扩展名因此绕过判定。
+  final int firstDot = name.indexOf('.');
+  final String deviceCandidate =
+      (firstDot > 0 ? name.substring(0, firstDot) : name).toLowerCase();
+  if (_kReservedDeviceNames.contains(deviceCandidate)) {
     safeStem = '_$safeStem';
   }
   // 扩展名本身也可能是攻击面（超长后缀会撑爆路径），过长就整个丢掉。

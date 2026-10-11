@@ -1571,32 +1571,37 @@ class _CodeTabState extends State<_CodeTab> {
         '${Uri.encodeComponent(widget.branch)}/$encodedPath';
   }
 
-  /// README 图片的取法参数（基址 + 加速前缀）。
+  /// README 图片的取法参数（基址 + 加速前缀 + 认证头）。
   ///
-  /// - **加速（公开仓库 + 用户自备通道）** → 给 `raw` 基址 + 代理前缀，
-  ///   图片走 `代理 + raw`：
+  /// 与 [SurfaceBridge.planRepoFileDownload] **同一套规则**
+  ///（`repoFileAccelerated`）：
+  ///
+  /// - **加速（自定义通道 + 公开仓库，或私有仓库且用户已知情接受）** →
+  ///   给 `raw` 基址 + 代理前缀，图片走 `代理 + raw`：
   ///   raw 不限流，而 Contents API 认证后也只有 5000 次/小时，一次 README
   ///   几十张图很容易吃掉配额。
-  /// - **否则** → 两者都不给，界面退回 `imageLoader`（Contents API 取字节）——
-  ///   这也是私有仓库唯一可行的取法（raw 没有签名机制，不能交给代理）。
-  ({Uri? base, String? proxy}) _readmeImagePlan(String dir) {
+  /// - **否则** → 都不给，界面退回 `imageLoader`（Contents API 取字节）。
+  /// - **私有仓库**：raw 匿名是 404，走加速必须带令牌（通道会原样转发
+  ///   `Authorization`），因此额外给出认证头 Future；公开仓库为 `null`。
+  ({Uri? base, String? proxy, Future<Map<String, String>>? headers})
+      _readmeImagePlan(String dir) {
     // README 图片是**独立的一类**：很多前缀式代理能转发 Release 附件，
     // 却转发不了仓库内图片，所以它有自己的开关。
     //
-    // ★ 私有仓库**一律不走代理**：README 图片由 `Image.network` 加载，
-    //   它没有 headers 参数，无法携带 Authorization，而私有 raw 匿名访问
-    //   是 404（raw 端点没有签名机制）。让私有仓库走代理只会必然失败，
-    //   所以这里直接把私有排除在外，退回下面的 API 取字节路径（那条带令牌）。
-    final bool accel = !widget.repoPrivate &&
-        widget.surface.repoFileAccelerated(
-          repoPrivate: widget.repoPrivate,
-          size: null,
-          scope: OgLAccelScope.readmeImage,
-        );
+    // ★ 私有仓库与下载路径同规则：**知情接受后才允许**（见
+    //   `repoFileAccelerated` 的 privateOk）。`Image.network` 本身支持
+    //   headers（通道会原样转发 `Authorization`），令牌由下面的 headers
+    //   Future 提供，所以这条路对私有仓库同样成立；未接受时照旧退回
+    //   API 取字节（那条带令牌）。
+    final bool accel = widget.surface.repoFileAccelerated(
+      repoPrivate: widget.repoPrivate,
+      size: null,
+      scope: OgLAccelScope.readmeImage,
+    );
     final List<String> prefixes = widget.surface.settings.settings
         .accelPrefixesFor(OgLAccelScope.readmeImage);
     if (!accel || prefixes.isEmpty) {
-      return (base: null, proxy: null);
+      return (base: null, proxy: null, headers: null);
     }
     final String encodedDir = dir
         .split('/')
@@ -1672,7 +1677,8 @@ class _CodeTabState extends State<_CodeTab> {
     }
     // 一次求值：取法判定（含加速范围判断）不该在同一个 build 里跑两遍 ——
     // 两次调用之间若设置变化，会拿到不自洽的 base / proxy 组合。
-    final ({Uri? base, String? proxy}) plan = _readmeImagePlan('');
+    final ({Uri? base, String? proxy, Future<Map<String, String>>? headers})
+        plan = _readmeImagePlan('');
     return ExpansionTile(
       title: const Text('README'),
       subtitle:  Text(_t('expandCollapse')),
@@ -1682,6 +1688,7 @@ class _CodeTabState extends State<_CodeTab> {
           markdown: md,
           imageBase: plan.base,
           imageProxyPrefix: plan.proxy,
+          imageHeaders: plan.headers,
           imageLoader: (String p) => _readImageBytes(_repoPath('', p)),
           onOpenLink: (Uri uri) {
             unawaited(openExternalLink(uri, tag: 'README'));
@@ -1833,14 +1840,15 @@ class _CodeTabState extends State<_CodeTab> {
       );
     }
     if (file.path.toLowerCase().endsWith('.md')) {
-      final ({Uri? base, String? proxy}) plan =
-          _readmeImagePlan(_dirOf(file.path));
+      final ({Uri? base, String? proxy, Future<Map<String, String>>? headers})
+          plan = _readmeImagePlan(_dirOf(file.path));
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: ReadmeView(
           markdown: text,
           imageBase: plan.base,
           imageProxyPrefix: plan.proxy,
+          imageHeaders: plan.headers,
           imageLoader: (String p) =>
               _readImageBytes(_repoPath(_dirOf(file.path), p)),
           onOpenLink: (Uri uri) {
@@ -3425,4 +3433,6 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
 // 消息面板：Phase 5 后半已收敛到 `surface/app/async.dart` —— 空态用
 // [OgLAsyncEmptyPane]、失败用 [OgLAsyncErrorPane]（自带重试），与 AsyncView /
 // OgLAsyncSliver 同一套视觉与文案；原私有 `_MessagePane` 与
+// [OgLAsyncEmptyPane] 的实现逐字相同，属重复代码，已删除。
+liver 同一套视觉与文案；原私有 `_MessagePane` 与
 // [OgLAsyncEmptyPane] 的实现逐字相同，属重复代码，已删除。
