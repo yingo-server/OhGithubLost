@@ -130,7 +130,10 @@ class _GistDetailPageState extends State<GistDetailPage> {
                   content = await widget.surface.domain.api.rawText(raw);
                   truncatedUnresolved = false; // 拿到全文：解除标注。
                 } catch (_) {
-                  // 拉全文失败：保留已拿到的内容（可能被截断），由 UI 注明。
+                  // raw 拉全文失败：**显式**置位（不看服务端 flag）——
+                  // 回退失败本身就意味着手上这份内容不能保证完整，
+                  // 由卡片标注「内容可能被截断」，绝不冒充完整内容。
+                  truncatedUnresolved = true;
                 }
               }
             }

@@ -1293,7 +1293,11 @@ class RepoFileService {
 
   // ───────────────────────── 基础设施 ─────────────────────────
 
-  /// 统一收口：令牌绑定 + 结果日志 + **永不抛**（异常折叠为单条失败明细）。
+  /// 统一收口：令牌绑定 + 结果日志 + **写后失效读缓存** + 永不抛。
+  ///
+  /// 缓存失效收在这里而不是分散到各写方法：`body` 返回时，任何一次提交
+  /// （Contents 单文件写入或 Git Data 批量提交）都已落定——只要有条目
+  /// 真的写成功，本地只读缓存就已过期，读路径随后必须回源。
   Future<RepoFileResult> _run(
     String label,
     String fallbackPath,
@@ -1303,6 +1307,14 @@ class RepoFileService {
     final RepoFileCancelToken token = _begin(external);
     try {
       final RepoFileResult result = await body(token);
+      if (result.succeeded > 0) {
+        try {
+          await api.invalidateReadCache();
+        } catch (error) {
+          // 缓存失效失败不改变"写入已成功"的事实，也不静默：记诊断。
+          _diagnostics?.warn('RF', '写后失效读缓存失败：$error', code: 'OGL-RF-106');
+        }
+      }
       _logResult(label, result);
       return result;
     } catch (error) {

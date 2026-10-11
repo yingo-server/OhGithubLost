@@ -474,54 +474,59 @@ class _BranchSheetState extends State<_BranchSheet> {
             _filter.isEmpty ||
             b.name.toLowerCase().contains(_filter.toLowerCase()))
         .toList();
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.6,
-      child: Column(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: TextField(
-              autofocus: false,
-              decoration:  InputDecoration(
-                isDense: true,
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
-                hintText: _t('searchBranch'),
+    // 底部让位：弹层一直延伸到屏幕底边（useSafeArea 只管顶部 / 左右），
+    // 内容不让开下沿时，最后一条分支会被手势条 / 浏览器下沿盖住。
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.6,
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                autofocus: false,
+                decoration:  InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
+                  hintText: _t('searchBranch'),
+                ),
+                onChanged: (String value) => setState(() => _filter = value),
               ),
-              onChanged: (String value) => setState(() => _filter = value),
             ),
-          ),
-          Expanded(
-            child: shown.isEmpty
-                ?  Center(child: Text(_t('noMatchingBranch')))
-                : ListView.builder(
-                    itemCount: shown.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final GhBranch branch = shown[index];
-                      final bool isCurrent = branch.name == widget.current;
-                      final bool isDefault =
-                          branch.name == widget.defaultBranch;
-                      return ListTile(
-                        leading: Icon(
-                          branch.isProtected
-                              ? Icons.lock_outline
-                              : Icons.account_tree_outlined,
-                        ),
-                        title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                          '${ghShortSha(branch.sha)}'
-                          '${isDefault ? _t('defaultBranchTag') : ''}'
-                          '${branch.isProtected ? _t('protectedTag') : ''}',
-                        ),
-                        trailing: isCurrent
-                            ? Icon(Icons.check, color: theme.colorScheme.primary)
-                            : null,
-                        onTap: () => Navigator.of(context).pop(branch.name),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            Expanded(
+              child: shown.isEmpty
+                  ?  Center(child: Text(_t('noMatchingBranch')))
+                  : ListView.builder(
+                      itemCount: shown.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final GhBranch branch = shown[index];
+                        final bool isCurrent = branch.name == widget.current;
+                        final bool isDefault =
+                            branch.name == widget.defaultBranch;
+                        return ListTile(
+                          leading: Icon(
+                            branch.isProtected
+                                ? Icons.lock_outline
+                                : Icons.account_tree_outlined,
+                          ),
+                          title: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            '${ghShortSha(branch.sha)}'
+                            '${isDefault ? _t('defaultBranchTag') : ''}'
+                            '${branch.isProtected ? _t('protectedTag') : ''}',
+                          ),
+                          trailing: isCurrent
+                              ? Icon(Icons.check, color: theme.colorScheme.primary)
+                              : null,
+                          onTap: () => Navigator.of(context).pop(branch.name),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -653,6 +658,12 @@ class _CodeTabState extends State<_CodeTab> {
 
   GhContent? _file;
   bool _busy = false;
+
+  /// 写操作进行中的状态行（列表顶部显示；空串 = 不显示）。
+  ///
+  /// 由 [RepoFileService] 的进度回调 [_onRepoProgress] 更新；只在
+  /// [_busy] 为真且非空时渲染（见 [build]）。
+  String _operationStatus = '';
   String? _readme;
   bool _readmeTried = false;
 
@@ -718,6 +729,50 @@ class _CodeTabState extends State<_CodeTab> {
   Future<void> _reload({bool force = true}) async {
     _forceList = force;
     await _entries.refresh();
+  }
+
+  /// 服务进度回调 → 列表顶部的状态行（[_operationStatus]）。
+  ///
+  /// 阶段名走 i18n（`repo` 分片），计数是动态数据；`done` 只保持当前文本 ——
+  /// 状态行的清理由操作结束的 `finally` 统一做，避免收尾间隙闪一帧转圈。
+  void _onRepoProgress(RepoFileProgress progress) {
+    if (!mounted || progress.phase == RepoFilePhase.done) {
+      return;
+    }
+    final String label = switch (progress.phase) {
+      RepoFilePhase.preparing => _t('opPreparing'),
+      RepoFilePhase.reading => _t('opReading'),
+      RepoFilePhase.uploading => _t('opUploading'),
+      RepoFilePhase.committing => _t('opCommitting'),
+      // 上面的早退已排除 `done`；保留空臂仅为 switch 的穷尽性。
+      RepoFilePhase.done => '',
+    };
+    final String text = progress.total > 0
+        ? '$label ${progress.current}/${progress.total}'
+        : label;
+    setState(() => _operationStatus = text);
+  }
+
+  /// 消费服务结果：把**失败项**逐条报给用户（同一文案只报一次）。
+  ///
+  /// [RepoFileService] 永不抛：网络 / 冲突 / 校验失败都折叠在 `result.items`
+  /// 里，这里是把它们摊开显示的唯一位置；整体成败只看 `result.ok`（由调用方
+  /// 判断成功路径）。目录级失败会展开成成百条同因条目（如批次冲突后统一标
+  /// `aborted`），同一条文案只报一次，避免重复 SnackBar 淹没界面。
+  void _reportRepoFailures(
+    RepoFileResult result,
+    String Function(String error) wrap,
+  ) {
+    final Set<String> reported = <String>{};
+    for (final RepoFileItemResult item in result.items) {
+      if (item.ok) {
+        continue;
+      }
+      final String message = wrap(item.error ?? 'failed');
+      if (reported.add(message)) {
+        _notifier.warning(message);
+      }
+    }
   }
 
   /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
@@ -1066,13 +1121,22 @@ class _CodeTabState extends State<_CodeTab> {
     }
     setState(() => _busy = true);
     try {
-      await widget.surface.domain.api.putContent(
+      // 新建走文件操作服务（`RepoFileService.create`）：路径与内容先在服务端
+      // 规则里校验，写入带**文件级基线**（create 不覆盖既有文件）。
+      final RepoFileResult result = await widget.surface.repoFiles.create(
         widget.fullName,
+        widget.branch,
         path,
-        content: content.text,
+        content.text,
         message: directory ? 'chore: add directory $raw' : 'chore: add $path',
-        branch: widget.branch,
       );
+      if (!result.ok) {
+        _reportRepoFailures(
+          result,
+          (String error) => _t('branchCreateFailed', {'error': error}),
+        );
+        return;
+      }
       OgLAppLog.instance.result(
         '仓库',
         directory ? _t('dirCreated') : _t('fileCreated'),
@@ -1084,21 +1148,9 @@ class _CodeTabState extends State<_CodeTab> {
             : _t('createdPath', {'path': path}),
       );
       await _reload();
-    } on RemoteConflictException catch (error) {
-      // 422 = 远端已有同名文件（本地列表过期 / 他人刚创建）：
-      // 把 "sha wasn't supplied" 翻译成用户能懂的原因，而不是原样弹出。
-      if (error.statusCode == 422) {
-        _notifier.warning(_t('alreadyExists', {'path': path}));
-      } else {
-        _notifier.warning(_t('branchCreateFailed', {'error': error}));
-      }
     } catch (error) {
-      // 兜底：个别路径仍可能以 `GhAuthException(422)` 抛出。
-      if (error is GhAuthException && error.statusCode == 422) {
-        _notifier.warning(_t('alreadyExists', {'path': path}));
-      } else {
-        _notifier.warning(_t('branchCreateFailed', {'error': error}));
-      }
+      // 服务契约是"永不抛"；这里兜底，任何漏网异常仍以同一文案提示。
+      _notifier.warning(_t('branchCreateFailed', {'error': error}));
     } finally {
       content.dispose();
       if (mounted) {
@@ -1147,20 +1199,18 @@ class _CodeTabState extends State<_CodeTab> {
     }
     setState(() => _busy = true);
     try {
-      final GhWriteResult result =
-          await widget.surface.domain.api.deleteContentLocked(
+      // 删除走文件操作服务（`RepoFileService.delete`）：服务先探测目标、
+      // 用**文件级基线**删除（乐观锁：不会删错版本），失败折叠进 `items`。
+      final RepoFileResult result = await widget.surface.repoFiles.delete(
         widget.fullName,
+        widget.branch,
         entry.path,
         message: 'chore: delete ${entry.path}',
-        baseSha: entry.sha,
-        branch: widget.branch,
-        confirmed: true,
       );
       if (!result.ok) {
-        _notifier.warning(
-          _t('branchDeleteFailed', {
-            'error': result.detail ?? ghWriteConflictText(result.conflict),
-          }),
+        _reportRepoFailures(
+          result,
+          (String error) => _t('branchDeleteFailed', {'error': error}),
         );
         return;
       }
@@ -1171,6 +1221,7 @@ class _CodeTabState extends State<_CodeTab> {
       _notifier.success(_t('deletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
+      // 服务契约是"永不抛"；这里兜底，任何漏网异常仍以同一文案提示。
       _notifier.warning(_t('branchDeleteFailed', {'error': error}));
     } finally {
       if (mounted) {
@@ -1182,8 +1233,10 @@ class _CodeTabState extends State<_CodeTab> {
   /// 删除**目录**（含其下全部文件，一次原子提交）。
   ///
   /// 为什么单列：Git 不跟踪空目录，目录本身只是一组文件路径的前缀，
-  /// 因此"删目录"= 删掉该前缀下的**全部 blob**，必须走 `commitFiles`
-  /// 的批量删除才能保证"要么全成、要么全不成"。
+  /// 因此"删目录"= 删掉该前缀下的**全部 blob**。实际删除交给文件操作服务
+  /// （`isDirectory: true`）：服务端重新展开前缀、按 ≤200 个文件一批串行提交
+  /// （基线链式推进），**不再有页面级 200 文件上限**；这里的预扫描只用于
+  /// 确认对话框的文件计数，以及提前拦下截断 / 空目录。
   Future<void> _deleteDirectory(GhContent entry) async {
     final String prefix = '${entry.path}/';
     final List<String> paths = <String>[];
@@ -1207,13 +1260,6 @@ class _CodeTabState extends State<_CodeTab> {
     }
     if (paths.isEmpty) {
       _notifier.warning(_t('noDeletableFiles'));
-      return;
-    }
-    const int maxBatch = 200;
-    if (paths.length > maxBatch) {
-      _notifier.warning(
-        _t('dirExceedsBatch', {'count': paths.length, 'max': maxBatch}),
-      );
       return;
     }
     if (!mounted) {
@@ -1248,28 +1294,45 @@ class _CodeTabState extends State<_CodeTab> {
     if (_busy) {
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _operationStatus = _t('opPreparing');
+    });
     try {
-      await widget.surface.domain.api.commitFiles(
+      // 目录递归删除走文件操作服务：服务端展开 → 逐批提交（≤200/批，基线
+      // 链式推进）；进度经 [onProgress] 摊到列表顶部（见 [_onRepoProgress]）。
+      final RepoFileResult result = await widget.surface.repoFiles.delete(
         widget.fullName,
-        branch: widget.branch,
-        upserts: const <String, String>{},
-        deletions: paths,
+        widget.branch,
+        entry.path,
+        isDirectory: true,
         message: 'chore: delete directory ${entry.path}',
+        onProgress: _onRepoProgress,
       );
+      if (!result.ok) {
+        _reportRepoFailures(
+          result,
+          (String error) => _t('deleteDirFailed', {'error': error}),
+        );
+        return;
+      }
       OgLAppLog.instance.result('仓库', _t('dirDeleted'), _t('dirDeletedMeta', {'path': entry.path, 'count': paths.length}));
       _notifier.success(_t('dirDeletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
+      // 服务契约是"永不抛"；这里兜底，任何漏网异常仍以同一文案提示。
       _notifier.warning(_t('deleteDirFailed', {'error': error}));
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _operationStatus = '';
+        });
       }
     }
   }
 
-  /// 重命名**文件**（内容不变，一次原子提交：新增新路径 + 删除旧路径）。
+  /// 重命名**文件**（一次提交：新增新路径 + 删除旧路径，由文件操作服务完成）。
   ///
   /// 目录重命名不在此支持：它需要逐个文件搬运内容，代价与风险都高，
   /// 会明确提示用户（不静默失败）。
@@ -1331,40 +1394,41 @@ class _CodeTabState extends State<_CodeTab> {
     if (_busy) {
       return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _operationStatus = _t('opPreparing');
+    });
     try {
-      // 强制回源：重命名 = 「读旧内容 → 写新路径」的搬运；缓存里 30 秒内的
-      // 旧内容一旦被回写，就会把**他人刚提交的版本**覆盖回退。
-      final GhContent? current = await widget.surface.domain.api.content(
+      // 重命名走文件操作服务：服务内部先读旧内容（文本走 `commitFiles`、
+      // 二进制 / 符号链接 / 大文件走 Blobs 或 sha 引用，字节精确），再一次
+      // 提交「写新路径 + 删旧路径」——不经过页面缓存，旧内容不会被回写。
+      final RepoFileResult result = await widget.surface.repoFiles.rename(
         widget.fullName,
+        widget.branch,
         entry.path,
-        branch: widget.branch,
-        refresh: true,
+        next,
+        message: 'chore: rename ${entry.path} -> $next',
+        onProgress: _onRepoProgress,
       );
-      final String? text = current?.text;
-      if (text == null) {
-        _notifier.warning(_t('notTextFile'));
+      if (!result.ok) {
+        _reportRepoFailures(
+          result,
+          (String error) => _t('branchRenameFailed', {'error': error}),
+        );
         return;
       }
-      final String head = await widget.surface.domain.api
-          .branchHeadSha(widget.fullName, widget.branch);
-      await widget.surface.domain.api.commitFiles(
-        widget.fullName,
-        branch: widget.branch,
-        upserts: <String, String>{next: text},
-        deletions: <String>[entry.path],
-        message: 'chore: rename ${entry.path} -> $next',
-        // 读与提交之间若有人推进了分支，会以 409 拒绝（不盲目再落一次提交）。
-        expectedHeadSha: head.isEmpty ? null : head,
-      );
       OgLAppLog.instance.result('仓库', _t('branchRenamed'), '${entry.path} → $next');
       _notifier.success(_t('renamedTo', {'path': next}));
       await _reload();
     } catch (error) {
+      // 服务契约是"永不抛"；这里兜底，任何漏网异常仍以同一文案提示。
       _notifier.warning(_t('branchRenameFailed', {'error': error}));
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _operationStatus = '';
+        });
       }
     }
   }
@@ -1875,7 +1939,9 @@ class _CodeTabState extends State<_CodeTab> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final GhContent? file = _file;
-    if (_busy) {
+    if (_busy && _operationStatus.isEmpty) {
+      // 其余忙态（打开文件 / 新建）没有可读进度：维持转圈；
+      // 带进度状态的写操作在下方列表顶部显示状态行，不遮住内容。
       return const Center(child: CircularProgressIndicator());
     }
     if (file != null) {
@@ -1903,6 +1969,18 @@ class _CodeTabState extends State<_CodeTab> {
           : null,
       body: Column(
         children: <Widget>[
+          // 写操作进行中：列表顶部摊开进度状态（`_operationStatus`）。
+          if (_busy && _operationStatus.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _operationStatus,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ),
           if (_path.isNotEmpty) _breadcrumb(context),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),

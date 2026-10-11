@@ -53,8 +53,6 @@ class _LoginPageState extends State<LoginPage> {
   String? _error;
   String _phase = '';
 
-  /// 向导进度：0 = 还没开始；1..4 = 当前正在做的第几步；5 = 全部完成。
-
   @override
   void dispose() {
     _input.dispose();
@@ -164,23 +162,23 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     } finally {
+      // 已卸载时 `_busy` 无人再读：不必、也不应在已 dispose 的 State 上回写。
       if (mounted) {
         setState(() => _busy = false);
-      } else {
-        _busy = false;
       }
     }
   }
 
   /// 打开引导页（**回顾模式**：不改动"已引导"标志，也不影响登录状态）。
   Future<void> _openOnboarding() async {
+    // 先在同步段取好 Navigator：弹层关闭时不再依赖 builder 的 context。
     final NavigatorState navigator = Navigator.of(context);
     await navigator.push<void>(
       MaterialPageRoute<void>(
         builder: (BuildContext context) => OnboardingPage(
           surface: widget.surface,
           review: true,
-          onFinished: () => Navigator.of(context).pop(),
+          onFinished: () => navigator.pop(),
         ),
       ),
     );

@@ -78,9 +78,14 @@ class OgLDependencyLicense {
   final String purpose;
 }
 
-/// 第三方依赖清单（顺序与 `pubspec.yaml` 保持一致）。
+/// 第三方依赖清单：**顺序与 `pubspec.yaml` 的 `dependencies` 逐项一致**。
+///
+/// `flutter_localizations` 虽是 SDK 自带、不带外部版本号，但在 pubspec 中
+/// 紧跟 `flutter` 排在所有外部包之前，这里同样列在首位（BSD-3-Clause，
+/// 随产物分发）。
 final List<OgLDependencyLicense> kOgLDependencyLicenses =
     <OgLDependencyLicense>[
+  OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', _t('featureLocalization')),
   OgLDependencyLicense('path_provider', 'BSD-3-Clause', _t('featureCrossPlatformDirs')),
   OgLDependencyLicense('flutter_secure_storage', 'MIT', _t('featureTokenVault')),
   OgLDependencyLicense('crypto', 'BSD-3-Clause', _t('featureDigest')),
@@ -99,5 +104,4 @@ final List<OgLDependencyLicense> kOgLDependencyLicenses =
   OgLDependencyLicense('flutter_local_notifications', 'BSD-3-Clause',
       _t('featureSystemNotice')),
   OgLDependencyLicense('yaml', 'MIT', _t('featureWorkflowInputs')),
-  OgLDependencyLicense('flutter_localizations', 'BSD-3-Clause', _t('featureLocalization')),
 ];

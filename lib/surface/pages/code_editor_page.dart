@@ -344,15 +344,20 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (BuildContext sheetContext) => SizedBox(
-        height: MediaQuery.of(sheetContext).size.height * 0.8,
-        child: OgLCodeViewer(
-          code: _controller.text,
-          path: widget.path,
-          fontSize: settings.fontSize,
-          wrap: _wrap,
-          highlight: settings.highlight,
-          codeTheme: settings.theme(sheetContext),
+      // 底部让位：弹层延伸到屏幕底边（useSafeArea 只管顶部 / 左右），
+      // 编辑器最后一屏不会被手势条 / 浏览器下沿盖住。
+      builder: (BuildContext sheetContext) => SafeArea(
+        top: false,
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.8,
+          child: OgLCodeViewer(
+            code: _controller.text,
+            path: widget.path,
+            fontSize: settings.fontSize,
+            wrap: _wrap,
+            highlight: settings.highlight,
+            codeTheme: settings.theme(sheetContext),
+          ),
         ),
       ),
     );
