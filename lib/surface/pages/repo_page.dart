@@ -1611,7 +1611,11 @@ class _CodeTabState extends State<_CodeTab> {
     final String base = 'https://raw.githubusercontent.com/${widget.fullName}/'
         '${Uri.encodeComponent(widget.branch)}/'
         '${encodedDir.isEmpty ? '' : '$encodedDir/'}';
-    return (base: Uri.parse(base), proxy: prefixes.first);
+    return (
+      base: Uri.parse(base),
+      proxy: prefixes.first,
+      headers: widget.repoPrivate ? widget.surface.downloadAuthHeaders() : null,
+    );
   }
 
   Future<Uint8List?> _readImageBytes(String path) async {
@@ -3433,6 +3437,4 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
 // 消息面板：Phase 5 后半已收敛到 `surface/app/async.dart` —— 空态用
 // [OgLAsyncEmptyPane]、失败用 [OgLAsyncErrorPane]（自带重试），与 AsyncView /
 // OgLAsyncSliver 同一套视觉与文案；原私有 `_MessagePane` 与
-// [OgLAsyncEmptyPane] 的实现逐字相同，属重复代码，已删除。
-liver 同一套视觉与文案；原私有 `_MessagePane` 与
 // [OgLAsyncEmptyPane] 的实现逐字相同，属重复代码，已删除。
