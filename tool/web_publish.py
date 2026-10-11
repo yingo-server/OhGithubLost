@@ -221,6 +221,22 @@ def main() -> int:
     if os.path.isdir(target):
         shutil.rmtree(target)
     shutil.copytree(args.build_dir, target)
+
+    # ★ 修正 `<base href>`：`flutter build web` 默认写 `/`（域名根目录），
+    #   但产物部署在 `app/<版本>/` 子路径下 —— 不改的话浏览器会去域名根
+    #   目录找 `main.dart.js`（404 → 白屏）。
+    #   改为 `./`（相对路径），无论部署在哪一层子路径都能正确解析。
+    idx_html = os.path.join(target, 'index.html')
+    if os.path.isfile(idx_html):
+        with open(idx_html, encoding='utf-8') as fh:
+            html = fh.read()
+        fixed = html.replace('<base href="/">', '<base href="./">')
+        if fixed != html:
+            with open(idx_html, 'w', encoding='utf-8') as fh:
+                fh.write(fixed)
+            print('  [修正] index.html base href: / → ./')
+        else:
+            print('  [跳过] index.html 无 <base href="/"> 或已修正')
     print('已发布 %s → %s' % (args.version, os.path.relpath(target, ROOT)))
 
     # 版本清单（新版本在前；同版本去重）
