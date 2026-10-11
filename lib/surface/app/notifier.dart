@@ -5,12 +5,26 @@
 /// 行为一致、各写各的：`mounted` 判断 + 直接 `showSnackBar`）。
 /// 统一入口后，「提示长什么样、什么语气」只有一处定义。
 ///
-/// ## 三种语气
-/// - [OgLNotifier.info] / [OgLNotifier.success]：普通提示（默认配色）；
-/// - [OgLNotifier.warning]：需要用户留意的失败 / 风险（error 配色）。
+/// ## 三种语气（页面按语义挑，不再自己拼样式）
+/// - [OgLNotifier.success]：操作**已生效**（复制 / 保存 / 提交 / 已加入下载…）；
+/// - [OgLNotifier.info]：普通说明（条数、草稿已恢复…）；
+/// - [OgLNotifier.warning]：失败与"被拦下"——权限不足、目标不存在 /
+///   不可操作、写回失败、参数校验不通过（error 配色）。
 ///
-/// 注：本文件目前**只建立入口**；各页面 `_toast` 的批量替换放在
-/// Phase 5 的后半批（涉及文件多，避免与其它改动混在一起）。
+/// ## 收敛结果（Phase 5 后半已完成）
+/// 7 份私有 `_toast` 实现已**全部删除**，各页面在 `_toast` 原位置只留一行入口：
+/// ```dart
+/// OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
+/// ```
+/// 调用点由 `_toast(x)` 改为 `_notifier.<语气>(x)`（页面：`settings_page` ·
+/// `repo_page`（两处 State）· `release_detail_page` · `workflow_dispatch_page` ·
+/// `action_run_page` · `code_editor_page`）。
+///
+/// ## 页面侧纪律
+/// - 提示一律经本类，不再直接 `showSnackBar`（长什么样只有一处定义）；
+/// - **`await` 之后**要提示时，页面仍应先判 `mounted`（与本仓库其它直接取
+///   `ScaffoldMessenger.of(context)` 的地方同规矩）；本类内部的
+///   `ScaffoldMessengerState.mounted` 判断只是第二道保险。
 library;
 
 import 'package:flutter/material.dart';

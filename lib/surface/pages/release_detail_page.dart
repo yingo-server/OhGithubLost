@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
 import '../app/error_surface.dart';
+import '../app/notifier.dart';
 import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
@@ -140,7 +141,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       return;
     }
     if (tagText.isEmpty) {
-      _toast(_t('tagRequired'));
+      _notifier.warning(_t('tagRequired'));
       return;
     }
     setState(() => _busy = true);
@@ -161,7 +162,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
       setState(() {
         _release = updated;
       });
-      _toast(_t('saved'));
+      _notifier.success(_t('saved'));
     } catch (error) {
       OgLAppLog.instance.add(
         _t('publish'),
@@ -169,7 +170,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('saveFailed', {'error': error}));
+        _notifier.warning(_t('saveFailed', {'error': error}));
       }
     } finally {
       if (mounted) {
@@ -216,7 +217,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('deleteFailed', {'error': error}));
+        _notifier.warning(_t('deleteFailed', {'error': error}));
       }
     } finally {
       if (mounted) {
@@ -228,7 +229,7 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
   Future<void> _download(GhAsset asset) async {
     final String? url = asset.downloadUrl;
     if (url == null || url.isEmpty) {
-      _toast(_t('assetNoUrl'));
+      _notifier.warning(_t('assetNoUrl'));
       return;
     }
     try {
@@ -267,11 +268,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
         expectedSha256: IxPresign.normalizeDigest(asset.raw['digest']),
       );
       if (mounted) {
-        _toast(_t('addedToDownload', {'name': asset.name}));
+        _notifier.success(_t('addedToDownload', {'name': asset.name}));
       }
     } catch (error) {
       if (mounted) {
-        _toast(_t('addDownloadFailed', {'error': error}));
+        _notifier.warning(_t('addDownloadFailed', {'error': error}));
       }
     }
   }
@@ -383,11 +384,11 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
   Future<void> _copyAssetLink(GhAsset asset) async {
     final String? url = asset.downloadUrl;
     if (url == null || url.isEmpty) {
-      _toast(_t('assetNoUrl'));
+      _notifier.warning(_t('assetNoUrl'));
       return;
     }
     await Clipboard.setData(ClipboardData(text: url));
-    _toast(_t('copiedDownloadLink'));
+    _notifier.success(_t('copiedDownloadLink'));
   }
 
   Widget _assetKeyRow(String key, String value) => Padding(
@@ -405,16 +406,16 @@ class _ReleaseDetailPageState extends State<ReleaseDetailPage> {
     final String text = _release.body ?? '';
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      _toast(_t('copiedNotes'));
+      _notifier.success(_t('copiedNotes'));
     }
   }
 
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   @override
   Widget build(BuildContext context) {

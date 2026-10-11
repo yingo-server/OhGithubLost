@@ -484,17 +484,23 @@ class _OgLNoticeHostState extends State<OgLNoticeHost>
     }
     showDialog<void>(
       context: navContext,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text(notice.title),
-        content: notice.detail == null || notice.detail!.isEmpty
-            ? null
-            : SelectableText(notice.detail!),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child:  Text(_t('gotIt')),
-          ),
-        ],
+      // 严重告警**必须被阅读**：遮罩点击与系统返回键都不允许关掉，
+      // 只留「知道了」这一个出口（避免误触把关键告警一扫而过）。
+      barrierDismissible: false,
+      builder: (BuildContext context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(notice.title),
+          content: notice.detail == null || notice.detail!.isEmpty
+              ? null
+              : SelectableText(notice.detail!),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child:  Text(_t('gotIt')),
+            ),
+          ],
+        ),
       ),
     ).whenComplete(() {
       if (!mounted) {

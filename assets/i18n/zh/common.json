@@ -110,5 +110,13 @@
   "accelSelfProvided": "通道由你自备：本应用不内置、不推荐、也不托管任何代理。",
   "previewSvg": "SVG",
   "previewUnknown": "其它",
-  "guide": "查看使用引导"
+  "guide": "查看使用引导",
+  "writeConflictNone": "无冲突",
+  "writeConflictRequiresRead": "缺少基线，请先读取最新版本再写",
+  "writeConflictStaleSha": "远端已被他人更新（你的基线已过期）",
+  "writeConflictNeedsConfirmation": "该操作需要先确认才能执行",
+  "writeConflictNotFound": "目标不存在（可能已被删除）",
+  "writeConflictForbidden": "权限不足，无法写入",
+  "writeConflictServer": "服务端错误，请稍后重试",
+  "writeConflictVerificationFailed": "写入后校验未通过，请重试"
 }

@@ -364,6 +364,9 @@ class SurfaceBridge {
   /// 全部下载任务快照。
   List<IxDownloadTask> get downloadTasks => domain.downloads.tasks;
 
+  /// 下载后端是否支持**暂停 / 继续**（Web = `false`，页面据此隐藏这两个按钮）。
+  bool get supportsPauseResume => domain.downloads.supportsPauseResume;
+
   /// 清除已完成任务。
   void clearFinishedDownloads() => domain.downloads.clearFinished();
 

@@ -19,7 +19,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/animations.dart';
+import '../app/async.dart';
 import '../app/error_surface.dart';
+import '../app/notifier.dart';
 import '../app/overlays.dart';
 import '../app/paged_controller.dart';
 import '../i18n/og_l_i18n.dart';
@@ -144,12 +146,12 @@ class _RepoPageState extends State<RepoPage> {
     }
   }
 
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   Future<void> _toggleStar() async {
     if (_starBusy) {
@@ -162,10 +164,10 @@ class _RepoPageState extends State<RepoPage> {
       OgLAppLog.instance.result('仓库', target ? _t('starred') : _t('unstarred'), _full);
       if (mounted) {
         setState(() => _starred = target);
-        _toast(target ? _t('starred') : _t('unstarred'));
+        _notifier.success(target ? _t('starred') : _t('unstarred'));
       }
     } catch (error) {
-      _toast(_t('actionFailed', {'error': error}));
+      _notifier.warning(_t('actionFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _starBusy = false);
@@ -201,9 +203,9 @@ class _RepoPageState extends State<RepoPage> {
     try {
       final GhRepo forked = await widget.surface.domain.api.fork(_full);
       OgLAppLog.instance.result('仓库', _t('forked'), forked.fullName);
-      _toast(_t('forkedAs', {'name': forked.fullName}));
+      _notifier.success(_t('forkedAs', {'name': forked.fullName}));
     } catch (error) {
-      _toast(_t('forkFailed', {'error': error}));
+      _notifier.warning(_t('forkFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _forkBusy = false);
@@ -218,7 +220,7 @@ class _RepoPageState extends State<RepoPage> {
 
   Future<void> _copyCloneUrl() async {
     await Clipboard.setData(ClipboardData(text: 'https://github.com/$_full.git'));
-    _toast(_t('cloneUrlCopied'));
+    _notifier.success(_t('cloneUrlCopied'));
   }
 
   /// 选择分支（Material 底部弹层 + 搜索）。
@@ -228,7 +230,7 @@ class _RepoPageState extends State<RepoPage> {
       branches = await widget.surface.domain.api
           .branches(_full, perPage: 100);
     } catch (error) {
-      _toast(_t('branchesFailed', {'error': error}));
+      _notifier.warning(_t('branchesFailed', {'error': error}));
       return;
     }
     if (!mounted) {
@@ -553,17 +555,15 @@ Widget _pagedBody<T>(
     return const Center(child: CircularProgressIndicator());
   }
   if (paged.items.isEmpty && paged.error != null) {
-    return _MessagePane(
-      icon: Icons.error_outline,
-      message: paged.error!,
-      action: FilledButton.tonal(
-        onPressed: paged.refresh,
-        child:  Text(_t('retry')),
-      ),
-    );
+    // 失败必须可见且可重试（与 AsyncView 同一套面板，Phase 5 后半收敛）。
+    return OgLAsyncErrorPane(message: paged.error!, onRetry: paged.refresh);
   }
   if (paged.items.isEmpty) {
-    return _MessagePane(icon: emptyIcon, message: emptyText, action: emptyAction);
+    return OgLAsyncEmptyPane(
+      icon: emptyIcon,
+      text: emptyText,
+      action: emptyAction,
+    );
   }
   return RefreshIndicator(
     onRefresh: paged.refresh,
@@ -720,12 +720,12 @@ class _CodeTabState extends State<_CodeTab> {
     await _entries.refresh();
   }
 
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   Future<void> _loadReadme() async {
     if (_readmeTried) {
@@ -769,7 +769,7 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content == null) {
-        _toast(_t('pathNotFound', {'path': path}));
+        _notifier.warning(_t('pathNotFound', {'path': path}));
         return;
       }
       if (content.isDirectory) {
@@ -778,7 +778,7 @@ class _CodeTabState extends State<_CodeTab> {
         setState(() => _file = content);
       }
     } catch (error) {
-      _toast(_t('readFailed', {'error': error}));
+      _notifier.warning(_t('readFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -903,12 +903,12 @@ class _CodeTabState extends State<_CodeTab> {
         return;
       }
       if (content == null) {
-        _toast(_t('readFailedFileGone'));
+        _notifier.warning(_t('readFailedFileGone'));
         return;
       }
       setState(() => _file = content);
     } catch (error) {
-      _toast(_t('readFailed', {'error': error}));
+      _notifier.warning(_t('readFailed', {'error': error}));
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -959,7 +959,11 @@ class _CodeTabState extends State<_CodeTab> {
   /// - 路径禁止中文 / 全角 / 特殊字符（见 `util/path_rules.dart`）。
   Future<void> _createFile() async {
     if (!widget.canWrite) {
-      _toast(_t('noWritePerm'));
+      _notifier.warning(_t('noWritePerm'));
+      return;
+    }
+    // 防重复点按：写操作在途时不再开新的新建对话框。
+    if (_busy) {
       return;
     }
     _newPath.text = _path.isEmpty ? '' : '$_path/';
@@ -1030,20 +1034,26 @@ class _CodeTabState extends State<_CodeTab> {
       content.dispose();
       return;
     }
+    // 对话框期间可能已有另一个写操作在途（快速连点 FAB 会叠出多个对话框）：
+    // 确认时再拦一次，保证同一时刻只有一次写。
+    if (_busy) {
+      content.dispose();
+      return;
+    }
     final String raw = _newPath.text.trim();
     final bool directory = raw.endsWith('/');
     final String? pathError =
         ogLValidateRepoEntryPath(raw, directory: directory);
     if (pathError != null) {
       content.dispose();
-      _toast(pathError);
+      _notifier.warning(pathError);
       return;
     }
     final String path = directory ? ogLGitKeepPathFor(raw) : raw;
     final String? contentError = ogLValidateFileContent(path, content.text);
     if (contentError != null) {
       content.dispose();
-      _toast(contentError);
+      _notifier.warning(contentError);
       return;
     }
     // 同名条目已存在 → 先拦下（GitHub 同名 PUT 会 422，这里给清晰原因）。
@@ -1051,9 +1061,10 @@ class _CodeTabState extends State<_CodeTab> {
         _entries.items.any((GhContent e) => e.path == path);
     if (exists) {
       content.dispose();
-      _toast(_t('alreadyExists', {'path': path}));
+      _notifier.warning(_t('alreadyExists', {'path': path}));
       return;
     }
+    setState(() => _busy = true);
     try {
       await widget.surface.domain.api.putContent(
         widget.fullName,
@@ -1067,18 +1078,41 @@ class _CodeTabState extends State<_CodeTab> {
         directory ? _t('dirCreated') : _t('fileCreated'),
         path,
       );
-      content.dispose();
-      _toast(directory ? _t('createdDir', {'path': raw}) : _t('createdPath', {'path': path}));
+      _notifier.success(
+        directory
+            ? _t('createdDir', {'path': raw})
+            : _t('createdPath', {'path': path}),
+      );
       await _reload();
+    } on RemoteConflictException catch (error) {
+      // 422 = 远端已有同名文件（本地列表过期 / 他人刚创建）：
+      // 把 "sha wasn't supplied" 翻译成用户能懂的原因，而不是原样弹出。
+      if (error.statusCode == 422) {
+        _notifier.warning(_t('alreadyExists', {'path': path}));
+      } else {
+        _notifier.warning(_t('branchCreateFailed', {'error': error}));
+      }
     } catch (error) {
+      // 兜底：个别路径仍可能以 `GhAuthException(422)` 抛出。
+      if (error is GhAuthException && error.statusCode == 422) {
+        _notifier.warning(_t('alreadyExists', {'path': path}));
+      } else {
+        _notifier.warning(_t('branchCreateFailed', {'error': error}));
+      }
+    } finally {
       content.dispose();
-      _toast(_t('branchCreateFailed', {'error': error}));
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   Future<void> _deleteEntry(GhContent entry) async {
     if (!widget.canWrite) {
-      _toast(_t('noWritePerm'));
+      _notifier.warning(_t('noWritePerm'));
+      return;
+    }
+    if (_busy) {
       return;
     }
     if (entry.isDirectory) {
@@ -1108,6 +1142,10 @@ class _CodeTabState extends State<_CodeTab> {
     if (confirmed != true || !mounted) {
       return;
     }
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
     try {
       final GhWriteResult result =
           await widget.surface.domain.api.deleteContentLocked(
@@ -1119,17 +1157,25 @@ class _CodeTabState extends State<_CodeTab> {
         confirmed: true,
       );
       if (!result.ok) {
-        _toast(_t('branchDeleteFailed', {'error': result.detail ?? result.conflict.name}));
+        _notifier.warning(
+          _t('branchDeleteFailed', {
+            'error': result.detail ?? ghWriteConflictText(result.conflict),
+          }),
+        );
         return;
       }
       OgLAppLog.instance.result('仓库', _t('branchDeleted'), entry.path);
       if (_file?.path == entry.path) {
         setState(() => _file = null);
       }
-      _toast(_t('deletedPath', {'path': entry.path}));
+      _notifier.success(_t('deletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast(_t('branchDeleteFailed', {'error': error}));
+      _notifier.warning(_t('branchDeleteFailed', {'error': error}));
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -1147,7 +1193,7 @@ class _CodeTabState extends State<_CodeTab> {
         branch: widget.branch,
       );
       if (tree.truncated) {
-        _toast(_t('dirTooLarge'));
+        _notifier.warning(_t('dirTooLarge'));
         return;
       }
       for (final GhTreeEntry node in tree.entries) {
@@ -1156,16 +1202,18 @@ class _CodeTabState extends State<_CodeTab> {
         }
       }
     } catch (error) {
-      _toast(_t('readDirFailed', {'error': error}));
+      _notifier.warning(_t('readDirFailed', {'error': error}));
       return;
     }
     if (paths.isEmpty) {
-      _toast(_t('noDeletableFiles'));
+      _notifier.warning(_t('noDeletableFiles'));
       return;
     }
     const int maxBatch = 200;
     if (paths.length > maxBatch) {
-      _toast(_t('dirExceedsBatch', {'count': paths.length, 'max': maxBatch}));
+      _notifier.warning(
+        _t('dirExceedsBatch', {'count': paths.length, 'max': maxBatch}),
+      );
       return;
     }
     if (!mounted) {
@@ -1197,6 +1245,10 @@ class _CodeTabState extends State<_CodeTab> {
     if (confirmed != true || !mounted) {
       return;
     }
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
     try {
       await widget.surface.domain.api.commitFiles(
         widget.fullName,
@@ -1206,10 +1258,14 @@ class _CodeTabState extends State<_CodeTab> {
         message: 'chore: delete directory ${entry.path}',
       );
       OgLAppLog.instance.result('仓库', _t('dirDeleted'), _t('dirDeletedMeta', {'path': entry.path, 'count': paths.length}));
-      _toast(_t('dirDeletedPath', {'path': entry.path}));
+      _notifier.success(_t('dirDeletedPath', {'path': entry.path}));
       await _reload();
     } catch (error) {
-      _toast(_t('deleteDirFailed', {'error': error}));
+      _notifier.warning(_t('deleteDirFailed', {'error': error}));
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -1219,11 +1275,11 @@ class _CodeTabState extends State<_CodeTab> {
   /// 会明确提示用户（不静默失败）。
   Future<void> _renameEntry(GhContent entry) async {
     if (!widget.canWrite) {
-      _toast(_t('noWritePerm'));
+      _notifier.warning(_t('noWritePerm'));
       return;
     }
     if (entry.isDirectory) {
-      _toast(_t('renameDirUnsupported'));
+      _notifier.warning(_t('renameDirUnsupported'));
       return;
     }
     final TextEditingController target =
@@ -1265,43 +1321,58 @@ class _CodeTabState extends State<_CodeTab> {
     final String? pathError =
         ogLValidateRepoEntryPath(next, directory: false);
     if (pathError != null) {
-      _toast(pathError);
+      _notifier.warning(pathError);
       return;
     }
     if (ogLIsGitKeep(next)) {
-      _toast(_t('gitkeepNotRenamable'));
+      _notifier.warning(_t('gitkeepNotRenamable'));
       return;
     }
+    if (_busy) {
+      return;
+    }
+    setState(() => _busy = true);
     try {
+      // 强制回源：重命名 = 「读旧内容 → 写新路径」的搬运；缓存里 30 秒内的
+      // 旧内容一旦被回写，就会把**他人刚提交的版本**覆盖回退。
       final GhContent? current = await widget.surface.domain.api.content(
         widget.fullName,
         entry.path,
         branch: widget.branch,
+        refresh: true,
       );
       final String? text = current?.text;
       if (text == null) {
-        _toast(_t('notTextFile'));
+        _notifier.warning(_t('notTextFile'));
         return;
       }
+      final String head = await widget.surface.domain.api
+          .branchHeadSha(widget.fullName, widget.branch);
       await widget.surface.domain.api.commitFiles(
         widget.fullName,
         branch: widget.branch,
         upserts: <String, String>{next: text},
         deletions: <String>[entry.path],
         message: 'chore: rename ${entry.path} -> $next',
+        // 读与提交之间若有人推进了分支，会以 409 拒绝（不盲目再落一次提交）。
+        expectedHeadSha: head.isEmpty ? null : head,
       );
       OgLAppLog.instance.result('仓库', _t('branchRenamed'), '${entry.path} → $next');
-      _toast(_t('renamedTo', {'path': next}));
+      _notifier.success(_t('renamedTo', {'path': next}));
       await _reload();
     } catch (error) {
-      _toast(_t('branchRenameFailed', {'error': error}));
+      _notifier.warning(_t('branchRenameFailed', {'error': error}));
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   /// 原始下载直链（路径分段做 URL 编码）。
   Future<void> _downloadEntry(GhContent entry) async {
     if (entry.isDirectory) {
-      _toast(_t('noDownloadLink'));
+      _notifier.warning(_t('noDownloadLink'));
       return;
     }
     try {
@@ -1323,9 +1394,11 @@ class _CodeTabState extends State<_CodeTab> {
         category: IxDownloadCategory.repo,
         connections: widget.surface.settings.settings.downloadConnections,
       );
-      _toast(_t('addedToDownload', {'name': ghPathName(entry.path)}));
+      _notifier.success(
+        _t('addedToDownload', {'name': ghPathName(entry.path)}),
+      );
     } catch (error) {
-      _toast(_t('addDownloadFailed', {'error': error}));
+      _notifier.warning(_t('addDownloadFailed', {'error': error}));
     }
   }
 
@@ -1356,7 +1429,7 @@ class _CodeTabState extends State<_CodeTab> {
               await Clipboard.setData(ClipboardData(text: entry.path));
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
-                _toast(_t('pathCopied'));
+                _notifier.success(_t('pathCopied'));
               }
             },
             child:  Text(_t('copyPath')),
@@ -1680,13 +1753,13 @@ class _CodeTabState extends State<_CodeTab> {
 
   Future<void> _copyPath(String path) async {
     await Clipboard.setData(ClipboardData(text: path));
-    _toast(_t('pathCopied'));
+    _notifier.success(_t('pathCopied'));
   }
 
   void _openFileInBrowser(GhContent file) {
     final String? url = file.htmlUrl;
     if (url == null || url.isEmpty) {
-      _toast(_t('noOpenLink'));
+      _notifier.warning(_t('noOpenLink'));
       return;
     }
     unawaited(openLinkOrCopy(context, url, tag: _t('file')));
@@ -1708,9 +1781,9 @@ class _CodeTabState extends State<_CodeTab> {
     if (_isImage(file.path)) {
       final String? url = _rawUrlOf(file);
       if (url == null) {
-        return _MessagePane(
+        return OgLAsyncEmptyPane(
           icon: Icons.image_not_supported_outlined,
-          message: _t('noImageUrl'),
+          text: _t('noImageUrl'),
         );
       }
       return Center(
@@ -1730,18 +1803,18 @@ class _CodeTabState extends State<_CodeTab> {
                       ),
             errorBuilder: (BuildContext context, Object error,
                     StackTrace? stack) =>
-                _MessagePane(
+                OgLAsyncEmptyPane(
               icon: Icons.broken_image_outlined,
-              message: _t('imageLoadFailed'),
+              text: _t('imageLoadFailed'),
             ),
           ),
         ),
       );
     }
     if (file.isTooLarge) {
-      return _MessagePane(
+      return OgLAsyncEmptyPane(
         icon: Icons.warning_amber_rounded,
-        message: _t('fileTooLarge'),
+        text: _t('fileTooLarge'),
         action: FilledButton.tonal(
           onPressed: () => _openFileInBrowser(file),
           child:  Text(_t('openInBrowser')),
@@ -1750,9 +1823,9 @@ class _CodeTabState extends State<_CodeTab> {
     }
     final String? text = file.text;
     if (text == null) {
-      return _MessagePane(
+      return OgLAsyncEmptyPane(
         icon: Icons.help_outline,
-        message: _t('noTextContent'),
+        text: _t('noTextContent'),
         action: FilledButton.tonal(
           onPressed: () => _openFileInBrowser(file),
           child:  Text(_t('openInBrowser')),
@@ -1856,19 +1929,15 @@ class _CodeTabState extends State<_CodeTab> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (_entries.items.isEmpty && _entries.error != null) {
-                  return _MessagePane(
-                    icon: Icons.error_outline,
+                  return OgLAsyncErrorPane(
                     message: _entries.error!,
-                    action: FilledButton.tonal(
-                      onPressed: _entries.refresh,
-                      child:  Text(_t('retry')),
-                    ),
+                    onRetry: _entries.refresh,
                   );
                 }
                 if (sorted.isEmpty) {
-                  return _MessagePane(
+                  return OgLAsyncEmptyPane(
                     icon: Icons.folder_open,
-                    message: _t('dirEmpty'),
+                    text: _t('dirEmpty'),
                     action: widget.canWrite
                         ? FilledButton.tonal(
                             onPressed: _createFile,
@@ -2854,9 +2923,9 @@ class _ActionsTabState extends State<_ActionsTab> {
             ),
             Expanded(
               child: shown.isEmpty && _paged.items.isNotEmpty
-                  ?  _MessagePane(
+                  ? OgLAsyncEmptyPane(
                       icon: Icons.filter_alt_off_outlined,
-                      message: _t('noRunsFiltered'),
+                      text: _t('noRunsFiltered'),
                     )
                   : _pagedBody<Map<String, dynamic>>(
                       context,
@@ -3078,7 +3147,9 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(_t('cnameSaveFailed', {'error': result.detail ?? result.conflict.name})),
+                content: Text(_t('cnameSaveFailed', {
+                  'error': result.detail ?? ghWriteConflictText(result.conflict),
+                })),
               ),
             );
           }
@@ -3337,32 +3408,7 @@ class _RepoSettingsTabState extends State<_RepoSettingsTab> {
 // 通用
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// 简单消息面板（图标 + 文案 + 可选动作）。
-class _MessagePane extends StatelessWidget {
-  const _MessagePane({required this.icon, required this.message, this.action});
-
-  final IconData icon;
-  final String message;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            if (action != null) ...<Widget>[
-              const SizedBox(height: 16),
-              action!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+// 消息面板：Phase 5 后半已收敛到 `surface/app/async.dart` —— 空态用
+// [OgLAsyncEmptyPane]、失败用 [OgLAsyncErrorPane]（自带重试），与 AsyncView /
+// OgLAsyncSliver 同一套视觉与文案；原私有 `_MessagePane` 与
+// [OgLAsyncEmptyPane] 的实现逐字相同，属重复代码，已删除。

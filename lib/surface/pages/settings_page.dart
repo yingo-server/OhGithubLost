@@ -28,6 +28,7 @@ import '../../kernel/kernel.dart';
 import '../../kernel/log/og_l_log_file.dart';
 import '../app/animations.dart';
 import '../app/error_surface.dart';
+import '../app/notifier.dart';
 import '../app/permissions.dart';
 import '../app/project_info.dart';
 import '../i18n/og_l_i18n.dart';
@@ -955,9 +956,12 @@ const Divider(height: 1),
     if (!mounted) {
       return;
     }
-    _toast(status == OgLPermissionStatus.granted
-        ? _t('storageAllFilesGranted')
-        : OgLI18n.instance.t('shell', 'storageHintModern'));
+    if (status == OgLPermissionStatus.granted) {
+      _notifier.success(_t('storageAllFilesGranted'));
+    } else {
+      // 未拿到授权 → 下载落点受限，属"需要用户留意"，用告警语气而不是普通提示。
+      _notifier.warning(OgLI18n.instance.t('shell', 'storageHintModern'));
+    }
   }
 
   /// 选一个文件夹（SAF）并持久化授权。
@@ -967,7 +971,11 @@ const Divider(height: 1),
     if (!mounted) {
       return;
     }
-    _toast(ok ? _t('storageModeSaf') : OgLI18n.instance.t('shell', 'storageHintModern'));
+    if (ok) {
+      _notifier.success(_t('storageModeSaf'));
+    } else {
+      _notifier.warning(OgLI18n.instance.t('shell', 'storageHintModern'));
+    }
   }
 
   /// 取消 SAF 授权。
@@ -975,17 +983,16 @@ const Divider(height: 1),
     Navigator.of(dialogContext).pop();
     await widget.surface.clearSafDirectory();
     if (mounted) {
-      _toast(_t('storageClearFolder'));
+      _notifier.success(_t('storageClearFolder'));
     }
   }
 
-  /// 轻提示。
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   /// 统一弹窗入口：所有弹窗都接**动效档位**（时长 / 曲线取自质量表；
   /// 档位 0 为零时长 = 立即打开）。收口后不再各处手写 `showDialog`。
@@ -1064,7 +1071,9 @@ const Divider(height: 1),
     }
     await widget.surface.setDownloadConnections(picked);
     if (mounted) {
-      _toast(_t('connectionsCount', <String, Object?>{'count': picked}));
+      _notifier.info(
+        _t('connectionsCount', <String, Object?>{'count': picked}),
+      );
     }
   }
 
@@ -1489,7 +1498,7 @@ const Divider(height: 1),
     if (error != null) {
       name.dispose();
       url.dispose();
-      _toast(error);
+      _notifier.warning(error);
       return;
     }
     final String label = name.text.trim().isEmpty ? _t('customChannel') : name.text.trim();
@@ -1499,7 +1508,7 @@ const Divider(height: 1),
     name.dispose();
     url.dispose();
     if (mounted) {
-      _toast(_t('channelAdded', {'label': label}));
+      _notifier.success(_t('channelAdded', {'label': label}));
     }
   }
 

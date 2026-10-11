@@ -5,6 +5,7 @@
   "copyPath": "复制路径",
   "empty": "还没有下载任务",
   "emptyHint": "在 Release 附件或仓库文件上点「下载」即可加入",
+  "handedToBrowser": "已交给浏览器下载",
   "multiConnection": "多连接",
   "noAppForFile": "没有可处理该文件的应用",
   "open": "打开",

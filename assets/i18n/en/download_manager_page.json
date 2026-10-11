@@ -5,6 +5,7 @@
   "copyPath": "Copy Path",
   "empty": "No download tasks yet",
   "emptyHint": "Tap \"Download\" on Release attachments or repo files to add",
+  "handedToBrowser": "Handed to the browser",
   "multiConnection": "Multiple connections",
   "noAppForFile": "No app available to handle this file",
   "open": "Open",

@@ -110,5 +110,13 @@
   "accelSelfProvided": "通道由你自備：本應用不內建、不推薦、也不託管任何代理。",
   "previewSvg": "SVG",
   "previewUnknown": "其它",
-  "guide": "檢視使用引導"
+  "guide": "檢視使用引導",
+  "writeConflictNone": "No conflict",
+  "writeConflictRequiresRead": "Missing baseline - reload the latest version before writing",
+  "writeConflictStaleSha": "The remote copy has changed since you loaded it",
+  "writeConflictNeedsConfirmation": "This operation needs confirmation first",
+  "writeConflictNotFound": "Target not found - it may have been deleted",
+  "writeConflictForbidden": "You don't have permission to write",
+  "writeConflictServer": "Server error - please try again later",
+  "writeConflictVerificationFailed": "Post-write verification failed - please try again"
 }

@@ -524,6 +524,12 @@ class IxDownloadManager extends ChangeNotifier {
   /// 是否有任务。
   bool get isEmpty => _snapshots.isEmpty;
 
+  /// 本平台后端是否支持**暂停 / 继续**（Web = `false`）。
+  ///
+  /// 页面据此隐藏暂停 / 继续按钮，而不是让用户点了之后收到"不支持"：
+  /// 能力判定属于后端事实，UI 只做呈现（见 `SurfaceBridge.supportsPauseResume`）。
+  bool get supportsPauseResume => _backend.supportsPauseResume;
+
   /// 进行中的任务数。
   int get runningCount => _snapshots.values
       .where((IxDownloadTask t) =>

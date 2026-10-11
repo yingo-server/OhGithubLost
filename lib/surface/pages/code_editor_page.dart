@@ -15,10 +15,12 @@ import 'package:re_editor/re_editor.dart';
 
 import '../app/animations.dart';
 import '../app/error_surface.dart';
+import '../app/notifier.dart';
 import '../app/overlays.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../types.dart';
+import '../util/gh_format.dart';
 import '../widgets/code_editor_field.dart';
 
 /// 取 `code_editor_page` 分片文案。
@@ -133,7 +135,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         return;
       }
       _controller.text = draft;
-      _toast(_t('draftRestored'));
+      _notifier.info(_t('draftRestored'));
     } catch (_) {
       // 草稿读取失败不影响编辑。
     }
@@ -184,7 +186,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       if (!result.ok && result.canForceOverwrite) {
         final bool? overwrite = await _showConflictDialog(result);
         if (overwrite != true) {
-          _toast(_t('cancelledRemoteUpdated'));
+          _notifier.warning(_t('cancelledRemoteUpdated'));
           return;
         }
         result = await widget.surface.domain.api.putContentLocked(
@@ -199,13 +201,20 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         );
       }
       if (!result.ok) {
+        // 冲突一律翻译成用户可读文案（不再把 `staleSha` 这类枚举名端给用户）。
+        final String conflict = ghWriteConflictText(result.conflict);
         OgLAppLog.instance.add(
           _t('editTitle'),
-          '提交失败（${result.conflict.name}）：${result.detail ?? ''}',
+          _t('commitFailedConflict', {
+            'conflict': conflict,
+            'detail': result.detail ?? '',
+          }),
           severity: OgLNoticeSeverity.critical,
         );
         if (mounted) {
-          _toast(_t('commitFailedDetail', {'detail': result.detail ?? result.conflict.name}));
+          _notifier.warning(
+            _t('commitFailedDetail', {'detail': result.detail ?? conflict}),
+          );
         }
         return;
       }
@@ -217,7 +226,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
       );
       _saved = true;
       if (mounted) {
-        _toast(_t('committedPath', {'path': widget.path}));
+        _notifier.success(_t('committedPath', {'path': widget.path}));
         Navigator.of(context).pop(true);
       }
     } catch (error) {
@@ -227,7 +236,7 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('commitFailedDetail', {'detail': error}));
+        _notifier.warning(_t('commitFailedDetail', {'detail': error}));
       }
     } finally {
       if (mounted) {
@@ -310,12 +319,12 @@ class _CodeEditorPageState extends State<CodeEditorPage> {
         ),
       );
 
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   static String _short(String? sha) =>
       sha == null || sha.isEmpty ? '—' : (sha.length <= 8 ? sha : sha.substring(0, 8));

@@ -110,5 +110,13 @@
   "accelSelfProvided": "Каналы вы предоставляете сами: приложение ничего не встраивает, не рекомендует и не размещает.",
   "previewSvg": "SVG",
   "previewUnknown": "Другое",
-  "guide": "Открыть руководство"
+  "guide": "Открыть руководство",
+  "writeConflictNone": "No conflict",
+  "writeConflictRequiresRead": "Missing baseline - reload the latest version before writing",
+  "writeConflictStaleSha": "The remote copy has changed since you loaded it",
+  "writeConflictNeedsConfirmation": "This operation needs confirmation first",
+  "writeConflictNotFound": "Target not found - it may have been deleted",
+  "writeConflictForbidden": "You don't have permission to write",
+  "writeConflictServer": "Server error - please try again later",
+  "writeConflictVerificationFailed": "Post-write verification failed - please try again"
 }

@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/animations.dart';
+import '../app/async.dart';
 import '../app/error_surface.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
@@ -190,19 +191,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (p.items.isEmpty && p.error != null) {
-                  return _RepoMessage(
-                    icon: Icons.error_outline,
+                  return OgLAsyncErrorPane(
                     message: p.error!,
-                    action: FilledButton.tonal(
-                      onPressed: p.refresh,
-                      child:  Text(_t('retry')),
-                    ),
+                    onRetry: p.refresh,
                   );
                 }
                 if (p.items.isEmpty) {
-                  return _RepoMessage(
+                  return OgLAsyncEmptyPane(
                     icon: Icons.folder_outlined,
-                    message: _segment == 0 ? _t('emptyMine') : _t('emptyStarred'),
+                    text: _segment == 0 ? _t('emptyMine') : _t('emptyStarred'),
                     action: _segment == 0
                         ? FilledButton(
                             onPressed: _createRepo,
@@ -368,32 +365,6 @@ class _RepoPaged extends ChangeNotifier {
   }
 }
 
-/// 空/错态面板。
-class _RepoMessage extends StatelessWidget {
-  const _RepoMessage({required this.icon, required this.message, this.action});
-
-  final IconData icon;
-  final String message;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            if (action != null) ...<Widget>[
-              const SizedBox(height: 16),
-              action!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+// 消息面板：Phase 5 后半已收敛到 `surface/app/async.dart` —— 空态用
+// [OgLAsyncEmptyPane]、失败用 [OgLAsyncErrorPane]（自带重试）；原私有
+// `_RepoMessage` 与前者实现逐字相同，属重复代码，已删除。

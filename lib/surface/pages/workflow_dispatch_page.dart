@@ -13,6 +13,7 @@ import 'package:yaml/yaml.dart';
 
 import '../app/async.dart';
 import '../app/error_surface.dart';
+import '../app/notifier.dart';
 import '../i18n/og_l_i18n.dart';
 import '../surface_bridge.dart';
 import '../util/gh_format.dart';
@@ -294,12 +295,12 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
   Future<void> _submit() async {
     final String workflowIdOrFile = _selected ?? '';
     if (workflowIdOrFile.isEmpty) {
-      _toast(_t('selectWorkflow'));
+      _notifier.warning(_t('selectWorkflow'));
       return;
     }
     final String ref = _ref.text.trim();
     if (ref.isEmpty) {
-      _toast(_t('refRequired'));
+      _notifier.warning(_t('refRequired'));
       return;
     }
     Map<String, String> inputs;
@@ -309,7 +310,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
         ..._parseManualInputs(),
       };
     } on FormatException catch (error) {
-      _toast(error.message);
+      _notifier.warning(error.message);
       return;
     }
     if (_busy) {
@@ -334,7 +335,7 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
         severity: OgLNoticeSeverity.critical,
       );
       if (mounted) {
-        _toast(_t('triggerFailedNoDispatch', {'error': error}));
+        _notifier.warning(_t('triggerFailedNoDispatch', {'error': error}));
       }
     } finally {
       if (mounted) {
@@ -343,12 +344,12 @@ class _WorkflowDispatchPageState extends State<WorkflowDispatchPage> {
     }
   }
 
-  void _toast(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+  /// 统一提示入口（Phase 5 后半收敛）：**提示长什么样、什么语气只有一处定义**
+  /// （见 [OgLNotifier]，即 `surface/app/notifier.dart`）—— 本页不再自造 SnackBar。
+  ///
+  /// 语气分工：[OgLNotifier.success] 操作已生效 / [OgLNotifier.info] 普通说明 /
+  /// [OgLNotifier.warning] 失败与"被拦下"（权限不足、目标不存在、写回失败…）。
+  OgLNotifier get _notifier => OgLNotifier(ScaffoldMessenger.of(context));
 
   /// 表单是否已输入内容（任一输入与初始值不同）。
   bool get _dirty {

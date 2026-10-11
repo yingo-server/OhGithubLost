@@ -115,25 +115,31 @@ class DownloadManagerPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            // 5.0：进度条**平滑插值**（库的进度事件 200ms 一跳，
-            // 直接绑值会出现"跳格子"；这里补间 220ms，观感连续）。
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(
-                begin: 0,
-                end: task.total > 0 ? task.progress : 0,
+            // `total > 0` 才画进度条：Web 上总大小恒为 `0`（浏览器下载不向
+            // 页面回报大小），无值进度条只会一直空转；此时照实写明
+            // 「已交给浏览器下载」，不假装量得出进度。
+            if (task.total > 0)
+              // 5.0：进度条**平滑插值**（库的进度事件 200ms 一跳，
+              // 直接绑值会出现"跳格子"；这里补间 220ms，观感连续）。
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: task.progress),
+                duration: OgLAnim.fast(context),
+                curve: Curves.easeOut,
+                builder: (
+                  BuildContext context,
+                  double value,
+                  Widget? child,
+                ) =>
+                    LinearProgressIndicator(
+                  value: value.clamp(0.0, 1.0),
+                  minHeight: 4,
+                ),
+              )
+            else
+              Text(
+                _t('handedToBrowser'),
+                style: theme.textTheme.bodySmall,
               ),
-              duration: OgLAnim.fast(context),
-              curve: Curves.easeOut,
-              builder: (
-                BuildContext context,
-                double value,
-                Widget? child,
-              ) =>
-                  LinearProgressIndicator(
-                value: task.total > 0 ? value.clamp(0.0, 1.0) : null,
-                minHeight: 4,
-              ),
-            ),
             const SizedBox(height: 6),
             Row(
               children: <Widget>[
@@ -184,13 +190,14 @@ class DownloadManagerPage extends StatelessWidget {
               runSpacing: 0,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
-                if (active || task.status == IxDownloadStatus.queued)
+                if (surface.supportsPauseResume &&
+                    (active || task.status == IxDownloadStatus.queued))
                   IconButton(
                     tooltip: _t('pause'),
                     icon: const Icon(Icons.pause),
                     onPressed: () => unawaited(surface.pauseDownload(task.id)),
                   ),
-                if (paused)
+                if (surface.supportsPauseResume && paused)
                   IconButton(
                     tooltip: _t('resume'),
                     icon: const Icon(Icons.play_arrow),
@@ -286,8 +293,22 @@ class DownloadManagerPage extends StatelessWidget {
 
   Future<void> _openLocal(BuildContext context, IxDownloadTask task) async {
     try {
+      // Web 上 `savePath` 是**下载地址**（http/https URL），不是文件路径：
+      // 此前一律 `Uri.file()` 会拼出一个打不开的伪路径。
+      // 原生上 `savePath` 是真实文件路径（可能无 scheme / 带 Windows 盘符），
+      // 仍走 `Uri.file()` 规范化；已是 `file://` 形式的则原样使用。
+      final Uri? parsed = Uri.tryParse(task.savePath);
+      final Uri uri;
+      if (parsed != null &&
+          (parsed.scheme == 'http' || parsed.scheme == 'https')) {
+        uri = parsed;
+      } else if (parsed != null && parsed.scheme == 'file') {
+        uri = parsed;
+      } else {
+        uri = Uri.file(task.savePath);
+      }
       final bool ok = await launchUrl(
-        Uri.file(task.savePath),
+        uri,
         mode: LaunchMode.externalApplication,
       );
       if (!ok) {

@@ -5,6 +5,7 @@
   "copyPath": "Pfad kopieren",
   "empty": "Keine Download-Aufgaben",
   "emptyHint": "Klicken Sie auf \"Herunterladen\" bei Release-Attachements oder Repo-Dateien, um hinzuzufügen",
+  "handedToBrowser": "An den Browser übergeben",
   "multiConnection": "Multi-Verbindung",
   "noAppForFile": "Keine App zur Verarbeitung dieser Datei",
   "open": "Öffnen",

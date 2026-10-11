@@ -110,5 +110,13 @@
   "accelSelfProvided": "Kanäle stellst du selbst: Diese App bringt keine mit, empfiehlt keine und hostet keine.",
   "previewSvg": "SVG",
   "previewUnknown": "Sonstiges",
-  "guide": "Anleitung ansehen"
+  "guide": "Anleitung ansehen",
+  "writeConflictNone": "No conflict",
+  "writeConflictRequiresRead": "Missing baseline - reload the latest version before writing",
+  "writeConflictStaleSha": "The remote copy has changed since you loaded it",
+  "writeConflictNeedsConfirmation": "This operation needs confirmation first",
+  "writeConflictNotFound": "Target not found - it may have been deleted",
+  "writeConflictForbidden": "You don't have permission to write",
+  "writeConflictServer": "Server error - please try again later",
+  "writeConflictVerificationFailed": "Post-write verification failed - please try again"
 }

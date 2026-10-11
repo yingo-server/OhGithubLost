@@ -5,6 +5,7 @@
   "copyPath": "Copier le chemin",
   "empty": "Aucune tâche de téléchargement",
   "emptyHint": "Cliquez sur « Télécharger » sur une pièce jointe de Release ou un fichier de dépôt pour l'ajouter",
+  "handedToBrowser": "Confié au navigateur",
   "multiConnection": "Multi-connexions",
   "noAppForFile": "Aucune application pour traiter ce fichier",
   "open": "Ouvrir",
